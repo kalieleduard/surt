@@ -3,7 +3,7 @@
 Map: [Surt — Arquitetura e plano de implementação](../map.md)
 Type: grilling
 Status: open
-Blocked by: 07, 10, 12
+Blocked by: 07, 10, 12, 19
 
 ## Question
 

@@ -22,12 +22,19 @@ O plano de engenharia completo do Surt — entregáveis A–L do brief (arquitet
 
 <!-- the index — one line per closed ticket: enough to judge relevance, then zoom the link for the detail the ticket holds -->
 
+- [Capacidades headless do Claude Code CLI](issues/02-claude-code-cli-headless.md) — toda necessidade tem flag, mas sem validação prévia de modelo/effort, sem timeout de relógio, `-p` não isolado por padrão (`--bare` exige API key) e sucesso exige combinar exit code + `is_error` + `structured_output`.
+- [Primitivas multiplataforma (macOS, Linux, Windows)](issues/18-primitivas-multiplataforma.md) — kill de árvore exige process group/Job Object, lock em arquivo separado via `File::lock` (Rust ≥1.89), identidade de PID = start time + boot id, `remove_dir_all` seguro contra links mas não idempotente; nomes reservados do Windows afetam nomes de feature.
+- [SQLx + SQLite na prática](issues/03-sqlx-sqlite-na-pratica.md) — sqlx 0.9 empacota SQLite 3.46–3.51 (STRICT/RETURNING/JSON ok); não liga WAL; `begin()` é DEFERRED (usar `BEGIN IMMEDIATE`); migração concorrente não é protegida e checksum quebra com CRLF; timestamps de chrono e de `CURRENT_TIMESTAMP` não comparam.
+- [Mecânica de worktree/merge no Git e estados parciais](issues/04-git-worktree-merge-estados-parciais.md) — comandos git não são idempotentes (reconciliar lendo estado); `worktree add -b` não é atômico; integração sem worktree via `merge-tree`+`commit-tree`+`update-ref` é reexecutável (Git ≥2.38); merge/rebase em andamento só por marcadores; CLI `git` > libgit2/gix.
+
 ## Not yet specified
 
 - **Integrações externas** (GitHub Issues/PRs, Linear, Jira): por ora só um espaço reservado (`external_ref` em metadados) decidido no schema SQLite; o contrato de provider em si fica na névoa até o modelo de Task e artefatos estar firme.
 - **Conteúdo do `config.toml` global** além do que cair em processo/concorrência, integração Git e CLI — consolidar quando esses tickets fecharem.
 - **Rate limits e custo de tokens** como entrada do limite de concorrência do Scheduler.
 - **Formato e retenção de `stream.jsonl` / `stderr.log`** — o que é persistido, por quanto tempo, e como interage com o cleanup e redação de segredos.
+
+- **Validação em Windows real**: reação do `claude.exe` a Ctrl+Break, `wait` do process-wrap no Windows, `core.longpaths` do Git for Windows — vira ticket quando houver máquina/CI Windows disponível (provável no roadmap/estratégia de testes).
 
 ## Out of scope
 

@@ -12,3 +12,7 @@ Qual é o schema físico completo (7 tabelas) que serve a qualquer workflow e pr
 Decidir: colunas, tipos, PK UUIDv7, FKs e `ON DELETE`; o que `deleted_at` significa em cada tabela (inclusive `events`, que deveria ser append-only); constraints de status (CHECK) e unicidade (ex.: uma execution ativa por step; `(workflow_run_id, logical_key)`; `(step_run_id, iteration, attempt)`); `step_dependencies` e `execution_artifacts` (papel input/output); revisões e hashes de artefatos; onde moram approval, lease/heartbeat, `external_ref`; índices para o scheduler e para `surt status`; estratégia de migrations; o que fica em JSON (snapshots, payloads) e o que não pode ficar.
 
 Saída: seção D com SQL que roda em `sqlite3`, ERD Mermaid e migration inicial.
+
+## Context
+
+Surgiu de [SQLx + SQLite na prática](03-sqlx-sqlite-na-pratica.md) — decidir aqui: UUID como BLOB × TEXT; formato canônico de timestamp (TEXT ISO fixo × INTEGER ms) aplicado igual por Rust e por defaults SQL; tabelas STRICT; política de migrations (LF forçado via `.gitattributes`, só-adição, `-- no-transaction` para rebuilds, comportamento de binário antigo com DB novo); quem e quando habilita WAL na criação do DB; `query!` com `.sqlx` × `query_as` em runtime.
