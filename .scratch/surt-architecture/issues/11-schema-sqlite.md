@@ -16,3 +16,5 @@ Saída: seção D com SQL que roda em `sqlite3`, ERD Mermaid e migration inicial
 ## Context
 
 Surgiu de [SQLx + SQLite na prática](03-sqlx-sqlite-na-pratica.md) — decidir aqui: UUID como BLOB × TEXT; formato canônico de timestamp (TEXT ISO fixo × INTEGER ms) aplicado igual por Rust e por defaults SQL; tabelas STRICT; política de migrations (LF forçado via `.gitattributes`, só-adição, `-- no-transaction` para rebuilds, comportamento de binário antigo com DB novo); quem e quando habilita WAL na criação do DB; `query!` com `.sqlx` × `query_as` em runtime.
+
+De [Glossário do domínio](01-glossario-do-dominio.md): a unicidade sugerida `(step_run_id, iteration, attempt)` não vale mais — Iteration pertence ao **Step Run** (novos Step Runs por rodada), Attempt à Execution. O schema precisa de: relação pai→filho entre Workflow Runs (com o Step Run que iniciou o filho); representação do **Subject** com ≤1 run raiz ativo; Approval como registro próprio apontando para uma Artifact Revision; origem única por Revision (uma Execution ou uma edição humana); Inputs/Outputs de Execution para Revisions.

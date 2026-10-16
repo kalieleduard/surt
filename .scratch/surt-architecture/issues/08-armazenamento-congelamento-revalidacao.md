@@ -14,3 +14,5 @@ Decidir: `.surt/features/<feature>/` entra no Git do usuário ou é ignorado?; c
 ## Context
 
 Surgiu de [Primitivas multiplataforma](18-primitivas-multiplataforma.md): a normalização de `description` precisa evitar nomes reservados do Windows (CON, NUL, COM1…), caracteres proibidos e ponto/espaço final, e colisões case-insensitive; data local pode falhar (`IndeterminateOffset`) — definir fallback.
+
+De [Glossário do domínio](01-glossario-do-dominio.md): Approval aponta para uma **Artifact Revision** específica e nunca é herdada por uma Revision nova; toda Revision é imutável e tem origem única (Execution ou edição humana); Executions leem Revisions fixadas no início. A política de revalidação decide o que fazer com isso, não se a aprovação "migra".

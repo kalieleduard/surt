@@ -11,6 +11,7 @@ O plano de engenharia completo do Surt — entregáveis A–L do brief (arquitet
 - **Domínio:** Rust CLI local-first que orquestra agentes (Claude Code CLI) via workflows TOML declarativos; SQLite como fonte de verdade. O brief original é a referência de requisitos — está na primeira mensagem da sessão de charting e resumido nos tickets.
 - **Skills por sessão:** `/grilling` + `/domain-modeling` em todo ticket grilling; `/codebase-design` nos tickets de estrutura de crates e traits (15); `/research` para tickets research.
 - **Escrita incremental do plano (override de "plan, don't do"):** ao resolver um ticket, a sessão também escreve/atualiza a seção correspondente em `docs/architecture/` (ex.: `D-database.md`), registra ADRs em `docs/adr/` quando a decisão for difícil de reverter, surpreendente e fruto de trade-off real, e atualiza `CONTEXT.md` assim que um termo é resolvido. Não há ticket de "montagem" no final.
+- **Estilo de grilling:** toda pergunta parte de um cenário real (ex.: "você roda `surt feature …`, cancela no meio…"), mostra o que o usuário veria em cada opção (esboço de `surt status`, linha do tempo) e a consequência prática; nada de pergunta só com definições abstratas.
 - **Idioma:** documentos do plano, ADRs, `CONTEXT.md`, identificadores, SQL e TOML em **inglês**; tickets e conversa em **PT-BR**.
 - **Fidelidade:** SQL deve rodar em `sqlite3`; TOML deve fazer parse; contratos Rust em nível de assinatura + invariantes (sem corpo).
 - **Plataformas:** macOS, Linux **e Windows** são alvo do MVP — toda decisão sobre processos, locks, paths, symlinks e worktrees deve valer nos três.
@@ -26,6 +27,7 @@ O plano de engenharia completo do Surt — entregáveis A–L do brief (arquitet
 - [Primitivas multiplataforma (macOS, Linux, Windows)](issues/18-primitivas-multiplataforma.md) — kill de árvore exige process group/Job Object, lock em arquivo separado via `File::lock` (Rust ≥1.89), identidade de PID = start time + boot id, `remove_dir_all` seguro contra links mas não idempotente; nomes reservados do Windows afetam nomes de feature.
 - [SQLx + SQLite na prática](issues/03-sqlx-sqlite-na-pratica.md) — sqlx 0.9 empacota SQLite 3.46–3.51 (STRICT/RETURNING/JSON ok); não liga WAL; `begin()` é DEFERRED (usar `BEGIN IMMEDIATE`); migração concorrente não é protegida e checksum quebra com CRLF; timestamps de chrono e de `CURRENT_TIMESTAMP` não comparam.
 - [Mecânica de worktree/merge no Git e estados parciais](issues/04-git-worktree-merge-estados-parciais.md) — comandos git não são idempotentes (reconciliar lendo estado); `worktree add -b` não é atômico; integração sem worktree via `merge-tree`+`commit-tree`+`update-ref` é reexecutável (Git ≥2.38); merge/rebase em andamento só por marcadores; CLI `git` > libgit2/gix.
+- [Glossário do domínio](issues/01-glossario-do-dominio.md) — núcleo genérico sobre Subject → Workflow Run (congela a Definition; ≤1 ativo por Subject) → Step Run → Execution; cada Task é um Child Workflow Run do `task-cycle`; Iteration cria Step Runs novos, Attempt cria Execution nova; Approval Gate + Approval sobre Revision imutável.
 
 ## Not yet specified
 

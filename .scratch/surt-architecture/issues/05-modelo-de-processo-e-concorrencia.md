@@ -13,6 +13,8 @@ Decidir: quais comandos "dirigem" o run (ex.: `surt feature` roda até `AWAITING
 
 ## Context
 
+**Requisito do usuário** (de [Glossário do domínio](01-glossario-do-dominio.md)): deve ser possível deixar N features aprovadas e rodá-las **simultaneamente no mesmo repo**. O modelo de domínio já permite (a invariante é ≤1 Workflow Run ativo por Subject, não por projeto); falta decidir aqui como os processos se organizam e qual limite global de agentes vale entre eles.
+
 Surgiu de [Primitivas multiplataforma](18-primitivas-multiplataforma.md): kill de árvore exige process group (Unix) / Job Object (Windows) — adotar `process-wrap` ou implementar?; escalonamento gracioso (SIGTERM → SIGKILL; Ctrl+Break no Windows) e prazos; lock por workflow em arquivo separado via `std::fs::File::lock` × lease no SQLite; identidade de PID = start time nativo + boot id.
 
 Também de [SQLx + SQLite na prática](03-sqlx-sqlite-na-pratica.md): um writer por vez entre processos; transações de escrita devem ser `BEGIN IMMEDIATE` com retry em BUSY; migração concorrente entre processos não é protegida pelo sqlx — serializar (ex.: sob o lock de arquivo) na abertura do DB.
