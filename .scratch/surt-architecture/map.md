@@ -28,12 +28,13 @@ O plano de engenharia completo do Surt — entregáveis A–L do brief (arquitet
 - [SQLx + SQLite na prática](issues/03-sqlx-sqlite-na-pratica.md) — sqlx 0.9 empacota SQLite 3.46–3.51 (STRICT/RETURNING/JSON ok); não liga WAL; `begin()` é DEFERRED (usar `BEGIN IMMEDIATE`); migração concorrente não é protegida e checksum quebra com CRLF; timestamps de chrono e de `CURRENT_TIMESTAMP` não comparam.
 - [Mecânica de worktree/merge no Git e estados parciais](issues/04-git-worktree-merge-estados-parciais.md) — comandos git não são idempotentes (reconciliar lendo estado); `worktree add -b` não é atômico; integração sem worktree via `merge-tree`+`commit-tree`+`update-ref` é reexecutável (Git ≥2.38); merge/rebase em andamento só por marcadores; CLI `git` > libgit2/gix.
 - [Glossário do domínio](issues/01-glossario-do-dominio.md) — núcleo genérico sobre Subject → Workflow Run (congela a Definition; ≤1 ativo por Subject) → Step Run → Execution; cada Task é um Child Workflow Run do `task-cycle`; Iteration cria Step Runs novos, Attempt cria Execution nova; Approval Gate + Approval sobre Revision imutável.
+- [Modelo de processo e controle de concorrência](issues/05-modelo-de-processo-e-concorrencia.md) — `surt feature`/`plan`/`start` dirigem uma fase cada em foreground e `approve` só registra; um Driver por root run garantido por lock de arquivo (sem lease/heartbeat); Ctrl-C = Interruption retomável; controle externo só pelo SQLite; vagas de agente por projeto como lock files; órfãos nunca adotados.
 
 ## Not yet specified
 
 - **Integrações externas** (GitHub Issues/PRs, Linear, Jira): por ora só um espaço reservado (`external_ref` em metadados) decidido no schema SQLite; o contrato de provider em si fica na névoa até o modelo de Task e artefatos estar firme.
-- **Conteúdo do `config.toml` global** além do que cair em processo/concorrência, integração Git e CLI — consolidar quando esses tickets fecharem.
-- **Rate limits e custo de tokens** como entrada do limite de concorrência do Scheduler.
+- **Conteúdo do `config.toml` global e do config de projeto** — já existem `stop_grace_period` (global) e `max_concurrent_agents` (projeto); consolidar com o que cair em integração Git e CLI quando esses tickets fecharem.
+- **Rate limits e custo de tokens** como entrada do limite de concorrência do Scheduler — o limite decidido é por projeto, então vários projetos na mesma máquina podem somar acima do rate limit da conta.
 - **Formato e retenção de `stream.jsonl` / `stderr.log`** — o que é persistido, por quanto tempo, e como interage com o cleanup e redação de segredos.
 
 - **Validação em Windows real**: reação do `claude.exe` a Ctrl+Break, `wait` do process-wrap no Windows, `core.longpaths` do Git for Windows — vira ticket quando houver máquina/CI Windows disponível (provável no roadmap/estratégia de testes).

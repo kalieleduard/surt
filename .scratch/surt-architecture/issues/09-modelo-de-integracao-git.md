@@ -14,3 +14,5 @@ Decidir: nome e base da branch de integração por feature; de qual commit cada 
 ## Context
 
 Surgiu de [Mecânica de worktree/merge no Git e estados parciais](04-git-worktree-merge-estados-parciais.md) — decidir aqui: integração via `merge-tree` + `commit-tree` + `update-ref` (sem worktree) × merge dentro de worktree; versão mínima do Git exigida (≥2.38/2.40/2.43); CLI `git` × libgit2/gix (a pesquisa aponta CLI); nunca mover via `update-ref` uma branch checada em outra worktree; vínculo do review ao SHA e política de `core.autocrlf` no Windows; configs que o Surt impõe ou checa (`core.longpaths`, `core.lockfilePid`).
+
+De [Modelo de processo e controle de concorrência](05-modelo-de-processo-e-concorrencia.md): as Native Operations do Surt que mexem no estado compartilhado do repo (worktree add/remove, criação de branch, `update-ref`, `merge-tree`/`commit-tree`) rodam serializadas sob `.surt/runtime/locks/git.lock`, com retry com backoff para locks do Git criados por terceiros; commits do Builder na própria worktree ficam fora desse lock.

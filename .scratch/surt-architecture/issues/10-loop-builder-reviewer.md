@@ -16,3 +16,5 @@ Saída: parte da seção G.
 ## Context
 
 De [Glossário do domínio](01-glossario-do-dominio.md), já decidido: o task-cycle é um Child Workflow Run por Task; **Iteration** = nova rodada por decisão (review reprovado), cria novos Step Runs `build`/`review` no run filho; **Attempt** = nova Execution do mesmo Step Run por falha técnica. Falta aqui: estados, transições, limites de cada um e o que acontece ao estourar.
+
+De [Modelo de processo e controle de concorrência](05-modelo-de-processo-e-concorrencia.md): a máquina de estados precisa nomear: Execution **interrompida** (Ctrl-C/Interruption → novo Attempt na retomada), Execution **na fila** esperando vaga de agente, **cancel request** pendente num run com Driver vivo, e o estado terminal de **Cancellation**. Decidir aqui se uma Interruption conta para o limite de Attempts.

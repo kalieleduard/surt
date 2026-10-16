@@ -54,6 +54,20 @@ _Avoid_: Approval step, checkpoint
 A recorded human decision (approve or reject) on one Artifact Revision: who, when and which Revision. A new Revision never inherits the Approval of an earlier one.
 _Avoid_: Sign-off, acceptance
 
+### Running
+
+**Driver**:
+The single process that advances one root Workflow Run, together with all its Child Workflow Runs. A root Workflow Run has at most one Driver at a time, and none while it waits on a human.
+_Avoid_: Runner, worker, daemon
+
+**Interruption**:
+Stopping a Driver, for example with Ctrl-C, without ending its Workflow Run. Running Executions are stopped, and the run can be resumed later with new Attempts.
+_Avoid_: Cancel (which ends the run), abort, pause
+
+**Cancellation**:
+An explicit decision that ends a Workflow Run in a terminal state. Work starts again only as a new Workflow Run of the same Subject.
+_Avoid_: Interrupt, stop, abort
+
 ### Agents
 
 **Agent**:

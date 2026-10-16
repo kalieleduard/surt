@@ -44,7 +44,7 @@ Reading notes:
 ## Invariants
 
 1. **Frozen definition.** A Workflow Run freezes its effective Workflow Definition at creation and never rereads it.
-2. **One active run per Subject.** A Subject has at most one non-terminal root Workflow Run at a time. Different Subjects run concurrently with no domain-level limit (any global limit on agents belongs to the process model — [Modelo de processo e controle de concorrência](../../.scratch/surt-architecture/issues/05-modelo-de-processo-e-concorrencia.md)).
+2. **One active run per Subject.** A Subject has at most one non-terminal root Workflow Run at a time. Different Subjects run concurrently with no domain-level limit (the per-project limit on concurrent agents belongs to the process model — [A. Process Model and Concurrency](A-process-model.md)).
 3. **Finished Step Runs are never reopened.** Repeating work because of a decision (e.g. a rejected review) is a new **Iteration**, which creates new Step Runs. Repeating work because of a technical failure is a new **Attempt**, which is a new Execution of the same Step Run.
 4. **One running Execution per Step Run.**
 5. **Immutable, single-origin Revisions.** Artifact Revisions are never mutated, and an Approval never carries over to a newer Revision.
