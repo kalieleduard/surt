@@ -6,10 +6,10 @@ Conceptual entities, relationships and invariants, independent of physical table
 
 | Layer | Knows about | Must not know about |
 |---|---|---|
-| **Engine** | Workflow Definition, Workflow Run, Child Workflow Run, Subject, Step, Step Run, Execution, Iteration, Attempt, Approval Gate, Approval, Agent, Agent Profile, Agent Runtime, Native Operation, Artifact, Artifact Revision | Feature, Task, Spec Agent, Task Agent, Builder, Reviewer, Shipper |
+| **Engine** | Workflow Definition, Workflow Run, Child Workflow Run, Subject, Step, Step Run, Execution, Iteration, Attempt, Approval Gate, Approval, Agent, Agent Profile, Agent Runtime, Operation, Artifact, Artifact Revision | Feature, Task, Spec Agent, Task Agent, Builder, Reviewer, Shipper |
 | **Built-in feature workflow** | Feature (its Subject), Task (items of its manifest Artifact), Task Cycle (its child Workflow Definition), its five Agents | — |
 
-The feature workflow is expressed entirely in engine terms: a Feature is a Subject, a Task is an item a for-each step expands over, and each Task Cycle is a Child Workflow Run.
+The feature workflow is expressed entirely in engine terms: a Feature is a Subject, a Task is an item of an Item List a Per-Item Step expands over, and each Task Cycle is a Child Workflow Run.
 
 ## Relationships
 
@@ -22,7 +22,7 @@ erDiagram
     WORKFLOW_RUN ||--o{ STEP_RUN : contains
     STEP ||--o{ STEP_RUN : "occurs as"
     STEP_RUN ||--o{ EXECUTION : "launched as (attempts)"
-    STEP_RUN ||--o{ WORKFLOW_RUN : "starts (for-each / subworkflow)"
+    STEP_RUN ||--o{ WORKFLOW_RUN : "starts (per-item)"
     AGENT ||--|{ AGENT_PROFILE : "runs with"
     AGENT_PROFILE ||--o{ EXECUTION : "frozen into"
     AGENT_RUNTIME ||--o{ AGENT_PROFILE : "named by"
@@ -36,10 +36,10 @@ erDiagram
 Reading notes:
 
 - A **Subject** groups root Workflow Runs over time; Child Workflow Runs belong to it through their root.
-- A **Step Run** of a for-each or subworkflow step starts Child Workflow Runs and finishes only when they all reach a terminal state.
-- An **Execution** uses either one Agent Profile (frozen at launch) or one Native Operation.
-- An **Approval Gate** is a Step Run with zero Executions; it completes when an Approval on the expected Artifact Revision is recorded.
-- An **Artifact Revision** has exactly one origin: one Execution (as output) or one human edit.
+- A **Step Run** of a Per-Item Step starts one Child Workflow Run per item of an Item List and finishes only when they all reach a terminal state. A Per-Item Step is the only way to start a Child Workflow Run.
+- An **Execution** uses either one Agent Profile (frozen at launch) or one Operation.
+- An **Approval Gate** is a Step Run with zero Executions; it completes when an Approval (approve or reject) on the latest Revision of its Artifact is recorded, with Outcome `approved` or `rejected`.
+- An **Artifact Revision** has exactly one origin: one Execution (as output) or one human edit. The text given to `surt feature` and the reason given to `surt reject` are human-origin Revisions. A Child Workflow Run's item is not a new Revision: it is one item inside an existing Item List Revision.
 
 ## Invariants
 
@@ -60,7 +60,7 @@ Subject 20261015-add-login
    ├─ spec            DONE        Execution 1 → spec rev 1
    ├─ approve-spec    DONE        0 Executions; Approval on spec rev 1
    ├─ plan-tasks      DONE        Execution 1 → task manifest rev 1 (A, B, C)
-   ├─ implement       RUNNING     for-each over the manifest
+   ├─ implement       RUNNING     per_item over the manifest
    │  ├─ Child Run #2 (task-cycle, A)   DONE
    │  ├─ Child Run #3 (task-cycle, B)   RUNNING   iteration 2
    │  │  ├─ build  #1   DONE      1 Execution

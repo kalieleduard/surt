@@ -52,9 +52,9 @@ Rationale and rejected alternatives: [ADR 0002](../adr/0002-file-locks-over-sqli
 **Interruption** stops the Driver without ending the run:
 
 1. The first Ctrl-C (or SIGHUP when the terminal closes, or the console closing on Windows) starts a graceful stop of every running agent Execution, in parallel (see [Supervising agent processes](#supervising-agent-processes)).
-2. A **Native Operation already in progress is never cut** by the first interruption. The Driver waits for it to finish, because Native Operations are the intention → effect points that recovery would otherwise have to reconcile.
+2. A **Operation already in progress is never cut** by the first interruption. The Driver waits for it to finish, because Operations are the intention → effect points that recovery would otherwise have to reconcile.
 3. Stopped agent Executions are recorded as interrupted (state names in section G). The run stays resumable, and the next driving command creates new Attempts for them in fresh Claude sessions. The work of an interrupted session is lost. Its worktree may be dirty, and section I handles that.
-4. A second Ctrl-C forces it: the agent process trees are killed and the Driver exits at once, even in the middle of a Native Operation. Recovery reconciles the partial state.
+4. A second Ctrl-C forces it: the agent process trees are killed and the Driver exits at once, even in the middle of a Operation. Recovery reconciles the partial state.
 
 ```
 ^C stopping 2 executions… finishing integrate (task B)… (Ctrl-C again to force)
@@ -82,7 +82,7 @@ Every control action from another process goes **through SQLite, never through s
 
 - **Scope: per project.** Surt can run in several projects on the same machine, and each project has its own budget. Shared machine-wide pressure (account rate limits, token cost) is not handled by this limit. It stays open as fog on the map.
 - **Configuration:** `max_concurrent_agents`, default `3`, set in the project configuration. Exact key placement is consolidated with the rest of the config in later sections.
-- **What counts:** only agent Executions. Native Operations (Git commands, build or test steps) do not take a slot.
+- **What counts:** only agent Executions. Operations (Git commands, build or test steps) do not take a slot.
 - **Mechanism: slots are lock files.**
   ```
   .surt/runtime/slots/agent-0.lock … agent-{N-1}.lock
@@ -96,7 +96,7 @@ B  build #1   QUEUED   waiting for agent slot (4/4 in use)
 
 ## Native Git operations across processes
 
-Different Features in the same repository can run Native Operations at the same moment, for example two `git worktree add` calls. Git's own lock files (`index.lock`, `<ref>.lock`, `packed-refs.lock`) would make one of them fail. So Surt serializes its own Native Operations on shared repository state under one lock:
+Different Features in the same repository can run Operations at the same moment, for example two `git worktree add` calls. Git's own lock files (`index.lock`, `<ref>.lock`, `packed-refs.lock`) would make one of them fail. So Surt serializes its own Operations on shared repository state under one lock:
 
 ```
 .surt/runtime/locks/git.lock
@@ -149,7 +149,7 @@ All lock files live apart from `surt.db`, `-wal` and `-shm`. SQLite uses POSIX l
 .surt/runtime/
 ├── locks/
 │   ├── <root-run-id>.lock   # ownership of one root Workflow Run
-│   ├── git.lock             # Surt's Native Operations on shared repo state
+│   ├── git.lock             # Surt's Operations on shared repo state
 │   └── db.lock              # migrations at database open
 └── slots/
     └── agent-<i>.lock       # agent concurrency slots, i in 0..max_concurrent_agents
@@ -172,7 +172,7 @@ What a daemon would add (`--detach`, and a live log channel for clients) is out 
 ## Decided elsewhere
 
 - Execution, Step Run and Workflow Run state names (interrupted, queued, cancel requested): section G.
-- What recovery does with orphans' leftovers and partial Native Operations: section I.
+- What recovery does with orphans' leftovers and partial Operations: section I.
 - Columns for the Driver identity, cancel request and slot held: section D.
 - Agent Profile timeout values: section F.
 - Full CLI contracts, output formats and exit codes: section J.

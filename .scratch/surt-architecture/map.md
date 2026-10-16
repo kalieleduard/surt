@@ -29,6 +29,7 @@ O plano de engenharia completo do Surt — entregáveis A–L do brief (arquitet
 - [Mecânica de worktree/merge no Git e estados parciais](issues/04-git-worktree-merge-estados-parciais.md) — comandos git não são idempotentes (reconciliar lendo estado); `worktree add -b` não é atômico; integração sem worktree via `merge-tree`+`commit-tree`+`update-ref` é reexecutável (Git ≥2.38); merge/rebase em andamento só por marcadores; CLI `git` > libgit2/gix.
 - [Glossário do domínio](issues/01-glossario-do-dominio.md) — núcleo genérico sobre Subject → Workflow Run (congela a Definition; ≤1 ativo por Subject) → Step Run → Execution; cada Task é um Child Workflow Run do `task-cycle`; Iteration cria Step Runs novos, Attempt cria Execution nova; Approval Gate + Approval sobre Revision imutável.
 - [Modelo de processo e controle de concorrência](issues/05-modelo-de-processo-e-concorrencia.md) — `surt feature`/`plan`/`start` dirigem uma fase cada em foreground e `approve` só registra; um Driver por root run garantido por lock de arquivo (sem lease/heartbeat); Ctrl-C = Interruption retomável; controle externo só pelo SQLite; vagas de agente por projeto como lock files; órfãos nunca adotados.
+- [Schema TOML de workflow](issues/06-schema-toml-de-workflow.md) — cinco `kind` sem expressões (`agent`, `approval`, `operation`, `loop`, `per_item`); condições só comparam Outcome; rejeição e review reprovado = nova Iteration de um Loop (sem `max_iterations`); inputs pelo nome na Revision mais recente (ADR 0003, proteção na revalidação); `needs` explícito; Item List fixa (`key` + `needs`); root congela o fecho por SHA-256.
 
 ## Not yet specified
 
@@ -45,5 +46,6 @@ O plano de engenharia completo do Surt — entregáveis A–L do brief (arquitet
 - **Daemon/supervisor local e `--detach`** — avaliado depois; o modelo de processo só precisa não impedi-lo.
 - **Implementação de providers externos** (GitHub/Linear/Jira) — apenas espaço reservado no modelo.
 - **Segundo runtime de IA real** (Codex, Gemini CLI etc.) — a trait é desenhada contra Claude Code + Fake Runtime.
+- **Override/customização de workflows embutidos e workflows próprios do projeto** — só `feature` e `task-cycle` embutidos no binário; caso de borda, o schema não impede ([Schema TOML de workflow](issues/06-schema-toml-de-workflow.md)).
 - **Implementação do Milestone 1** — é o handoff ao fim do mapa, não parte dele.
 - **Infra cloud, microsserviços, message brokers.**

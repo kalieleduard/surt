@@ -19,3 +19,5 @@ Surgiu de [Capacidades headless do Claude Code CLI](02-claude-code-cli-headless.
 - **Timeout de relógio** imposto pelo Surt e relação com `--max-turns`/`--max-budget-usd`.
 - **Versão mínima/pinagem do Claude Code** e desligar auto-update durante runs.
 - **Regra de sucesso** da execução (exit code + `is_error` + `subtype` + `structured_output`).
+
+De [Schema TOML de workflow](06-schema-toml-de-workflow.md): o `agent.toml` é dono do contrato. Declara `outcomes = [...]` (conjunto fechado; um agente com um só resultado tem o Outcome implícito `done`), `[inputs]` (nome → `format`, `optional = true` quando pode faltar, ex.: `feedback` na volta 1) e `[outputs]` (nome → `format`). O workflow não repete a lista: o Surt entrega a Revision mais recente de cada artefato com o mesmo nome, com renomeação opcional no step quando os nomes não batem. Validação estática do workflow carrega os agentes.

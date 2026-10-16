@@ -1,6 +1,6 @@
 # File locks, not SQLite leases, decide who owns a run
 
-Ownership of a root Workflow Run, the per-project agent slots, Surt's Git Native Operations and database migrations are all guarded by exclusive OS file locks (`std::fs::File::lock`) on files under `.surt/runtime/`. They are not guarded by leases with heartbeats in SQLite. The OS releases a file lock exactly when its holder dies and never while it lives. A lease, by contrast, expires on wall-clock time. A laptop that sleeps for hours lets another process take over while the original Driver still believes it owns the run, and that produces duplicate Builders unless every write is fenced. SQLite still records the holder's pid, start time and boot id, but only for display and recovery. The lock decides.
+Ownership of a root Workflow Run, the per-project agent slots, Surt's Git Operations and database migrations are all guarded by exclusive OS file locks (`std::fs::File::lock`) on files under `.surt/runtime/`. They are not guarded by leases with heartbeats in SQLite. The OS releases a file lock exactly when its holder dies and never while it lives. A lease, by contrast, expires on wall-clock time. A laptop that sleeps for hours lets another process take over while the original Driver still believes it owns the run, and that produces duplicate Builders unless every write is fenced. SQLite still records the holder's pid, start time and boot id, but only for display and recovery. The lock decides.
 
 ## Considered Options
 

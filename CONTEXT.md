@@ -15,7 +15,7 @@ One live instance of a Workflow Definition, carrying its own state. It freezes t
 _Avoid_: Workflow (alone), job, process
 
 **Child Workflow Run**:
-A Workflow Run started by a step of another Workflow Run, such as one per item of a for-each. It has its own state, so it can block, be cancelled or be resumed on its own.
+A Workflow Run started by a step of another Workflow Run, such as one per item of a Per-Item Step. It has its own state, so it can block, be cancelled or be resumed on its own.
 _Avoid_: Sub-run, nested workflow
 
 **Step**:
@@ -27,7 +27,7 @@ One occurrence of a Step inside a Workflow Run, with its own state in the flow.
 _Avoid_: Step (when the occurrence is meant), job
 
 **Execution**:
-One concrete launch of work for a Step Run, either an agent session or a native operation. A Step Run has zero or more Executions, at most one running at a time; an Approval Gate has none.
+One concrete launch of work for a Step Run, either an agent session or an Operation. A Step Run has zero or more Executions, at most one running at a time; an Approval Gate has none.
 _Avoid_: Session, job, invocation
 
 **Iteration**:
@@ -38,9 +38,25 @@ _Avoid_: Retry, loop, round
 A new Execution of the same Step Run after a technical failure such as a crash, timeout or invalid output.
 _Avoid_: Retry (ambiguous with Iteration), rerun
 
-**Native Operation**:
+**Outcome**:
+The single result a Step Run ends with when it succeeds, taken from a closed set its step declares, such as `approved` or `changes_requested`. Workflow conditions only ever compare Outcomes. A technical failure is not an Outcome; it leads to a new Attempt.
+_Avoid_: Result, status, decision (alone)
+
+**Loop**:
+A step that repeats a group of steps, its body, as new Iterations until one of them ends with an expected Outcome.
+_Avoid_: Cycle, retry, back-edge
+
+**Item List**:
+An Artifact holding a list of items, each with a unique key and the keys it depends on. It is the only shape a Per-Item Step expands; the engine does not know what the items mean.
+_Avoid_: Manifest (the feature workflow's Item List), batch
+
+**Per-Item Step**:
+A step that starts one Child Workflow Run for each item of an Item List, in the order their dependencies allow, and finishes when all of them are terminal.
+_Avoid_: For-each, fan-out, map
+
+**Operation**:
 Work Surt performs itself, without an AI, as an Execution, such as Git integration commands.
-_Avoid_: Built-in step, script, hook
+_Avoid_: Native operation, built-in step, script, hook
 
 **Subject**:
 The uniquely named thing a root Workflow Run works on. A Subject can accumulate several Workflow Runs over time (e.g. a retry after cancelling), but at most one is active at once.

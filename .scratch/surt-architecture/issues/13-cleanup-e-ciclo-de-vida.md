@@ -14,3 +14,5 @@ Decidir: máquina de estados do cleanup (`on_success`, `on_delete`); que estados
 ## Context
 
 Surgiu de [Primitivas multiplataforma](18-primitivas-multiplataforma.md): `remove_dir_all` não segue links abaixo da raiz mas não é idempotente nem protege contra troca de ancestral pós-checagem; contenção de path precisa lidar com `\\?\`, case-insensitivity e junctions.
+
+De [Schema TOML de workflow](06-schema-toml-de-workflow.md): o único controle por workflow no TOML é `[cleanup] on_success = "clean" | "keep"` (default `clean`); este ticket decide o que "clean" remove e a política global/`on_delete`.
