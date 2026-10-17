@@ -300,16 +300,16 @@ The runtime neither invents billing precision nor reports a missing usage field 
 
 The runtime launches, follows and stops one Execution. It does not resolve workflow inputs, publish Revisions, record Approvals, retry Steps, select a next Step or write workflow state to SQLite.
 
-Signature-level protocol sketch; workspace placement, concrete error types and dispatch representation belong to [Estrutura do workspace Rust e traits centrais](../../.scratch/surt-architecture/issues/15-workspace-rust-e-traits.md):
+Signature-level protocol sketch; workspace placement, error types and dispatch are in [B. Rust Workspace](B-workspace.md#traits):
 
 ```rust
 pub trait AgentRuntime: Send + Sync {
-    async fn execute(
+    fn execute(
         &self,
         request: RuntimeRequest,
         events: RuntimeEventSink,
         stop: StopSignal,
-    ) -> Result<RuntimeCompletion, RuntimeError>;
+    ) -> impl Future<Output = Result<RuntimeCompletion, RuntimeError>> + Send;
 }
 ```
 

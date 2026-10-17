@@ -58,6 +58,10 @@ _Avoid_: For-each, fan-out, map
 Work Surt performs itself, without an AI, as an Execution, such as Git integration commands.
 _Avoid_: Native operation, built-in step, script, hook
 
+**Run Branch**:
+The branch, owned by Surt, that belongs to one Workflow Run. A root Workflow Run's Run Branch collects its children's reviewed work; a Child Workflow Run's Run Branch is where that child works, starting from its root's Run Branch tip. Workflows may give them role-specific names.
+_Avoid_: Work branch, item branch, output branch
+
 **Subject**:
 The uniquely named thing a root Workflow Run works on. A Subject can accumulate several Workflow Runs over time (e.g. a retry after cancelling), but at most one is active at once.
 _Avoid_: Target, context, project
@@ -193,11 +197,11 @@ The commit a Feature starts from, fixed when the Feature is created. Its Integra
 _Avoid_: Parent branch, upstream
 
 **Integration Branch**:
-The branch, owned by Surt, that collects every approved Task of one Feature run as a merge of its reviewed commit. It is what the Shipper delivers.
+The Run Branch of a Feature's root run: it collects every approved Task of one Feature run as a merge of its reviewed commit. It is what the Shipper delivers.
 _Avoid_: Feature branch, release branch
 
 **Task Branch**:
-The branch a Builder commits to in its own worktree, starting from the Integration Branch's tip when its Task begins.
+The Run Branch of a Task Cycle: the branch a Builder commits to in its own worktree, starting from the Integration Branch's tip when its Task begins.
 _Avoid_: Work branch, topic branch
 
 **Conflict**:

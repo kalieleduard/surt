@@ -94,11 +94,11 @@ What each Operation's next Attempt does. Every one of them is safe to run again.
 
 | Operation | Intention | Next Attempt |
 |---|---|---|
-| `git.create_integration_branch` | root `run_branch` row (`start_sha` = `tip_sha` = `base.sha`) | ref absent → create it · at `base.sha` → `done` · elsewhere → `blocked` (`not_retryable`) |
-| `git.create_task_worktree` | child `run_branch` row (`start_sha` = `tip_sha` = the root's `tip_sha`, `worktree_path`) | the [worktree states](#worktree-states) table; a branch at another SHA falls into the salvage of [Preparing a worktree](#preparing-a-worktree-for-every-attempt) |
+| `git.create_run_branch` | root `run_branch` row (`start_sha` = `tip_sha` = `base.sha`) | ref absent → create it · at `base.sha` → `done` · elsewhere → `blocked` (`not_retryable`) |
+| `git.create_child_worktree` | child `run_branch` row (`start_sha` = `tip_sha` = the root's `tip_sha`, `worktree_path`) | the [worktree states](#worktree-states) table; a branch at another SHA falls into the salvage of [Preparing a worktree](#preparing-a-worktree-for-every-attempt) |
 | `checks.run` | none: its only effect is in the worktree, which is prepared again | runs every Check again |
 | `git.integrate` | `ref_move` (T → M) | [ref move rule](#ref-moves); a `checkout --detach M` left by an interrupted re-check is undone by worktree preparation |
-| `git.snapshot_integration` | none: it only reads | runs again |
+| `git.snapshot_run_branch` | none: it only reads | runs again |
 | `git.merge_into_base` | `ref_move` (`base.sha` → tip, `worktree_path` when the Base branch is checked out) | [ref move rule](#ref-moves) plus [the interrupted fast-forward case](#an-interrupted-fast-forward-into-the-base) |
 
 Every worktree is created with `git worktree add --lock --reason "surt <run-id>"`, so `git gc` never prunes the metadata of a worktree whose run resumes months later. The cleanup unlocks it before removing it ([I. Cleanup](I-cleanup.md#cleanup-steps)).
@@ -178,7 +178,7 @@ For a lock it does not own, the Operation retries with backoff ([A. Process Mode
   switch away, then: surt start 20261017-add-login
 ```
 
-**During a run,** a move cannot be refused before it happens. The Operation that finds it (`git.create_task_worktree` reading the start tip, `git.integrate` step 1, `git.snapshot_integration`) blocks on the first occurrence (`not_retryable`, `integration_branch_moved` or `integration_branch_checked_out`, [G](G-state-machines.md#attempts)). The next driving command first refuses at step 5 until the branch is restored. Once it is, the command unblocks the step, and the new Attempt confirms the restoration by finding ref = `tip_sha`. No column records that a move was seen: the comparison is the record.
+**During a run,** a move cannot be refused before it happens. The Operation that finds it (`git.create_child_worktree` reading the start tip, `git.integrate` step 1, `git.snapshot_run_branch`) blocks on the first occurrence (`not_retryable`, `integration_branch_moved` or `integration_branch_checked_out`, [G](G-state-machines.md#attempts)). The next driving command first refuses at step 5 until the branch is restored. Once it is, the command unblocks the step, and the new Attempt confirms the restoration by finding ref = `tip_sha`. No column records that a move was seen: the comparison is the record.
 
 ## An interrupted fast-forward into the Base
 

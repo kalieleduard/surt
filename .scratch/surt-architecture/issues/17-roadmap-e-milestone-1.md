@@ -17,4 +17,6 @@ Decidir:
 
 Candidatos de corte vindos de [I. Cleanup](../../../docs/architecture/I-cleanup.md): `on_success = "keep"`, salvage antes de remover worktree no `cancel`, `surt delete` (e a checagem de `--new-run` concorrente). `cleaned_at` e `.surt/logs/` já estão no schema/layout; adiar não exige migration.
 
+De [B. Rust Workspace](../../../docs/architecture/B-workspace.md): os módulos do M1 saem da tabela de módulos de B (cada um pode entrar parcial); a ordem natural de construção é `platform`/`store`/`workflow` → `decide` + `drive` com `FakeRuntime` → `operations`/`git` → `reconcile`/`cleanup` → `ClaudeCodeRuntime`. A lista de dependências de B é o teto do M1, não o piso.
+
 Saída: seções K e L (ADRs pendentes consolidados). Fecha o mapa.

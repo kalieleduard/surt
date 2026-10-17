@@ -150,7 +150,7 @@ child run (B)  ref refs/heads/surt/task/20261017-add-login/B       start = tip w
 
 - `tip_sha` is the last tip Surt recorded. `git.integrate` uses it as `T` in its compare-and-swap, and any ref that differs from it is an external move ([A. Git Integration](A-git-integration.md#ownership-of-the-integration-branch)). For a run with a worktree, accepting an Execution that ran there records the branch's tip as `tip_sha` in the publication transaction; every Attempt starts from a worktree reset to it ([I](I-recovery.md#preparing-a-worktree-for-every-attempt)).
 - `worktree_path` is absolute and recorded when the worktree is created. Surt never recomputes it.
-- `merged_as_sha` is the merge commit that integrated the branch. `git.snapshot_integration` and `status` read it.
+- `merged_as_sha` is the merge commit that integrated the branch. `git.snapshot_run_branch` and `status` read it.
 - `ref_name` is unique, so two runs can never claim the same branch.
 
 `ref_move` holds at most one pending ref move per Step Run (`git.integrate`, `git.merge_into_base`): `ref_name`, `old_sha`, `new_sha`, and `worktree_path` when the move is a checkout in that worktree. It is committed before the move and deleted with the confirmation. Recovery compares the ref with it: `new_sha` → confirm, `old_sha` → redo, anything else → stop ([I](I-recovery.md#ref-moves)). The Base branch is not a `run_branch`, so the Intention cannot be a column there.
@@ -260,6 +260,6 @@ External providers (GitHub, Linear, Jira) get no column yet. A column with no fo
 - Reconciling these rows with Git and processes after a crash: [I. Recovery and Reconciliation](I-recovery.md).
 - When cleanup and purge run: [I. Cleanup, Delete and Logs](I-cleanup.md).
 - Commands, output formats and exit codes that read these rows: [J. CLI Surface](J-cli.md).
-- The `store` module and its interface: section B ([Estrutura do workspace Rust e traits centrais](../../.scratch/surt-architecture/issues/15-workspace-rust-e-traits.md)).
+- The `store` module and its interface: [B. Rust Workspace](B-workspace.md#the-store-interface).
 
 Decision record: [ADR 0009 — History is purged, not soft-deleted](../adr/0009-history-is-purged-not-soft-deleted.md).

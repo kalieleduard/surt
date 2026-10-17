@@ -45,8 +45,8 @@ Surt uses only the `git` CLI, with argument vectors and no shell. libgit2 and gi
 
 | Branch | Name | Created by |
 |---|---|---|
-| Integration Branch | `surt/<subject>` | `git.create_integration_branch` |
-| Task Branch | `surt/task/<subject>/<key>` | `git.create_task_worktree` |
+| Integration Branch | `surt/<subject>` | `git.create_run_branch` |
+| Task Branch | `surt/task/<subject>/<key>` | `git.create_child_worktree` |
 
 - Git cannot store `refs/heads/surt/X` and `refs/heads/surt/X/A` at once. Task Branches therefore live under `surt/task/`, which never collides with a Subject because every Subject starts with digits.
 - From the second root run of the same Subject, `<subject>` becomes `<subject>.N` in branch names and worktree paths, where `N` is the run's ordinal within its Subject: `surt/20261016-add-login.2`, `surt/task/20261016-add-login.2/A`. No run renames or deletes another run's branches. A `.` never occurs in a Subject slug, so `.2` cannot be mistaken for the Subject `20261016-add-login-2`.
@@ -100,18 +100,18 @@ The engine does not know what a Base is. It accepts **initial artifacts** suppli
 
 ## Operation registry
 
-Operations are referenced from TOML only by id ([E](E-workflow-schema.md#step-kinds)). They take no arguments from the TOML. Each one reads its Workflow Run's context: Subject, run ordinal, current `item`, its fixed Input Revisions, and the run's frozen project configuration. Each Operation launch is an Execution; a technical failure leads to a new Attempt, which first reads Git state and compares it with SQLite (partial states: [I. Recovery and Reconciliation](I-recovery.md#operations)).
+Operations are referenced from TOML only by id ([E](E-workflow-schema.md#step-kinds)). Ids use engine names: a **Run Branch** belongs to any Workflow Run; the feature workflow calls its root's Run Branch the Integration Branch and a Task Cycle's the Task Branch. They take no arguments from the TOML. Each one reads its Workflow Run's context: Subject, run ordinal, current `item`, its fixed Input Revisions, and the run's frozen project configuration. Each Operation launch is an Execution; a technical failure leads to a new Attempt, which first reads Git state and compares it with SQLite (partial states: [I. Recovery and Reconciliation](I-recovery.md#operations)).
 
 | Id | Used by | Inputs | Does | Outcomes | Produces |
 |---|---|---|---|---|---|
-| `git.create_integration_branch` | feature / `prepare` | `base` | Creates `surt/<subject>[.N]` at `base.sha`. | `done` | — |
-| `git.create_task_worktree` | task-cycle / `setup` | `item` | Reads the Integration Branch tip and records it as the Task's **start** (the `run_branch` row, written before the branch as its Intention), then creates the Task Branch there and adds its worktree with `--lock`. | `done` | — |
+| `git.create_run_branch` | feature / `prepare` | `base` | Creates `surt/<subject>[.N]` at `base.sha`. | `done` | — |
+| `git.create_child_worktree` | task-cycle / `setup` | `item` | Reads the Integration Branch tip and records it as the Task's **start** (the `run_branch` row, written before the branch as its Intention), then creates the Task Branch there and adds its worktree with `--lock`. | `done` | — |
 | `checks.run` | task-cycle / `check` | `commit` | Runs the frozen Checks in the Task worktree on `commit.sha`. | `passed` · `failed` | `check-report` |
 | `git.integrate` | task-cycle / `integrate` | `commit`, `feedback` | Merges the reviewed SHA into the Integration Branch (below). | `merged` · `conflict` | `conflict` (on `conflict`) |
-| `git.snapshot_integration` | feature / `snapshot` | `base` | Verifies the Integration Branch and fixes its final tip. | `done` | `integration` |
+| `git.snapshot_run_branch` | feature / `snapshot` | `base` | Verifies the Integration Branch and fixes its final tip. | `done` | `integration` |
 | `git.merge_into_base` | feature / `merge` | `base`, `integration` | Fast-forwards the Base branch to the delivered tip, if enabled. | `merged` · `skipped` | — |
 
-Locks ([A. Process Model](A-process-model.md#native-git-operations-across-processes)): worktree add/remove, branch creation, `merge-tree`, `commit-tree` and `update-ref` run under `.surt/runtime/locks/git.lock`. Inside one Driver, the start-tip read of `git.create_task_worktree` and all of `git.integrate` are additionally **serialized per root run**: one at a time per Feature. Without that, two Tasks re-checking in parallel would invalidate each other's compare-and-swap. A Driver is unique per root run, so an in-process mutex suffices.
+Locks ([A. Process Model](A-process-model.md#native-git-operations-across-processes)): worktree add/remove, branch creation, `merge-tree`, `commit-tree` and `update-ref` run under `.surt/runtime/locks/git.lock`. Inside one Driver, the start-tip read of `git.create_child_worktree` and all of `git.integrate` are additionally **serialized per root run**: one at a time per Feature. Without that, two Tasks re-checking in parallel would invalidate each other's compare-and-swap. A Driver is unique per root run, so an in-process mutex suffices.
 
 ## Checks
 
@@ -212,7 +212,7 @@ The Integration Branch belongs to Surt until the run ends. A human who wants to 
 
 ## Snapshot, Shipper and delivery
 
-- `git.snapshot_integration` runs after `implement`. It checks ownership like `integrate` step 1, verifies that the tip descends from `base.sha`, and produces `integration` ([schema](schemas/integration.schema.json)): branch, Base, final tip, and each Task's key, reviewed commit and merge commit. A parent does not read its children's artifacts ([E](E-workflow-schema.md#per-item-steps)), so this list comes from Git and SQLite state, not from child artifacts.
+- `git.snapshot_run_branch` runs after `implement`. It checks ownership like `integrate` step 1, verifies that the tip descends from `base.sha`, and produces `integration` ([schema](schemas/integration.schema.json)): branch, Base, final tip, and each Task's key, reviewed commit and merge commit. A parent does not read its children's artifacts ([E](E-workflow-schema.md#per-item-steps)), so this list comes from Git and SQLite state, not from child artifacts.
 - The **Shipper** is a read-only agent. It reads `manifest` and `integration`, inspects `git log`/`git diff <base>..<tip>` from the project root without checking anything out, and delivers `delivery` = `{ title, summary }` ([schema](schemas/delivery.schema.json)): text ready to become a pull request description, summarizing the spec's intent, the Tasks and the Checks. The delivered branch and SHA are those of `integration`; the agent does not declare them.
 - Nothing is pushed. The spec is not committed. The Integration Branch is the deliverable:
   ```

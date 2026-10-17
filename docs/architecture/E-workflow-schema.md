@@ -198,7 +198,7 @@ needs = ["spec-loop"]
 
 [steps.prepare]
 kind = "operation"
-run = "git.create_integration_branch"   # reads: base
+run = "git.create_run_branch"   # reads: base
 needs = ["tasks-loop"]
 
 [steps.implement]
@@ -210,7 +210,7 @@ needs = ["prepare"]
 
 [steps.snapshot]
 kind = "operation"
-run = "git.snapshot_integration"   # reads: base  writes: integration
+run = "git.snapshot_run_branch"   # reads: base  writes: integration
 needs = ["implement"]
 
 [steps.ship]
@@ -236,7 +236,7 @@ on_success = "clean"
 
 [steps.setup]
 kind = "operation"
-run = "git.create_task_worktree"
+run = "git.create_child_worktree"
 
 # --- one Iteration: build, check, review, integrate -----------------------
 
@@ -278,12 +278,12 @@ needs = ["setup"]
 | feature | `tasks-loop` | loop | engine | `done` when `approve-tasks` = `approved` |
 | feature | `plan-tasks` | agent | Task Agent (`tasks`) | `done` |
 | feature | `approve-tasks` | approval | human | `approved` · `rejected` |
-| feature | `prepare` | operation | Surt (`git.create_integration_branch`) | `done` |
+| feature | `prepare` | operation | Surt (`git.create_run_branch`) | `done` |
 | feature | `implement` | per_item | engine, one `task-cycle` per Task | `done` |
-| feature | `snapshot` | operation | Surt (`git.snapshot_integration`) | `done` |
+| feature | `snapshot` | operation | Surt (`git.snapshot_run_branch`) | `done` |
 | feature | `ship` | agent | Shipper (`shipper`) | `done` |
 | feature | `merge` | operation | Surt (`git.merge_into_base`) | `merged` · `skipped` |
-| task-cycle | `setup` | operation | Surt (`git.create_task_worktree`) | `done` |
+| task-cycle | `setup` | operation | Surt (`git.create_child_worktree`) | `done` |
 | task-cycle | `cycle` | loop | engine | `done` when `integrate` = `merged` |
 | task-cycle | `build` | agent | Builder (`builder`) | `done` |
 | task-cycle | `check` | operation | Surt (`checks.run`) | `passed` · `failed` |
