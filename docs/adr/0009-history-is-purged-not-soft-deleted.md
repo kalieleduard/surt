@@ -12,4 +12,4 @@ No table has a `deleted_at` column. Removing a Subject's history is a purge: one
 
 - A purge cannot be undone. Section I decides when one is offered and how it is confirmed.
 - Hiding a Subject without deleting it, if ever wanted, is an additive column on `subject`.
-- Backups are file copies of `surt.db` made while no Driver runs, or with SQLite's backup API.
+- Backups use `VACUUM INTO` or SQLite's backup API, never a plain copy of `surt.db`, which in WAL mode can miss committed transactions still in `surt.db-wal` ([H](../architecture/H-artifact-storage.md)).

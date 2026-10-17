@@ -176,6 +176,8 @@ pub(crate) fn decide(graph: &RunGraph, ctx: &Ctx) -> Vec<Action>;
 
 The hard rules of [G. State Machines](G-state-machines.md) (Attempt and Iteration limits, Transient Failures not spending an Attempt, dependents of a blocked Task waiting, a run ending only `succeeded` or `cancelled`) are table tests on `decide`: build a `RunGraph`, check the `Action`s. This is an internal seam of `drive`; it does not appear in the facade.
 
+`RunGraph`, `Action`, `Ctx` and the state enums are defined beside `decide` and import neither `sqlx` nor the `git` module. `store` depends on them and maps rows into a `RunGraph`; the dependency never points the other way. This is what keeps the domain free of the database while `drive` itself calls the concrete `Store` ([ADR 0012](../adr/0012-agent-runtime-is-the-only-trait.md) records that exception).
+
 ## Errors and outcomes
 
 ```rust
@@ -268,7 +270,7 @@ pub fn catalog() -> Catalog {
 | `serde`, `serde_json`, `toml` | engine | definitions, deliveries, configuration |
 | `jsonschema` (no defaults, no HTTP resolver) | engine | validating delivered files, including schemas overridden in `.surt/agents/` |
 | `uuid` (`v7`), `sha2` | engine | ids, blobs, definition identity |
-| `jiff` | engine | 24-char ISO timestamps and the local date of `YYYYMMDD-<slug>` |
+| `jiff` | engine | Unix-second `Timestamp`s, their display and the local date of `YYYYMMDD-<slug>` |
 | `process-wrap` 10 (tokio, process-group, job-object) | engine | process trees ([A](A-process-model.md#supervising-agent-processes)) |
 | `libc` (unix), `windows-sys` (windows) | engine | process start time and boot id, `CTRL_BREAK_EVENT` |
 | `dunce` | engine | canonical paths without `\\?\` |

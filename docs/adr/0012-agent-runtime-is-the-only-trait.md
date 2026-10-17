@@ -13,3 +13,8 @@
 - The trait uses native `async fn` in traits with a `Send` future and is not object-safe; `drive` takes `&impl AgentRuntime`, so the facade carries no type parameter.
 - Engine tests need `git` installed and touch the filesystem. They are slower than pure in-memory tests, and they exercise the code that ships.
 - A second real AI runtime (out of scope for v1) would be a new adapter of the same trait, not a new seam.
+- This is a deliberate exception to the dependency-inversion rule of [`rules/architecture.md`](../../rules/architecture.md), whose own example asks for a Storage port. It is reported in the rules' format:
+  ```
+  Exceptions: DIP; surt-engine drive:Store | DIP; surt-engine drive|reconcile|operations:git; one adapter each, and a fake would hide the transaction and ref semantics recovery depends on; drive cannot run without SQLite and git, so its tests are slower and need a temp directory
+  ```
+  What the rule protects still holds: the decision logic (`decide()`, `RunGraph`, `Action`, the states of section G) is plain Rust that imports neither `sqlx` nor the `git` module, and is tested without I/O. The store maps rows into `RunGraph`; it never hands SQL types to `drive` ([B](../architecture/B-workspace.md#the-scheduler-is-a-pure-function)). A Storage port is added the day a second adapter exists.

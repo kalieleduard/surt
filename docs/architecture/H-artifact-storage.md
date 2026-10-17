@@ -24,7 +24,7 @@ CREATE TABLE revision_file (
 - Publishing a Revision is **one transaction**: blobs, Revision row, file rows and the Step Run transition commit together or not at all. There is no file store to reconcile after a crash, and no Revision pointing at missing bytes.
 - Identical bytes are stored once. A Revision's identity hash is the SHA-256 over its sorted `(rel_path, sha256)` pairs, so an Item List Revision's identity covers its JSON and every referenced file ([ADR 0004](../adr/0004-item-list-files-share-approved-revision.md)).
 - Revisions are never updated or deleted while their Workflow Run exists. Earlier Revisions (a rejected spec, a superseded manifest) stay readable with `surt show <feature> <artifact> --rev N`.
-- Backing up a project's Surt state means copying `surt.db` (with SQLite's backup API or while no Driver runs).
+- Backing up a project's Surt state means `VACUUM INTO '<backup-path>'` or SQLite's backup API, which read a consistent snapshot even while a Driver writes. A plain file copy of `surt.db` is not a backup: in WAL mode, transactions committed by a Driver that crashed can still live only in `surt.db-wal`.
 
 ## What freezing means at approval
 

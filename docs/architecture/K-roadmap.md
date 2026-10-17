@@ -8,7 +8,7 @@ What gets built first, in which order, and what follows. Sections A–J describe
 
 **Done when:**
 
-1. `cargo test --features test-support` passes in CI on macOS, Linux and Windows. The suite holds everything in [Estratégia de testes](../../.scratch/surt-architecture/issues/16-estrategia-de-testes.md): the brief's E2E with the Fake Runtime (2+ Tasks, a rejected review, a new Builder, the Shipper, cleanup), fault points at the eight checkpoints of [I. Recovery](I-recovery.md#transactional-checkpoints), the `kill` smoke, and the three Git scenarios. The E2E stays under 60 s per OS.
+1. `cargo fmt --all -- --check`, `cargo clippy --all-targets --features test-support -- -D warnings` and `cargo test --features test-support` pass in CI on macOS, Linux and Windows ([`rules/rust.md`](../../rules/rust.md)). The suite holds everything in [Estratégia de testes](../../.scratch/surt-architecture/issues/16-estrategia-de-testes.md): the brief's E2E with the Fake Runtime (2+ Tasks, a rejected review, a new Builder, the Shipper, cleanup), fault points at the eight checkpoints of [I. Recovery](I-recovery.md#transactional-checkpoints), the `kill` smoke, and the three Git scenarios. The E2E stays under 60 s per OS.
 2. A manual smoke with the real Claude Code passes **on macOS**: in a toy repository, a Feature with two Tasks reaches `succeeded`. Its script is the checklist `docs/smoke-claude-code.md`.
 
 ### What the user sees
@@ -87,7 +87,7 @@ S1 Skeleton ──► S2 Workflow ──► S3 Engine + Fake ──► S4 Git �
 
 | Slice | Contents | Done when |
 |---|---|---|
-| **S1 Skeleton** | Two-crate workspace replacing the `ferris-says` crate, `rust-toolchain.toml`, `.github/workflows/ci.yml` with the matrix, `platform` (locks, process identity), `store` (WAL + `synchronous=FULL`, `0001_initial.sql`, `BEGIN IMMEDIATE` with retry), `Project::open`, `surt init` | `surt init` works and is idempotent on the three OSes |
+| **S1 Skeleton** | Two-crate workspace replacing the `ferris-says` crate, `rust-toolchain.toml`, `.github/workflows/ci.yml` with the matrix (fmt, clippy `-D warnings`, test), `platform` (locks, process identity), `store` (WAL + `synchronous=FULL`, `0001_initial.sql`, `BEGIN IMMEDIATE` with retry), `Project::open`, `surt init` | `surt init` works and is idempotent on the three OSes |
 | **S2 Workflow** | Parsing the five `kind`s with `deny_unknown_fields`, static validation, freezing and SHA-256, the `Catalog` with `feature.toml`, `task-cycle.toml` and the five Agents (TOML, instructions, schemas), `create_run`, `YYYYMMDD-<slug>` naming | `surt feature "add login"` creates the Subject and a `pending` run, and stops without driving |
 | **S3 Engine + Fake** | `decide()` with table tests; `drive` (tick, lock, Iterations, Per-Item, limits, Ctrl-C); `artifacts` (Revisions, Working Copy, edits, pinning); `context`; the `AgentRuntime` trait, `FakeRuntime` and the `test-support` feature; `approve`/`reject` | spec → gate → reject → spec rev 2 → approve → `plan` → gate, with the Fake, through the binary |
 | **S4 Git** | `git` (argv, minimum version, `git.lock`), five Operations (not `git.merge_into_base`), worktree preparation and salvage, `start` | the brief's E2E is green (without `kill`), plus the three Git scenarios |
