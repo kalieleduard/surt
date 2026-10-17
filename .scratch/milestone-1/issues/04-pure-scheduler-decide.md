@@ -8,9 +8,9 @@ Spec: [Milestone 1](../spec.md) (stories 59–64, 69) · Slice: S3 Engine + Fake
 
 **Status:** ready-for-agent
 
-- [ ] `RunGraph`, `Action`, `Ctx` and the state enums import neither `sqlx` nor the `git` module (the DIP exception of [ADR 0012](../../../docs/adr/0012-agent-runtime-is-the-only-trait.md))
-- [ ] Table tests: `max_attempts` failed Attempts → `blocked`; `max_iterations` Iterations without a gate → `blocked`; a Loop containing an Approval Gate has no Iteration limit
-- [ ] Table tests: `interrupted` and `transient` Executions spend no Attempt; `not_retryable` blocks on the first occurrence
-- [ ] Table tests: unblocking renews the budget while keeping counter history; dependents of a blocked item wait while independent ones keep launching
-- [ ] Table tests: a run only ends `succeeded` or `cancelled`; `Return` is emitted when nothing can run without a human (at a gate, blocked, or done)
-- [ ] Independent items launch only up to the concurrency limit carried in `Ctx`
+- [x] `RunGraph`, `Action`, `Ctx` and the state enums import neither `sqlx` nor the `git` module (the DIP exception of [ADR 0012](../../../docs/adr/0012-agent-runtime-is-the-only-trait.md))
+- [x] Table tests: `max_attempts` failed Attempts → `blocked`; `max_iterations` Iterations without a gate → `blocked`; a Loop containing an Approval Gate has no Iteration limit
+- [x] Table tests: `interrupted` and `transient` Executions spend no Attempt; `not_retryable` blocks on the first occurrence
+- [x] Table tests: unblocking renews the budget while keeping counter history; dependents of a blocked item wait while independent ones keep launching
+- [x] Table tests: a run only ends `succeeded` or `cancelled`; `Return` is emitted when nothing can run without a human (at a gate, blocked, or done)
+- [x] Independent items launch only up to the concurrency limit carried in `Ctx`
