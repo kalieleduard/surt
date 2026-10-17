@@ -12,3 +12,6 @@ publish = false
 surt-engine = { path = "crates/surt-engine" }
 clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+sqlx = { version = "0.9", default-features = false, features = ["sqlite", "runtime-tokio", "migrate", "macros"] }
+thiserror = "2"
+tempfile = "3"
