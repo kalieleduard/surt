@@ -23,7 +23,7 @@ erDiagram
     STEP ||--o{ STEP_RUN : "occurs as"
     STEP_RUN ||--o{ EXECUTION : "launched as (attempts)"
     STEP_RUN ||--o{ WORKFLOW_RUN : "starts (per-item)"
-    AGENT ||--|{ AGENT_PROFILE : "runs with"
+    AGENT ||--|| AGENT_PROFILE : "runs with"
     AGENT_PROFILE ||--o{ EXECUTION : "frozen into"
     AGENT_RUNTIME ||--o{ AGENT_PROFILE : "named by"
     EXECUTION }o--o{ ARTIFACT_REVISION : "reads (inputs)"
@@ -37,7 +37,7 @@ Reading notes:
 
 - A **Subject** groups root Workflow Runs over time; Child Workflow Runs belong to it through their root.
 - A **Step Run** of a Per-Item Step starts one Child Workflow Run per item of an Item List and finishes only when they all reach a terminal state. A Per-Item Step is the only way to start a Child Workflow Run.
-- An **Execution** uses either one Agent Profile selected from the root Workflow Run's frozen agent definitions, recording the selected profile at launch, or one Operation. Contracts, instructions and effective profiles are frozen at root run creation; see [F. Agent Contract](F-agent-contract.md).
+- An **Execution** uses either its Agent's single Agent Profile, taken from the root Workflow Run's frozen agent definitions and recorded at launch, or one Operation. Contracts, instructions and effective profiles are frozen at root run creation; see [F. Agent Contract](F-agent-contract.md).
 - An **Approval Gate** is a Step Run with zero Executions; it completes when an Approval (approve or reject) on the latest Revision of its Artifact is recorded, with Outcome `approved` or `rejected`.
 - An **Artifact Revision** has exactly one origin: one Execution (as output) or one human edit. The text given to `surt feature` and the reason given to `surt reject` are human-origin Revisions. A Child Workflow Run's item is not a new Revision: it is one item inside an existing Item List Revision.
 - An **Item List Revision** contains its JSON and any named files referenced by its items. Approval covers the complete content. A child sees only its own item's files, pinned to that Revision; materializing them as inputs creates no new Revision. The built-in Task Agent uses this generic mechanism for one Markdown document per Task; see [F. Agent Contract](F-agent-contract.md).
@@ -75,8 +75,7 @@ Subject 20261015-add-login
 
 ## Decided elsewhere
 
-- States and transitions of runs, Step Runs and Executions: section G ([Máquina de estados do loop Builder ↔ Reviewer](../../.scratch/surt-architecture/issues/10-loop-builder-reviewer.md)).
-- Iteration and Attempt limits, and Agent Profile escalation between Iterations: same ticket.
+- States and transitions of runs, Step Runs and Executions, and the Iteration and Attempt limits: [G. State Machines](G-state-machines.md).
 - Where Revisions live, Working Copies, edit detection, pinning and revalidation: [H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md).
 - Physical tables: section D ([Schema SQLite](../../.scratch/surt-architecture/issues/11-schema-sqlite.md)).
 

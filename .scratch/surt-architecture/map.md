@@ -33,11 +33,12 @@ O plano de engenharia completo do Surt — entregáveis A–L do brief (arquitet
 - [Contrato de agente](issues/07-contrato-de-agente.md) — contratos/perfis congelados; arquivos + JSON final validado; `.md` por Task junto ao manifesto aprovado; `dontAsk`; sem timeout de execução.
 - [Armazenamento de artefatos, congelamento e revalidação](issues/08-armazenamento-congelamento-revalidacao.md) — blobs SHA-256 no SQLite (publicação atômica, Approval = id + hash); Working Copy editável só para artefatos com gate, edições detectadas por hash viram Revision humana; Revision aprovada e já lida como Input fica fixada e edição posterior é recusada (ADR 0005); inputs por Execution em `runtime/executions/<id>/`; `.surt/` ignorado salvo `config.toml`/`agents/`; nome `YYYYMMDD-<slug>` com sufixo `-N`.
 - [Modelo de integração Git](issues/09-modelo-de-integracao-git.md) — Operation nativa integra o SHA revisado como merge commit (`merge-tree`/`commit-tree`/`update-ref`, Git ≥2.38) em `surt/<subject>`, re-checando se a ponta andou; Tasks em `surt/task/<subject>/<key>` partindo da ponta; Base = `HEAD` em `surt feature`; Checks argv congelados, `failed` pula review; conflito volta ao Builder com review completo; Shipper só leitura (`title`/`summary`) após `snapshot`; merge na Base só opt-in ff-only (ADR 0006/0007).
+- [Máquina de estados do loop Builder ↔ Reviewer](issues/10-loop-builder-reviewer.md) — `blocked` (não final) no lugar de falha: 3 Attempts e 5 Iterations (sem limite em Loop com gate), retomar o comando renova o orçamento; run só termina `succeeded`/`cancelled` (ADR 0008); dependentes de Task bloqueada esperam; um único perfil por agente, sem escalada; Builder sem mudança faz commit vazio; Reviewer lê `feedback?`/`conflict?` com veredito sempre do SHA inteiro.
 
 ## Not yet specified
 
 - **Integrações externas** (GitHub Issues/PRs, Linear, Jira): por ora só um espaço reservado (`external_ref` em metadados) decidido no schema SQLite; o contrato de provider em si fica na névoa até o modelo de Task e artefatos estar firme.
-- **Conteúdo do `config.toml` global e do config de projeto** — já existem `stop_grace_period` (global), `max_concurrent_agents`, `[[checks]]` e `[git] merge_into_base` (projeto, congelados no root run); consolidar com o que cair na CLI quando esse ticket fechar.
+- **Conteúdo do `config.toml` global e do config de projeto** — já existem `stop_grace_period` (global), `max_concurrent_agents`, `max_attempts`, `max_iterations`, `[[checks]]` e `[git] merge_into_base` (projeto, congelados no root run); consolidar com o que cair na CLI quando esse ticket fechar.
 - **Rate limits e custo de tokens** como entrada do limite de concorrência do Scheduler — o limite decidido é por projeto, então vários projetos na mesma máquina podem somar acima do rate limit da conta.
 
 - **Validação em Windows real**: reação do `claude.exe` a Ctrl+Break, `wait` do process-wrap no Windows, `core.longpaths` do Git for Windows (e a injeção via `GIT_CONFIG_*` no agente) — vira ticket quando houver máquina/CI Windows disponível (provável no roadmap/estratégia de testes).
@@ -50,4 +51,5 @@ O plano de engenharia completo do Surt — entregáveis A–L do brief (arquitet
 - **Segundo runtime de IA real** (Codex, Gemini CLI etc.) — a trait é desenhada contra Claude Code + Fake Runtime.
 - **Override/customização de workflows embutidos e workflows próprios do projeto** — só `feature` e `task-cycle` embutidos no binário; caso de borda, o schema não impede ([Schema TOML de workflow](issues/06-schema-toml-de-workflow.md)).
 - **Implementação do Milestone 1** — é o handoff ao fim do mapa, não parte dele.
+- **Cancelar ou abandonar uma Task só, com entrega parcial** — no M1 filhos só terminam junto com o root, e o Shipper entrega só Features completas ([Máquina de estados do loop Builder ↔ Reviewer](issues/10-loop-builder-reviewer.md)).
 - **Infra cloud, microsserviços, message brokers.**

@@ -4,7 +4,7 @@ Part of section A (Architecture). It covers who advances a Workflow Run, for how
 
 ## Driving a run
 
-The engine has one primitive: `drive(root_run_id)`. It advances a root Workflow Run and all its Child Workflow Runs until nothing is left that can run without a human. That means every non-terminal Step Run is waiting on an Approval Gate, or the run is terminal. Then it returns. A root Workflow Run has **at most one Driver**. Child Workflow Runs are always driven by their root's Driver, never on their own.
+The engine has one primitive: `drive(root_run_id)`. It advances a root Workflow Run and all its Child Workflow Runs until nothing is left that can run without a human. That means every non-terminal Step Run is waiting on an Approval Gate or is blocked ([G. State Machines](G-state-machines.md#when-a-driver-returns)), or the run is terminal. Then it returns. A root Workflow Run has **at most one Driver**. Child Workflow Runs are always driven by their root's Driver, never on their own.
 
 `drive` keeps no global state. All state it needs to continue lives in SQLite and on disk, so any Driver can pick up a run that another Driver left, whether it stopped cleanly or not.
 
@@ -53,7 +53,7 @@ Rationale and rejected alternatives: [ADR 0002](../adr/0002-file-locks-over-sqli
 
 1. The first Ctrl-C (or SIGHUP when the terminal closes, or the console closing on Windows) starts a graceful stop of every running agent Execution, in parallel (see [Supervising agent processes](#supervising-agent-processes)).
 2. A **Operation already in progress is never cut** by the first interruption. The Driver waits for it to finish, because Operations are the intention → effect points that recovery would otherwise have to reconcile.
-3. Stopped agent Executions are recorded as interrupted (state names in section G). The run stays resumable, and the next driving command creates new Attempts for them in fresh Claude sessions. The work of an interrupted session is lost. Its worktree may be dirty, and section I handles that.
+3. Stopped agent Executions are recorded as `interrupted` ([G. State Machines](G-state-machines.md#execution)); this does not count toward the Attempt limit. The run stays resumable, and the next driving command creates new Attempts for them in fresh Claude sessions. The work of an interrupted session is lost. Its worktree may be dirty, and section I handles that.
 4. A second Ctrl-C forces it: the agent process trees are killed and the Driver exits at once, even in the middle of a Operation. Recovery reconciles the partial state.
 
 ```
@@ -171,8 +171,8 @@ What a daemon would add (`--detach`, and a live log channel for clients) is out 
 
 ## Decided elsewhere
 
-- Execution, Step Run and Workflow Run state names (interrupted, queued, cancel requested): section G.
+- Execution, Step Run and Workflow Run state names (interrupted, queued, cancel requested): [G. State Machines](G-state-machines.md).
 - What recovery does with orphans' leftovers and partial Operations: section I.
 - Columns for the Driver identity, cancel request and slot held: section D.
-- Agent Profiles, permissions and the decision to omit execution timeouts: section F.
+- The Agent Profile, permissions and the decision to omit execution timeouts: section F.
 - Full CLI contracts, output formats and exit codes: section J.

@@ -44,19 +44,19 @@ Concrete file schemas and runtime success checks are specified below. The succes
 
 ## Freezing agents
 
-At creation, a root Workflow Run freezes every Agent used by the closure of its Workflow Definitions, including agents used by Child Workflow Runs. The snapshot contains each effective agent contract, its instructions and its effective Agent Profiles after local overrides have been applied.
+At creation, a root Workflow Run freezes every Agent used by the closure of its Workflow Definitions, including agents used by Child Workflow Runs. The snapshot contains each effective agent contract, its instructions and its effective Agent Profile after local overrides have been applied.
 
-An Execution selects one Agent Profile from that frozen set and records which profile it used. Editing local model settings or instructions after run creation affects new root runs; it does not change an existing run, a later Iteration or a new Attempt of that run.
+Every Execution of an Agent runs with that Agent's frozen Agent Profile and records which snapshot it used. Editing local model settings or instructions after run creation affects new root runs; it does not change an existing run, a later Iteration or a new Attempt of that run.
 
 The snapshot also includes every local JSON Schema referenced by the contract. Its identity is a SHA-256 over the canonical effective TOML and the contents of its instructions and schema assets; absolute source paths are not part of that identity. Runtime credentials are not copied into it.
 
-This extends the definition freezing rule in [E. Workflow Definition Schema](E-workflow-schema.md). It freezes Surt's definitions, not the external account, managed policies or installed Claude Code binary. Version compatibility is specified below; escalation thresholds remain with the loop policy.
+This extends the definition freezing rule in [E. Workflow Definition Schema](E-workflow-schema.md). It freezes Surt's definitions, not the external account, managed policies or installed Claude Code binary. Version compatibility is specified below.
 
 ## Built-in defaults and local overrides
 
 Surt combines built-in defaults with explicit project-local overrides, field by field. Local lists replace the entire corresponding list; they are not appended. Unknown fields are errors. A local `instructions.md` replaces that agent's entire built-in instruction text rather than appending to it.
 
-TOML tables merge recursively by key. An absent local field inherits the built-in value; a scalar replaces it, and an array replaces the complete array. There is no profile-to-profile inheritance, deletion syntax or arbitrary CLI-argument passthrough. New profiles must be complete after the merge. Validate the resulting effective definition before freezing it.
+TOML tables merge recursively by key. An absent local field inherits the built-in value; a scalar replaces it, and an array replaces the complete array. There is no deletion syntax or arbitrary CLI-argument passthrough. Validate the resulting effective definition before freezing it.
 
 An override may change an agent contract, but the resulting built-in workflows must still pass static validation. Changing an output name or Outcome does not implicitly rewrite a workflow that consumes it.
 
@@ -71,15 +71,15 @@ Project-local files are optional:
 
 The binary contains complete defaults for `spec`, `tasks`, `builder`, `reviewer` and `shipper`. Local files replace or override those defaults; Surt does not overwrite them on upgrade. A schema path is relative to its agent's asset directory. Only local schema assets are supported: no network references. Freeze the transitive closure of local schema references too. Revisions are stored as content-addressed blobs in SQLite ([H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md)); the physical tables, including agent snapshots, belong to section D.
 
-## Agent Profiles and selection
+## Agent Profile
 
-An Agent declares named Agent Profiles and one explicit default profile. The profile definition describes how to execute; it does not decide when the loop should escalate.
+An Agent has exactly one Agent Profile, the `[profile]` table of its `agent.toml`. It describes how to execute the Agent: runtime, model, effort, permissions and optional limits. There are no named profiles, no default-profile selection and no escalation:
 
-- A new Attempt after a technical failure keeps the same selected profile.
-- A new Iteration may select another profile from the frozen set, according to the loop policy.
+- A new Attempt after a technical failure uses the same profile.
+- A new Iteration uses the same profile too. A Loop that keeps failing is stopped by the Iteration limit and becomes blocked ([G. State Machines](G-state-machines.md#limits)); it never switches to a larger model.
 - The Agent Runtime does not silently switch models to work around failures.
 
-Escalation thresholds, limits and the resulting loop transitions belong to [Máquina de estados do loop Builder ↔ Reviewer](../../.scratch/surt-architecture/issues/10-loop-builder-reviewer.md). They are not settled by defining the available profiles.
+Different Agents may still use different models: each Agent's profile is configured, and overridden locally, on its own. Decision: [Máquina de estados do loop Builder ↔ Reviewer](../../.scratch/surt-architecture/issues/10-loop-builder-reviewer.md).
 
 ## Permissions and tools
 
@@ -129,29 +129,28 @@ Profiles name models by full IDs, not moving aliases. Surt validates known effor
 
 The requested effort is recorded, but Surt does not claim to verify the effective effort: the existing research did not find it exposed to headless consumers. Surt must not describe syntactic validation as proof of model-specific effort support. Supported syntax is `low`, `medium`, `high`, `xhigh` or `max`; an unsupported value is a configuration error rather than a warning passed through to Claude.
 
-All five agents have these complete profiles:
+All five agents have the same built-in profile settings:
 
-| Profile | Runtime | Model | Effort | Auth | Permission mode |
-|---|---|---|---|---|---|
-| `normal` (default) | `claude-code` | `claude-sonnet-5-5` | `high` | `subscription` | `dontAsk` |
-| `reinforced` | `claude-code` | `claude-opus-5-5` | `medium` | `subscription` | `dontAsk` |
+| Runtime | Model | Effort | Auth | Permission mode |
+|---|---|---|---|---|
+| `claude-code` | `claude-sonnet-5-5` | `high` | `subscription` | `dontAsk` |
 
-Their tools follow the role table above and neither profile sets turn or cost limits. These are pinned defaults of this plan, not aliases or a promise that every account can access them. A future Surt release may change defaults for new root runs; an existing run keeps its frozen IDs. IDs were checked against the official [model overview](https://platform.claude.com/docs/en/models/overview); the [Claude Code model configuration](https://code.claude.com/docs/en/model-config) documents model and effort behavior.
+Their tools follow the role table above and no profile sets turn or cost limits. These are pinned defaults of this plan, not aliases or a promise that every account can access them. A future Surt release may change defaults for new root runs; an existing run keeps its frozen IDs. IDs were checked against the official [model overview](https://platform.claude.com/docs/en/models/overview); the [Claude Code model configuration](https://code.claude.com/docs/en/model-config) documents model and effort behavior.
 
 ## Effective `agent.toml`
 
-`schema = 1` is the contract format version. Agent IDs, profile names, input names and output names are non-empty lowercase identifiers containing letters, digits and hyphens, starting with a letter. Outcomes also permit underscores, as in `changes_requested`. Unknown fields at any nesting level are errors. A local override may omit fields; the effective definition must satisfy the complete schema.
+`schema = 1` is the contract format version. Agent IDs, input names and output names are non-empty lowercase identifiers containing letters, digits and hyphens, starting with a letter. Outcomes also permit underscores, as in `changes_requested`. Unknown fields at any nesting level are errors. A local override may omit fields; the effective definition must satisfy the complete schema.
 
 | Field | Contract |
 |---|---|
-| `schema`, `id`, `default_profile` | Required; known format, ID matching its agent directory, default naming an existing profile |
+| `schema`, `id` | Required; known format, ID matching its agent directory |
 | `outcomes` | Optional non-empty unique array; omitted means `["done"]` |
 | `inputs.<name>` | `format` required; `optional` defaults to `false`; optional `json_schema` |
 | `outputs.<name>` | `format` required; optional `json_schema`; every declared output is required |
 | `outputs.<name>.item_files.<file-name>` | Only for `format = "item_list"`; required `format`, optional `json_schema`; every declared file is required on every item |
-| `profiles.<name>` | Required `runtime`, full `model` and `effort`; optional `[limits]`; `[claude]` required for `claude-code` |
-| `profiles.<name>.limits` | Optional positive integer `max_turns` and positive finite numeric `max_budget_usd`; absent means no limits; no timeout field |
-| `profiles.<name>.claude` | `auth`, `permission_mode`, `tools`, `allowed_tools`, `disallowed_tools`; optional `api_key_env` only with `auth = "api_key"` |
+| `profile` | Required; `runtime`, full `model` and `effort`; optional `[limits]`; `[claude]` required for `claude-code` |
+| `profile.limits` | Optional positive integer `max_turns` and positive finite numeric `max_budget_usd`; absent means no limits; no timeout field |
+| `profile.claude` | `auth`, `permission_mode`, `tools`, `allowed_tools`, `disallowed_tools`; optional `api_key_env` only with `auth = "api_key"` |
 
 Formats are `text`, `markdown`, `json` and `item_list`. Text and Markdown require non-empty UTF-8 content; Markdown is not semantically validated. JSON is parsed and validated against its declared JSON Schema when present. `item_list` also validates keys, references, graph acyclicity and declared item files as specified in section E. Item file formats are `text`, `markdown` or `json`; item files do not recursively contain Item Lists. `json_schema` is only valid for `json` or `item_list`. Schemas use draft-07; formats such as `date-time` do not substitute for explicit validation.
 
@@ -162,7 +161,6 @@ Complete effective Reviewer example (permission roots are added by the launcher 
 ```toml
 schema = 1
 id = "reviewer"
-default_profile = "normal"
 outcomes = ["approved", "changes_requested"]
 
 [inputs.item]
@@ -179,28 +177,26 @@ json_schema = "schemas/commit.schema.json"
 format = "json"
 json_schema = "schemas/check-report.schema.json"
 
+[inputs.feedback]
+format = "json"
+json_schema = "schemas/feedback.schema.json"
+optional = true
+
+[inputs.conflict]
+format = "json"
+json_schema = "schemas/conflict.schema.json"
+optional = true
+
 [outputs.feedback]
 format = "json"
 json_schema = "schemas/feedback.schema.json"
 
-[profiles.normal]
+[profile]
 runtime = "claude-code"
 model = "claude-sonnet-5-5"
 effort = "high"
 
-[profiles.normal.claude]
-auth = "subscription"
-permission_mode = "dontAsk"
-tools = ["Read", "Glob", "Grep", "Write", "Bash"]
-allowed_tools = ["Read", "Glob", "Grep", "Bash(git status *)", "Bash(git diff *)", "Bash(git show *)", "Bash(git log *)", "Bash(git rev-parse *)"]
-disallowed_tools = ["mcp__*"]
-
-[profiles.reinforced]
-runtime = "claude-code"
-model = "claude-opus-5-5"
-effort = "medium"
-
-[profiles.reinforced.claude]
+[profile.claude]
 auth = "subscription"
 permission_mode = "dontAsk"
 tools = ["Read", "Glob", "Grep", "Write", "Bash"]
@@ -211,22 +207,23 @@ disallowed_tools = ["mcp__*"]
 A project override can be much smaller:
 
 ```toml
-[profiles.normal]
+[profile]
+model = "claude-opus-5-5"
 effort = "medium"
 
-[profiles.normal.limits]
+[profile.limits]
 max_turns = 100
 max_budget_usd = 5.0
 ```
 
-It still inherits the default profile's other fields; the final merged document is what gets validated and frozen. Built-in input/output contracts are:
+It still inherits the built-in profile's other fields; the final merged document is what gets validated and frozen. Built-in input/output contracts are:
 
 | Agent | Inputs (`?` = optional) | Outputs | Outcomes |
 |---|---|---|---|
 | `spec` | `request: text`, `spec?: markdown`, `spec-rejection-reason?: text` | `spec: markdown` | `done` |
 | `tasks` | `spec: markdown`, `manifest?: item_list`, `manifest-rejection-reason?: text` | `manifest: item_list`, including one required `task: markdown` item file per Task | `done` |
 | `builder` | `item: json` with its read-only `task` Markdown file, `spec: markdown`, `feedback?: json`, `check-report?: json`, `conflict?: json` | `commit: json` | `done` |
-| `reviewer` | `item: json` with its read-only `task` Markdown file, `spec: markdown`, `commit: json`, `check-report: json` | `feedback: json` | `approved`, `changes_requested` |
+| `reviewer` | `item: json` with its read-only `task` Markdown file, `spec: markdown`, `commit: json`, `check-report: json`, `feedback?: json`, `conflict?: json` | `feedback: json` | `approved`, `changes_requested` |
 | `shipper` | `manifest: item_list`, `integration: json` | `delivery: json` | `done` |
 
 `request`, `base` and `item` are supplied as defined in section E. `check-report`, `conflict` and `integration` are produced by Operations ([A. Git Integration](A-git-integration.md#operation-registry)).
@@ -295,13 +292,13 @@ Acceptance requires all of the following:
 
 Only then may Surt publish the resulting Revisions and successful Outcome. Files left by a failed Execution are not accepted outputs. The storage transaction and crash recovery around publication belong to sections H, D and I.
 
-Auth failure, unavailable/mismatched model, unsupported settings, non-zero exit, missing result, malformed envelope, missing files, invalid Item List or a configured limit being reached are technical failures. `changes_requested` with valid feedback is a successful Outcome. Interruption and Cancellation retain their distinct meaning from section A; their state names and Attempt limits are decided in section G.
+Auth failure, unavailable/mismatched model, unsupported settings, non-zero exit, missing result, malformed envelope, missing files, invalid Item List or a configured limit being reached are technical failures. `changes_requested` with valid feedback is a successful Outcome. Interruption and Cancellation retain their distinct meaning from section A; their state names, and the fact that neither counts toward the Attempt limit, are in [G. State Machines](G-state-machines.md).
 
 The runtime neither invents billing precision nor reports a missing usage field as zero. Record available session/model/version identity, requested effort, turn counts, cost estimates and permission denials; unknown data remains unknown. Stream/log retention and secret redaction policy remain on the map, outside this ticket's contract decision.
 
 ## Agent Runtime and Fake Runtime
 
-The runtime launches, follows and stops one Execution. It does not resolve workflow inputs, choose profiles, publish Revisions, record Approvals, retry Steps, select a next Step or write workflow state to SQLite.
+The runtime launches, follows and stops one Execution. It does not resolve workflow inputs, publish Revisions, record Approvals, retry Steps, select a next Step or write workflow state to SQLite.
 
 Signature-level protocol sketch; workspace placement, concrete error types and dispatch representation belong to [Estrutura do workspace Rust e traits centrais](../../.scratch/surt-architecture/issues/15-workspace-rust-e-traits.md):
 
@@ -316,7 +313,7 @@ pub trait AgentRuntime: Send + Sync {
 }
 ```
 
-- `RuntimeRequest` carries Execution/session identity, the selected frozen profile, prepared instructions/context, working and delivery directories, and fixed input handles. Secrets are resolved at launch and are not part of its persisted snapshot.
+- `RuntimeRequest` carries Execution/session identity, the Agent's frozen profile, prepared instructions/context, working and delivery directories, and fixed input handles. Secrets are resolved at launch and are not part of its persisted snapshot.
 - `RuntimeEventSink` reports startup/process identity, progress, usage and diagnostics. The Driver records state; events do not bypass it.
 - `StopSignal` requests an explicit stop. The runtime owns process-tree cleanup and uses section A's grace/forced-stop sequence. There is no wall-clock execution timer.
 - `RuntimeCompletion` contains normalized initialization, exit/result evidence and usage for Surt's common acceptance path. Success is not a boolean shortcut around delivery validation.

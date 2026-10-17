@@ -84,6 +84,10 @@ _Avoid_: Cancel (which ends the run), abort, pause
 An explicit decision that ends a Workflow Run in a terminal state. Work starts again only as a new Workflow Run of the same Subject.
 _Avoid_: Interrupt, stop, abort
 
+**Blocked**:
+A Step Run that cannot go on without a human, because it reached its Attempt or Iteration limit or hit a failure that retrying cannot fix. It is not terminal: running the driving command again resumes it. A Workflow Run never fails; it is blocked until resumed or cancelled.
+_Avoid_: Failed, stuck, error
+
 ### Agents
 
 **Agent**:
@@ -91,7 +95,7 @@ A role an AI performs in a workflow: what it does, its instructions and the cont
 _Avoid_: Persona, bot
 
 **Agent Profile**:
-A concrete way of running an Agent: runtime, model, effort, permissions and limits. An Agent has several; one is chosen per execution.
+The concrete way of running an Agent: runtime, model, effort, permissions and limits. Each Agent has exactly one, used by every Execution of it; repeating work never switches to another model.
 _Avoid_: Model config, agent config
 
 **Agent Runtime**:

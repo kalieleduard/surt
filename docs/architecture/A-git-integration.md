@@ -146,7 +146,7 @@ The Builder delivers `commit` = `{ "sha": "<full sha>" }` ([schema](schemas/comm
 3. `<sha>` descends from the Task's start, and also from `conflict.integration_tip` when this Iteration follows a conflict (`git merge-base --is-ancestor`). It differs from the commit the Iteration started at: there is at least one new commit.
 4. The worktree is clean (`git --no-optional-locks status --porcelain=v2 --untracked-files=all` is empty; ignored files may exist), and no merge, rebase, cherry-pick or revert is in progress (markers found via `rev-parse --git-path`: `MERGE_HEAD`, `rebase-merge/`, `rebase-apply/`, `CHERRY_PICK_HEAD`, `REVERT_HEAD`, `sequencer/`).
 
-A failed check is an invalid delivery, so a new Attempt follows ([F](F-agent-contract.md#delivery-files-and-a-structured-result)). Whether "no new commit" should instead be an Outcome of its own belongs to [Máquina de estados do loop Builder ↔ Reviewer](../../.scratch/surt-architecture/issues/10-loop-builder-reviewer.md).
+A failed check is an invalid delivery, so a new Attempt follows ([F](F-agent-contract.md#delivery-files-and-a-structured-result)). There is no "no changes" Outcome: a Builder that finds nothing to change makes an empty commit explaining why, which the Reviewer judges ([G. State Machines](G-state-machines.md#a-builder-with-nothing-to-change)).
 
 A Builder may make several commits; the review covers the whole range from the Task's start to `<sha>`.
 
@@ -192,7 +192,7 @@ Surt-Reviewed-Commit: c9d4e1f…
 
 - `conflict` ([schema](schemas/conflict.schema.json)) carries `kind`, `integration_tip` (`T`), `reviewed_commit` (`R`), and either the conflicting `paths` or the failing `checks`.
 - The next Iteration's Builder reads it as the optional Input `conflict`. Its instructions say: merge `integration_tip` into the Task Branch with `git merge`, resolve, make the Checks pass and commit. Merging rather than rebasing keeps the earlier approved commit in history, so it can be compared with the new one. The delivery check enforces that the new commit descends from `integration_tip`.
-- The new commit goes through `check` and a **full review again**. It is a SHA nobody reviewed. Whether that review may focus on the resolution delta belongs to section G.
+- The new commit goes through `check` and review again. It is a SHA nobody reviewed, and the verdict covers all of it. The Reviewer also reads `conflict`, and its instructions focus it on the delta since the previously approved commit ([G. State Machines](G-state-machines.md#what-the-reviewer-reads-after-the-first-iteration)).
 - Inputs resolve to the latest Revision by name, so a later Iteration can still see an old `conflict` or `feedback`. The Context Assembler labels every Input with the Iteration and step that produced it and states why the current Iteration started ([F](F-agent-contract.md#instructions-and-assembled-context)).
 
 ### Ownership of the Integration Branch
@@ -260,7 +260,7 @@ Surt never writes the repository's `.git/config` or the user's global Git config
 
 ## Decided elsewhere
 
-- Reaction to a Builder delivering no new commit, iteration limits, the scope of a re-review after a conflict, and what a blocked child means for its dependents: section G ([Máquina de estados do loop Builder ↔ Reviewer](../../.scratch/surt-architecture/issues/10-loop-builder-reviewer.md)).
+- Reaction to a Builder delivering no new commit, iteration limits, the scope of a re-review after a conflict, and what a blocked child means for its dependents: [G. State Machines](G-state-machines.md).
 - Reconciling each partial state of these Operations (branch without worktree, `locked initializing` worktree, ref moved outside Surt): section I ([Estratégia de recuperação e reconciliação](../../.scratch/surt-architecture/issues/12-recuperacao-e-reconciliacao.md)).
 - What happens to worktrees and branches of terminal runs: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
 - `--base`, a per-run override of `merge_into_base`, and the exact output of refusals: section J ([Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md)).

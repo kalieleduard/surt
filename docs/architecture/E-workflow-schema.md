@@ -84,7 +84,7 @@ needs = ["setup"]
 - Each Iteration creates **new Step Runs** for every step of the body. Finished Step Runs are never reopened.
 - When every Step Run of the current Iteration is finished, the engine checks `until`. If the step ended with that Outcome, the Loop is `done`. Otherwise (another Outcome, or SKIPPED) a new Iteration starts.
 - Artifacts produced in one Iteration are visible to the next one by name. That is how the Builder reads the Reviewer's `feedback`, and how the Spec Agent reads its previous `spec` plus `spec-rejection-reason`.
-- The TOML declares **no iteration limit**. Whether a limit exists, and where it is configured, is decided in section G.
+- The TOML declares **no iteration limit**. The limit is project configuration (`max_iterations`, default 5), applies only to Loops whose body has no `approval` step, and makes the Loop `blocked` when reached ([G. State Machines](G-state-machines.md#iterations)).
 
 ## Per-Item Steps
 
@@ -112,7 +112,7 @@ needs = ["prepare"]
   ✖ plan-tasks attempt 1: invalid item list — cycle B → C → B
   ↻ plan-tasks attempt 2
   ```
-- One Child Workflow Run of `workflow` starts per item, as soon as all the items it `needs` have finished. Ties follow list order. The Step Run finishes when every child is terminal. What a blocked or cancelled child means for its dependents and for the step is decided in section G.
+- One Child Workflow Run of `workflow` starts per item, as soon as all the items it `needs` have finished. Ties follow list order. The Step Run finishes when every child is terminal. Items that need a blocked child wait for it; children are never cancelled one by one, so the step is `done` only when every child succeeded ([G. State Machines](G-state-machines.md#per-item-steps-and-blocked-children)).
 - **Downward visibility:** a child reads its own artifacts, its `item` with that item's named files, and the parent artifacts listed in `pass`, read-only, by name. It does not receive other items' files. The Per-Item Step pins one Item List Revision on expansion; later Attempts do not reread mutable source files. Preparing local file bindings creates no new Revision. Static validation checks that every required input of the child workflow's agents is produced inside the child, is `item`, or is in the parent's `pass`.
 - **No upward visibility:** the parent does not read children's artifacts. Their work reaches the parent through the Integration Branch, which the `snapshot` Operation reads from Git ([A. Git Integration](A-git-integration.md#snapshot-shipper-and-delivery)).
 - Item keys must match `^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$`, be unique case-insensitively and not be a Windows reserved device name; item file path components follow matching rules. These checks are part of Item List validation, so they apply to every workflow ([A. Git Integration](A-git-integration.md#item-keys-and-item-file-paths)).
@@ -122,7 +122,7 @@ needs = ["prepare"]
 - A root Workflow Run freezes, at creation, the **closure** of its effective definitions: its own and every Workflow Definition reachable through `per_item` steps. Its Child Workflow Runs use the frozen copy. Edits never reach a run that already exists.
 - A frozen definition is identified by the SHA-256 of its canonical form, shown short in `status`/`inspect` (`feature@3f9a2c · task-cycle@8b1d07`). There is no hand-maintained `version` field.
 - `schema` is the format version. A binary refuses a definition whose `schema` it does not know.
-- Agent contracts, instructions and effective profiles are also frozen at root run creation, after local overrides are applied; see [F. Agent Contract](F-agent-contract.md).
+- Agent contracts, instructions and each Agent's effective profile are also frozen at root run creation, after local overrides are applied; see [F. Agent Contract](F-agent-contract.md).
 
 ## Static validation
 
@@ -251,7 +251,7 @@ needs = ["build"]
 
 [steps.review]
 kind = "agent"
-agent = "reviewer"        # reads: item + its task Markdown file, spec, commit, check-report  writes: feedback
+agent = "reviewer"        # reads: item + its task Markdown file, spec, commit, check-report, feedback?, conflict?  writes: feedback
 needs = ["check"]
 when = { step = "check", outcome = "passed" }
 
@@ -294,15 +294,15 @@ How the Task Cycle behaves:
 
 - `check` = `failed` → `review` and `integrate` are SKIPPED → a new Iteration starts, and the Builder reads `check-report`.
 - `review` = `changes_requested` → `integrate` is SKIPPED → a new Iteration starts, and the Builder reads `feedback`.
-- `integrate` = `conflict` → a new Iteration starts. The Builder reads `conflict`, merges the Integration Branch tip into its Task Branch, and the new commit goes through `check` and `review` again ([A. Git Integration](A-git-integration.md#conflicts)). Whether that review may focus on the resolution delta is section G.
+- `integrate` = `conflict` → a new Iteration starts. The Builder reads `conflict`, merges the Integration Branch tip into its Task Branch, and the new commit goes through `check` and `review` again ([A. Git Integration](A-git-integration.md#conflicts)). The review covers the whole commit, focused on the resolution delta ([G](G-state-machines.md#what-the-reviewer-reads-after-the-first-iteration)).
 - `review` = `approved` and `integrate` = `merged` → the Loop is `done` and the Task is complete.
 
 Operations, Checks, the `check-report` and `conflict` artifacts, and the opt-in merge into the Base are specified in [A. Git Integration](A-git-integration.md).
 
 ## Decided elsewhere
 
-- Agent contract format (`outcomes`, `[inputs]`, `[outputs]`, profiles, freezing of agents): section F ([Contrato de agente](../../.scratch/surt-architecture/issues/07-contrato-de-agente.md)).
-- Iteration and Attempt limits, Task blocking, and what a blocked child means for its dependents: section G ([Máquina de estados do loop Builder ↔ Reviewer](../../.scratch/surt-architecture/issues/10-loop-builder-reviewer.md)).
+- Agent contract format (`outcomes`, `[inputs]`, `[outputs]`, `[profile]`, freezing of agents): section F ([Contrato de agente](../../.scratch/surt-architecture/issues/07-contrato-de-agente.md)).
+- Iteration and Attempt limits, Task blocking, and what a blocked child means for its dependents: [G. State Machines](G-state-machines.md).
 - Revalidation after an approved artifact is edited: [H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md).
 - Operation registry, Integration Branch, Checks, item key constraints: [A. Git Integration](A-git-integration.md) ([Modelo de integração Git](../../.scratch/surt-architecture/issues/09-modelo-de-integracao-git.md)).
 - What `on_success = "clean"` removes: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
