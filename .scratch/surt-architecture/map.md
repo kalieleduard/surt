@@ -40,18 +40,18 @@ O plano de engenharia completo do Surt — entregáveis A–L do brief (arquitet
 
 ## Not yet specified
 
-- **Integrações externas** (GitHub Issues/PRs, Linear, Jira): o [Schema SQLite](issues/11-schema-sqlite.md) decidiu **não** reservar coluna (`external_ref` entra por migration aditiva quando houver provider); o contrato de provider em si fica na névoa.
-- **Rate limits e custo de tokens** como entrada do limite de concorrência do Scheduler — o limite decidido é por projeto, então vários projetos na mesma máquina podem somar acima do rate limit da conta. A [recuperação](issues/12-recuperacao-e-reconciliacao.md) já pausa os lançamentos de **um** Driver numa Transient Failure; coordenar a pausa entre Drivers (outras Features, outros projetos) continua em aberto.
-
-- **Validação em Windows real**: reação do `claude.exe` a Ctrl+Break, `wait` do process-wrap no Windows, `core.longpaths` do Git for Windows (e a injeção via `GIT_CONFIG_*` no agente) — vira ticket quando houver máquina/CI Windows disponível (provável no roadmap/estratégia de testes).
+Nada na névoa: o que falta decidir para a v1 está nos tickets abertos — [Cleanup, `surt delete` e logs](issues/13-cleanup-e-ciclo-de-vida.md), [Workspace Rust e traits](issues/15-workspace-rust-e-traits.md), [Estratégia de testes](issues/16-estrategia-de-testes.md), [Fixture real do Claude Code](issues/19-fixture-stream-real-claude-code.md) e, fechando o mapa, [Roadmap e Milestone 1](issues/17-roadmap-e-milestone-1.md). Critério de corte: só entra o que muda a v1; caso de borda vai para "Out of scope".
 
 ## Out of scope
 
 - **Interface gráfica** — excluída pelo brief.
 - **Daemon/supervisor local e `--detach`** — avaliado depois; o modelo de processo só precisa não impedi-lo.
-- **Implementação de providers externos** (GitHub/Linear/Jira) — apenas espaço reservado no modelo.
+- **Integrações externas** (GitHub/Linear/Jira) — nem contrato de provider nem coluna reservada; `external_ref` entra por migration aditiva quando houver provider.
 - **Segundo runtime de IA real** (Codex, Gemini CLI etc.) — a trait é desenhada contra Claude Code + Fake Runtime.
 - **Override/customização de workflows embutidos e workflows próprios do projeto** — só `feature` e `task-cycle` embutidos no binário; caso de borda, o schema não impede ([Schema TOML de workflow](issues/06-schema-toml-de-workflow.md)).
 - **Implementação do Milestone 1** — é o handoff ao fim do mapa, não parte dele.
 - **Cancelar ou abandonar uma Task só, com entrega parcial** — no M1 filhos só terminam junto com o root, e o Shipper entrega só Features completas ([Máquina de estados do loop Builder ↔ Reviewer](issues/10-loop-builder-reviewer.md)).
+- **Coordenar pausa de rate limit entre Drivers** (outras Features, outros projetos na mesma máquina) — a v1 pausa só o Driver que bateu no limite.
+- **Redação de segredos e opt-in de logs completos** — a v1 só decide onde o log fica e quando sai ([13](issues/13-cleanup-e-ciclo-de-vida.md)).
+- **Validação em Windows real além da CI** (Ctrl+Break no `claude.exe`, `core.longpaths`, junctions) — Windows continua alvo; o que a matriz da CI não pegar vira bug, não ticket de planejamento.
 - **Infra cloud, microsserviços, message brokers.**

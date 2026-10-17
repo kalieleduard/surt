@@ -1,32 +1,29 @@
-# Segurança do cleanup e do ciclo de vida
+# Cleanup, `surt delete` e logs
 
 Map: [Surt — Arquitetura e plano de implementação](../map.md)
 Type: grilling
 Status: open
-Blocked by: 08, 12, 18, 20
+Blocked by: 08, 12, 18
 
 ## Question
 
-Como o cleanup remove exatamente o que deve — e nada mais — de forma idempotente, auditável e recuperável?
+Quando um run termina (ou o usuário apaga a Feature), o que o Surt remove, o que preserva, e em que ordem — de forma que rodar de novo depois de uma queda termine o serviço?
 
-Decidir: máquina de estados do cleanup (`on_success`, `on_delete`); que estados bloqueiam remoção; o que é removido (feature dir, inputs congelados, worktrees, branches de task?) e o que é preservado; proteção contra path traversal, symlinks/junctions (Windows), arquivos fora da raiz esperada; ordem de remoção e retomada após interrupção no meio; o que `surt workflow delete` faz no SQLite (soft delete?) e no disco; conteúdo sensível reproduzido em `stream.jsonl`/logs.
+Decidir, só para a v1:
+- **`on_success = "clean"`**: destino de cada coisa que um run deixa — Working Copy (`.surt/features/<subject>/`), `.surt/runtime/executions/<id>/`, worktrees das Tasks, Task Branches, Salvage Refs. A Integration Branch é o entregável e fica.
+- **Run `cancelled`**: mesmo destino de `succeeded` ou mantém tudo para inspeção?
+- **`surt delete <feature>`**: purge do Subject — ordem disco → Git → SQLite (o caminho da worktree vive em `run_branch.worktree_path`, então a linha sai por último) e o que acontece se cair no meio (rodar `delete` de novo termina).
+- **Logs** (`stream.jsonl`, `stderr.log` por Execution): ficam crus junto da Execution e saem no cleanup? Que metadados mínimos ficam no SQLite para `surt inspect` funcionar depois que o stream sumiu.
+
+Fora da v1 (não decidir aqui): redação de segredos nos logs, opt-in de logs completos, "arquivar sem apagar", limpeza de diretórios `.orphaned-*`, commits sem ref (o `git gc` resolve), proteção contra junctions/`\\?\` além do que `remove_dir_all` já dá.
 
 ## Context
 
-De [Contrato de agente](07-contrato-de-agente.md): manifesto e `.md` por Task formam uma única Revision aprovada. O cleanup deve preservar as garantias do armazenamento de Revisions, sem tratar vistas locais como a única cópia de documentos aprovados. A retenção/redação de streams e stderr é decidida em [Política de logs, retenção e redação](20-politica-de-logs-retencao-e-redacao.md) antes de este ticket fixar o que remove.
+- **Estados:** só `succeeded` e `cancelled` são terminais; run `blocked` é ativo e o cleanup não toca ([G. State Machines](../../../docs/architecture/G-state-machines.md)).
+- **Revisions ficam no SQLite** (blobs + Approvals) até um purge explícito; a Working Copy é só vista local e `surt show` lê Revisions depois que ela some ([H. Artifact Storage](../../../docs/architecture/H-artifact-storage.md)).
+- **Purge** = um `DELETE FROM subject` em transação (cascata) + GC de snapshots/blobs sem referência; não existe `deleted_at` ([ADR 0009](../../../docs/adr/0009-history-is-purged-not-soft-deleted.md), [D](../../../docs/architecture/D-database.md#deleting-history)).
+- **Git:** worktrees em `~/.surt/worktrees/<project-id>/<subject>/<key>/`, criadas com `--lock` (destravar antes de `remove`); remoção passa por `git.lock`; cleanup nunca mexe na Base nem na worktree do usuário ([A](../../../docs/architecture/A-git-integration.md), [I](../../../docs/architecture/I-recovery.md)).
+- **CLI:** `surt delete` confirma no TTY mostrando o impacto, `--yes` pula, sem TTY e sem `--yes` recusa com exit `3`; leitura nunca dispara cleanup; `surt logs` lê o stream do disco e, se ele não existe mais, aponta para `inspect` ([J](../../../docs/architecture/J-cli.md)).
+- **TOML:** o único controle por workflow é `[cleanup] on_success = "clean" | "keep"` (default `clean`).
 
-Surgiu de [Primitivas multiplataforma](18-primitivas-multiplataforma.md): `remove_dir_all` não segue links abaixo da raiz mas não é idempotente nem protege contra troca de ancestral pós-checagem; contenção de path precisa lidar com `\\?\`, case-insensitivity e junctions.
-
-De [Schema TOML de workflow](06-schema-toml-de-workflow.md): o único controle por workflow no TOML é `[cleanup] on_success = "clean" | "keep"` (default `clean`); este ticket decide o que "clean" remove e a política global/`on_delete`.
-
-De [Armazenamento de artefatos, congelamento e revalidação](08-armazenamento-congelamento-revalidacao.md): o cleanup de uma run terminal remove `.surt/features/<subject>/` (Working Copy) e `.surt/runtime/executions/<id>/`; Revisions, blobs e Approvals ficam no SQLite até um **purge** explícito, cuja política (quando, comando, confirmação) é decidida aqui. Ver [H. Artifact Storage](../../../docs/architecture/H-artifact-storage.md).
-
-De [Modelo de integração Git](09-modelo-de-integracao-git.md) ([A. Git Integration](../../../docs/architecture/A-git-integration.md)): o que um run terminal deixa no Git: Integration Branch `surt/<subject>[.N]` (o entregável, que não deve ser apagado em `on_success`), Task Branches `surt/task/<subject>[.N]/<key>` e worktrees em `~/.surt/worktrees/<project-id>/<subject>[.N]/<key>/` (caminho absoluto no SQLite), além de commits `M` sem ref de re-checks reprovados. Decidir o destino de cada um em `on_success`, `on_delete` e cancelado; remover worktree passa por `git.lock`. Se o `surt.db` for apagado, o project id muda e as worktrees antigas ficam órfãs.
-
-De [Máquina de estados do loop Builder ↔ Reviewer](10-loop-builder-reviewer.md) ([G. State Machines](../../../docs/architecture/G-state-machines.md)): não existe run `failed`: um run `blocked` continua `active` indefinidamente e o cleanup deve tratá-lo como ativo; só `succeeded` e `cancelled` são terminais. Filhos não são cancelados individualmente no M1.
-
-De [Schema SQLite](11-schema-sqlite.md) ([D. Database Schema](../../../docs/architecture/D-database.md)#deleting-history): não existe `deleted_at`. Purge = um `DELETE FROM subject` em transação (cascata por runs, Step Runs, Executions, Revisions, Approvals, `run_branch` e `event`) seguido de GC de snapshots sem `run_snapshot` e blobs sem referência ([ADR 0009](../../../docs/adr/0009-history-is-purged-not-soft-deleted.md)). Decidir aqui quando/como o purge é oferecido e confirmado, e a ordem disco → Git → SQLite (o caminho das worktrees está em `run_branch.worktree_path`; apagar a linha antes de remover a worktree perde esse caminho). "Arquivar sem apagar", se quiser, é coluna nova em `subject`.
-
-De [Estratégia de recuperação e reconciliação](12-recuperacao-e-reconciliacao.md) ([I. Recovery and Reconciliation](../../../docs/architecture/I-recovery.md)): o cleanup precisa remover o que a recuperação cria. **Salvage Refs** `refs/surt/salvage/<execution-id>` (uma por preparo de worktree com sobra, vivem até o cleanup do run), worktrees criadas com `git worktree add --lock --reason "surt <run-id>"` (destravar antes do `remove`) e diretórios `<worktree_path>.orphaned-<timestamp>` deixados quando o metadado `.git/worktrees/<id>` sumiu. Uma linha `ref_move` só sobrevive a um run terminal se o cancel não conseguiu ler o ref; o cleanup não deve mexer na Base. A Task Branch pertence ao Surt enquanto o run está ativo (ADR 0010); decidir aqui se ela continua existindo depois do run.
-
-De [Superfície e UX da CLI](14-superficie-e-ux-da-cli.md) ([J. CLI Surface](../../../docs/architecture/J-cli.md)): o nome é `surt delete <feature>` (o `workflow delete` do brief). Convenções já fixadas que ele deve seguir: confirmação no TTY mostrando o impacto, `--yes` para pular, sem TTY e sem `--yes` recusa com exit `3`; referência de feature pelas regras da seção J; leitura nunca escreve, então nenhum comando de leitura dispara cleanup. `surt cancel` já avisa que as tasks mergeadas ficam na Integration Branch; o que o cleanup faz com ela depois é decidido aqui. `surt show` é o caminho para ler Revisions depois que a Working Copy some.
+Absorveu o antigo ticket 20 (Política de logs, retenção e redação): para a v1 basta decidir onde o log fica e quando sai.

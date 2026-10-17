@@ -3,14 +3,16 @@
 Map: [Surt — Arquitetura e plano de implementação](../map.md)
 Type: grilling
 Status: open
-Blocked by: 10, 13, 14, 15, 16
+Blocked by: 13, 15, 16
 
 ## Question
 
-Qual é a sequência de milestones que respeita as dependências técnicas, e o que exatamente é o Milestone 1?
+Qual é o menor Milestone 1 que já entrega uma Feature de ponta a ponta, e o que vem depois?
 
-Decidir: ordem final dos milestones (ajustando a lista do brief), e para cada um: objetivo, escopo, componentes, entregáveis, testes, critérios de aceitação; para o M1: arquivos, módulos Rust, testes e critérios de conclusão. Consolidar ADRs pendentes (seção L) com trade-offs, riscos e funcionalidades adiadas.
+Decidir:
+- **M1:** objetivo, módulos Rust, arquivos, testes e critério de pronto. Critério natural: o E2E do brief passa com o Fake Runtime e uma Feature pequena passa com o Claude Code de verdade.
+- **Corte de comandos:** dos 14 de [J](../../../docs/architecture/J-cli.md), quais entram no M1. Candidatos a sair: `logs`, `inspect <execution-id>`, `--json`, rodapé ao vivo, `--new-run`, `stop` — sem quebrar exit codes e mensagens.
+- **Corte de mecanismos já decididos:** o que foi desenhado nos tickets resolvidos mas pode ficar para depois sem mudar o schema (ex.: pausa por Transient Failure, `merge_into_base`, Salvage Refs, `restore`). Para cada um, confirmar que adiar não exige migration destrutiva.
+- **Milestones seguintes:** ordem e objetivo em uma linha cada.
 
-Saída: seções K e L. Fecha o mapa.
-
-De [Superfície e UX da CLI](14-superficie-e-ux-da-cli.md) ([J. CLI Surface](../../../docs/architecture/J-cli.md)): a superfície completa do M1 tem 14 comandos; decidir aqui quais entram no M1 de fato e quais (`logs`, `inspect <execution-id>`, `--json`, rodapé ao vivo, `--new-run`) podem ficar para um milestone seguinte sem quebrar o contrato de exit codes e mensagens.
+Saída: seções K e L (ADRs pendentes consolidados). Fecha o mapa.

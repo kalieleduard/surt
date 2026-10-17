@@ -6,16 +6,14 @@ Status: open
 
 ## Question
 
-Quais são os formatos reais dos eventos `stream-json` de um run **bem-sucedido** do Claude Code (eventos `system/init`, `assistant`, `user`, `result` com `structured_output`), e de falhas típicas (modelo inválido, `--max-turns` estourado, SIGTERM)?
+Como são, de verdade, os eventos `stream-json` de um run bem-sucedido do Claude Code e das falhas que o runtime precisa classificar?
 
-A pesquisa de [Capacidades headless do Claude Code CLI](02-claude-code-cli-headless.md) não conseguiu observar um run real (OAuth expirado). Checklist (HITL — exige login válido do usuário ou `ANTHROPIC_API_KEY`):
+A pesquisa de [Capacidades headless do Claude Code CLI](02-claude-code-cli-headless.md) não observou um run real (OAuth expirado). Checklist (HITL — exige login válido):
 1. `claude auth status` / re-login.
-2. Rodar em diretório temporário: `claude -p "..." --output-format stream-json --verbose --permission-mode default --session-id <uuid> --no-session-persistence --json-schema '<schema simples>'` e salvar o stdout.
-3. Repetir com modelo inválido, com `--max-turns 1` numa tarefa que precise de mais turnos, e enviando SIGTERM no meio.
+2. Em diretório temporário, rodar com a combinação de flags de [F. Agent Contract](../../../docs/architecture/F-agent-contract.md#claude-code-launcher-and-compatibility) (`dontAsk`, `--session-id` novo, `--json-schema` do envelope `outcome`/`outputs`) e salvar o stdout.
+3. Repetir com: modelo inválido, `--max-turns 1` numa tarefa que precise de mais, SIGTERM no meio.
 4. Anotar exit codes e salvar os streams em `docs/research/fixtures/claude-code/` na branch `research/claude-code-cli-headless`.
 
-Resultado alimenta o parser do runtime e o Fake Agent Runtime.
+Conferir no stream de sucesso: `system/init` (modelo, permission mode, tools), `result` com `structured_output`, e se há eventos depois do `result`.
 
-Contrato a validar após [Contrato de agente](07-contrato-de-agente.md): usar a combinação real de flags/ambiente de [F. Agent Contract](../../../docs/architecture/F-agent-contract.md#claude-code-launcher-and-compatibility), baseline 2.1.301 ou posterior compatível, login de assinatura por padrão, `dontAsk`, sessão UUID nova e envelope `outcome`/`outputs` com arquivo real. Incluir verificação de auth/isolamento efetivos, modelo/permission mode/tools em `system/init`, eventos após `result`, flag documentada ausente do help e entrega com arquivos referenciados por Item List. Não considerar a combinação verificada só porque flags individuais existem. A captura continua sendo este ticket próprio; não foi executada durante o planejamento do contrato.
-
-De [Estratégia de recuperação e reconciliação](12-recuperacao-e-reconciliacao.md) ([I. Recovery and Reconciliation](../../../docs/architecture/I-recovery.md#transient-failures-network-and-rate-limits)): capturar também, se possível, um stream que bata em rate limit/overload e um sem rede, para fixar os valores reais de `assistant.error`, `terminal_reason`, `system/api_retry.error` e o formato do horário de reset em `rate_limit_event`. A classificação `transient` / `not_retryable` / `retryable` da seção I depende desses valores; categoria desconhecida cai em `retryable`.
+Resultado alimenta o parser do Claude Code Runtime e os roteiros do Fake Runtime. Rate limit e queda de rede ficam de fora: categoria desconhecida já cai em `retryable` ([I](../../../docs/architecture/I-recovery.md#transient-failures-network-and-rate-limits)).

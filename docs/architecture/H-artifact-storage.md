@@ -204,6 +204,6 @@ Versioning `features/` would create a second source of truth. Task branches woul
 - Item key and path naming rules, worktree layout: [A. Git Integration](A-git-integration.md) ([Modelo de integração Git](../../.scratch/surt-architecture/issues/09-modelo-de-integracao-git.md)).
 - What cleanup removes, when, and purge of old runs: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
 - Exact output and exit codes of `show`, `restore`, `approve --rev` and the refusals: [J. CLI Surface](J-cli.md).
-- Retention and redaction of logs and streams: [Política de logs, retenção e redação](../../.scratch/surt-architecture/issues/20-politica-de-logs-retencao-e-redacao.md).
+- Where logs and streams live and when they are removed: [Cleanup, `surt delete` e logs](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md).
 
 Decision record: [ADR 0005 — Edits to a pinned Revision are refused, not recorded](../adr/0005-edits-to-pinned-revisions-are-refused.md).

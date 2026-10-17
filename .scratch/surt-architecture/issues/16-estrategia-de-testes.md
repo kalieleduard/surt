@@ -3,24 +3,25 @@
 Map: [Surt — Arquitetura e plano de implementação](../map.md)
 Type: grilling
 Status: open
-Blocked by: 07, 10, 12, 19
+Blocked by: 07, 10, 12
 
 ## Question
 
-Como se testa o Surt sem gastar tokens, incluindo crashes em pontos críticos?
+Como se testa o Surt sem gastar tokens, com confiança suficiente para entregar o M1?
 
-Decidir: desenho do Fake Agent Runtime (roteiros por agente, outputs determinísticos, falhas injetáveis, latência); como simular crash entre intenção e efeito (fault points? matar o processo de verdade em teste de integração?); repositório Git temporário por teste; testes de SQLite (migrations, constraints); o E2E do brief (feature → spec → 2+ tasks → aprovação → builders → reprovação → novo builder → aprovação → shipper → cleanup → verificação do estado) e onde ele roda; testes multiplataforma (CI em macOS/Linux/Windows).
+Decidir, só para a v1:
+- **Fake Agent Runtime:** como se escreve o roteiro de cada agente (entrega válida, entrega inválida, review reprovado, falha) e como o teste escolhe o roteiro.
+- **Queda entre intenção e efeito:** um mecanismo só — fault points no código ou matar o processo de verdade — e quais checkpoints de [I](../../../docs/architecture/I-recovery.md) são cobertos no M1.
+- **Git:** repositório temporário real por teste; cenários mínimos: merge limpo, conflito, Checks falhando.
+- **E2E do brief:** feature → spec → aprovação → 2+ tasks → builders → review reprovado → novo builder → aprovação → shipper → cleanup → verificar estado final. Onde roda e quanto tempo pode levar.
+- **CI:** matriz macOS/Linux/Windows — o que roda em cada um.
+
+Fora da v1 (não decidir aqui): teste de toda linha das tabelas de recuperação, Ctrl-C duplo, migrations concorrentes, matriz de versões do Git, símbolos ASCII sem UTF-8, snapshot de todas as mensagens, virada de data no slug.
 
 ## Context
 
-De [Modelo de processo e controle de concorrência](05-modelo-de-processo-e-concorrencia.md): testar entre processos reais — dois Drivers no mesmo run (o segundo recusa), `kill -9` liberando run lock e vagas, órfão Unix sobrevivendo ao Driver e sendo morto no próximo `start`, Ctrl-C duplo, migrations concorrentes sob `db.lock`, e a escalada SIGTERM/`CTRL_BREAK_EVENT` → kill no Windows.
-
-De [Modelo de integração Git](09-modelo-de-integracao-git.md) ([A. Git Integration](../../../docs/architecture/A-git-integration.md)): testes de integração com repositórios Git reais e descartáveis: conflito textual, merge limpo que quebra os Checks (re-check), determinismo do SHA de `commit-tree` entre Attempts, CAS com ponta movida, branch checada em outra worktree, ff-only com Base movida, worktree suja ou limpa; matriz de versão mínima do Git (2.38) e Windows (longpaths, nomes reservados, `GIT_CONFIG_*`). Os Checks reais são processos filhos com timeout, então o teste de kill de árvore também cobre `checks.run`.
-
-De [Máquina de estados do loop Builder ↔ Reviewer](10-loop-builder-reviewer.md) ([G. State Machines](../../../docs/architecture/G-state-machines.md)): testar com o Fake Runtime: 3 entregas inválidas → `blocked`, reexecução dá mais 3 Attempts (contador continua em 4); Ctrl-C não consome Attempt; falha não-retentável bloqueia na 1ª; 5 Iterations sem merge → Loop `blocked`, sem limite nos Loops com gate; Task bloqueada deixa dependentes `pending` e independentes seguem; commit vazio justificado passa por check/review/integrate; Reviewer da 2ª Iteration recebe `feedback` e, após conflito, `conflict`.
-
-De [Schema SQLite](11-schema-sqlite.md) ([D. Database Schema](../../../docs/architecture/D-database.md)): testes de schema contra arquivo real (não in-memory): cada CHECK/índice único da migration recusando o caso inválido (≤1 root ativo por Subject, ≤1 Execution viva por Step Run, uma decisão por Revision, `rel_path` com `..`, `UPDATE` em `event`), purge de um Subject seguido de `PRAGMA foreign_key_check`, toda query `query_as` exercitada, checksum de migration estável com checkout CRLF (`.gitattributes`), e binário velho recusando DB novo com a mensagem amigável.
-
-De [Estratégia de recuperação e reconciliação](12-recuperacao-e-reconciliacao.md) ([I. Recovery and Reconciliation](../../../docs/architecture/I-recovery.md)): testar recuperação por injeção de queda em cada checkpoint da tabela "Transactional checkpoints" (antes/depois de cada Intention, entre efeito e confirmação), afirmando que o próximo comando chega ao mesmo estado final que um run sem queda; cada linha das tabelas "Ref moves", "Worktree states" e "Git lock files" com um repositório Git real; órfão vivo (processo do Fake Runtime que ignora o Driver) parado pela identidade; Working Copy com pending nos três casos; Transient Failure não consumindo Attempt e pausando lançamentos (relógio injetável para o backoff).
-
-De [Superfície e UX da CLI](14-superficie-e-ux-da-cli.md) ([J. CLI Surface](../../../docs/architecture/J-cli.md)): testes de CLI ponta a ponta com o Fake Runtime cobrindo cada exit code (0, 2, 3, 4, 5, 130) e a tabela de recusas; `surt stop` de outro processo vira Interruption e pedido velho é limpo pelo próximo Driver; resolução de referência (completo, slug, prefixo, ambiguidade); proteção de slug ativo em `surt feature` (incluindo virada de data, com relógio injetável); comandos de leitura não alteram nada (hash do `surt.db` e da Working Copy antes/depois); sem TTY nunca pergunta; `--json` validado contra schema; símbolos ASCII quando não UTF-8; snapshot do texto das mensagens.
+- **Loop Builder ↔ Reviewer:** comportamento principal a provar com o Fake — 3 entregas inválidas → `blocked`, rodar de novo renova o orçamento; review reprovado abre nova Iteration com `feedback`; Task bloqueada segura só seus dependentes ([G](../../../docs/architecture/G-state-machines.md)).
+- **Concorrência:** segundo Driver no mesmo run recusa; `kill -9` libera locks ([A-process-model](../../../docs/architecture/A-process-model.md)).
+- **SQLite:** testes contra arquivo real (não in-memory); os CHECKs/índices únicos que sustentam invariantes (≤1 root ativo por Subject, ≤1 Execution viva por Step Run) ([D](../../../docs/architecture/D-database.md)).
+- **CLI:** cada exit code (0, 2, 3, 4, 5, 130) e leitura não altera nada ([J](../../../docs/architecture/J-cli.md)).
+- **Fixture real:** quando [19](19-fixture-stream-real-claude-code.md) sair, o stream capturado vira teste do parser do Claude Code Runtime; não bloqueia o desenho do Fake.

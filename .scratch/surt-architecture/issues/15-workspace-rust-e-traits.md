@@ -7,22 +7,22 @@ Blocked by: 05, 06, 07, 11
 
 ## Question
 
-Como o código se organiza em crates e módulos, e quais são as interfaces (traits) entre os componentes?
+Como o código se organiza em crates e módulos, e quais traits existem entre eles?
 
-Decidir: quantos crates (ex.: `surt-core` + `surt-cli`?) e por quê; módulos do núcleo (engine, scheduler, runtime, context, artifacts, store, recovery, lifecycle, git); traits e suas assinaturas (`AgentRuntime`, `StateStore`, `GitOps`, `Clock`, etc.) — só onde há mais de uma implementação real ou de teste; fronteiras de erro (`thiserror` × `anyhow`); dependências justificadas uma a uma; onde ficam workflows/agentes embutidos (`include_str!`).
+Decidir, só para a v1:
+- **Crates:** um só ou `surt-core` + `surt-cli`? Justificar pela fronteira real (a CLI é a única que conhece fases do workflow `feature`).
+- **Módulos do núcleo:** engine, store, runtime, git/operations, artifacts, recovery, cleanup — o que cada um esconde.
+- **Traits** só onde há duas implementações de verdade: `AgentRuntime` (Claude Code + Fake), e talvez `Clock`. `StateStore`/`GitOps` só se o teste realmente precisar trocar.
+- **Erros:** `thiserror` no núcleo × `anyhow` na CLI, e como o erro carrega a classe da falha (`transient` / `not_retryable` / `retryable`) e vira exit code.
+- **Dependências:** lista curta do que entra no M1.
+- **Embutidos:** workflows `feature`/`task-cycle` e agentes via `include_str!`.
 
-Saída: seções A (com diagrama Mermaid) e B. Usar `/codebase-design`.
+Saída: seções A (diagrama Mermaid) e B. Usar `/codebase-design`.
 
 ## Context
 
-De [Contrato de agente](07-contrato-de-agente.md): [F. Agent Contract](../../../docs/architecture/F-agent-contract.md#agent-runtime-and-fake-runtime) fixa as responsabilidades e um esboço de `AgentRuntime::execute(request, events, stop)`, sem corpos. Este ticket decide representação/dispatch, tipos concretos, fronteiras de erro e localização nos crates. Fake Runtime usa o mesmo caminho de validação e não altera SQLite diretamente. Item files são genéricos no núcleo; schemas e consistência de review são do workflow embutido.
-
-De [Schema TOML de workflow](06-schema-toml-de-workflow.md): o parser/validador de definições é um módulo do núcleo — cinco `kind` (`agent`, `approval`, `operation`, `loop`, `per_item`), `deny_unknown_fields`, `toml` com `preserve_order`, 8 checagens estáticas que precisam carregar `agent.toml` e o registro de Operations. O engine resolve inputs por nome, avalia `when`/`until` por igualdade de Outcome e expande Item Lists.
-
-De [Modelo de integração Git](09-modelo-de-integracao-git.md) ([A. Git Integration](../../../docs/architecture/A-git-integration.md)): módulo/crate de Git que só fala com a CLI `git` (argv, sem shell, sem libgit2/gix) e expõe as seis Operations do registro (`git.create_integration_branch`, `git.create_task_worktree`, `checks.run`, `git.integrate`, `git.snapshot_integration`, `git.merge_into_base`) por trás de uma interface de registro de Operations do engine (id → Inputs, Outcomes declarados, artifacts produzidos). A validação de evidência do `commit` do Builder é uma consistency check registrada pelo workflow embutido, não um branch do engine por id de agente. O engine ganha "initial artifacts" fornecidos pelo comando criador (generalização do `request`). As regras de nome de key/path são validação genérica de Item List.
-
-De [Máquina de estados do loop Builder ↔ Reviewer](10-loop-builder-reviewer.md) ([G. State Machines](../../../docs/architecture/G-state-machines.md)): um único Agent Profile por Agent (`[profile]` no `agent.toml`, sem seleção nem escalada). O Agent Runtime e as Operations precisam classificar uma falha como retentável ou não (não-retentável bloqueia na 1ª); o tipo de erro deve carregar essa classe. A derivação do estado exibido do run (a partir dos Step Runs) é lógica do núcleo, não da CLI.
-
-De [Schema SQLite](11-schema-sqlite.md) ([D. Database Schema](../../../docs/architecture/D-database.md)): o módulo de store usa `sqlx::query_as` + `FromRow` em runtime (sem `query!`/`.sqlx`), migrations embutidas com `sqlx::migrate!` rodando sob `db.lock`, escrita sempre `BEGIN IMMEDIATE` com retry casando o código `SQLITE_BUSY`. Toda mudança de estado grava seu `event` na mesma transação. Pertença de snapshot ao fecho do root (`run_snapshot`) e validação de `step_key` contra a definição congelada são garantias do engine, não do schema. A migration de referência é [`0001_initial.sql`](../../../docs/architecture/migrations/0001_initial.sql), que vai para `migrations/` do crate sem mudança.
-
-De [Superfície e UX da CLI](14-superficie-e-ux-da-cli.md) ([J. CLI Surface](../../../docs/architecture/J-cli.md)): a camada de CLI do workflow `feature` é a única que conhece fases: precondições de `plan`/`start`, a tabela gate → próximo comando e a proteção de slug ativo de `surt feature`; o engine e o schema TOML não carregam texto de UX. Comandos de leitura usam só leitura do store (sem lock, sem recuperação, sem gravar edição da Working Copy). `--json` de `status`/`inspect`/`show` é contrato versionado (`"schema": 1`). Pedido de stop entra ao lado do de cancel no store. Exit codes fixos (0/1/2/3/4/5/130) mapeados a partir do tipo de erro/resultado do `drive`.
+- **AgentRuntime:** esboço `execute(request, events, stop)` em [F](../../../docs/architecture/F-agent-contract.md#agent-runtime-and-fake-runtime); o Fake Runtime passa pela mesma validação e não escreve no SQLite.
+- **Workflow:** parser/validador é do núcleo — cinco `kind`, `deny_unknown_fields`, checagens estáticas que leem `agent.toml` e o registro de Operations ([E](../../../docs/architecture/E-workflow-schema.md)).
+- **Operations:** registro id → Inputs, Outcomes, artifacts; as seis do Git falam só com a CLI `git` (argv, sem shell) ([A](../../../docs/architecture/A-git-integration.md)).
+- **Store:** `sqlx::query_as` + `FromRow` em runtime, `sqlx::migrate!` sob `db.lock`, escrita sempre `BEGIN IMMEDIATE`, todo estado grava seu `event` na mesma transação; migration de referência [`0001_initial.sql`](../../../docs/architecture/migrations/0001_initial.sql) ([D](../../../docs/architecture/D-database.md)).
+- **CLI:** só ela conhece fases, precondições de `plan`/`start` e a tabela gate → próximo comando; leitura não pega lock nem reconcilia; exit codes 0/1/2/3/4/5/130 ([J](../../../docs/architecture/J-cli.md)).

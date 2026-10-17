@@ -267,7 +267,7 @@ $ surt show add-login spec --rev 1 > old-spec.md
 
 ### `surt logs`
 
-`logs` renders the agents' streams from disk; there is no daemon to ask. What is kept, for how long and with which redaction is [Política de logs, retenção e redação](../../.scratch/surt-architecture/issues/20-politica-de-logs-retencao-e-redacao.md). When a stream no longer exists, `logs` says so and points at `inspect`.
+`logs` renders the agents' streams from disk; there is no daemon to ask. Where streams live and when they are removed is decided with cleanup ([Cleanup, `surt delete` e logs](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)). When a stream no longer exists, `logs` says so and points at `inspect`.
 
 ```
 $ surt logs add-login -f            # every agent running in this Feature, multiplexed
@@ -417,4 +417,4 @@ stop_grace_period = "10s"   # graceful stop before a forced kill
 - Recovery lines and refusals at start: [I. Recovery and Reconciliation](I-recovery.md).
 - The stop and cancel request columns: [D. Database Schema](D-database.md#workflow-runs).
 - What `delete` and cleanup remove: [Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md).
-- Which streams `logs` can read: [Política de logs, retenção e redação](../../.scratch/surt-architecture/issues/20-politica-de-logs-retencao-e-redacao.md).
+- Which streams `logs` can read: [Cleanup, `surt delete` e logs](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md).
