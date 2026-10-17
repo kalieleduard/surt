@@ -1,0 +1,420 @@
+# J. CLI Surface
+
+The commands of Milestone 1, how they refer to things, what they print, their exit codes and the configuration they read. The engine is generic; these commands are the built-in feature workflow's front end and are the only layer that knows its phases. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md).
+
+## Commands
+
+```
+surt init
+surt feature "<description>" [--name <slug>] [--base <ref>] [--merge | --no-merge] [--new]
+surt feature <feature> [--new-run]
+surt plan    <feature>
+surt start   <feature>
+surt approve <feature> [--rev N]
+surt reject  <feature> -m "<reason>" [--rev N]
+surt stop    <feature>
+surt cancel  <feature> [--yes]
+surt status  [<feature>] [--all] [--run N] [--json]
+surt inspect <feature> [<task>] [--run N] [--json]
+surt inspect <execution-id> [--json]
+surt logs    <feature> [<task>] [--run N] [-f] [--raw]
+surt logs    <execution-id> [-f] [--raw]
+surt show    <feature> [<artifact>] [--rev N] [--task <key> [--iter N]] [--file <path>] [--run N] [--json]
+surt restore <feature> <artifact> [--yes]
+surt delete  <feature>
+```
+
+| Command | Drives? | What it does |
+|---|---|---|
+| `init` | no | Creates `.surt/` in the project ([below](#surt-init-and-finding-the-project)). |
+| `feature "<description>"` | yes | Creates a Feature and its first run, drives to the spec Approval Gate. |
+| `feature <feature>` | yes | Resumes the spec phase of the active run; with `--new-run`, starts a new run of the Subject. |
+| `plan` | yes | Drives the Task Agent to the task-manifest Approval Gate. Requires the spec approved. |
+| `start` | yes | Drives implementation to the Shipper's delivery and the opt-in fast-forward. Requires the manifest approved. |
+| `approve` / `reject` | **no** | Record an Approval on the waiting gate's latest Revision and return. |
+| `stop` | no | Asks the live Driver to stop (an Interruption). The run stays resumable. |
+| `cancel` | no | Asks the live Driver to cancel, or cancels directly when no Driver is live. |
+| `status`, `inspect`, `show`, `logs` | no | Read only ([Reading never writes](#reading-never-writes)). |
+| `restore` | no | Rewrites a Working Copy from the latest Revision, discarding an unrecorded edit. |
+| `delete` | no | Name reserved. What it removes and how it confirms: [Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md). |
+
+The brief's `resume <workflow>` is "run the phase command again" ([A. Process Model](A-process-model.md#commands-of-the-built-in-feature-workflow)). Its `stop <workflow>` is `surt stop`. Its `workflow delete <id>` is `surt delete`.
+
+## Referring to features, runs, tasks and Executions
+
+A `<feature>` argument is resolved in this order:
+
+1. the exact full name (`20261017-add-login`);
+2. the slug without its date (`add-login`), if exactly one Feature has it;
+3. a prefix of the full name (`20261017-add`), if exactly one Feature matches.
+
+Ambiguity refuses and lists the candidates. No command ever infers a "current" Feature from an omitted argument.
+
+```
+$ surt approve add-login
+✖ "add-login" matches 2 features:
+    20261015-add-login        AWAITING APPROVAL (spec rev 1)
+    20261017-add-login        RUNNING
+  use the full name
+```
+
+- **Run.** Commands that write always act on the Subject's active run. Read commands use the active run, or the latest one when none is active. `--run N` selects run `N` (`workflow_run.ordinal`).
+- **Task.** By item key (`B`). A task argument selects that item's Child Workflow Run.
+- **Execution.** `inspect` and `logs` also accept an Execution id, or an unambiguous prefix of at least 8 characters, which is how ids appear in Salvage Refs and Execution directories.
+- **Surt's own output** always prints full Feature names, so every suggested command can be copied as is.
+
+`surt feature` is the exception to rule 2 and 3, because its argument may also be a description (see [below](#surt-feature-create-resume-or-start-again)).
+
+## `surt init` and finding the project
+
+```
+$ surt init
+✔ initialized surt in /Users/you/app/.surt
+  .surt/.gitignore    (only config.toml and agents/ are versioned)
+  .surt/config.toml   (defaults, commented)
+  .surt/surt.db
+  git 2.47.0 ✔  identity you@example.com ✔
+  next: surt feature "<what you want to build>"
+```
+
+- **Explicit.** Every other command refuses outside an initialized project (exit `3`); none creates `.surt/` on its own:
+  ```
+  ✖ not a surt project: no .surt/ in /Users/you/app
+    run: surt init
+  ```
+- **Project root** is the toplevel of the repository's main worktree. `init` from a subdirectory creates `.surt/` at the toplevel and says so. Other commands walk up from the current directory to the toplevel. A command run inside a Surt-managed worktree (`~/.surt/worktrees/…`) refuses.
+- **Preflight.** `init` runs the same Git preflight as the driving commands (Git ≥ 2.38, a user identity; [A. Git Integration](A-git-integration.md)) and refuses if it fails.
+- **Idempotent.** Running it again reports what exists. It never overwrites `config.toml` or `agents/`, and it rewrites `.surt/.gitignore` only if it is missing.
+- **Built-in agents are not materialized.** Their defaults live in the binary. A local override under `.surt/agents/<id>/` is written by hand, field by field ([F. Agent Contract](F-agent-contract.md#built-in-defaults-and-local-overrides)). There is no `surt agent export` in Milestone 1.
+
+## `surt feature`: create, resume or start again
+
+1. **Reference or description.** The argument is a reference only when it is **exactly** the full name of an existing Feature. Anything else is a description, from which the name is derived ([H. Subject naming](H-artifact-storage.md#subject-naming)).
+2. **Re-running a description resumes nothing and duplicates nothing.** If the description's slug equals the slug of a Feature with an **active run**, ignoring the date prefix and any `-N` suffix, the command refuses instead of creating `-2`. This holds after midnight too, when the date prefix would differ:
+   ```
+   $ surt feature "add login"          # ↑ Enter after a Ctrl-C
+   ✖ 20261017-add-login already has an active run for "add login" (INTERRUPTED)
+     resume it:       surt feature 20261017-add-login
+     or create anew:  surt feature "add login" --new
+   ```
+   `--new` skips this guard. Without an active run of the same slug, the `-N` suffix stays automatic.
+3. **Resuming.** `surt feature <full-name>` drives the active run up to the spec Approval Gate, regenerating after a rejection. When the spec is already approved there is nothing to do in this phase:
+   ```
+   $ surt feature 20261017-add-login
+   ✔ spec rev 2 already approved — next: surt plan 20261017-add-login
+   ```
+   It exits `0` and changes nothing.
+4. **A new run of the same Subject** needs `--new-run`. Without it, a Subject with no active run refuses:
+   ```
+   $ surt feature 20261017-add-login
+   ✖ 20261017-add-login has no active run (run 1 cancelled at 15:02)
+     start run 2 from the same request: surt feature 20261017-add-login --new-run
+
+   $ surt feature 20261017-add-login --new-run
+   ✔ run 2 of 20261017-add-login   base main @ b22e310   branch surt/20261017-add-login.2
+   ```
+   Run `N+1` takes the Subject's latest `request` Revision as a new human-origin Initial Artifact. Its Base is the current `HEAD`, or `--base`. It freezes the definitions, agents and configuration again. A `succeeded` Subject works the same way.
+
+`--base <ref>` resolves `<ref>` to a commit when the run is created; the default is `HEAD`. `--merge` and `--no-merge` override `[git] merge_into_base` for this run only, as `ff-only` and `never`, before the configuration is frozen. They exist on no other command.
+
+## Approve and reject
+
+`approve` and `reject` only record ([A](A-process-model.md#commands-of-the-built-in-feature-workflow)). They scan the Working Copy first, so an edit becomes the Revision they target ([H](H-artifact-storage.md#what-freezing-means-at-approval)). `--rev N` refuses if the latest Revision is not `N`. Both end with the command that continues:
+
+```
+$ surt approve add-login
+✔ approved spec rev 2 (agent) sha256:3f9a2c… by you@example.com
+  next: surt plan 20261017-add-login
+
+$ surt reject add-login -m "falta o fluxo OAuth"
+✔ rejected spec rev 1 — the Spec Agent will redo it reading your reason
+  regenerate: surt feature 20261017-add-login
+
+$ surt reject add-login -m "task C grande demais"
+✔ rejected manifest rev 1 (with tasks/A.md … tasks/D.md)
+  regenerate: surt plan 20261017-add-login
+```
+
+### Next-command hints
+
+The engine does not know which commands exist, and the workflow schema carries no UX text. The feature commands own one fixed table, next to the preconditions they already check:
+
+| Waiting or just decided gate | After `approve` | After `reject`, and to resume the phase |
+|---|---|---|
+| `approve-spec` | `surt plan <feature>` | `surt feature <feature>` |
+| `approve-tasks` | `surt start <feature>` | `surt plan <feature>` |
+
+Blocked steps, interruptions and refusals point at the command of the phase they happened in.
+
+## Stop and cancel
+
+Both go through SQLite, never through signals between Surt processes ([A. External control](A-process-model.md#external-control)).
+
+**`surt stop`** writes a stop request on the root run. The live Driver reads it on its next tick and performs the same Interruption as a first Ctrl-C: agent Executions stop gracefully, a running Operation finishes, and the Driver exits `130`.
+
+```
+T2 $ surt stop 20261017-add-login
+⏳ stop requested; driver pid 48213 is stopping 3 executions…
+✔ stopped. resumable: surt start 20261017-add-login
+T1   ⏹ stopped by surt stop (from another terminal) — resumable: surt start 20261017-add-login
+```
+
+- A stop request addresses the Driver that was live when it was written. A driving command clears any leftover stop request when it takes the run lock, so a request whose Driver died first never stops the next one.
+- With no live Driver there is nothing to stop. It refuses with exit `3` and shows the run's derived state.
+- `stop` asks no confirmation: the run stays resumable.
+
+**`surt cancel`** confirms first ([Confirmations](#confirmations)), then behaves as in [A](A-process-model.md#external-control) and [I](I-recovery.md#without-a-driver-surt-cancel-and-surt-status). A Driver that is cancelled from another terminal exits `5`.
+
+## Reading never writes
+
+`status`, `inspect`, `show` and `logs` never write to SQLite, the Working Copy or the disk. They never take the run lock and never recover ([I](I-recovery.md#without-a-driver-surt-cancel-and-surt-status)). They are safe in `watch surt status`, in scripts and on a read-only checkout.
+
+- They compare the Working Copy with its baselines and **show** an unrecorded edit, but only a command that acts (`approve`, `reject`, a driving command) records it as a Revision ([H. Edit detection](H-artifact-storage.md#edit-detection)).
+- A missing Working Copy file is shown, not recreated.
+
+### `surt status`
+
+Without an argument, one line per Feature with an active run. `--all` adds terminal runs.
+
+```
+$ surt status
+FEATURE                 RUN  STATE              DRIVER     PROGRESS
+20261017-add-login      1    RUNNING            pid 48213  2/4 merged · 1 running · 1 queued
+20261016-fix-cache      1    AWAITING APPROVAL  —          manifest rev 1 (3 tasks)
+20261015-refactor-db    2    BLOCKED            —          task C: 3 attempts failed
+agent slots: 3/3 in use
+```
+
+With a Feature, the detail. States are derived as in [G. Workflow Run](G-state-machines.md#workflow-run).
+
+```
+$ surt status add-login
+20261017-add-login · run 1   RUNNING   driver pid 48213 since 14:02
+  base     main @ a11c9d0
+  branch   surt/20261017-add-login @ 3c1aa20 · merge into base: never
+  spec     rev 2 (agent) ✔ approved by you@example.com 13:10
+  tasks    manifest rev 1 (agent) ✔ approved 13:40 · 4 tasks
+  implement
+    A  ✔ merged    iter 1 · as 3c1aa20
+    B  ● build     iter 2 · attempt 1 · 6m
+    C  ⏳ queued    build iter 1 · waiting for agent slot (3/3 in use)
+    D  ⏸ pending   waits for B
+```
+
+At an Approval Gate it lists everything the Approval covers. For an Item List that is the list and every file it references ([F](F-agent-contract.md)):
+
+```
+$ surt status fix-cache
+20261016-fix-cache · run 1   AWAITING APPROVAL   (no driver)
+  tasks  manifest rev 1 (agent) — approving covers the manifest and all 3 task files:
+           .surt/features/20261016-fix-cache/manifest.json
+           .surt/features/20261016-fix-cache/tasks/{A,B,C}.md
+         ✎ tasks/B.md edited — recorded as rev 2 on approve (approval then targets rev 2)
+  approve: surt approve 20261016-fix-cache    reject: surt reject 20261016-fix-cache -m "…"
+```
+
+Blocked Tasks show the blocked step, its last error and the command to resume ([G](G-state-machines.md#workflow-run)). Integration shows the merged SHA or the Conflict reason (`merge: src/auth.rs`, `checks: test`). Recovery-related lines (`⟳ integrating … (pending)`, an agent running unattended) are in [I](I-recovery.md).
+
+### `surt inspect`
+
+Timelines read from `event` ([D. Events](D-database.md#events)) and the Execution rows, at three levels:
+
+```
+$ surt inspect add-login            # run: iterations, gates, Driver, recovery
+13:02  run.created         base main @ a11c9d0 · by you@example.com
+13:09  revision.published  spec rev 1 (agent)
+13:20  approval.recorded   spec rev 1 rejected — "falta o fluxo OAuth"
+13:31  revision.published  spec rev 2 (agent)
+13:40  approval.recorded   spec rev 2 approved
+14:02  driver.started      pid 48213
+
+$ surt inspect add-login B          # one Task: steps, attempts, errors
+14:02:11  step.running        build iter 2
+14:02:11  execution.started   attempt 1 (agent-0) · 0192f3a8
+14:09:40  execution.failed    attempt 1 · invalid_delivery — final JSON missing "outputs"
+
+$ surt inspect 0192f3a8             # one Execution
+execution 0192f3a8-…   builder · task B · build iter 2 · attempt 1   failed (invalid_delivery)
+  profile    claude-code · claude-sonnet-5-5 · effort high · dontAsk
+  session    7c1e…   pid 50122 · exit 0 · 7m29s
+  inputs     spec rev 2 sha256:3f9a… · item B (manifest rev 1) · task.md
+  worktree   ~/.surt/worktrees/surt-3fa91c/20261017-add-login/B
+  salvage    refs/surt/salvage/0192f3a8…
+  logs       surt logs 0192f3a8
+```
+
+### `surt show`
+
+```
+$ surt show add-login                       # index of artifacts
+ARTIFACT   REVS  LATEST
+request    1     rev 1 (human)
+spec       2     rev 2 (agent) ✔ approved
+manifest   1     rev 1 (agent) ✔ approved · 4 files
+delivery   —
+
+$ surt show add-login manifest              # the Item List JSON → stdout
+$ surt show add-login manifest --file tasks/B.md
+$ surt show add-login feedback --task B     # an artifact of task B's Child Workflow Run
+$ surt show add-login spec --rev 1 > old-spec.md
+```
+
+- Content goes to stdout byte for byte. The latest Revision is the default. `--rev N` selects one, and `--task <key> --iter N` selects the Revision produced in that Iteration of the Task.
+- An unknown artifact name refuses and lists the existing ones.
+- When the Working Copy holds an unrecorded edit, `show` prints the recorded Revision and warns on stderr: `⚠ Working Copy has an unrecorded edit to spec.md`.
+- `--json` returns the metadata (number, origin, SHA-256, Approval) together with the content.
+- `show` is how artifacts are read after cleanup removed the Working Copy.
+
+### `surt logs`
+
+`logs` renders the agents' streams from disk; there is no daemon to ask. What is kept, for how long and with which redaction is [Política de logs, retenção e redação](../../.scratch/surt-architecture/issues/20-politica-de-logs-retencao-e-redacao.md). When a stream no longer exists, `logs` says so and points at `inspect`.
+
+```
+$ surt logs add-login -f            # every agent running in this Feature, multiplexed
+B build#2 │ Read src/auth.rs
+C build#1 │ Bash cargo test -p auth
+B build#2 │ Edit src/auth.rs (+12 −3)
+B build#2 │ "Adicionei o callback OAuth; falta o teste de expiração…"
+C build#1 │ ✔ delivered (commit 9e04b7d)
+```
+
+- **Rendered** by default: one line per tool call, the first line of each assistant message, no tool results. `--raw` prints the original `stream.jsonl` lines.
+- **Without `-f`**: the latest Execution of each Task, or of the given Task.
+- **`-f`** follows until the run's Driver stops, picking up new Executions (the next Attempt, the next Task) as they start.
+- The `B build#2 │` prefix appears only when there is more than one source.
+
+## Foreground progress
+
+A driving command prints one line per relevant state change: a Step Run starting or finishing, a failure, a merge, a recovery or salvage warning, a pause. It never prints agent text; that is `surt logs`.
+
+- **On a TTY**, a footer under those lines is redrawn in place:
+  ```
+  ✔ task A merged (3c1aa20)
+  ↻ task B build attempt 2
+  ── 2 running (B build 6m, C review 1m) · 1 queued · slots 3/3 · 32m ──
+  ```
+- **Without a TTY** there is no footer. After 5 minutes without an event it prints a line so CI does not assume a hang: `… still running: B build (15m), C review (3m)`.
+- It ends with a summary and the next command, as in the mocks of sections A, G and I.
+
+## Output channels and non-interactive use
+
+- **stderr** carries progress, warnings and errors (`✔ ✖ ⚠ ↻ ⏸ ⛔`). **stdout** carries data only: the `status` table, `show` content, `logs` lines, `--json` documents. `surt show add-login spec > spec.md` writes only the spec.
+- **`--json`** exists on `status`, `inspect` and `show`. Each prints one document with `"schema": 1`; additions keep the version, removals or renames bump it. Driving commands have no `--json` in Milestone 1: a script uses their exit code, then `surt status --json`.
+  ```
+  $ surt start add-login 2>progress.log; echo $?
+  4
+  $ surt status add-login --json | jq -r '.tasks[] | select(.state=="blocked") | .key'
+  B
+  ```
+- **Without a TTY** nothing is ever asked. A command that would confirm refuses with exit `3` unless `--yes` is given. There are no colours, spinners or footers, only the same lines.
+- `NO_COLOR` disables colour. When the terminal is not UTF-8 (an old Windows console), the symbols become `[ok] [error] [warn] [retry] [paused] [blocked]`.
+- `SURT_LOG` (`tracing` filter syntax, e.g. `SURT_LOG=debug`) turns on Surt's own diagnostic logs on stderr, for any command.
+
+## Exit codes
+
+The same on macOS, Linux and Windows.
+
+| Code | Meaning | Examples |
+|---|---|---|
+| `0` | The command did what it promises | reached its phase's gate; run `succeeded`; Approval recorded; nothing to do |
+| `1` | Unexpected error | a bug, I/O failure, unreadable database |
+| `2` | Invalid usage | unknown flag, missing argument (clap's default) |
+| `3` | **Refused**, nothing changed | precondition not met; Driver already live; ambiguous reference; Integration Branch moved; Git too old; pinned Revision edited; confirmation needed without `--yes`; `stop` without a Driver |
+| `4` | **Blocked**: stopped needing a human outside an Approval Gate | Attempt or Iteration limit; `merge_into_base_interrupted` |
+| `5` | The run was **cancelled** while this command drove it | `surt cancel` from another terminal |
+| `130` | **Interrupted**, resumable | Ctrl-C, SIGHUP, console closed, `surt stop` |
+
+- `surt start` that ends with `⚠ not merged: main moved since base` exits `0`. The delivery exists; the warning is in the text and in `status --json`.
+- When some Tasks are blocked and the rest merged, the command exits `4`.
+- A refusal raised in the middle of driving (the pinned-Revision edit of [H](H-artifact-storage.md#revalidation)) exits `3` once running work has finished.
+
+## Confirmations
+
+| Command | Confirms? | Why |
+|---|---|---|
+| `cancel` | **yes**, showing the impact | it ends the run for good |
+| `restore` | **yes**, showing the edit that is lost | it discards an unrecorded human edit |
+| `delete` | yes; the rest is the cleanup ticket | it removes history |
+| `stop`, `approve`, `reject` | no | resumable, or guarded by `--rev` |
+
+```
+$ surt cancel add-login
+cancel 20261017-add-login run 1?
+  2 running executions will be stopped · 2/4 tasks merged stay on surt/20261017-add-login
+  starting over later needs a new run (surt feature 20261017-add-login --new-run)
+[y/N] y
+
+$ surt restore fix-cache manifest
+discard your unrecorded edit to the manifest of 20261016-fix-cache?
+  tasks/B.md  +4 −1
+  tasks/C.md  new file (not referenced by any item)
+[y/N]
+```
+
+`-y` / `--yes` skips the question. Without a TTY and without `--yes`, the command refuses with exit `3`.
+
+## Error messages
+
+Every error and refusal has the same shape. Errors go to stderr.
+
+```
+✖ <what failed or was refused, one line>
+  <context: observed values, at most two lines>
+  <what happened to the state, only when it is not obvious>
+  <label>: <copyable command, full names>        (one to three ways out)
+```
+
+- Labels are short and fixed: `fix:`, `next:`, `resume:`, `regenerate:`, `undo:`, `inspect:`, `or:`.
+- A refusal changes nothing, so it says nothing about state. A message prints a state line only when work did happen, as in `running work finished; nothing new was launched` ([H](H-artifact-storage.md#revalidation)).
+- An unexpected error (exit `1`) prints `✖ internal error: <message>` and `rerun with SURT_LOG=debug for details`.
+
+The wording of the refusals and warnings already drafted in sections A, G, H and I follows this shape and is part of this contract.
+
+## Configuration
+
+This is the single reference for configuration keys. Unknown keys are errors in every command.
+
+### Project: `.surt/config.toml` (versioned)
+
+```toml
+# .surt/config.toml — project configuration (versioned; generated by surt init)
+max_concurrent_agents = 3   # agent slots for this project; read live by every Driver
+max_attempts = 3            # failed Attempts per Step Run before it blocks
+max_iterations = 5          # Iterations per Loop without an Approval Gate before it blocks
+
+[git]
+merge_into_base = "never"   # "never" | "ff-only"
+
+# [[checks]]
+# name = "test"
+# run = ["cargo", "test", "--workspace"]
+# timeout = "10m"           # optional
+```
+
+| Key | Default | When it applies | Decided in |
+|---|---|---|---|
+| `max_concurrent_agents` | `3` | read live by every Driver before each launch | [A](A-process-model.md#agent-concurrency-limit) |
+| `max_attempts` | `3` | frozen at root run creation | [G](G-state-machines.md#limits) |
+| `max_iterations` | `5` | frozen at root run creation | [G](G-state-machines.md#limits) |
+| `[git] merge_into_base` | `"never"` | frozen; `surt feature --merge`/`--no-merge` override it per run | [A. Git Integration](A-git-integration.md) |
+| `[[checks]]` | none | frozen | [A. Git Integration](A-git-integration.md) |
+
+The frozen keys and the per-run override form the `config` snapshot of [D](D-database.md#snapshots).
+
+### Global: `~/.surt/config.toml` (optional)
+
+On Windows the path is `%USERPROFILE%\.surt\config.toml`. `~/.surt/` also holds the worktrees ([A. Git Integration](A-git-integration.md)).
+
+```toml
+stop_grace_period = "10s"   # graceful stop before a forced kill
+```
+
+## Decided elsewhere
+
+- Which command drives which phase, ownership refusals, Ctrl-C: [A. Process Model](A-process-model.md).
+- Derived run states and the blocked lines: [G. State Machines](G-state-machines.md).
+- Working Copy, edit detection, `--rev`, naming of Features: [H. Artifact Storage](H-artifact-storage.md).
+- Recovery lines and refusals at start: [I. Recovery and Reconciliation](I-recovery.md).
+- The stop and cancel request columns: [D. Database Schema](D-database.md#workflow-runs).
+- What `delete` and cleanup remove: [Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md).
+- Which streams `logs` can read: [Política de logs, retenção e redação](../../.scratch/surt-architecture/issues/20-politica-de-logs-retencao-e-redacao.md).

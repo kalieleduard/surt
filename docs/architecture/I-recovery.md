@@ -248,7 +248,7 @@ $ surt cancel 20261017-add-login
 ✔ run cancelled
 ```
 
-**`surt status`** never takes the run lock and never recovers. Besides the Working Copy scan of [H](H-artifact-storage.md#edit-detection), it only reads. When no Driver holds the lock and a `running` Execution's recorded process still exists, it says so, so nobody mistakes an agent editing a worktree unattended for a stopped run:
+**`surt status`** never takes the run lock and never recovers. It only reads; even a Working Copy edit is shown, not recorded ([J](J-cli.md#reading-never-writes)). When no Driver holds the lock and a `running` Execution's recorded process still exists, it says so, so nobody mistakes an agent editing a worktree unattended for a stopped run:
 
 ```
 20261017-add-login   INTERRUPTED   (no driver)
@@ -261,6 +261,6 @@ $ surt cancel 20261017-add-login
 - Execution and Step Run states, Attempt and Iteration limits, leaving `blocked`: [G. State Machines](G-state-machines.md).
 - Columns of `ref_move`, `run_branch`, `working_copy_file` and `execution.failure_class`: [D. Database Schema](D-database.md) and [`migrations/0001_initial.sql`](migrations/0001_initial.sql).
 - What the cleanup removes (Salvage Refs, worktree locks, `.orphaned-` directories, branches): [Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md).
-- Exact wording and exit codes of the refusals and warnings above: [Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md).
+- Message shape and exit codes of the refusals and warnings above: [J. CLI Surface](J-cli.md) (a refusal at start exits `3`, `merge_into_base_interrupted` exits `4`).
 
 Decision record: [ADR 0010 — Every Attempt starts from a clean worktree; leftovers are salvaged, never continued](../adr/0010-every-attempt-starts-from-a-clean-worktree.md).

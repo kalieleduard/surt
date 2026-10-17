@@ -84,10 +84,10 @@ No table, column or value names Feature, Task, Spec, Builder, Reviewer or Shippe
 
 ### Workflow Runs
 
-- A root run has `root_run_id = id`. A child has its root's id and `parent_step_run_id` (the `per_item` Step Run that started it) plus `item_key`. CHECKs make these columns consistent: a root has an `ordinal` and a `config_sha256`, a child has neither, and only a root has a cancel request or a Driver identity. These columns stay on `workflow_run` rather than in a separate root table, because the partial unique index `one_active_root_per_subject` needs `subject_id` and `state` in the same table.
+- A root run has `root_run_id = id`. A child has its root's id and `parent_step_run_id` (the `per_item` Step Run that started it) plus `item_key`. CHECKs make these columns consistent: a root has an `ordinal` and a `config_sha256`, a child has neither, and only a root has a cancel or stop request or a Driver identity. These columns stay on `workflow_run` rather than in a separate root table, because the partial unique index `one_active_root_per_subject` needs `subject_id` and `state` in the same table.
 - `ordinal` numbers root runs within their Subject (1, 2, …). It gives the Integration Branch suffix `.N` from the second run on.
 - `state` stores only `active`, `succeeded` and `cancelled`. `RUNNING`, `AWAITING APPROVAL`, `BLOCKED` and `INTERRUPTED` are derived on read ([G](G-state-machines.md#workflow-run)).
-- `cancel_requested_at` / `cancel_requested_by` are the pending request written by `surt cancel`. `driver_pid`, `driver_start_time` (native), `driver_boot_id` and `driver_since` identify the last Driver for display and recovery. The run lock decides ownership, never these columns ([ADR 0002](../adr/0002-file-locks-over-sqlite-leases.md)).
+- `cancel_requested_at` / `cancel_requested_by` are the pending request written by `surt cancel`. `stop_requested_at` / `stop_requested_by` are the pending Interruption request written by `surt stop` ([J](J-cli.md#stop-and-cancel)); a driving command clears it when it takes the run lock, because it addresses only the Driver that was live when it was written. `driver_pid`, `driver_start_time` (native), `driver_boot_id` and `driver_since` identify the last Driver for display and recovery. The run lock decides ownership, never these columns ([ADR 0002](../adr/0002-file-locks-over-sqlite-leases.md)).
 
 ### Step Runs
 
@@ -120,7 +120,7 @@ No table, column or value names Feature, Task, Spec, Builder, Reviewer or Shippe
   - `gate_step_run_id` is `NULL` for a **revalidation approval**: `surt approve` on a newer Revision of an artifact whose gate already passed ([H](H-artifact-storage.md#revalidation)). It completes no step; it only lets the next driving command proceed. A revalidation decision is always `approve`.
   - `reject` requires `reason_revision_id`, the human-origin Revision of the gate's `rejection_artifact`.
   - `identity_sha256` copies the Revision identity. Readers compare it with the Revision.
-- `actor` (on human-origin Revisions and Approvals) and `cancel_requested_by` hold the repository's `git config user.email`, or the OS user name when no email is configured. They are informative; no rule depends on them.
+- `actor` (on human-origin Revisions and Approvals), `cancel_requested_by` and `stop_requested_by` hold the repository's `git config user.email`, or the OS user name when no email is configured. They are informative; no rule depends on them.
 - `working_copy_file` stores, per Working Copy file, the SHA-256 Surt last wrote and the Revision it came from: the baseline that edit detection compares with. `pending_sha256` / `pending_revision_id` are the Intention of a newer Revision published but not yet written to the file; they are promoted to the baseline once the file is written ([I](I-recovery.md#working-copy-files)).
 - `execution_input` stores each Input as fixed at start: the name the agent or Operation reads, the Revision, and for `item` the item's key in the Item List Revision. Materializing these files creates no Revision.
 
@@ -167,7 +167,7 @@ $ surt inspect 20261017-add-login B
 16:10:00  step.unblocked      budget_base 3
 ```
 
-- `kind` is an open set, not a CHECK, so a new kind needs no table rebuild. Initial kinds: `run.created`, `run.cancel_requested`, `run.cancelled`, `run.succeeded`, `driver.started`, `driver.stopped`, `driver.recovered`, `intention.confirmed`, `intention.discarded`, `worktree.salvaged`, `worktree.repaired`, `agents.paused`, `agents.resumed`, `iteration.started`, `step.running`, `step.done`, `step.skipped`, `step.blocked`, `step.unblocked`, `step.cancelled`, `execution.queued`, `execution.started`, `execution.succeeded`, `execution.failed`, `execution.interrupted`, `execution.cancelled`, `execution.orphan_stopped`, `revision.published`, `revision.pinned`, `working_copy.edit_detected`, `working_copy.edit_refused`, `approval.recorded`.
+- `kind` is an open set, not a CHECK, so a new kind needs no table rebuild. Initial kinds: `run.created`, `run.cancel_requested`, `run.stop_requested`, `run.cancelled`, `run.succeeded`, `driver.started`, `driver.stopped`, `driver.recovered`, `intention.confirmed`, `intention.discarded`, `worktree.salvaged`, `worktree.repaired`, `agents.paused`, `agents.resumed`, `iteration.started`, `step.running`, `step.done`, `step.skipped`, `step.blocked`, `step.unblocked`, `step.cancelled`, `execution.queued`, `execution.started`, `execution.succeeded`, `execution.failed`, `execution.interrupted`, `execution.cancelled`, `execution.orphan_stopped`, `revision.published`, `revision.pinned`, `working_copy.edit_detected`, `working_copy.edit_refused`, `approval.recorded`.
 - A trigger aborts any `UPDATE`. Rows leave only with their Subject.
 
 ## When rows are created
@@ -258,6 +258,7 @@ External providers (GitHub, Linear, Jira) get no column yet. A column with no fo
 - Ownership by file locks, Driver identity, slots: [A. Process Model](A-process-model.md).
 - Reconciling these rows with Git and processes after a crash: [I. Recovery and Reconciliation](I-recovery.md).
 - When purge runs: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
+- Commands, output formats and exit codes that read these rows: [J. CLI Surface](J-cli.md).
 - The `store` module and its interface: section B ([Estrutura do workspace Rust e traits centrais](../../.scratch/surt-architecture/issues/15-workspace-rust-e-traits.md)).
 
 Decision record: [ADR 0009 — History is purged, not soft-deleted](../adr/0009-history-is-purged-not-soft-deleted.md).

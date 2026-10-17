@@ -18,6 +18,7 @@ Each command owns one phase. A command that drives runs in the foreground. It re
 | `surt approve <feature>` | **no**, it only records the Approval | an Approval Gate is waiting | returns immediately |
 | `surt plan <feature>` | yes | spec Revision approved | task-manifest Approval Gate |
 | `surt start <feature>` | yes | task-manifest Revision approved | Shipper delivers the final integrated branch, then the opt-in fast-forward into the Base runs ([A. Git Integration](A-git-integration.md)) (run terminal) |
+| `surt stop <feature>` | no (see [External control](#external-control)) | a Driver is live | Interruption requested |
 | `surt cancel <feature>` | no (see [External control](#external-control)) | run not terminal | Cancellation recorded |
 
 ```
@@ -39,7 +40,7 @@ Ownership is an exclusive OS file lock (`std::fs::File::lock`, Rust ≥ 1.89) on
 - A driving command takes the lock with `try_lock` before doing anything. If the lock is taken, it refuses at once:
   ```
   ✖ run 20261015-add-login is being driven by pid 48213 (started 14:02)
-    stop it with Ctrl-C in its terminal, or: surt cancel 20261015-add-login
+    stop it with Ctrl-C in its terminal, or: surt stop 20261015-add-login
   ```
 - The OS releases the lock when the process dies (crash, `kill -9`, reboot). There is no heartbeat and no time-based expiry. A Driver that sleeps for hours with the laptop lid closed still owns its run when it wakes.
 - SQLite records the Driver's identity (pid, native start time, boot id) on the root run, **for display and recovery only**. The lock decides. The row never does.
@@ -69,6 +70,7 @@ Agent processes run in their own process group (Unix) or with `CREATE_NEW_PROCES
 
 Every control action from another process goes **through SQLite, never through signals between Surt processes**:
 
+- `surt stop` writes a stop request on the root run. A live Driver reads it on its next tick and performs the same Interruption as a first Ctrl-C; the run stays resumable ([J](J-cli.md#stop-and-cancel)).
 - `surt cancel` writes a cancel request on the root run. A live Driver reads it on its next scheduler tick (about 1 s), stops its Executions as in an Interruption, and records the Cancellation. If no Driver is live (the lock is free), `cancel` takes the lock itself and records the Cancellation directly.
   ```
   T2 $ surt cancel 20261015-add-login
@@ -81,7 +83,7 @@ Every control action from another process goes **through SQLite, never through s
 ## Agent concurrency limit
 
 - **Scope: per project.** Surt can run in several projects on the same machine, and each project has its own budget. Shared machine-wide pressure (account rate limits, token cost) is not handled by this limit. It stays open as fog on the map.
-- **Configuration:** `max_concurrent_agents`, default `3`, set in the project configuration. Exact key placement is consolidated with the rest of the config in later sections.
+- **Configuration:** `max_concurrent_agents`, default `3`, set in the project configuration ([J. Configuration](J-cli.md#configuration)).
 - **What counts:** only agent Executions. Operations (Git commands, build or test steps) do not take a slot.
 - **Mechanism: slots are lock files.**
   ```
@@ -175,4 +177,4 @@ What a daemon would add (`--detach`, and a live log channel for clients) is out 
 - What recovery does with orphans' leftovers and partial Operations, and what `cancel` and `status` do without a Driver: [I. Recovery and Reconciliation](I-recovery.md).
 - Columns for the Driver identity, cancel request and slot held: [D. Database Schema](D-database.md#workflow-runs).
 - The Agent Profile, permissions and the decision to omit execution timeouts: section F.
-- Full CLI contracts, output formats and exit codes: section J.
+- Full CLI contracts, output formats and exit codes: [J. CLI Surface](J-cli.md).

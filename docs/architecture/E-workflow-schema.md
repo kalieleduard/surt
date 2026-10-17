@@ -306,4 +306,4 @@ Operations, Checks, the `check-report` and `conflict` artifacts, and the opt-in 
 - Revalidation after an approved artifact is edited: [H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md).
 - Operation registry, Integration Branch, Checks, item key constraints: [A. Git Integration](A-git-integration.md) ([Modelo de integração Git](../../.scratch/surt-architecture/issues/09-modelo-de-integracao-git.md)).
 - What `on_success = "clean"` removes: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
-- `surt reject`, and which command drives after it: section J ([Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md)).
+- `surt reject`, and which command drives after it (a fixed table in the CLI, not a schema field): [J. CLI Surface](J-cli.md#next-command-hints).

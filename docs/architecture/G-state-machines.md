@@ -83,7 +83,7 @@ A Workflow Run stores only its lifecycle:
 | `succeeded` | Its final steps finished. |
 | `cancelled` | Ended by a Cancellation. |
 
-Next to it, a root run stores a **cancel request** (when, by whom) written by `surt cancel` while a Driver is live ([A](A-process-model.md#external-control)). It is a pending request, not a state. The Driver turns it into `cancelled` on its next tick.
+Next to it, a root run stores a **cancel request** (when, by whom) written by `surt cancel` while a Driver is live ([A](A-process-model.md#external-control)). It is a pending request, not a state. The Driver turns it into `cancelled` on its next tick. A **stop request** written by `surt stop` works the same way but ends in an Interruption, not a state change of the run ([J](J-cli.md#stop-and-cancel)).
 
 **There is no `failed` Workflow Run.** Every failure stops at a `blocked` Step Run, which a human can resume. A run ends only by succeeding or by being cancelled. Rationale: [ADR 0008](../adr/0008-limits-block-instead-of-failing.md).
 
@@ -113,7 +113,7 @@ A Child Workflow Run follows the same rules. Its derived state is what `status` 
 
 ### When a Driver returns
 
-`drive(root_run_id)` ([A](A-process-model.md#driving-a-run)) returns when nothing can run without a human: every non-final Step Run is a `running` Approval Gate, is `blocked`, or waits (`pending`) behind one of them. The driving command then exits. It exits successfully when it reached its phase's gate or the run succeeded. It exits with an error when it stopped on `blocked`, printing each blocked step with its last error and the command to resume. Exact exit codes: section J.
+`drive(root_run_id)` ([A](A-process-model.md#driving-a-run)) returns when nothing can run without a human: every non-final Step Run is a `running` Approval Gate, is `blocked`, or waits (`pending`) behind one of them. The driving command then exits. It exits successfully when it reached its phase's gate or the run succeeded. It exits with an error when it stopped on `blocked`, printing each blocked step with its last error and the command to resume. Exit codes: `0` and `4` respectively ([J. Exit codes](J-cli.md#exit-codes)).
 
 ### Cancellation
 
@@ -121,7 +121,7 @@ A Cancellation stops every `queued`/`running` Execution of the root run and its 
 
 ## Limits
 
-Two limits stop work that would otherwise repeat without a human watching. Both are project configuration, frozen when the root Workflow Run is created, like `[[checks]]` ([A. Git Integration](A-git-integration.md#checks)). Their exact place in `.surt/config.toml` is consolidated with the rest of the configuration in section J.
+Two limits stop work that would otherwise repeat without a human watching. Both are project configuration, frozen when the root Workflow Run is created, like `[[checks]]` ([A. Git Integration](A-git-integration.md#checks)). They are the top-level keys `max_attempts` and `max_iterations` of `.surt/config.toml` ([J. Configuration](J-cli.md#configuration)).
 
 | Key | Default | Applies to | Counts |
 |---|---|---|---|
@@ -221,7 +221,7 @@ An invalid Reviewer delivery (missing JSON, `approved` with a blocking finding, 
 
 - What an orphan or a second Ctrl-C leaves behind, partial Operations, worktree preparation before every Attempt, and which network and rate-limit errors wait instead of failing: [I. Recovery and Reconciliation](I-recovery.md).
 - Columns for these states, the cancel request, Attempt and Iteration counters and budgets: [D. Database Schema](D-database.md).
-- `status` layout, exit codes, and how each command refers to an existing run: section J ([Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md)).
+- `status` layout, exit codes, and how each command refers to an existing run: [J. CLI Surface](J-cli.md).
 - Agent Profile (one per Agent, no escalation): [F. Agent Contract](F-agent-contract.md#agent-profile).
 
 Decision record: [ADR 0008 — Exhausted limits block a run instead of failing it](../adr/0008-limits-block-instead-of-failing.md).

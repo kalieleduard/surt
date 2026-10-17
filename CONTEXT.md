@@ -77,7 +77,7 @@ The single process that advances one root Workflow Run, together with all its Ch
 _Avoid_: Runner, worker, daemon
 
 **Interruption**:
-Stopping a Driver, for example with Ctrl-C, without ending its Workflow Run. Running Executions are stopped, and the run can be resumed later with new Attempts.
+Stopping a Driver, for example with Ctrl-C or a stop request from another terminal, without ending its Workflow Run. Running Executions are stopped, and the run can be resumed later with new Attempts.
 _Avoid_: Cancel (which ends the run), abort, pause
 
 **Cancellation**:

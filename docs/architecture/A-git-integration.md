@@ -263,7 +263,7 @@ Surt never writes the repository's `.git/config` or the user's global Git config
 - Reaction to a Builder delivering no new commit, iteration limits, the scope of a re-review after a conflict, and what a blocked child means for its dependents: [G. State Machines](G-state-machines.md).
 - Reconciling each partial state of these Operations (branch without worktree, `locked initializing` worktree, ref moved outside Surt), worktree preparation before every Attempt, and an interrupted fast-forward into the Base: [I. Recovery and Reconciliation](I-recovery.md).
 - What happens to worktrees and branches of terminal runs: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
-- `--base`, a per-run override of `merge_into_base`, and the exact output of refusals: section J ([Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md)).
+- `--base`, the per-run override `--merge`/`--no-merge`, and the shape of refusals: [J. CLI Surface](J-cli.md).
 - Physical tables for worktrees, tips and the project id: [D. Database Schema](D-database.md#git-state).
 
 Decision records: [ADR 0006 — Merging into the Base is opt-in and fast-forward only](../adr/0006-merge-into-base-is-opt-in-fast-forward.md), [ADR 0007 — Tasks are integrated as merge commits of the reviewed SHA](../adr/0007-integrate-reviewed-sha-as-merge-commit.md).

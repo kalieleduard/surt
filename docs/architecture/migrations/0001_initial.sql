@@ -66,6 +66,9 @@ CREATE TABLE workflow_run (
   -- root: pending cancel request (a request, not a state)
   cancel_requested_at TEXT,
   cancel_requested_by TEXT,
+  -- root: pending stop request written by surt stop (an Interruption; cleared when a Driver takes the lock)
+  stop_requested_at   TEXT,
+  stop_requested_by   TEXT,
   -- root: identity of the last Driver, informative only (the run lock decides)
   driver_pid          INTEGER,
   driver_start_time   INTEGER,                         -- native process start time
@@ -75,8 +78,9 @@ CREATE TABLE workflow_run (
   CHECK ((parent_step_run_id IS NULL) = (item_key IS NULL)),
   CHECK ((parent_step_run_id IS NULL) = (ordinal IS NOT NULL)),
   CHECK ((parent_step_run_id IS NULL) = (config_sha256 IS NOT NULL)),
-  CHECK (parent_step_run_id IS NULL OR (cancel_requested_at IS NULL AND driver_pid IS NULL)),
+  CHECK (parent_step_run_id IS NULL OR (cancel_requested_at IS NULL AND stop_requested_at IS NULL AND driver_pid IS NULL)),
   CHECK ((cancel_requested_at IS NULL) = (cancel_requested_by IS NULL)),
+  CHECK ((stop_requested_at IS NULL) = (stop_requested_by IS NULL)),
   CHECK ((state = 'active') = (finished_at IS NULL))
 ) STRICT;
 

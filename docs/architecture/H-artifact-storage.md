@@ -60,14 +60,14 @@ Surt rewrites a Working Copy file whenever it publishes a newer Revision of that
 
 ## Edit detection
 
-- **When:** every command that touches a Subject scans that Subject's Working Copy first: `status`, `inspect`, `show`, `approve`, `reject`, `plan`, `start`. A Driver also scans before it launches each Execution, because that is when inputs are resolved, and before it rewrites a Working Copy file.
+- **When:** every command that acts on a Subject scans that Subject's Working Copy first and records what it finds: `approve`, `reject`, `feature`, `plan`, `start`. Read commands (`status`, `inspect`, `show`, `logs`) compare and show an edit but never record it ([J. Reading never writes](J-cli.md#reading-never-writes)). A Driver also scans before it launches each Execution, because that is when inputs are resolved, and before it rewrites a Working Copy file.
 - **How:** a full SHA-256 of every file compared with its baseline. Modification times are never used, because their granularity and behaviour differ across APFS, NTFS and ext4, and the files are small.
 - **Edit:** if any file differs from its baseline, the artifact's new content becomes a **human-origin Revision**, and its hashes become the new baseline:
   ```
-  $ surt status 20261016-add-login
-  ● spec  rev 2 (human edit, detected 11:02) — awaiting approval
+  $ surt approve 20261016-add-login
+  ✔ approved spec rev 2 (human edit) sha256:9b0e41…
   ```
-- **Deleted file:** a missing Working Copy file is not an edit. Surt warns and recreates it from the latest Revision.
+- **Deleted file:** a missing Working Copy file is not an edit. A command that acts warns and recreates it from the latest Revision; a read command only shows it.
 - **Pinned artifact:** an edit to an artifact whose approved Revision is pinned is never recorded (see [Revalidation](#revalidation)).
 
 ### Editing an Item List
@@ -156,7 +156,7 @@ The Context Assembler points the agent at `inputs/`, and the runtime adds `Read`
 1. `YYYYMMDD` is the **local** date. If the local offset cannot be determined, Surt uses UTC without warning.
 2. The slug is the description transliterated to ASCII, lowercased, reduced to `[a-z0-9-]`, with runs of hyphens collapsed and no leading or trailing hyphen. It is truncated to 40 characters at a word boundary. `"Adicionar Login com Google / OAuth"` → `20261016-adicionar-login-com-google-oauth`.
 3. Windows reserved names (`CON`, `NUL`, `COM1`…) cannot occur, because the name always starts with digits. Lowercase removes case-insensitive collisions on APFS and NTFS. A trailing dot or space cannot survive the slug.
-4. If a Subject with that name already exists, Surt appends `-2`, `-3`…:
+4. If a Subject with that name already exists, Surt appends `-2`, `-3`… Exception: when a Feature with the same slug (ignoring date and suffix) has an active run, `surt feature` refuses and points at resuming it, unless `--new` is given ([J](J-cli.md#surt-feature-create-resume-or-start-again)):
    ```
    $ surt feature "add login"
    ✔ created 20261016-add-login-2   (20261016-add-login already exists)
@@ -203,7 +203,7 @@ Versioning `features/` would create a second source of truth. Task branches woul
 - Physical tables for blobs, Revisions, baselines and Approvals: [D. Database Schema](D-database.md#artifacts-revisions-and-approvals).
 - Item key and path naming rules, worktree layout: [A. Git Integration](A-git-integration.md) ([Modelo de integração Git](../../.scratch/surt-architecture/issues/09-modelo-de-integracao-git.md)).
 - What cleanup removes, when, and purge of old runs: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
-- Exact output and exit codes of `show`, `restore`, `approve --rev` and the refusals: section J ([Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md)).
+- Exact output and exit codes of `show`, `restore`, `approve --rev` and the refusals: [J. CLI Surface](J-cli.md).
 - Retention and redaction of logs and streams: [Política de logs, retenção e redação](../../.scratch/surt-architecture/issues/20-politica-de-logs-retencao-e-redacao.md).
 
 Decision record: [ADR 0005 — Edits to a pinned Revision are refused, not recorded](../adr/0005-edits-to-pinned-revisions-are-refused.md).

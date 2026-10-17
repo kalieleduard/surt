@@ -2,8 +2,9 @@
 
 Map: [Surt — Arquitetura e plano de implementação](../map.md)
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: 05, 08
+Assignee: Kaliel
 
 ## Question
 
@@ -30,3 +31,26 @@ De [Máquina de estados do loop Builder ↔ Reviewer](10-loop-builder-reviewer.m
 De [Schema SQLite](11-schema-sqlite.md) ([D. Database Schema](../../../docs/architecture/D-database.md)): ids são UUIDv7 em TEXT (iguais nos diretórios `runtime/executions/<id>/` e nos locks); Revisions aparecem como `rev N` (`artifact_revision.number`); `actor` de Approvals, edições e cancel = `git user.email` (fallback: usuário do sistema), útil para `approved by … at …`. A linha do tempo de `surt inspect` sai de `event` (kinds iniciais listados na seção D). O motivo de um bloqueio no `status` vem de `step_run.blocked_reason` + `error_message` da última Execution (query de exemplo na seção D).
 
 De [Estratégia de recuperação e reconciliação](12-recuperacao-e-reconciliacao.md) ([I. Recovery and Reconciliation](../../../docs/architecture/I-recovery.md)): fixar texto e exit code de: recusa na partida com a Integration Branch movida ou checada em outra worktree (nenhum estado muda; `status` segue `INTERRUPTED`); linhas de recuperação (`⚠ previous driver … is gone — recovering`, órfão parado, Execution descartada, integração confirmada); aviso de salvage (só quando a sobra é inesperada); pausa por Transient Failure (`⏸ agent launches paused until 15:00`); bloqueio `merge_into_base_interrupted` com as duas instruções; `status` mostrando `⟳ integrating … (pending)` e órfão vivo sem Driver; `cancel` sem Driver imprimindo o que a recuperação encontrou.
+
+## Answer
+
+Resolvido por troca humana em três rodadas (18 perguntas, todas aceitas com a recomendação). Seção completa em [J. CLI Surface](../../../docs/architecture/J-cli.md). Seções A, D, G, H, I e E atualizadas para apontar para ela; `CONTEXT.md` (**Interruption**) passa a citar o pedido de parada de outro terminal. Sem ADR novo.
+
+Decisões finais:
+
+- **Superfície do M1:** `init`, `feature`, `plan`, `start`, `approve`, `reject`, `stop`, `cancel`, `status`, `inspect`, `logs`, `show`, `restore`, `delete`. O `resume` do brief é reexecutar o comando da fase; o `stop` do brief vira **`surt stop`**: Interruption remota pelo SQLite (nova coluna `stop_requested_at`/`_by` em `workflow_run`, kind `run.stop_requested`). O pedido vale só para o Driver vivo ao ser gravado e é limpo por quem pega o lock. `surt delete` é só nome reservado.
+- **Referência:** nome completo, slug sem data se único, ou prefixo único; ambiguidade recusa listando; nunca "feature atual" implícita. Escrita age no run ativo; leitura usa ativo ou último, com `--run N`. Task pela key; Execution por id/prefixo ≥ 8. O Surt sempre imprime nomes completos.
+- **`surt feature`:** argumento é referência só se for exatamente o nome completo existente. Descrição cujo slug bate com feature de run ativo recusa (mesmo depois da meia-noite) em vez de criar `-2`; `--new` força. `surt feature <nome>` retoma a fase da spec (regenera após reject; "já aprovada" sai 0). Novo run do mesmo Subject só com `--new-run` (request mais recente, Base = `HEAD` ou `--base`, recongela tudo). `--merge`/`--no-merge` só em `surt feature`.
+- **`approve`/`reject` só registram** e terminam com o próximo comando (`next:`/`regenerate:`). A tabela gate → comando fica na camada de CLI do workflow `feature`, não no schema TOML nem no engine.
+- **Leitura nunca escreve:** `status`/`inspect`/`show`/`logs` não gravam Revision, não recriam arquivo, não pegam lock — mostram `✎ … edited`. Corrige a lista "When" de [H. Edit detection](../../../docs/architecture/H-artifact-storage.md#edit-detection), que incluía os comandos de leitura.
+- **Formatos:** `status` em lista (ativos; `--all`) e detalhe (Base, branch, modo de merge, gate mostrando o conjunto inteiro aprovado); `inspect` em três níveis (run, task, Execution); `show` com índice, `--file`, `--task --iter`; `logs` renderizado/multiplexado com `-f`/`--raw`; progresso append-only + rodapé ao vivo no TTY, linha de vida a cada 5 min sem TTY.
+- **Canais:** progresso no stderr, dados no stdout; `--json` (`"schema": 1`) só em `status`/`inspect`/`show`; sem TTY nunca pergunta; `NO_COLOR`; fallback ASCII dos símbolos; `SURT_LOG` para diagnóstico.
+- **Exit codes:** `0` ok · `1` interno · `2` uso · `3` recusado sem mudança · `4` blocked · `5` cancelado durante · `130` interrompido (Ctrl-C ou `surt stop`). Iguais nos três SOs.
+- **Confirmações:** `cancel` e `restore` (e `delete`) confirmam mostrando o impacto; `--yes`; sem TTY e sem `--yes` = `3`.
+- **Mensagens de erro:** `✖ o quê` + contexto ≤ 2 linhas + estado só quando não óbvio + 1–3 saídas com labels fixos (`fix:`, `next:`, `resume:`, `regenerate:`, `undo:`, `inspect:`, `or:`).
+- **`surt init`:** explícito (os outros recusam fora de projeto), na raiz da worktree principal, com preflight de Git, idempotente, sem materializar agentes embutidos. Recusa dentro de worktree do Surt.
+- **Config consolidada:** `.surt/config.toml` com `max_concurrent_agents`, `max_attempts`, `max_iterations` no topo, `[git] merge_into_base`, `[[checks]]`; global `~/.surt/config.toml` (`%USERPROFILE%` no Windows) com `stop_grace_period`. Chave desconhecida é erro. J é a referência única.
+
+Mudança no schema (migration 0001 ainda não lançada, editada): `workflow_run.stop_requested_at`/`stop_requested_by` com CHECK de par e de "só root". Validação: migration roda em `sqlite3` 3.51 com `-bail`; o pedido grava e limpa, e meio-par é recusado pelo CHECK.
+
+Notas de contexto acrescentadas a [Segurança do cleanup e do ciclo de vida](13-cleanup-e-ciclo-de-vida.md), [Estrutura do workspace Rust e traits centrais](15-workspace-rust-e-traits.md), [Estratégia de testes](16-estrategia-de-testes.md), [Roadmap e Milestone 1](17-roadmap-e-milestone-1.md) e [Política de logs, retenção e redação](20-politica-de-logs-retencao-e-redacao.md). Nenhum ticket novo; a névoa "conteúdo do config" foi consolidada e saiu do mapa.
