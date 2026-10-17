@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+  GIT_MIN_MAJOR: 2
+  GIT_MIN_MINOR: 38
+  MIN_LINE_COVERAGE: 90
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Require Git >= ${{ env.GIT_MIN_MAJOR }}.${{ env.GIT_MIN_MINOR }}
+        run: |
+          git --version
+          read -r major minor < <(git --version | sed -E 's/^git version ([0-9]+)\.([0-9]+).*/\1 \2/')
+          if (( major < GIT_MIN_MAJOR || (major == GIT_MIN_MAJOR && minor < GIT_MIN_MINOR) )); then
+            echo "Git $major.$minor is older than $GIT_MIN_MAJOR.$GIT_MIN_MINOR" >&2
+            exit 1
+          fi
+
+      - name: Install pinned toolchain
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --features test-support -- -D warnings
+
+      - name: Test
+        run: cargo test --features test-support
+
+      - name: Line coverage above ${{ env.MIN_LINE_COVERAGE }}%
+        run: |
+          cargo llvm-cov --workspace --features test-support --json --summary-only --output-path coverage.json
+          jq '.data[0].totals.lines' coverage.json
+          jq -e --argjson min "$MIN_LINE_COVERAGE" '.data[0].totals.lines.percent > $min' coverage.json

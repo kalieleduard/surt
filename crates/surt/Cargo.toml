@@ -1,0 +1,18 @@
+[package]
+name = "surt"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "surt"
+path = "src/main.rs"
+
+[features]
+test-support = ["surt-engine/test-support"]
+
+[dependencies]
+surt-engine.workspace = true
+clap.workspace = true
+tokio.workspace = true
