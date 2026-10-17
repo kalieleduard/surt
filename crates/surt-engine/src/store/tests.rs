@@ -10,6 +10,10 @@ use super::{Store, StoreError};
 const PLAN_SCHEMA: &[u8] =
     include_bytes!("../../../../docs/architecture/migrations/0001_initial.sql");
 
+const PROJECT_NAME: &str = "my-app";
+
+const PROJECT_ID_SUFFIX_DIGITS: usize = 6;
+
 const SQLITE_SYNCHRONOUS_FULL: i64 = 2;
 
 const SQLITE_BUSY_CODE: &str = "5";
@@ -88,7 +92,7 @@ impl ProjectDir {
     }
 
     async fn open(&self) -> Store {
-        Store::open(&self.database(), &self.lock())
+        Store::open(&self.database(), &self.lock(), PROJECT_NAME)
             .await
             .expect("the store opens")
     }
@@ -184,6 +188,44 @@ async fn reopening_keeps_the_data_and_applies_no_migration_twice() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn creating_the_database_records_a_project_id_of_the_name_and_six_hex_digits() {
+    let dir = ProjectDir::new();
+
+    let store = dir.open().await;
+
+    let id = store
+        .project_id()
+        .await
+        .expect("the project id is readable");
+    let suffix = id
+        .strip_prefix(&format!("{PROJECT_NAME}-"))
+        .expect("the id starts with the project name");
+    assert_eq!(suffix.len(), PROJECT_ID_SUFFIX_DIGITS, "{id}");
+    assert!(
+        suffix
+            .chars()
+            .all(|digit| digit.is_ascii_digit() || ('a'..='f').contains(&digit)),
+        "{id}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn reopening_keeps_the_project_id() {
+    let dir = ProjectDir::new();
+    let first = dir.open().await;
+    let created = first
+        .project_id()
+        .await
+        .expect("the project id is readable");
+    first.pool.close().await;
+
+    let reopened = dir.open().await;
+
+    assert_eq!(reopened.project_id().await.ok(), Some(created));
+    assert_eq!(count(&reopened, "project").await, 1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn a_subject_cannot_have_two_active_root_runs() {
     let dir = ProjectDir::new();
     let store = dir.open().await;
@@ -247,9 +289,10 @@ async fn a_step_run_gets_a_new_live_execution_once_the_previous_one_ended() {
 async fn a_writer_gives_up_busy_after_its_retries_while_another_store_holds_the_write_lock() {
     let dir = ProjectDir::new();
     let holder = dir.open().await;
-    let impatient = Store::open_with_busy_timeout(&dir.database(), &dir.lock(), Duration::ZERO)
-        .await
-        .expect("the store opens");
+    let impatient =
+        Store::open_with_busy_timeout(&dir.database(), &dir.lock(), PROJECT_NAME, Duration::ZERO)
+            .await
+            .expect("the store opens");
     let held = holder.begin_write().await.expect("the write lock is taken");
 
     let refused = impatient.begin_write().await.err();
@@ -294,7 +337,9 @@ async fn concurrent_openers_of_a_new_database_all_succeed() {
     let openers: Vec<_> = (0..CONCURRENT_OPENERS)
         .map(|_| {
             let dir = Arc::clone(&dir);
-            tokio::spawn(async move { Store::open(&dir.database(), &dir.lock()).await })
+            tokio::spawn(
+                async move { Store::open(&dir.database(), &dir.lock(), PROJECT_NAME).await },
+            )
         })
         .collect();
     let mut failures = Vec::new();
@@ -307,6 +352,7 @@ async fn concurrent_openers_of_a_new_database_all_succeed() {
     assert!(failures.is_empty(), "{failures:?}");
     let store = dir.open().await;
     assert_eq!(count(&store, "_sqlx_migrations").await, 1);
+    assert_eq!(count(&store, "project").await, 1);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -323,7 +369,9 @@ async fn a_database_migrated_by_a_newer_binary_is_refused() {
     .expect("the newer migration is recorded");
     store.pool.close().await;
 
-    let refusal = Store::open(&dir.database(), &dir.lock()).await.err();
+    let refusal = Store::open(&dir.database(), &dir.lock(), PROJECT_NAME)
+        .await
+        .err();
 
     assert!(
         matches!(
