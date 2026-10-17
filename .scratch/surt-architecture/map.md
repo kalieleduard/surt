@@ -40,10 +40,11 @@ O plano de engenharia completo do Surt — entregáveis A–L do brief (arquitet
 - [Cleanup, `surt delete` e logs](issues/13-cleanup-e-ciclo-de-vida.md) — cleanup roda após o estado terminal sob o lock do run, idempotente, e fica `pending` (coluna `cleaned_at`) para o próximo comando se falhar; `succeeded` remove Working Copy, worktrees, Task Branches e Salvage Refs; `cancelled` remove só o disco e guarda as refs; logs em `.surt/logs/<subject>/` sobrevivem até o `delete`; edição não registrada nunca é apagada (`--new-run` recusa); `delete` recusa run ativo, mantém a Integration Branch entregue e faz Git/disco → purge.
 - [Estrutura do workspace Rust e traits centrais](issues/15-workspace-rust-e-traits.md) — dois crates (`surt-engine` genérico + `surt` com CLI e workflows embutidos via `Catalog`); a CLI só vê a fachada `Project`, cujo `drive` faz lock → reconcile → avançar → cleanup; única trait `AgentRuntime` (store, Git e relógio reais nos testes); store com um método por checkpoint, scheduler puro `decide()`; `Refusal` sem texto e `DriveOutcome` mapeiam exit codes; **Run Branch** = branch de qualquer Workflow Run (ADR 0011/0012).
 - [Estratégia de testes](issues/16-estrategia-de-testes.md) — Fake Runtime com roteiro tipado em Rust (TOML só para o binário `surt`); fault points nos oito checkpoints de recuperação + um `kill` real como smoke; Git real com três cenários; CI com toda a suíte nos três SOs e Claude real só manual; feature `test-support` (off por padrão) gateia Fake e fault points; E2E via binário com teto de 60 s.
+- [Capturar stream real do Claude Code como fixture](issues/19-fixture-stream-real-claude-code.md) — lançador de F validado com run real (assinatura, macOS, 2.1.301); `subtype=success` aparece com `is_error=true` em falha de auth/modelo; SIGTERM sai 143 sem `result`; `--json-schema` força envelope até em falha (portão real = arquivos); ambiente do filho por allowlist; fixtures em `research/claude-code-cli-headless`.
 
 ## Not yet specified
 
-Nada na névoa: o que falta decidir para a v1 está nos tickets abertos — [Fixture real do Claude Code](issues/19-fixture-stream-real-claude-code.md) e, fechando o mapa, [Roadmap e Milestone 1](issues/17-roadmap-e-milestone-1.md). Critério de corte: só entra o que muda a v1; caso de borda vai para "Out of scope".
+Nada na névoa: o que falta decidir para a v1 está no último ticket aberto, que fecha o mapa — [Roadmap e Milestone 1](issues/17-roadmap-e-milestone-1.md). Critério de corte: só entra o que muda a v1; caso de borda vai para "Out of scope".
 
 ## Out of scope
 

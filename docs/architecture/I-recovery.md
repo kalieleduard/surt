@@ -203,11 +203,11 @@ Claude Code already retries API errors by itself (`system/api_retry`). When it g
 | `not_retryable` | `authentication_failed`, `billing_error`, `model_not_found`, `invalid_request`, and the launch errors of [G](G-state-machines.md#attempts) | Step Run `blocked` at once |
 | `retryable` | every other technical failure ([F](F-agent-contract.md#runtime-success-and-failure)) | counts; a new Attempt at once |
 
-The exact field values come from a real stream ([Capturar stream real do Claude Code como fixture](../../.scratch/surt-architecture/issues/19-fixture-stream-real-claude-code.md)). An unknown error category is `retryable`, so a misclassification costs Attempts and never makes Surt wait forever on a permanent error.
+Observed in the real streams of [Capturar stream real do Claude Code como fixture](../../.scratch/surt-architecture/issues/19-fixture-stream-real-claude-code.md): `authentication_failed` and `model_not_found` arrive in `assistant.error` with a `result` of `terminal_reason = "api_error"` (`api_error_status` 404 for the model); a rate-limited or network failure was not captured. An unknown error category is `retryable`, so a misclassification costs Attempts and never makes Surt wait forever on a permanent error.
 
 **The pause.** An account rate limit hits every agent at once, so a Transient Failure pauses **every agent launch of that Driver**, not only its own Step Run:
 
-- Until the reset time when the stream reports one (`rate_limit_event`), otherwise with backoff: 1, 2, 4, 8 and then 15 minutes between tries.
+- Until the reset time when the stream reports one (`rate_limit_event`; it also arrives on normal runs with `rate_limit_info.status = "allowed"`, which is not a limit), otherwise with backoff: 1, 2, 4, 8 and then 15 minutes between tries.
 - Executions already running go on. If they hit the limit, they fail `transient` too.
 - While paused, the Driver takes no new agent slot. Operations keep running: a Check or an integration does not need the API.
 - The backoff resets when an agent Execution ends in any other way.
