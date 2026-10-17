@@ -15,3 +15,10 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 sqlx = { version = "0.9", default-features = false, features = ["sqlite", "runtime-tokio", "migrate", "macros"] }
 thiserror = "2"
 tempfile = "3"
+serde = { version = "1", features = ["derive"] }
+toml = "1"
+tracing = "0.1"
+dunce = "1"
+anstream = "1"
+anstyle = "1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "std"] }

@@ -9,9 +9,13 @@ publish.workspace = true
 test-support = []
 
 [dependencies]
+dunce.workspace = true
+serde.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["time"] }
+tokio = { workspace = true, features = ["time", "process"] }
+toml.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
