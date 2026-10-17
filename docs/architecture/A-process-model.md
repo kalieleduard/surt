@@ -10,7 +10,7 @@ The engine has one primitive: `drive(root_run_id)`. It advances a root Workflow 
 
 ### Commands of the built-in feature workflow
 
-Each command owns one phase. A command that drives runs in the foreground. It refuses with an actionable message when its precondition is not met. Running the same command again continues from where it stopped. There is no separate `resume` command in Milestone 1.
+Each command owns one phase. A command that drives runs in the foreground. It refuses with an actionable message when its precondition is not met. Running the same command again continues from where it stopped. There is no separate `resume` command in v1.
 
 | Command | Drives? | Precondition | Runs until |
 |---|---|---|---|
@@ -90,7 +90,7 @@ Every control action from another process goes **through SQLite, never through s
   .surt/runtime/slots/agent-0.lock … agent-{N-1}.lock
   ```
   Before launching an agent, the Driver tries `try_lock` on each slot. If none is free, the Execution waits in a queued state and the Driver retries every ~500 ms. A Driver that dies frees its slots at once through the OS. SQLite records which slot an Execution holds, for display only (`status` shows `4/4 in use`). Each process reads N from its current config, so a changed limit applies to future launches.
-- **Fairness:** none across processes in Milestone 1. Whichever Driver tries first takes the free slot. Inside one Driver, queued Executions go in a deterministic order (manifest order for Tasks). Starvation is bounded by the duration of one agent run. A shared FIFO can be added later without changing the model.
+- **Fairness:** none across processes in v1. Whichever Driver tries first takes the free slot. Inside one Driver, queued Executions go in a deterministic order (manifest order for Tasks). Starvation is bounded by the duration of one agent run. A shared FIFO can be added later without changing the model.
 
 ```
 B  build #1   QUEUED   waiting for agent slot (4/4 in use)

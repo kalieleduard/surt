@@ -176,7 +176,7 @@ $ surt start 20261017-add-login
 - Items that `need` it stay `pending`: they do not start, and they are not skipped or cancelled. They wait for it to finish.
 - Items that do not depend on it keep running, so one stuck Task does not stop independent work.
 - The Per-Item Step stays `running` until every child is final.
-- Children are never cancelled one by one. In Milestone 1 a Child Workflow Run ends only as `succeeded`, or as `cancelled` together with its root. A Per-Item Step is therefore `done` only when **every** child succeeded. In the feature workflow, the Shipper never delivers a Feature with Tasks missing.
+- Children are never cancelled one by one. In v1 a Child Workflow Run ends only as `succeeded`, or as `cancelled` together with its root. A Per-Item Step is therefore `done` only when **every** child succeeded. In the feature workflow, the Shipper never delivers a Feature with Tasks missing.
 
 Cancelling or abandoning a single Task, with dependents skipped and a partial delivery, is out of scope for this plan.
 

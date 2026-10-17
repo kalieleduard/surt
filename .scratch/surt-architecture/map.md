@@ -41,10 +41,11 @@ O plano de engenharia completo do Surt — entregáveis A–L do brief (arquitet
 - [Estrutura do workspace Rust e traits centrais](issues/15-workspace-rust-e-traits.md) — dois crates (`surt-engine` genérico + `surt` com CLI e workflows embutidos via `Catalog`); a CLI só vê a fachada `Project`, cujo `drive` faz lock → reconcile → avançar → cleanup; única trait `AgentRuntime` (store, Git e relógio reais nos testes); store com um método por checkpoint, scheduler puro `decide()`; `Refusal` sem texto e `DriveOutcome` mapeiam exit codes; **Run Branch** = branch de qualquer Workflow Run (ADR 0011/0012).
 - [Estratégia de testes](issues/16-estrategia-de-testes.md) — Fake Runtime com roteiro tipado em Rust (TOML só para o binário `surt`); fault points nos oito checkpoints de recuperação + um `kill` real como smoke; Git real com três cenários; CI com toda a suíte nos três SOs e Claude real só manual; feature `test-support` (off por padrão) gateia Fake e fault points; E2E via binário com teto de 60 s.
 - [Capturar stream real do Claude Code como fixture](issues/19-fixture-stream-real-claude-code.md) — lançador de F validado com run real (assinatura, macOS, 2.1.301); `subtype=success` aparece com `is_error=true` em falha de auth/modelo; SIGTERM sai 143 sem `result`; `--json-schema` força envelope até em falha (portão real = arquivos); ambiente do filho por allowlist; fixtures em `research/claude-code-cli-headless`.
+- [Roadmap e Milestone 1](issues/17-roadmap-e-milestone-1.md) — M1 = Feature pequena ponta a ponta com Claude real e sobrevivendo a `kill -9`; pronto = suíte na CI nos 3 SOs + smoke manual em macOS; 10 comandos (sem `stop`/`inspect`/`logs`/`restore`/`delete`/`--new-run`/`--json`); Transient Failure bloqueia em vez de pausar; sem `ff-only`, `keep`, overrides de agente, config global e vagas entre processos — nada exige migration; fatias S1–S6; depois M2 operar → M3 sem babá → M4 ajustar; v1 = fim do M4 ([K](../../docs/architecture/K-roadmap.md), [L](../../docs/architecture/L-decisions.md)).
 
 ## Not yet specified
 
-Nada na névoa: o que falta decidir para a v1 está no último ticket aberto, que fecha o mapa — [Roadmap e Milestone 1](issues/17-roadmap-e-milestone-1.md). Critério de corte: só entra o que muda a v1; caso de borda vai para "Out of scope".
+Nada. O mapa chegou ao destino: o plano A–L está em `docs/architecture/` e `docs/adr/`, e o próximo passo é implementar o Milestone 1 pela fatia S1 de [K](../../docs/architecture/K-roadmap.md#build-order).
 
 ## Out of scope
 

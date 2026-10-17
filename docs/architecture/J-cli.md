@@ -1,6 +1,6 @@
 # J. CLI Surface
 
-The commands of Milestone 1, how they refer to things, what they print, their exit codes and the configuration they read. The engine is generic; these commands are the built-in feature workflow's front end and are the only layer that knows its phases. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md).
+The commands of v1 ([K](K-roadmap.md) lists the subset Milestone 1 ships), how they refer to things, what they print, their exit codes and the configuration they read. The engine is generic; these commands are the built-in feature workflow's front end and are the only layer that knows its phases. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md).
 
 ## Commands
 
@@ -85,7 +85,7 @@ $ surt init
 - **Project root** is the toplevel of the repository's main worktree. `init` from a subdirectory creates `.surt/` at the toplevel and says so. Other commands walk up from the current directory to the toplevel. A command run inside a Surt-managed worktree (`~/.surt/worktrees/…`) refuses.
 - **Preflight.** `init` runs the same Git preflight as the driving commands (Git ≥ 2.38, a user identity; [A. Git Integration](A-git-integration.md)) and refuses if it fails.
 - **Idempotent.** Running it again reports what exists. It never overwrites `config.toml` or `agents/`, and it rewrites `.surt/.gitignore` only if it is missing.
-- **Built-in agents are not materialized.** Their defaults live in the binary. A local override under `.surt/agents/<id>/` is written by hand, field by field ([F. Agent Contract](F-agent-contract.md#built-in-defaults-and-local-overrides)). There is no `surt agent export` in Milestone 1.
+- **Built-in agents are not materialized.** Their defaults live in the binary. A local override under `.surt/agents/<id>/` is written by hand, field by field ([F. Agent Contract](F-agent-contract.md#built-in-defaults-and-local-overrides)). There is no `surt agent export` in v1.
 
 ## `surt feature`: create, resume or start again
 
@@ -299,7 +299,7 @@ A driving command prints one line per relevant state change: a Step Run starting
 ## Output channels and non-interactive use
 
 - **stderr** carries progress, warnings and errors (`✔ ✖ ⚠ ↻ ⏸ ⛔`). **stdout** carries data only: the `status` table, `show` content, `logs` lines, `--json` documents. `surt show add-login spec > spec.md` writes only the spec.
-- **`--json`** exists on `status`, `inspect` and `show`. Each prints one document with `"schema": 1`; additions keep the version, removals or renames bump it. Driving commands have no `--json` in Milestone 1: a script uses their exit code, then `surt status --json`.
+- **`--json`** exists on `status`, `inspect` and `show`. Each prints one document with `"schema": 1`; additions keep the version, removals or renames bump it. Driving commands have no `--json` in v1: a script uses their exit code, then `surt status --json`.
   ```
   $ surt start add-login 2>progress.log; echo $?
   4
