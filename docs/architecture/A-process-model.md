@@ -23,7 +23,7 @@ Each command owns one phase. A command that drives runs in the foreground. It re
 ```
 $ surt start 20261015-add-login
 ✖ tasks not approved yet (manifest rev 1 awaiting approval)
-  review .surt/features/20261015-add-login/tasks.md, then: surt approve 20261015-add-login
+  review manifest rev 1 and its Task Markdown files, then: surt approve 20261015-add-login
 ```
 
 All three driving commands call the same `drive`. The phase boundaries come from the Approval Gates declared in the workflow, not from engine knowledge of specs or tasks. `surt approve --no-run` does not exist, because `approve` never drives.
@@ -111,7 +111,7 @@ It is held for worktree add or remove, branch creation, `update-ref`, and `merge
   1. **Graceful:** SIGTERM to the group on Unix, `CTRL_BREAK_EVENT` to the group on Windows. Claude Code exits 143 on SIGTERM, kills its Bash trees and runs `SessionEnd` hooks.
   2. **Grace period:** `stop_grace_period`, default `10s`, configurable in the global configuration.
   3. **Forced:** kill the process group, or terminate the Job Object.
-- The wall-clock timeout of an Agent Profile, which Claude Code lacks, uses the same escalation. Its value is decided in section F.
+- Surt imposes no wall-clock execution timeout in the current plan, as decided in [F. Agent Contract](F-agent-contract.md). The grace period above only bounds an explicit stop sequence; it is not an execution duration limit.
 - To reduce orphans, Windows uses a Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, so children die with the Driver. Linux sets `PR_SET_PDEATHSIG` on the direct child. macOS has no equivalent and relies on the next Driver (see below).
 - Each agent Execution records its process identity: pid, native start time and boot id. A reused pid is never mistaken for the original process.
 - **Unverified on real Windows:** how `claude.exe` reacts to Ctrl+Break. If it ignores it, the only effect is that the forced kill comes after the grace period.
@@ -155,7 +155,7 @@ All lock files live apart from `surt.db`, `-wal` and `-shm`. SQLite uses POSIX l
     └── agent-<i>.lock       # agent concurrency slots, i in 0..max_concurrent_agents
 ```
 
-Whether `.surt/runtime/` is ignored by Git, and where the rest of `.surt/` lives, is decided in section H.
+`.surt/runtime/` also holds one directory per Execution (`executions/<id>/{inputs,delivery}/`). It is ignored by Git with the rest of `.surt/` except `config.toml` and `agents/`; see [H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md).
 
 ## Daemon fit
 
@@ -174,5 +174,5 @@ What a daemon would add (`--detach`, and a live log channel for clients) is out 
 - Execution, Step Run and Workflow Run state names (interrupted, queued, cancel requested): section G.
 - What recovery does with orphans' leftovers and partial Operations: section I.
 - Columns for the Driver identity, cancel request and slot held: section D.
-- Agent Profile timeout values: section F.
+- Agent Profiles, permissions and the decision to omit execution timeouts: section F.
 - Full CLI contracts, output formats and exit codes: section J.

@@ -3,7 +3,7 @@
 Map: [Surt — Arquitetura e plano de implementação](../map.md)
 Type: grilling
 Status: open
-Blocked by: 08, 12, 18
+Blocked by: 08, 12, 18, 20
 
 ## Question
 
@@ -13,6 +13,10 @@ Decidir: máquina de estados do cleanup (`on_success`, `on_delete`); que estados
 
 ## Context
 
+De [Contrato de agente](07-contrato-de-agente.md): manifesto e `.md` por Task formam uma única Revision aprovada. O cleanup deve preservar as garantias do armazenamento de Revisions, sem tratar vistas locais como a única cópia de documentos aprovados. A retenção/redação de streams e stderr é decidida em [Política de logs, retenção e redação](20-politica-de-logs-retencao-e-redacao.md) antes de este ticket fixar o que remove.
+
 Surgiu de [Primitivas multiplataforma](18-primitivas-multiplataforma.md): `remove_dir_all` não segue links abaixo da raiz mas não é idempotente nem protege contra troca de ancestral pós-checagem; contenção de path precisa lidar com `\\?\`, case-insensitivity e junctions.
 
 De [Schema TOML de workflow](06-schema-toml-de-workflow.md): o único controle por workflow no TOML é `[cleanup] on_success = "clean" | "keep"` (default `clean`); este ticket decide o que "clean" remove e a política global/`on_delete`.
+
+De [Armazenamento de artefatos, congelamento e revalidação](08-armazenamento-congelamento-revalidacao.md): o cleanup de uma run terminal remove `.surt/features/<subject>/` (Working Copy) e `.surt/runtime/executions/<id>/`; Revisions, blobs e Approvals ficam no SQLite até um **purge** explícito, cuja política (quando, comando, confirmação) é decidida aqui. Ver [H. Artifact Storage](../../../docs/architecture/H-artifact-storage.md).

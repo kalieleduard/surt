@@ -37,9 +37,10 @@ Reading notes:
 
 - A **Subject** groups root Workflow Runs over time; Child Workflow Runs belong to it through their root.
 - A **Step Run** of a Per-Item Step starts one Child Workflow Run per item of an Item List and finishes only when they all reach a terminal state. A Per-Item Step is the only way to start a Child Workflow Run.
-- An **Execution** uses either one Agent Profile (frozen at launch) or one Operation.
+- An **Execution** uses either one Agent Profile selected from the root Workflow Run's frozen agent definitions, recording the selected profile at launch, or one Operation. Contracts, instructions and effective profiles are frozen at root run creation; see [F. Agent Contract](F-agent-contract.md).
 - An **Approval Gate** is a Step Run with zero Executions; it completes when an Approval (approve or reject) on the latest Revision of its Artifact is recorded, with Outcome `approved` or `rejected`.
 - An **Artifact Revision** has exactly one origin: one Execution (as output) or one human edit. The text given to `surt feature` and the reason given to `surt reject` are human-origin Revisions. A Child Workflow Run's item is not a new Revision: it is one item inside an existing Item List Revision.
+- An **Item List Revision** contains its JSON and any named files referenced by its items. Approval covers the complete content. A child sees only its own item's files, pinned to that Revision; materializing them as inputs creates no new Revision. The built-in Task Agent uses this generic mechanism for one Markdown document per Task; see [F. Agent Contract](F-agent-contract.md).
 
 ## Invariants
 
@@ -49,6 +50,7 @@ Reading notes:
 4. **One running Execution per Step Run.**
 5. **Immutable, single-origin Revisions.** Artifact Revisions are never mutated, and an Approval never carries over to a newer Revision.
 6. **Engine is workflow-agnostic.** No engine concept, rule or storage is specific to Feature, Task or any feature-workflow Agent.
+7. **Pinned after consumption.** Once an approved Revision is read as an Input, no human edit to its Artifact is recorded for the rest of the Workflow Run ([H](H-artifact-storage.md#revalidation)).
 
 ## Worked example
 
@@ -75,7 +77,7 @@ Subject 20261015-add-login
 
 - States and transitions of runs, Step Runs and Executions: section G ([Máquina de estados do loop Builder ↔ Reviewer](../../.scratch/surt-architecture/issues/10-loop-builder-reviewer.md)).
 - Iteration and Attempt limits, and Agent Profile escalation between Iterations: same ticket.
-- Where Revisions live, freezing and revalidation after edits: section H ([Armazenamento de artefatos, congelamento e revalidação](../../.scratch/surt-architecture/issues/08-armazenamento-congelamento-revalidacao.md)).
+- Where Revisions live, Working Copies, edit detection, pinning and revalidation: [H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md).
 - Physical tables: section D ([Schema SQLite](../../.scratch/surt-architecture/issues/11-schema-sqlite.md)).
 
 Decision record: [ADR 0001 — Task Cycle runs as a Child Workflow Run](../adr/0001-task-cycle-as-child-workflow-run.md).

@@ -35,7 +35,7 @@ A new logical round inside a Workflow Run, triggered by a decision such as a rej
 _Avoid_: Retry, loop, round
 
 **Attempt**:
-A new Execution of the same Step Run after a technical failure such as a crash, timeout or invalid output.
+A new Execution of the same Step Run after a technical failure such as a crash or invalid output.
 _Avoid_: Retry (ambiguous with Iteration), rerun
 
 **Outcome**:
@@ -47,7 +47,7 @@ A step that repeats a group of steps, its body, as new Iterations until one of t
 _Avoid_: Cycle, retry, back-edge
 
 **Item List**:
-An Artifact holding a list of items, each with a unique key and the keys it depends on. It is the only shape a Per-Item Step expands; the engine does not know what the items mean.
+An Artifact holding items with unique keys, dependency keys and optional named files. The list and its referenced files share one immutable Revision. It is the only shape a Per-Item Step expands; the engine does not know what the items mean.
 _Avoid_: Manifest (the feature workflow's Item List), batch
 
 **Per-Item Step**:
@@ -98,6 +98,10 @@ _Avoid_: Model config, agent config
 The adapter that knows how to launch and follow one kind of agent, such as Claude Code or the Fake Runtime used in tests.
 _Avoid_: Provider (reserved for external integrations), driver, backend
 
+**Context Assembler**:
+The component that prepares an Execution's context from its fixed Inputs, current item and delivery contract, alongside the Agent's stable instructions.
+_Avoid_: Prompt builder, agent memory
+
 ### Artifacts
 
 **Artifact**:
@@ -105,8 +109,16 @@ A named piece of content a workflow produces or consumes, such as a spec, a task
 _Avoid_: Document, file, output
 
 **Artifact Revision**:
-An immutable version of an Artifact. A human edit, an agent regeneration or new feedback always creates a new Revision; nothing is mutated. Approval always targets one Revision.
+An immutable version of an Artifact. A recorded human edit, an agent regeneration or new feedback always creates a new Revision; nothing is mutated. Approval always targets one Revision.
 _Avoid_: Version, edit, update
+
+**Working Copy**:
+The editable local view of the latest Revision of an Artifact that passes through an Approval Gate. Surt notices an edit and records it as a new human-origin Revision, unless the Artifact's approved Revision is pinned. Agents never read a Working Copy; they read Revisions.
+_Avoid_: Checkout, draft, local file
+
+**Pinned Revision**:
+An approved Revision that some Execution has already read as an Input. For the rest of its Workflow Run, a human edit to that Artifact is refused rather than recorded; changing it means cancelling and starting a new run.
+_Avoid_: Locked, frozen (reserved for definitions and agent snapshots)
 
 **Input / Output**:
 An Execution reads specific Artifact Revisions as Inputs, fixed when it starts, and produces new Revisions as Outputs. Every Revision comes from exactly one origin: one Execution or one human edit.
@@ -119,7 +131,7 @@ The Subject of the built-in feature workflow, named `YYYYMMDD-description`.
 _Avoid_: Project, epic, change
 
 **Task**:
-A unit of work listed in the manifest the Task Agent produces, with an id and dependencies on other Tasks. Only the built-in feature workflow knows Tasks; the engine sees them as items to expand over.
+A unit of work listed in the Task Agent's manifest, with a key, dependencies and its own Markdown instructions for the Builder. The manifest and these documents are approved together. Only the built-in feature workflow knows Tasks; the engine sees them as items to expand over.
 _Avoid_: Ticket, issue, story
 
 **Task Cycle**:

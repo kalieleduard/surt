@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Built-in Shipper delivery output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["branch", "sha", "summary"],
+  "properties": {
+    "branch": { "type": "string", "minLength": 1 },
+    "sha": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "summary": { "type": "string", "minLength": 1 }
+  }
+}

@@ -30,13 +30,14 @@ O plano de engenharia completo do Surt — entregáveis A–L do brief (arquitet
 - [Glossário do domínio](issues/01-glossario-do-dominio.md) — núcleo genérico sobre Subject → Workflow Run (congela a Definition; ≤1 ativo por Subject) → Step Run → Execution; cada Task é um Child Workflow Run do `task-cycle`; Iteration cria Step Runs novos, Attempt cria Execution nova; Approval Gate + Approval sobre Revision imutável.
 - [Modelo de processo e controle de concorrência](issues/05-modelo-de-processo-e-concorrencia.md) — `surt feature`/`plan`/`start` dirigem uma fase cada em foreground e `approve` só registra; um Driver por root run garantido por lock de arquivo (sem lease/heartbeat); Ctrl-C = Interruption retomável; controle externo só pelo SQLite; vagas de agente por projeto como lock files; órfãos nunca adotados.
 - [Schema TOML de workflow](issues/06-schema-toml-de-workflow.md) — cinco `kind` sem expressões (`agent`, `approval`, `operation`, `loop`, `per_item`); condições só comparam Outcome; rejeição e review reprovado = nova Iteration de um Loop (sem `max_iterations`); inputs pelo nome na Revision mais recente (ADR 0003, proteção na revalidação); `needs` explícito; Item List fixa (`key` + `needs`); root congela o fecho por SHA-256.
+- [Contrato de agente](issues/07-contrato-de-agente.md) — contratos/perfis congelados; arquivos + JSON final validado; `.md` por Task junto ao manifesto aprovado; `dontAsk`; sem timeout de execução.
+- [Armazenamento de artefatos, congelamento e revalidação](issues/08-armazenamento-congelamento-revalidacao.md) — blobs SHA-256 no SQLite (publicação atômica, Approval = id + hash); Working Copy editável só para artefatos com gate, edições detectadas por hash viram Revision humana; Revision aprovada e já lida como Input fica fixada e edição posterior é recusada (ADR 0005); inputs por Execution em `runtime/executions/<id>/`; `.surt/` ignorado salvo `config.toml`/`agents/`; nome `YYYYMMDD-<slug>` com sufixo `-N`.
 
 ## Not yet specified
 
 - **Integrações externas** (GitHub Issues/PRs, Linear, Jira): por ora só um espaço reservado (`external_ref` em metadados) decidido no schema SQLite; o contrato de provider em si fica na névoa até o modelo de Task e artefatos estar firme.
 - **Conteúdo do `config.toml` global e do config de projeto** — já existem `stop_grace_period` (global) e `max_concurrent_agents` (projeto); consolidar com o que cair em integração Git e CLI quando esses tickets fecharem.
 - **Rate limits e custo de tokens** como entrada do limite de concorrência do Scheduler — o limite decidido é por projeto, então vários projetos na mesma máquina podem somar acima do rate limit da conta.
-- **Formato e retenção de `stream.jsonl` / `stderr.log`** — o que é persistido, por quanto tempo, e como interage com o cleanup e redação de segredos.
 
 - **Validação em Windows real**: reação do `claude.exe` a Ctrl+Break, `wait` do process-wrap no Windows, `core.longpaths` do Git for Windows — vira ticket quando houver máquina/CI Windows disponível (provável no roadmap/estratégia de testes).
 

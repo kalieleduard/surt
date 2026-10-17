@@ -15,3 +15,5 @@ A pesquisa de [Capacidades headless do Claude Code CLI](02-claude-code-cli-headl
 4. Anotar exit codes e salvar os streams em `docs/research/fixtures/claude-code/` na branch `research/claude-code-cli-headless`.
 
 Resultado alimenta o parser do runtime e o Fake Agent Runtime.
+
+Contrato a validar após [Contrato de agente](07-contrato-de-agente.md): usar a combinação real de flags/ambiente de [F. Agent Contract](../../../docs/architecture/F-agent-contract.md#claude-code-launcher-and-compatibility), baseline 2.1.301 ou posterior compatível, login de assinatura por padrão, `dontAsk`, sessão UUID nova e envelope `outcome`/`outputs` com arquivo real. Incluir verificação de auth/isolamento efetivos, modelo/permission mode/tools em `system/init`, eventos após `result`, flag documentada ausente do help e entrega com arquivos referenciados por Item List. Não considerar a combinação verificada só porque flags individuais existem. A captura continua sendo este ticket próprio; não foi executada durante o planejamento do contrato.

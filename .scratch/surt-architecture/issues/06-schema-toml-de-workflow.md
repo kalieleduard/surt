@@ -37,3 +37,7 @@ Decisões:
 - **Validação estática** antes de todo run nascer (lista de 8 checagens na seção E).
 - **Agent ids:** `spec`, `tasks`, `builder`, `reviewer`, `shipper`.
 - **Fora do escopo:** override/customização de workflows embutidos e workflows próprios do projeto (só os embutidos no binário existem; o schema não impede).
+
+## Comments
+
+Extensão posterior aprovada em [Contrato de agente](07-contrato-de-agente.md): Item Lists admitem `files` por item, com formatos declarados em `agent.toml` e bytes incluídos na mesma Revision aprovada. A seção E foi atualizada; o mecanismo permanece genérico e não cria um novo kind de Step. Decisão detalhada e justificativa ficam no ticket do contrato e em [ADR 0004](../../../docs/adr/0004-item-list-files-share-approved-revision.md).

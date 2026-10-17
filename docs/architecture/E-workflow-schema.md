@@ -43,7 +43,7 @@ Only the built-in definitions (`feature`, `task-cycle`) exist, and they ship ins
 
 Notes per kind:
 
-- **agent:** the `agent.toml` owns the contract: `outcomes`, `[inputs]` (with `optional = true` where an input may not exist yet) and `[outputs]` (section F). The step does not repeat that list. It only renames, when a workflow's artifact name differs from the agent's input name.
+- **agent:** the `agent.toml` owns the contract: `outcomes`, `[inputs]` (with `optional = true` where an input may not exist yet), `[outputs]` and any declared `item_files` on an Item List output ([section F](F-agent-contract.md)). The step does not repeat that list. It only renames, when a workflow's artifact name differs from the agent's input name.
 - **approval:** it approves or rejects the **latest** Revision of `artifact` at the moment `surt approve`/`surt reject` runs, and records an Approval on that Revision. The `-m` reason of `surt reject` becomes a new human-origin Revision of `rejection_artifact`. Each gate needs its own `rejection_artifact` name, because names are per run and two gates sharing one name would hand one gate's reason to another agent.
 - **operation:** the registry of operation ids, their arguments and their Outcomes is decided in section B (Git integration). This schema only references them by id.
 - **loop:** see [Loops](#loops).
@@ -55,7 +55,7 @@ A Step Run whose `when` is false ends as **SKIPPED**. SKIPPED is a state, not an
 
 - A Workflow Run's Artifacts are identified by **name**. At the start of an Execution, each input resolves to the **latest Revision** of the artifact with that name, and that Revision is fixed as its Input.
 - A required input with no Revision is a static validation error when no step before it (via `needs`) produces it. It is a runtime error otherwise. An optional input with no Revision is simply absent, for example `feedback` on the first Iteration.
-- Steps read the latest Revision, not "the Revision a gate approved". The guarantee that nothing unapproved flows downstream is therefore enforced by the revalidation policy of section H: a driving command refuses while an artifact that passed a gate has a newer, unapproved Revision.
+- Steps read the latest Revision, not "the Revision a gate approved". The guarantee that nothing unapproved flows downstream is therefore enforced by the revalidation policy of [H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md): a driving command refuses while an artifact that passed a gate has a newer, unapproved Revision, and an approved Revision already read as an Input is pinned.
   ```
   $ surt plan 20261016-add-login
   ✖ spec changed after approval (rev 2 not approved)
@@ -63,7 +63,7 @@ A Step Run whose `when` is false ends as **SKIPPED**. SKIPPED is a state, not an
   ```
 - Two names are supplied by the engine, not produced by a step:
   - `request`: in a root run, the text given to `surt feature "<description>"`, stored as a human-origin Revision.
-  - `item`: in a Child Workflow Run, its item of the parent's Item List. It is a reference to one item inside the approved Item List Revision, not a new Revision.
+  - `item`: in a Child Workflow Run, its item of the parent's Item List, together with that item's named files when present. It references the approved Item List Revision, not a new Revision.
 
 ## Ordering
 
@@ -97,7 +97,7 @@ pass = ["spec"]
 needs = ["prepare"]
 ```
 
-- `items` names an artifact in the **Item List** format. It is a JSON array where every element has a unique non-empty string `key` and a `needs` array of keys. Any other field is payload for the child:
+- `items` names an artifact in the **Item List** format. Its index is a JSON array where every element has a unique non-empty string `key`, a `needs` array of keys and an optional `files` map of file names to relative paths. Other fields are payload for the child:
   ```json
   [
     { "key": "A", "needs": [],    "title": "Create users table" },
@@ -105,13 +105,15 @@ needs = ["prepare"]
     { "key": "C", "needs": [],    "title": "Login screen" }
   ]
   ```
-- An Item List is validated **when the producing agent delivers it** (duplicate or missing key, unknown key in `needs`, cycle). An invalid list is an invalid output and leads to a new Attempt, so a human never approves a cyclic list. The engine validates again on expansion, as a defence.
+- The producer's `agent.toml` declares any required item files and their formats through `outputs.<name>.item_files.<file-name>`. The `files` names must match those declarations on every item. Paths are rooted at the Execution's delivery directory and must resolve to safe regular files; nested Item Lists are not supported as item files. With no declarations, `files` may be absent or empty.
+- An **Item List Revision** includes both its JSON index and all referenced file bytes. Approval covers that complete Revision; changing a referenced file creates a new Revision and requires reapproval. File paths alone are not a snapshot. The built-in Task Agent writes one Markdown file per Task through this generic mechanism; the engine does not interpret it as a Task document. Contract and examples: [F. Agent Contract](F-agent-contract.md#one-markdown-document-per-task); rationale: [ADR 0004](../adr/0004-item-list-files-share-approved-revision.md).
+- An Item List is validated **when the producing agent delivers it** (duplicate or missing key, unknown key in `needs`, cycle, missing or invalid item file). An invalid list is an invalid output and leads to a new Attempt, so a human never approves a cyclic or incomplete list. The engine validates again on expansion, as a defence.
   ```
   ✖ plan-tasks attempt 1: invalid item list — cycle B → C → B
   ↻ plan-tasks attempt 2
   ```
 - One Child Workflow Run of `workflow` starts per item, as soon as all the items it `needs` have finished. Ties follow list order. The Step Run finishes when every child is terminal. What a blocked or cancelled child means for its dependents and for the step is decided in section G.
-- **Downward visibility:** a child reads its own artifacts, its `item`, and the parent artifacts listed in `pass`, read-only, by name. Nothing else of the parent is visible. Static validation checks that every required input of the child workflow's agents is produced inside the child, is `item`, or is in the parent's `pass`.
+- **Downward visibility:** a child reads its own artifacts, its `item` with that item's named files, and the parent artifacts listed in `pass`, read-only, by name. It does not receive other items' files. The Per-Item Step pins one Item List Revision on expansion; later Attempts do not reread mutable source files. Preparing local file bindings creates no new Revision. Static validation checks that every required input of the child workflow's agents is produced inside the child, is `item`, or is in the parent's `pass`.
 - **No upward visibility:** the parent does not read children's artifacts. Their work reaches the parent through the integration branch (section B).
 - Constraints that item keys must satisfy to be usable in branch and directory names (Windows reserved names, characters, case collisions) are decided in section B.
 
@@ -120,7 +122,7 @@ needs = ["prepare"]
 - A root Workflow Run freezes, at creation, the **closure** of its effective definitions: its own and every Workflow Definition reachable through `per_item` steps. Its Child Workflow Runs use the frozen copy. Edits never reach a run that already exists.
 - A frozen definition is identified by the SHA-256 of its canonical form, shown short in `status`/`inspect` (`feature@3f9a2c · task-cycle@8b1d07`). There is no hand-maintained `version` field.
 - `schema` is the format version. A binary refuses a definition whose `schema` it does not know.
-- Freezing of agent definitions (`agent.toml`, `instructions.md`) is decided in section F.
+- Agent contracts, instructions and effective profiles are also frozen at root run creation, after local overrides are applied; see [F. Agent Contract](F-agent-contract.md).
 
 ## Static validation
 
@@ -140,7 +142,7 @@ Checks:
 4. The `needs` rules of [Ordering](#ordering) hold, and the graph is acyclic.
 5. `when` and `until` reference an Outcome the referenced step's kind, agent or operation declares. `until.step` is in the Loop's `body`.
 6. Every `agent` exists. Every required input of an agent is produced by a step before it (via `needs`, including earlier steps of the same body), is supplied by the engine (`request`, `item`), or is passed by the parent (`pass`).
-7. Every `run` is a registered operation. Every `workflow` of a `per_item` exists, and its `items` artifact is produced by a step before it in the Item List format.
+7. Every `run` is a registered operation. Every `workflow` of a `per_item` exists, and its `items` artifact is produced by a step before it in the Item List format. Any `item_files` declarations have valid names and supported file formats; actual item references and bytes are validated at delivery and expansion.
 8. Every `approval` names an `artifact` produced before it and a `rejection_artifact` unique in the definition.
 
 ## Built-in definitions
@@ -178,7 +180,7 @@ until = { step = "approve-spec", outcome = "approved" }
 
 [steps.plan-tasks]
 kind = "agent"
-agent = "tasks"           # reads: spec, manifest?, manifest-rejection-reason?  writes: manifest
+agent = "tasks"           # reads: spec, manifest?, manifest-rejection-reason?  writes: manifest + its per-item Markdown files
 
 [steps.approve-tasks]
 kind = "approval"
@@ -230,7 +232,7 @@ run = "git.create_task_worktree"
 
 [steps.build]
 kind = "agent"
-agent = "builder"         # reads: item, spec, feedback?  writes: commit
+agent = "builder"         # reads: item + its task Markdown file, spec, feedback?  writes: commit
 
 [steps.check]
 kind = "operation"
@@ -239,7 +241,7 @@ needs = ["build"]
 
 [steps.review]
 kind = "agent"
-agent = "reviewer"        # reads: item, spec, commit, check-report  writes: feedback
+agent = "reviewer"        # reads: item + its task Markdown file, spec, commit, check-report  writes: feedback
 needs = ["check"]
 
 [steps.integrate]
@@ -287,7 +289,7 @@ Operation ids, the `check` step and its `check-report` are placeholders until se
 
 - Agent contract format (`outcomes`, `[inputs]`, `[outputs]`, profiles, freezing of agents): section F ([Contrato de agente](../../.scratch/surt-architecture/issues/07-contrato-de-agente.md)).
 - Iteration and Attempt limits, Task blocking, and what a blocked child means for its dependents: section G ([Máquina de estados do loop Builder ↔ Reviewer](../../.scratch/surt-architecture/issues/10-loop-builder-reviewer.md)).
-- Revalidation after an approved artifact is edited: section H ([Armazenamento de artefatos, congelamento e revalidação](../../.scratch/surt-architecture/issues/08-armazenamento-congelamento-revalidacao.md)).
+- Revalidation after an approved artifact is edited: [H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md).
 - Operation registry, integration branch, checks, item key constraints: section B ([Modelo de integração Git](../../.scratch/surt-architecture/issues/09-modelo-de-integracao-git.md)).
 - What `on_success = "clean"` removes: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
 - `surt reject`, and which command drives after it: section J ([Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md)).
