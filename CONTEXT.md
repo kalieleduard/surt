@@ -124,6 +124,10 @@ _Avoid_: Locked, frozen (reserved for definitions and agent snapshots)
 An Execution reads specific Artifact Revisions as Inputs, fixed when it starts, and produces new Revisions as Outputs. Every Revision comes from exactly one origin: one Execution or one human edit.
 _Avoid_: Dependency (reserved for ordering between Steps)
 
+**Initial Artifact**:
+An Artifact whose first Revision is supplied by the command that creates a root Workflow Run, as a human-origin Revision, rather than produced by a step, such as the feature workflow's request and Base.
+_Avoid_: Parameter, argument, seed
+
 ### Feature workflow (built-in, not part of the engine)
 
 **Feature**:
@@ -153,5 +157,25 @@ The Agent that judges a Builder's commit and returns approved or changes request
 _Avoid_: QA, checker
 
 **Shipper**:
-The Agent that delivers the final integrated branch, never merging it into the main branch.
+The Agent that writes the delivery text for a Feature's final Integration Branch. It only reads; it never commits or merges.
 _Avoid_: Releaser, deployer
+
+**Base**:
+The commit a Feature starts from, fixed when the Feature is created. Its Integration Branch is created exactly there.
+_Avoid_: Parent branch, upstream
+
+**Integration Branch**:
+The branch, owned by Surt, that collects every approved Task of one Feature run as a merge of its reviewed commit. It is what the Shipper delivers.
+_Avoid_: Feature branch, release branch
+
+**Task Branch**:
+The branch a Builder commits to in its own worktree, starting from the Integration Branch's tip when its Task begins.
+_Avoid_: Work branch, topic branch
+
+**Conflict**:
+The reason an approved Task could not enter its Integration Branch: its changes clash with Tasks merged since it started, or the combination fails the Checks. It sends the Task back to its Builder.
+_Avoid_: Merge failure, rejection
+
+**Check**:
+A command declared by the project that Surt runs against a Builder's commit to verify it, such as tests or lint. Its results reach the Reviewer.
+_Avoid_: CI, validation, hook

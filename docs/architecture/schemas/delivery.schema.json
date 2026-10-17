@@ -3,13 +3,9 @@
   "title": "Built-in Shipper delivery output",
   "type": "object",
   "additionalProperties": false,
-  "required": ["branch", "sha", "summary"],
+  "required": ["title", "summary"],
   "properties": {
-    "branch": { "type": "string", "minLength": 1 },
-    "sha": {
-      "type": "string",
-      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
-    },
+    "title": { "type": "string", "minLength": 1, "maxLength": 120 },
     "summary": { "type": "string", "minLength": 1 }
   }
 }

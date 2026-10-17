@@ -17,7 +17,7 @@ Each command owns one phase. A command that drives runs in the foreground. It re
 | `surt feature "<description>"` | yes | no active run for the Subject | spec Approval Gate |
 | `surt approve <feature>` | **no**, it only records the Approval | an Approval Gate is waiting | returns immediately |
 | `surt plan <feature>` | yes | spec Revision approved | task-manifest Approval Gate |
-| `surt start <feature>` | yes | task-manifest Revision approved | Shipper delivers the final integrated branch (run terminal) |
+| `surt start <feature>` | yes | task-manifest Revision approved | Shipper delivers the final integrated branch, then the opt-in fast-forward into the Base runs ([A. Git Integration](A-git-integration.md)) (run terminal) |
 | `surt cancel <feature>` | no (see [External control](#external-control)) | run not terminal | Cancellation recorded |
 
 ```

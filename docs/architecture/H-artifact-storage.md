@@ -52,7 +52,7 @@ Humans read and edit artifacts through a **Working Copy** under `.surt/features/
     └── B.md
 ```
 
-File paths mirror the Revision's relative paths. Physical naming of item files and safe key-to-path encoding belong to section B.
+File paths mirror the Revision's relative paths verbatim. Keys and path components follow the portable naming rules of [A. Git Integration](A-git-integration.md#item-keys-and-item-file-paths), so no encoding is needed.
 
 Every other artifact (`request`, `feedback`, `*-rejection-reason`, Shipper outputs) has no Working Copy. Humans read it with `surt show <subject> <artifact> [--rev N]`. This keeps a human from editing, for example, the Reviewer's `feedback` in the middle of a Loop.
 
@@ -196,12 +196,12 @@ Versioning `features/` would create a second source of truth. Task branches woul
 
 - Revisions, blobs and Approvals stay in SQLite for as long as the Workflow Run exists. Removing old runs (purge) is section I.
 - Cleanup of a terminal run removes its Working Copy `.surt/features/<subject>/` and its `.surt/runtime/executions/<id>/` directories. Both are views that can be regenerated: `surt show <subject> <artifact>` reads any Revision.
-- Nothing is committed into the user's branches. The Shipper does not commit the spec. Whether its delivery text summarizes it is section B.
+- Nothing is committed into the user's branches. The Shipper does not commit the spec; its delivery text summarizes the spec's intent ([A. Git Integration](A-git-integration.md#snapshot-shipper-and-delivery)).
 
 ## Decided elsewhere
 
 - Physical tables for blobs, Revisions, baselines and Approvals: section D ([Schema SQLite](../../.scratch/surt-architecture/issues/11-schema-sqlite.md)).
-- Item file naming inside worktrees and key-to-path encoding: section B ([Modelo de integração Git](../../.scratch/surt-architecture/issues/09-modelo-de-integracao-git.md)).
+- Item key and path naming rules, worktree layout: [A. Git Integration](A-git-integration.md) ([Modelo de integração Git](../../.scratch/surt-architecture/issues/09-modelo-de-integracao-git.md)).
 - What cleanup removes, when, and purge of old runs: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
 - Exact output and exit codes of `show`, `restore`, `approve --rev` and the refusals: section J ([Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md)).
 - Retention and redaction of logs and streams: [Política de logs, retenção e redação](../../.scratch/surt-architecture/issues/20-politica-de-logs-retencao-e-redacao.md).

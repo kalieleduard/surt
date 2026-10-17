@@ -95,7 +95,7 @@ Tool availability and call approval are separate profile fields. Each effective 
 | Reviewer, Shipper | `Read`, `Glob`, `Grep`, `Write`, `Bash` | Same file rules, plus `git status`, `git diff`, `git show`, `git log`, `git rev-parse` inspection commands |
 | Builder | `Read`, `Glob`, `Grep`, `Write`, `Edit`, `Bash` | Read/search, Write/Edit under its worktree and delivery directory, and Bash for implementation, checks and commits |
 
-The runtime expands the file permission roots from its trusted Execution paths, not from model-provided output paths. It renders those roots in Claude Code's platform-specific permission-rule syntax. This expansion is launcher behavior, not a template language available in TOML. Shell permissions do not provide filesystem or network confinement. Native Windows uses Git Bash for the built-in Bash-based profiles; a missing shell is an actionable launch error. Section B owns Git prerequisites and the final Shipper behavior. Any later permission change required there must preserve the approval and reviewed-code invariants.
+The runtime expands the file permission roots from its trusted Execution paths, not from model-provided output paths. It renders those roots in Claude Code's platform-specific permission-rule syntax. This expansion is launcher behavior, not a template language available in TOML. Shell permissions do not provide filesystem or network confinement. Native Windows uses Git Bash for the built-in Bash-based profiles; a missing shell is an actionable launch error. Git prerequisites and the final Shipper behavior are in [A. Git Integration](A-git-integration.md). The Shipper stays read-only there: it inspects the Integration Branch from the project root and never writes to Git. Builders get `core.longpaths=true` on Windows through `GIT_CONFIG_*` environment variables, never through the repository's config.
 
 Claude's path rules for `Write` use the `Edit(...)` permission namespace; do not emit a `Write(path)` rule and assume it grants access. Absolute POSIX roots use Claude's `//` prefix, for example `Edit(//Users/dev/project/delivery/**)`, rather than a single-slash project-relative rule. Render Windows roots using the CLI's Windows path semantics. These are adapter rules, not portable filesystem paths copied verbatim into the CLI. Explicit `--tools` restores `Glob` and `Grep` on platforms where the default tool set omits them. Primary references: [read/edit permissions](https://code.claude.com/docs/en/permissions#read-and-edit) and [tool reference](https://code.claude.com/docs/en/tools-reference).
 
@@ -112,6 +112,16 @@ Turn and estimated-cost limits are optional per profile, with no limits by defau
 `instructions.md` defines the Agent's stable role and instructions. The Context Assembler builds the context of one Execution: its Inputs with fixed Revisions, its current item when applicable, its working directory and delivery contract. The instruction text has no templates or expressions.
 
 The assembler uses the frozen instruction text and the Inputs selected for this Execution. A new Iteration can therefore supply a newer feedback Revision without changing the Agent's instructions.
+
+Inputs resolve to the latest Revision by name, so a later Iteration can still receive a Revision produced several Iterations earlier, such as an old `conflict` after a newer `feedback`. The assembler therefore labels every Input with the Iteration and step that produced it, and, from the second Iteration of a Loop on, states why the current Iteration started: which step of the previous Iteration ended with which Outcome, or was SKIPPED. This is generic engine state; the assembler does not know what a conflict or a review is.
+
+```
+## Why this Iteration started
+Iteration 3 ended: review = changes_requested
+## Inputs
+- feedback   (iteration 3, review)
+- conflict   (iteration 2, integrate)
+```
 
 ## Model and effort validation
 
@@ -167,6 +177,7 @@ json_schema = "schemas/commit.schema.json"
 
 [inputs.check-report]
 format = "json"
+json_schema = "schemas/check-report.schema.json"
 
 [outputs.feedback]
 format = "json"
@@ -214,11 +225,11 @@ It still inherits the default profile's other fields; the final merged document 
 |---|---|---|---|
 | `spec` | `request: text`, `spec?: markdown`, `spec-rejection-reason?: text` | `spec: markdown` | `done` |
 | `tasks` | `spec: markdown`, `manifest?: item_list`, `manifest-rejection-reason?: text` | `manifest: item_list`, including one required `task: markdown` item file per Task | `done` |
-| `builder` | `item: json` with its read-only `task` Markdown file, `spec: markdown`, `feedback?: json` | `commit: json` | `done` |
+| `builder` | `item: json` with its read-only `task` Markdown file, `spec: markdown`, `feedback?: json`, `check-report?: json`, `conflict?: json` | `commit: json` | `done` |
 | `reviewer` | `item: json` with its read-only `task` Markdown file, `spec: markdown`, `commit: json`, `check-report: json` | `feedback: json` | `approved`, `changes_requested` |
-| `shipper` | `manifest: item_list` plus the integration branch as its working context | `delivery: json` | `done` |
+| `shipper` | `manifest: item_list`, `integration: json` | `delivery: json` | `done` |
 
-`request` and `item` are supplied as defined in section E. The existing built-in workflow's `check-report` remains a placeholder until section B defines the checks Operation; this contract does not decide its report fields or command policy.
+`request`, `base` and `item` are supplied as defined in section E. `check-report`, `conflict` and `integration` are produced by Operations ([A. Git Integration](A-git-integration.md#operation-registry)).
 
 ## Built-in output schemas and validation
 
@@ -227,9 +238,11 @@ These schemas belong to the built-in feature workflow, not to engine knowledge o
 - [Task manifest schema](schemas/manifest.schema.json): `key`, `needs`, `title`, `description`, `acceptance_criteria` and `files.task` per Task. The manifest Revision includes the referenced Markdown bytes, not just their paths.
 - [Builder commit schema](schemas/commit.schema.json): a full commit `sha`.
 - [Reviewer feedback schema](schemas/feedback.schema.json): `reviewed_commit`, `summary` and `findings`. Each finding requires `blocking`, `path` and `message`; optional `line` is a positive, one-based integer.
-- [Shipper delivery schema](schemas/delivery.schema.json): `branch`, final `sha` and `summary`.
+- [Shipper delivery schema](schemas/delivery.schema.json): `title` and `summary`, text ready to become a pull request description. The delivered branch and SHA come from the `integration` Input; the Shipper does not declare them.
 
-An approved review with a blocking finding is inconsistent and is rejected. The final envelope is the single source of the review Outcome; feedback does not repeat it. Role-specific consistency checks are registered by the built-in workflow through generic delivery validation, never through engine branches on agent IDs. Section B defines the exact Git evidence and SHA-binding checks; merely matching a SHA regex is not proof that a commit exists, was reviewed or is integrated.
+Artifacts produced by Operations, which agents read: [base](schemas/base.schema.json), [check-report](schemas/check-report.schema.json), [conflict](schemas/conflict.schema.json) and [integration](schemas/integration.schema.json).
+
+An approved review with a blocking finding is inconsistent and is rejected. The final envelope is the single source of the review Outcome; feedback does not repeat it. Role-specific consistency checks are registered by the built-in workflow through generic delivery validation, never through engine branches on agent IDs. Merely matching a SHA regex is not proof that a commit exists, was reviewed or is integrated. The exact Git evidence for `commit` and the SHA binding of `feedback` and `check-report` are in [A. Git Integration](A-git-integration.md#evidence-for-a-builders-commit).
 
 ## Claude Code launcher and compatibility
 
@@ -359,7 +372,7 @@ Example `manifest.json`, alongside the files in the delivery directory:
 ]
 ```
 
-The paths are portable relative paths rooted at the Execution's delivery directory, not at the JSON file's parent or a worktree. Use `/` as the separator; reject backslashes as well as absolute/drive/UNC paths to avoid platform-dependent interpretation. Physical naming and Windows-safe key-to-path encoding belong to section B; a file path is not implicitly derived from an unchecked item key.
+The paths are portable relative paths rooted at the Execution's delivery directory, not at the JSON file's parent or a worktree. Use `/` as the separator; reject backslashes as well as absolute/drive/UNC paths to avoid platform-dependent interpretation. Keys and path components follow the portable naming rules of [A. Git Integration](A-git-integration.md#item-keys-and-item-file-paths) and are used verbatim, without encoding; a file path is not implicitly derived from an item key.
 
 Delivery validates the Item List, every required `files.task` reference and every referenced non-empty UTF-8 `.md` file. A missing file, extra undeclared file name, wrong format or unsafe path fails the whole delivery; no partial manifest Revision becomes approvable. Unreferenced scratch files are not part of the published output.
 

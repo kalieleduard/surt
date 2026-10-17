@@ -15,7 +15,7 @@ O plano de engenharia completo do Surt — entregáveis A–L do brief (arquitet
 - **Idioma:** documentos do plano, ADRs, `CONTEXT.md`, identificadores, SQL e TOML em **inglês**; tickets e conversa em **PT-BR**.
 - **Fidelidade:** SQL deve rodar em `sqlite3`; TOML deve fazer parse; contratos Rust em nível de assinatura + invariantes (sem corpo).
 - **Plataformas:** macOS, Linux **e Windows** são alvo do MVP — toda decisão sobre processos, locks, paths, symlinks e worktrees deve valer nos três.
-- **Restrições permanentes do brief:** núcleo não conhece Spec/Task/Builder/Reviewer/Shipper; sem tabelas específicas de agentes; sessão Claude nova por execução; nenhum Builder antes da aprovação humana; nenhuma Task concluída sem review aprovado; sem merge automático na branch principal; sem dependência de GitHub.
+- **Restrições permanentes do brief:** núcleo não conhece Spec/Task/Builder/Reviewer/Shipper; sem tabelas específicas de agentes; sessão Claude nova por execução; nenhum Builder antes da aprovação humana; nenhuma Task concluída sem review aprovado; sem merge automático na branch principal salvo opt-in `[git] merge_into_base = "ff-only"` (só fast-forward — [ADR 0006](../../docs/adr/0006-merge-into-base-is-opt-in-fast-forward.md)); sem dependência de GitHub.
 - **Crate atual** (`ferris-says` hello world) é descartável — será substituído pelo M1; o mapa não o altera.
 - **Research:** achados ficam em `docs/research/<slug>.md` na branch descartável `research/<slug>`; o ticket aponta para ela.
 
@@ -32,14 +32,15 @@ O plano de engenharia completo do Surt — entregáveis A–L do brief (arquitet
 - [Schema TOML de workflow](issues/06-schema-toml-de-workflow.md) — cinco `kind` sem expressões (`agent`, `approval`, `operation`, `loop`, `per_item`); condições só comparam Outcome; rejeição e review reprovado = nova Iteration de um Loop (sem `max_iterations`); inputs pelo nome na Revision mais recente (ADR 0003, proteção na revalidação); `needs` explícito; Item List fixa (`key` + `needs`); root congela o fecho por SHA-256.
 - [Contrato de agente](issues/07-contrato-de-agente.md) — contratos/perfis congelados; arquivos + JSON final validado; `.md` por Task junto ao manifesto aprovado; `dontAsk`; sem timeout de execução.
 - [Armazenamento de artefatos, congelamento e revalidação](issues/08-armazenamento-congelamento-revalidacao.md) — blobs SHA-256 no SQLite (publicação atômica, Approval = id + hash); Working Copy editável só para artefatos com gate, edições detectadas por hash viram Revision humana; Revision aprovada e já lida como Input fica fixada e edição posterior é recusada (ADR 0005); inputs por Execution em `runtime/executions/<id>/`; `.surt/` ignorado salvo `config.toml`/`agents/`; nome `YYYYMMDD-<slug>` com sufixo `-N`.
+- [Modelo de integração Git](issues/09-modelo-de-integracao-git.md) — Operation nativa integra o SHA revisado como merge commit (`merge-tree`/`commit-tree`/`update-ref`, Git ≥2.38) em `surt/<subject>`, re-checando se a ponta andou; Tasks em `surt/task/<subject>/<key>` partindo da ponta; Base = `HEAD` em `surt feature`; Checks argv congelados, `failed` pula review; conflito volta ao Builder com review completo; Shipper só leitura (`title`/`summary`) após `snapshot`; merge na Base só opt-in ff-only (ADR 0006/0007).
 
 ## Not yet specified
 
 - **Integrações externas** (GitHub Issues/PRs, Linear, Jira): por ora só um espaço reservado (`external_ref` em metadados) decidido no schema SQLite; o contrato de provider em si fica na névoa até o modelo de Task e artefatos estar firme.
-- **Conteúdo do `config.toml` global e do config de projeto** — já existem `stop_grace_period` (global) e `max_concurrent_agents` (projeto); consolidar com o que cair em integração Git e CLI quando esses tickets fecharem.
+- **Conteúdo do `config.toml` global e do config de projeto** — já existem `stop_grace_period` (global), `max_concurrent_agents`, `[[checks]]` e `[git] merge_into_base` (projeto, congelados no root run); consolidar com o que cair na CLI quando esse ticket fechar.
 - **Rate limits e custo de tokens** como entrada do limite de concorrência do Scheduler — o limite decidido é por projeto, então vários projetos na mesma máquina podem somar acima do rate limit da conta.
 
-- **Validação em Windows real**: reação do `claude.exe` a Ctrl+Break, `wait` do process-wrap no Windows, `core.longpaths` do Git for Windows — vira ticket quando houver máquina/CI Windows disponível (provável no roadmap/estratégia de testes).
+- **Validação em Windows real**: reação do `claude.exe` a Ctrl+Break, `wait` do process-wrap no Windows, `core.longpaths` do Git for Windows (e a injeção via `GIT_CONFIG_*` no agente) — vira ticket quando houver máquina/CI Windows disponível (provável no roadmap/estratégia de testes).
 
 ## Out of scope
 

@@ -45,7 +45,7 @@ Notes per kind:
 
 - **agent:** the `agent.toml` owns the contract: `outcomes`, `[inputs]` (with `optional = true` where an input may not exist yet), `[outputs]` and any declared `item_files` on an Item List output ([section F](F-agent-contract.md)). The step does not repeat that list. It only renames, when a workflow's artifact name differs from the agent's input name.
 - **approval:** it approves or rejects the **latest** Revision of `artifact` at the moment `surt approve`/`surt reject` runs, and records an Approval on that Revision. The `-m` reason of `surt reject` becomes a new human-origin Revision of `rejection_artifact`. Each gate needs its own `rejection_artifact` name, because names are per run and two gates sharing one name would hand one gate's reason to another agent.
-- **operation:** the registry of operation ids, their arguments and their Outcomes is decided in section B (Git integration). This schema only references them by id.
+- **operation:** this schema only references an Operation by id. The registry of ids, the Inputs each reads, their Outcomes and the artifacts they produce is in [A. Git Integration](A-git-integration.md#operation-registry). Operations take no arguments from the TOML.
 - **loop:** see [Loops](#loops).
 - **per_item:** see [Per-Item Steps](#per-item-steps).
 
@@ -61,8 +61,8 @@ A Step Run whose `when` is false ends as **SKIPPED**. SKIPPED is a state, not an
   ✖ spec changed after approval (rev 2 not approved)
     review it, then: surt approve 20261016-add-login
   ```
-- Two names are supplied by the engine, not produced by a step:
-  - `request`: in a root run, the text given to `surt feature "<description>"`, stored as a human-origin Revision.
+- Some names are supplied, not produced by a step:
+  - **Initial artifacts** of a root run, given by the command that creates it and stored as human-origin Revisions. The feature workflow uses two: `request`, the text given to `surt feature "<description>"`, and `base`, the commit the Feature starts from ([A. Git Integration](A-git-integration.md#the-base)). The engine does not know what either means.
   - `item`: in a Child Workflow Run, its item of the parent's Item List, together with that item's named files when present. It references the approved Item List Revision, not a new Revision.
 
 ## Ordering
@@ -114,8 +114,8 @@ needs = ["prepare"]
   ```
 - One Child Workflow Run of `workflow` starts per item, as soon as all the items it `needs` have finished. Ties follow list order. The Step Run finishes when every child is terminal. What a blocked or cancelled child means for its dependents and for the step is decided in section G.
 - **Downward visibility:** a child reads its own artifacts, its `item` with that item's named files, and the parent artifacts listed in `pass`, read-only, by name. It does not receive other items' files. The Per-Item Step pins one Item List Revision on expansion; later Attempts do not reread mutable source files. Preparing local file bindings creates no new Revision. Static validation checks that every required input of the child workflow's agents is produced inside the child, is `item`, or is in the parent's `pass`.
-- **No upward visibility:** the parent does not read children's artifacts. Their work reaches the parent through the integration branch (section B).
-- Constraints that item keys must satisfy to be usable in branch and directory names (Windows reserved names, characters, case collisions) are decided in section B.
+- **No upward visibility:** the parent does not read children's artifacts. Their work reaches the parent through the Integration Branch, which the `snapshot` Operation reads from Git ([A. Git Integration](A-git-integration.md#snapshot-shipper-and-delivery)).
+- Item keys must match `^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$`, be unique case-insensitively and not be a Windows reserved device name; item file path components follow matching rules. These checks are part of Item List validation, so they apply to every workflow ([A. Git Integration](A-git-integration.md#item-keys-and-item-file-paths)).
 
 ## Freezing and identity
 
@@ -141,7 +141,7 @@ Checks:
 3. Every id in `needs`, `body`, `when.step` and `until.step` exists. `body` members belong to exactly one Loop, and Loops do not nest.
 4. The `needs` rules of [Ordering](#ordering) hold, and the graph is acyclic.
 5. `when` and `until` reference an Outcome the referenced step's kind, agent or operation declares. `until.step` is in the Loop's `body`.
-6. Every `agent` exists. Every required input of an agent is produced by a step before it (via `needs`, including earlier steps of the same body), is supplied by the engine (`request`, `item`), or is passed by the parent (`pass`).
+6. Every `agent` exists. Every required input of an agent or Operation is produced by a step before it (via `needs`, including earlier steps of the same body), is an initial artifact the creating command supplies (`request`, `base`), is `item`, or is passed by the parent (`pass`).
 7. Every `run` is a registered operation. Every `workflow` of a `per_item` exists, and its `items` artifact is produced by a step before it in the Item List format. Any `item_files` declarations have valid names and supported file formats; actual item references and bytes are validated at delivery and expansion.
 8. Every `approval` names an `artifact` produced before it and a `rejection_artifact` unique in the definition.
 
@@ -198,7 +198,7 @@ needs = ["spec-loop"]
 
 [steps.prepare]
 kind = "operation"
-run = "git.create_integration_branch"
+run = "git.create_integration_branch"   # reads: base
 needs = ["tasks-loop"]
 
 [steps.implement]
@@ -208,10 +208,20 @@ workflow = "task-cycle"
 pass = ["spec"]
 needs = ["prepare"]
 
+[steps.snapshot]
+kind = "operation"
+run = "git.snapshot_integration"   # reads: base  writes: integration
+needs = ["implement"]
+
 [steps.ship]
 kind = "agent"
-agent = "shipper"         # reads: manifest (+ the integration branch)
-needs = ["implement"]
+agent = "shipper"         # reads: manifest, integration  writes: delivery
+needs = ["snapshot"]
+
+[steps.merge]
+kind = "operation"
+run = "git.merge_into_base"        # fast-forwards the Base branch only if [git] merge_into_base = "ff-only"
+needs = ["ship"]
 ```
 
 ### `task-cycle.toml`
@@ -232,21 +242,22 @@ run = "git.create_task_worktree"
 
 [steps.build]
 kind = "agent"
-agent = "builder"         # reads: item + its task Markdown file, spec, feedback?  writes: commit
+agent = "builder"         # reads: item + its task Markdown file, spec, feedback?, check-report?, conflict?  writes: commit
 
 [steps.check]
 kind = "operation"
-run = "checks.run"        # placeholder: who runs build/lint/test is section B (Git integration)
+run = "checks.run"        # reads: commit  writes: check-report
 needs = ["build"]
 
 [steps.review]
 kind = "agent"
 agent = "reviewer"        # reads: item + its task Markdown file, spec, commit, check-report  writes: feedback
 needs = ["check"]
+when = { step = "check", outcome = "passed" }
 
 [steps.integrate]
 kind = "operation"
-run = "git.integrate"
+run = "git.integrate"     # reads: commit, feedback  writes: conflict (on conflict)
 needs = ["review"]
 when = { step = "review", outcome = "approved" }
 
@@ -269,27 +280,30 @@ needs = ["setup"]
 | feature | `approve-tasks` | approval | human | `approved` · `rejected` |
 | feature | `prepare` | operation | Surt (`git.create_integration_branch`) | `done` |
 | feature | `implement` | per_item | engine, one `task-cycle` per Task | `done` |
+| feature | `snapshot` | operation | Surt (`git.snapshot_integration`) | `done` |
 | feature | `ship` | agent | Shipper (`shipper`) | `done` |
+| feature | `merge` | operation | Surt (`git.merge_into_base`) | `merged` · `skipped` |
 | task-cycle | `setup` | operation | Surt (`git.create_task_worktree`) | `done` |
 | task-cycle | `cycle` | loop | engine | `done` when `integrate` = `merged` |
 | task-cycle | `build` | agent | Builder (`builder`) | `done` |
-| task-cycle | `check` | operation | Surt (`checks.run`, placeholder) | `passed` · `failed` |
+| task-cycle | `check` | operation | Surt (`checks.run`) | `passed` · `failed` |
 | task-cycle | `review` | agent | Reviewer (`reviewer`) | `approved` · `changes_requested` |
 | task-cycle | `integrate` | operation | Surt (`git.integrate`) | `merged` · `conflict` |
 
 How the Task Cycle behaves:
 
+- `check` = `failed` → `review` and `integrate` are SKIPPED → a new Iteration starts, and the Builder reads `check-report`.
 - `review` = `changes_requested` → `integrate` is SKIPPED → a new Iteration starts, and the Builder reads `feedback`.
-- `integrate` = `conflict` → a new Iteration starts. What the Builder receives about the conflict, and whether a trivial conflict fix needs a full review, are decided in sections B and G.
+- `integrate` = `conflict` → a new Iteration starts. The Builder reads `conflict`, merges the Integration Branch tip into its Task Branch, and the new commit goes through `check` and `review` again ([A. Git Integration](A-git-integration.md#conflicts)). Whether that review may focus on the resolution delta is section G.
 - `review` = `approved` and `integrate` = `merged` → the Loop is `done` and the Task is complete.
 
-Operation ids, the `check` step and its `check-report` are placeholders until section B decides who runs build/lint/test and how integration works.
+Operations, Checks, the `check-report` and `conflict` artifacts, and the opt-in merge into the Base are specified in [A. Git Integration](A-git-integration.md).
 
 ## Decided elsewhere
 
 - Agent contract format (`outcomes`, `[inputs]`, `[outputs]`, profiles, freezing of agents): section F ([Contrato de agente](../../.scratch/surt-architecture/issues/07-contrato-de-agente.md)).
 - Iteration and Attempt limits, Task blocking, and what a blocked child means for its dependents: section G ([Máquina de estados do loop Builder ↔ Reviewer](../../.scratch/surt-architecture/issues/10-loop-builder-reviewer.md)).
 - Revalidation after an approved artifact is edited: [H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md).
-- Operation registry, integration branch, checks, item key constraints: section B ([Modelo de integração Git](../../.scratch/surt-architecture/issues/09-modelo-de-integracao-git.md)).
+- Operation registry, Integration Branch, Checks, item key constraints: [A. Git Integration](A-git-integration.md) ([Modelo de integração Git](../../.scratch/surt-architecture/issues/09-modelo-de-integracao-git.md)).
 - What `on_success = "clean"` removes: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
 - `surt reject`, and which command drives after it: section J ([Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md)).
