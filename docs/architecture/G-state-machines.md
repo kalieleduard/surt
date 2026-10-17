@@ -2,7 +2,7 @@
 
 States and transitions of Executions, Step Runs and Workflow Runs, the Attempt and Iteration limits, and how the built-in Task Cycle uses them. Vocabulary (**Execution**, **Step Run**, **Iteration**, **Attempt**, **Blocked**, **Interruption**, **Cancellation**) is defined in [`CONTEXT.md`](../../CONTEXT.md); entities and invariants are in [C. Domain Model](C-domain-model.md). Decision ticket: [Máquina de estados do loop Builder ↔ Reviewer](../../.scratch/surt-architecture/issues/10-loop-builder-reviewer.md).
 
-Recovery after a crash (what an orphan or a second Ctrl-C leaves behind, partial Operations) is section I. This section only names the states recovery moves between.
+Recovery after a crash (what an orphan or a second Ctrl-C leaves behind, partial Operations) is [I. Recovery and Reconciliation](I-recovery.md). This section only names the states recovery moves between.
 
 ## Execution
 
@@ -26,8 +26,8 @@ stateDiagram-v2
 | `queued` | An agent Execution waiting for an agent slot ([A. Process Model](A-process-model.md#agent-concurrency-limit)). Operations never queue. | — |
 | `running` | Its process or Operation is live. | — |
 | `succeeded` | Accepted delivery, with the Outcome it declared. `changes_requested` is a success. | no |
-| `failed` | Technical failure: invalid or missing delivery, crash, non-zero exit, configured turn or cost limit reached, launch error ([F](F-agent-contract.md#runtime-success-and-failure)). | **yes** |
-| `interrupted` | Stopped by an Interruption, or found running with no live Driver and stopped by the next one (an orphan, [A](A-process-model.md#orphaned-agents)). Nothing it produced is accepted. | no |
+| `failed` | Technical failure: invalid or missing delivery, crash, non-zero exit, configured turn or cost limit reached, launch error ([F](F-agent-contract.md#runtime-success-and-failure)). Its `failure_class` is `retryable`, `not_retryable` or `transient`. | **yes**, except `transient` |
+| `interrupted` | Stopped by an Interruption, or found `queued`/`running` with no live Driver by the next one, which stops the process if it survived (an orphan, [A](A-process-model.md#orphaned-agents)). Nothing it produced is accepted, even a valid delivery whose end the Driver never recorded ([I](I-recovery.md#principles)). | no |
 | `cancelled` | Stopped because its root Workflow Run was cancelled. | no |
 
 All states except `queued` and `running` are final. An Execution is never resumed or adopted: work continues as a new Execution of the same Step Run, which is a new **Attempt**.
@@ -125,18 +125,20 @@ Two limits stop work that would otherwise repeat without a human watching. Both 
 
 | Key | Default | Applies to | Counts |
 |---|---|---|---|
-| `max_attempts` | `3` | every `agent` and `operation` Step Run | its `failed` Executions |
+| `max_attempts` | `3` | every `agent` and `operation` Step Run | its `failed` Executions, except Transient Failures |
 | `max_iterations` | `5` | every `loop` Step Run whose body contains no `approval` step | its Iterations |
 
 ### Attempts
 
 - A Step Run whose Execution `failed` starts a new Attempt at once, with the same frozen Agent Profile ([F](F-agent-contract.md#agent-profile)).
-- When the number of `failed` Executions since the Step Run last became `running` reaches `max_attempts`, the Step Run becomes `blocked` instead.
+- When the number of `failed` Executions since the Step Run last became `running`, not counting Transient Failures, reaches `max_attempts`, the Step Run becomes `blocked` instead.
 - **Failures that retrying cannot fix block on the first occurrence**, without using the remaining Attempts. The Agent Runtime or the Operation classifies them. The initial set is:
   - auth failure, unavailable or mismatched model, unsupported settings;
   - launch errors: missing executable, incompatible CLI, missing Git Bash on Windows;
-  - an Integration Branch whose tip moved outside Surt, or that is checked out in a worktree ([A. Git Integration](A-git-integration.md#ownership-of-the-integration-branch)).
-- Network errors and account rate limits may deserve waiting rather than an Attempt. That classification belongs to section I.
+  - an Integration Branch whose tip moved outside Surt, or that is checked out in a worktree ([A. Git Integration](A-git-integration.md#ownership-of-the-integration-branch));
+  - API errors retrying cannot fix: `authentication_failed`, `billing_error`, `model_not_found`, `invalid_request`;
+  - a worktree path that belongs to something Surt did not create, and an interrupted fast-forward into the Base in the user's worktree ([I](I-recovery.md#an-interrupted-fast-forward-into-the-base)).
+- **Transient Failures** (rate limit, overload, server or network errors) spend no Attempt. The Execution is `failed` with `failure_class = 'transient'`, and the Driver pauses every agent launch until the reported reset time or a backoff ends, then starts a new Attempt ([I](I-recovery.md#transient-failures-network-and-rate-limits)).
 
 ```
 ✖ task B build attempt 1: invalid delivery — final JSON missing "outputs"
@@ -217,7 +219,7 @@ An invalid Reviewer delivery (missing JSON, `approved` with a blocking finding, 
 
 ## Decided elsewhere
 
-- What an orphan or a second Ctrl-C leaves behind, partial Operations, and which network and rate-limit errors wait instead of failing: section I ([Estratégia de recuperação e reconciliação](../../.scratch/surt-architecture/issues/12-recuperacao-e-reconciliacao.md)).
+- What an orphan or a second Ctrl-C leaves behind, partial Operations, worktree preparation before every Attempt, and which network and rate-limit errors wait instead of failing: [I. Recovery and Reconciliation](I-recovery.md).
 - Columns for these states, the cancel request, Attempt and Iteration counters and budgets: [D. Database Schema](D-database.md).
 - `status` layout, exit codes, and how each command refers to an existing run: section J ([Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md)).
 - Agent Profile (one per Agent, no escalation): [F. Agent Contract](F-agent-contract.md#agent-profile).

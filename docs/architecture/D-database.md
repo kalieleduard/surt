@@ -55,6 +55,7 @@ erDiagram
     snapshot ||--|{ snapshot_file : files
     snapshot_file }o--|| blob : bytes
     workflow_run ||--o| run_branch : "owns branch"
+    step_run ||--o| ref_move : "intends"
     workflow_run ||--o{ event : audit
 ```
 
@@ -74,6 +75,7 @@ erDiagram
 | `working_copy_file` | baseline hash per Working Copy file | Working Copy |
 | `execution_input` | Revisions fixed as Inputs when an Execution starts | Input |
 | `run_branch` | the branch a run's Operations created, its tip and worktree | Integration Branch, Task Branch |
+| `ref_move` | a ref move an Operation is about to make | Intention ([I](I-recovery.md#intentions)) |
 | `event` | append-only audit log | — |
 
 The brief's seven tables changed as follows. `step_dependencies` does not exist: `needs`, Loop bodies and `when` live in the frozen Workflow Definition, which is immutable, and the scheduler reads them from there. Copying them into rows would store the same truth twice. `execution_artifacts` with an input/output role became `execution_input`, because an output is already the single origin of its Revision (`artifact_revision.execution_id`).
@@ -92,7 +94,7 @@ No table, column or value names Feature, Task, Spec, Builder, Reviewer or Shippe
 - `step_key` is the step id in the frozen definition and `kind` is copied from it for queries. The engine validates `step_key` against the definition. There is no `step` table.
 - A Step Run inside a Loop body has `loop_step_run_id` (its Loop's Step Run) and `iteration`. Uniqueness: one Step Run per `(workflow_run_id, step_key)` outside Loops, one per `(loop_step_run_id, iteration, step_key)` inside them.
 - `started_at` is the first time the Step Run became `running` and never changes. `git.integrate` uses it as the fixed author and committer date of its merge commit, so every Attempt recomputes the same SHA ([A. Git Integration](A-git-integration.md#integration)).
-- `budget_base` measures the budget of [G. Limits](G-state-machines.md#limits). For `agent` and `operation` Step Runs it is the number of `failed` Executions, and for a `loop` the number of Iterations, counted when the Step Run last became `running`. A Step Run blocks when `count − budget_base` reaches the limit. Unblocking sets `budget_base` to the current count. It is integer arithmetic and never depends on the clock:
+- `budget_base` measures the budget of [G. Limits](G-state-machines.md#limits). For `agent` and `operation` Step Runs it is the number of `failed` Executions that are not `transient`, and for a `loop` the number of Iterations, counted when the Step Run last became `running`. A Step Run blocks when `count − budget_base` reaches the limit. Unblocking sets `budget_base` to the current count. It is integer arithmetic and never depends on the clock:
   ```
   build B iter 2   blocked (attempts_exhausted)   budget_base 0   failed attempts 1, 2, 3
   $ surt start …   running                        budget_base 3   → attempt 4
@@ -103,8 +105,8 @@ No table, column or value names Feature, Task, Spec, Builder, Reviewer or Shippe
 
 - `attempt` numbers Executions within their Step Run; `(step_run_id, attempt)` is unique. The partial unique index `one_live_execution_per_step_run` enforces at most one `queued` or `running` Execution per Step Run (invariant 4).
 - An agent Execution references its Agent's frozen snapshot (`agent_snapshot_sha256`). An Operation Execution references its `operation_id`. Only agent Executions can be `queued` or hold a `slot`.
-- A `failed` Execution has a `failure_class` (`retryable` or `not_retryable`), which the Agent Runtime or Operation sets. `error_code` and `error_message` are its diagnosis.
-- `pid`, `process_start_time` and `process_boot_id` identify the process tree so recovery can stop an orphan without mistaking a reused pid ([A. Process Model](A-process-model.md#orphaned-agents)).
+- A `failed` Execution has a `failure_class` (`retryable`, `not_retryable` or `transient`), which the Agent Runtime or Operation sets. A `transient` failure does not count toward the Attempt limit ([I](I-recovery.md#transient-failures-network-and-rate-limits)). `error_code` and `error_message` are its diagnosis.
+- `pid`, `process_start_time` and `process_boot_id` identify the process tree so recovery can stop an orphan without mistaking a reused pid ([A. Process Model](A-process-model.md#orphaned-agents)). An Operation that spawns a long-running tree (a Check) records that tree's identity in the same columns while it runs.
 - `runtime_info` is JSON: Claude Code version, session id, reported model, requested effort, usage, cost, permission denials. Unknown values are absent, never zero ([F](F-agent-contract.md)).
 
 ### Artifacts, Revisions and Approvals
@@ -119,7 +121,7 @@ No table, column or value names Feature, Task, Spec, Builder, Reviewer or Shippe
   - `reject` requires `reason_revision_id`, the human-origin Revision of the gate's `rejection_artifact`.
   - `identity_sha256` copies the Revision identity. Readers compare it with the Revision.
 - `actor` (on human-origin Revisions and Approvals) and `cancel_requested_by` hold the repository's `git config user.email`, or the OS user name when no email is configured. They are informative; no rule depends on them.
-- `working_copy_file` stores, per Working Copy file, the SHA-256 Surt last wrote and the Revision it came from: the baseline that edit detection compares with.
+- `working_copy_file` stores, per Working Copy file, the SHA-256 Surt last wrote and the Revision it came from: the baseline that edit detection compares with. `pending_sha256` / `pending_revision_id` are the Intention of a newer Revision published but not yet written to the file; they are promoted to the baseline once the file is written ([I](I-recovery.md#working-copy-files)).
 - `execution_input` stores each Input as fixed at start: the name the agent or Operation reads, the Revision, and for `item` the item's key in the Item List Revision. Materializing these files creates no Revision.
 
 ### Snapshots
@@ -136,7 +138,7 @@ A snapshot is a set of files with an identity hash, shared by every run that fro
 
 ### Git state
 
-`run_branch` has at most one row per Workflow Run: the branch its setup Operation created.
+`run_branch` has at most one row per Workflow Run: the branch its setup Operation created. The row is written **before** the branch, as its Intention, so recovery can tell a branch Surt meant to create from someone else's.
 
 ```
 root run       ref refs/heads/surt/20261017-add-login              start = Base             tip = M_B
@@ -145,10 +147,12 @@ child run (B)  ref refs/heads/surt/task/20261017-add-login/B       start = tip w
                merged_as M_B
 ```
 
-- `tip_sha` is the last tip Surt recorded. `git.integrate` uses it as `T` in its compare-and-swap, and any ref that differs from it is an external move ([A. Git Integration](A-git-integration.md#ownership-of-the-integration-branch)).
+- `tip_sha` is the last tip Surt recorded. `git.integrate` uses it as `T` in its compare-and-swap, and any ref that differs from it is an external move ([A. Git Integration](A-git-integration.md#ownership-of-the-integration-branch)). For a run with a worktree, accepting an Execution that ran there records the branch's tip as `tip_sha` in the publication transaction; every Attempt starts from a worktree reset to it ([I](I-recovery.md#preparing-a-worktree-for-every-attempt)).
 - `worktree_path` is absolute and recorded when the worktree is created. Surt never recomputes it.
 - `merged_as_sha` is the merge commit that integrated the branch. `git.snapshot_integration` and `status` read it.
 - `ref_name` is unique, so two runs can never claim the same branch.
+
+`ref_move` holds at most one pending ref move per Step Run (`git.integrate`, `git.merge_into_base`): `ref_name`, `old_sha`, `new_sha`, and `worktree_path` when the move is a checkout in that worktree. It is committed before the move and deleted with the confirmation. Recovery compares the ref with it: `new_sha` → confirm, `old_sha` → redo, anything else → stop ([I](I-recovery.md#ref-moves)). The Base branch is not a `run_branch`, so the Intention cannot be a column there.
 
 ### Events
 
@@ -163,7 +167,7 @@ $ surt inspect 20261017-add-login B
 16:10:00  step.unblocked      budget_base 3
 ```
 
-- `kind` is an open set, not a CHECK, so a new kind needs no table rebuild. Initial kinds: `run.created`, `run.cancel_requested`, `run.cancelled`, `run.succeeded`, `driver.started`, `driver.stopped`, `iteration.started`, `step.running`, `step.done`, `step.skipped`, `step.blocked`, `step.unblocked`, `step.cancelled`, `execution.queued`, `execution.started`, `execution.succeeded`, `execution.failed`, `execution.interrupted`, `execution.cancelled`, `execution.orphan_stopped`, `revision.published`, `revision.pinned`, `working_copy.edit_detected`, `working_copy.edit_refused`, `approval.recorded`.
+- `kind` is an open set, not a CHECK, so a new kind needs no table rebuild. Initial kinds: `run.created`, `run.cancel_requested`, `run.cancelled`, `run.succeeded`, `driver.started`, `driver.stopped`, `driver.recovered`, `intention.confirmed`, `intention.discarded`, `worktree.salvaged`, `worktree.repaired`, `agents.paused`, `agents.resumed`, `iteration.started`, `step.running`, `step.done`, `step.skipped`, `step.blocked`, `step.unblocked`, `step.cancelled`, `execution.queued`, `execution.started`, `execution.succeeded`, `execution.failed`, `execution.interrupted`, `execution.cancelled`, `execution.orphan_stopped`, `revision.published`, `revision.pinned`, `working_copy.edit_detected`, `working_copy.edit_refused`, `approval.recorded`.
 - A trigger aborts any `UPDATE`. Rows leave only with their Subject.
 
 ## When rows are created
@@ -252,7 +256,7 @@ External providers (GitHub, Linear, Jira) get no column yet. A column with no fo
 - States, transitions and limits these columns hold: [G. State Machines](G-state-machines.md).
 - What a Revision is, Working Copy and pinning rules: [H. Artifact Storage](H-artifact-storage.md).
 - Ownership by file locks, Driver identity, slots: [A. Process Model](A-process-model.md).
-- Reconciling these rows with Git and processes after a crash: section I ([Estratégia de recuperação e reconciliação](../../.scratch/surt-architecture/issues/12-recuperacao-e-reconciliacao.md)).
+- Reconciling these rows with Git and processes after a crash: [I. Recovery and Reconciliation](I-recovery.md).
 - When purge runs: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
 - The `store` module and its interface: section B ([Estrutura do workspace Rust e traits centrais](../../.scratch/surt-architecture/issues/15-workspace-rust-e-traits.md)).
 

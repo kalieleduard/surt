@@ -56,7 +56,7 @@ File paths mirror the Revision's relative paths verbatim. Keys and path componen
 
 Every other artifact (`request`, `feedback`, `*-rejection-reason`, Shipper outputs) has no Working Copy. Humans read it with `surt show <subject> <artifact> [--rev N]`. This keeps a human from editing, for example, the Reviewer's `feedback` in the middle of a Loop.
 
-Surt rewrites a Working Copy file whenever it publishes a newer Revision of that artifact. For each file it writes, it records in SQLite the SHA-256 it materialized: the file's **baseline**.
+Surt rewrites a Working Copy file whenever it publishes a newer Revision of that artifact. For each file it writes, it records in SQLite the SHA-256 it materialized: the file's **baseline**. The new baseline is first recorded as pending in the publication transaction and promoted once the file is written, so a crash between the two is never mistaken for a human edit ([I. Recovery](I-recovery.md#working-copy-files)).
 
 ## Edit detection
 

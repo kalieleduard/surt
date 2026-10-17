@@ -84,6 +84,22 @@ _Avoid_: Cancel (which ends the run), abort, pause
 An explicit decision that ends a Workflow Run in a terminal state. Work starts again only as a new Workflow Run of the same Subject.
 _Avoid_: Interrupt, stop, abort
 
+**Recovery**:
+What every Driver does when it takes over a Workflow Run: it stops work left running without a Driver and settles every pending Intention against the real state before anything new starts. It is not a separate command or mode.
+_Avoid_: Repair, resume, doctor
+
+**Intention**:
+A record Surt commits before an effect outside its own state, such as moving a branch, and confirms or discards afterwards. Recovery compares Intentions with reality; it never guesses what an effect should have been.
+_Avoid_: Lease, journal, pending operation
+
+**Salvage Ref**:
+A reference that keeps whatever an Attempt left behind in a worktree (uncommitted changes, unaccepted commits) before the worktree is reset for the next Attempt. It can be inspected, but its content never feeds another Attempt.
+_Avoid_: Stash, backup
+
+**Transient Failure**:
+A technical failure caused by something outside the agent that passes by itself, such as a rate limit or a network outage. Surt waits and tries again without spending an Attempt.
+_Avoid_: Retryable failure (which spends an Attempt), outage
+
 **Blocked**:
 A Step Run that cannot go on without a human, because it reached its Attempt or Iteration limit or hit a failure that retrying cannot fix. It is not terminal: running the driving command again resumes it. A Workflow Run never fails; it is blocked until resumed or cancelled.
 _Avoid_: Failed, stuck, error

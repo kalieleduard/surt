@@ -143,7 +143,8 @@ CREATE TABLE execution (
   operation_id          TEXT,                               -- operation: 'git.integrate'
   state                 TEXT NOT NULL CHECK (state IN ('queued', 'running', 'succeeded', 'failed', 'interrupted', 'cancelled')),
   outcome               TEXT,
-  failure_class         TEXT CHECK (failure_class IN ('retryable', 'not_retryable')),
+  failure_class         TEXT CHECK (failure_class IN ('retryable', 'not_retryable', 'transient')),
+                        -- transient: waits, does not count toward max_attempts (section I)
   error_code            TEXT,
   error_message         TEXT,
   slot                  INTEGER CHECK (slot >= 0),           -- agent-<i> held; informative
@@ -226,13 +227,18 @@ CREATE INDEX approval_by_reason ON approval(reason_revision_id);
 
 -- Working Copy baseline: the hash Surt last materialized for each file
 CREATE TABLE working_copy_file (
-  artifact_id TEXT NOT NULL REFERENCES artifact(id) ON DELETE CASCADE,
-  rel_path    TEXT NOT NULL,
-  sha256      TEXT NOT NULL CHECK (length(sha256) = 64),
-  revision_id TEXT NOT NULL REFERENCES artifact_revision(id) ON DELETE CASCADE,
-  PRIMARY KEY (artifact_id, rel_path)
+  artifact_id         TEXT NOT NULL REFERENCES artifact(id) ON DELETE CASCADE,
+  rel_path            TEXT NOT NULL,
+  sha256              TEXT NOT NULL CHECK (length(sha256) = 64),
+  revision_id         TEXT NOT NULL REFERENCES artifact_revision(id) ON DELETE CASCADE,
+  -- Intention: a newer Revision published but not yet written to the file (section I)
+  pending_sha256      TEXT CHECK (length(pending_sha256) = 64),
+  pending_revision_id TEXT REFERENCES artifact_revision(id) ON DELETE CASCADE,
+  PRIMARY KEY (artifact_id, rel_path),
+  CHECK ((pending_sha256 IS NULL) = (pending_revision_id IS NULL))
 ) STRICT;
 CREATE INDEX working_copy_file_by_revision ON working_copy_file(revision_id);
+CREATE INDEX working_copy_file_by_pending_revision ON working_copy_file(pending_revision_id);
 
 -- Inputs fixed when an Execution starts; outputs are artifact_revision.execution_id
 CREATE TABLE execution_input (
@@ -255,6 +261,18 @@ CREATE TABLE run_branch (
   worktree_path   TEXT,                    -- absolute path of the worktree, when the run has one
   merged_as_sha   TEXT,                    -- merge commit that integrated this branch, when it was
   created_at      TEXT NOT NULL
+) STRICT;
+
+-- Intention of a ref move Surt is about to make (git.integrate, git.merge_into_base).
+-- Written and committed before the move; deleted when recovery or the Operation confirms it.
+CREATE TABLE ref_move (
+  step_run_id   TEXT PRIMARY KEY REFERENCES step_run(id) ON DELETE CASCADE,
+  ref_name      TEXT NOT NULL,             -- 'refs/heads/surt/20261017-add-login', 'refs/heads/main'
+  old_sha       TEXT NOT NULL,
+  new_sha       TEXT NOT NULL,
+  worktree_path TEXT,                      -- set when the move is a checkout in that worktree (ff-only)
+  created_at    TEXT NOT NULL,
+  CHECK (old_sha <> new_sha)
 ) STRICT;
 
 -- ── Audit log ──────────────────────────────────────────────────────────────

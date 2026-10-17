@@ -53,7 +53,7 @@ Rationale and rejected alternatives: [ADR 0002](../adr/0002-file-locks-over-sqli
 
 1. The first Ctrl-C (or SIGHUP when the terminal closes, or the console closing on Windows) starts a graceful stop of every running agent Execution, in parallel (see [Supervising agent processes](#supervising-agent-processes)).
 2. A **Operation already in progress is never cut** by the first interruption. The Driver waits for it to finish, because Operations are the intention → effect points that recovery would otherwise have to reconcile.
-3. Stopped agent Executions are recorded as `interrupted` ([G. State Machines](G-state-machines.md#execution)); this does not count toward the Attempt limit. The run stays resumable, and the next driving command creates new Attempts for them in fresh Claude sessions. The work of an interrupted session is lost. Its worktree may be dirty, and section I handles that.
+3. Stopped agent Executions are recorded as `interrupted` ([G. State Machines](G-state-machines.md#execution)); this does not count toward the Attempt limit. The run stays resumable, and the next driving command creates new Attempts for them in fresh Claude sessions. The work of an interrupted session is lost. Its worktree may be dirty: the next Attempt salvages and resets it ([I. Recovery](I-recovery.md#preparing-a-worktree-for-every-attempt)).
 4. A second Ctrl-C forces it: the agent process trees are killed and the Driver exits at once, even in the middle of a Operation. Recovery reconciles the partial state.
 
 ```
@@ -125,7 +125,7 @@ On Unix, an agent's process group can outlive a Driver killed with `kill -9`. Th
 ↻ task B build #1: attempt 2
 ```
 
-Adoption is rejected because the orphan's stdout was a pipe to the dead Driver: its stream and final `result` are lost and its output could not be validated. Section I handles what the orphan left behind (a dirty worktree, or a commit made but not recorded).
+Adoption is rejected because the orphan's stdout was a pipe to the dead Driver: its stream and final `result` are lost and its output could not be validated. [I. Recovery](I-recovery.md#stale-executions-and-orphans) handles what the orphan left behind (a dirty worktree, or a commit made but not recorded).
 
 ## Opening the database
 
@@ -172,7 +172,7 @@ What a daemon would add (`--detach`, and a live log channel for clients) is out 
 ## Decided elsewhere
 
 - Execution, Step Run and Workflow Run state names (interrupted, queued, cancel requested): [G. State Machines](G-state-machines.md).
-- What recovery does with orphans' leftovers and partial Operations: section I.
+- What recovery does with orphans' leftovers and partial Operations, and what `cancel` and `status` do without a Driver: [I. Recovery and Reconciliation](I-recovery.md).
 - Columns for the Driver identity, cancel request and slot held: [D. Database Schema](D-database.md#workflow-runs).
 - The Agent Profile, permissions and the decision to omit execution timeouts: section F.
 - Full CLI contracts, output formats and exit codes: section J.

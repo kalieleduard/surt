@@ -100,12 +100,12 @@ The engine does not know what a Base is. It accepts **initial artifacts** suppli
 
 ## Operation registry
 
-Operations are referenced from TOML only by id ([E](E-workflow-schema.md#step-kinds)). They take no arguments from the TOML. Each one reads its Workflow Run's context: Subject, run ordinal, current `item`, its fixed Input Revisions, and the run's frozen project configuration. Each Operation launch is an Execution; a technical failure leads to a new Attempt, which first reads Git state and compares it with SQLite (partial states: [Estratégia de recuperação e reconciliação](../../.scratch/surt-architecture/issues/12-recuperacao-e-reconciliacao.md)).
+Operations are referenced from TOML only by id ([E](E-workflow-schema.md#step-kinds)). They take no arguments from the TOML. Each one reads its Workflow Run's context: Subject, run ordinal, current `item`, its fixed Input Revisions, and the run's frozen project configuration. Each Operation launch is an Execution; a technical failure leads to a new Attempt, which first reads Git state and compares it with SQLite (partial states: [I. Recovery and Reconciliation](I-recovery.md#operations)).
 
 | Id | Used by | Inputs | Does | Outcomes | Produces |
 |---|---|---|---|---|---|
 | `git.create_integration_branch` | feature / `prepare` | `base` | Creates `surt/<subject>[.N]` at `base.sha`. | `done` | — |
-| `git.create_task_worktree` | task-cycle / `setup` | `item` | Reads the Integration Branch tip, creates the Task Branch there and adds its worktree. Records the tip as the Task's **start**. | `done` | — |
+| `git.create_task_worktree` | task-cycle / `setup` | `item` | Reads the Integration Branch tip and records it as the Task's **start** (the `run_branch` row, written before the branch as its Intention), then creates the Task Branch there and adds its worktree with `--lock`. | `done` | — |
 | `checks.run` | task-cycle / `check` | `commit` | Runs the frozen Checks in the Task worktree on `commit.sha`. | `passed` · `failed` | `check-report` |
 | `git.integrate` | task-cycle / `integrate` | `commit`, `feedback` | Merges the reviewed SHA into the Integration Branch (below). | `merged` · `conflict` | `conflict` (on `conflict`) |
 | `git.snapshot_integration` | feature / `snapshot` | `base` | Verifies the Integration Branch and fixes its final tip. | `done` | `integration` |
@@ -167,7 +167,7 @@ The SHA covers content and ancestry. What gets committed on Windows depends on t
 2. **Merge without a worktree.** `git merge-tree --write-tree -z T R`. Exit status `1` means a conflict: Surt records `conflict` with `kind = "merge"` and the conflicting paths, and the Outcome is `conflict`. It never commits the returned tree, which contains conflict markers.
 3. **Commit.** `git commit-tree <tree> -p T -p R` with a fixed message and with author and committer dates set to the recorded start of the `integrate` Step Run (`step_run.started_at`, the first time it became running, which never changes). The resulting SHA `M` is therefore deterministic: every Attempt of that Step Run, each a new Execution with its own start time, recomputes the same `M`. It is always a merge commit, even when a fast-forward would be possible, so `R` stays in history and `git merge-base --is-ancestor R surt/<subject>` proves it was integrated ([ADR 0007](../adr/0007-integrate-reviewed-sha-as-merge-commit.md)).
 4. **Re-check if the tip moved.** If `T = S`, the tree of `M` equals the tree that already passed and Surt skips this step. Otherwise it runs `git checkout --detach M` in the Task worktree (the Builder is done and its build cache is warm), runs the frozen Checks, and checks the Task Branch out again. A failure records `conflict` with `kind = "checks"` and the failing report, and the Outcome is `conflict`. `M` stays unreferenced.
-5. **Move the ref.** `git update-ref --stdin` with `start` / `update refs/heads/surt/<subject> M T` / `commit`, under `git.lock`, then record `M` as the new tip. On recovery: ref = `M` means done, ref = `T` means redo, anything else means stop.
+5. **Move the ref.** Commit the Intention (`ref_move` T → M), then `git update-ref --stdin` with `start` / `update refs/heads/surt/<subject> M T` / `commit`, under `git.lock`, then record `M` as the new tip and delete the Intention. On recovery: ref = `M` means done, ref = `T` means redo, anything else means stop ([I](I-recovery.md#ref-moves)).
 
 Invariant: **every tip of an Integration Branch passed the Checks, and every Task merged into it has its reviewed SHA as a parent of a merge commit.**
 
@@ -208,7 +208,7 @@ The Integration Branch belongs to Surt until the run ends. A human who wants to 
 ```
 
 - Checked out anywhere: the Execution fails technically and the next driving command retries. Moving a checked-out ref with `update-ref` would leave that worktree out of sync.
-- Tip differs from the recorded one: Surt stops and never adopts it, because an unreviewed commit would enter. The same detection catches a Builder that moved the branch with its own Git. Run states and resumption belong to [Estratégia de recuperação e reconciliação](../../.scratch/surt-architecture/issues/12-recuperacao-e-reconciliacao.md).
+- Tip differs from the recorded one: Surt stops and never adopts it, because an unreviewed commit would enter. The same detection catches a Builder that moved the branch with its own Git. A driving command refuses to start while the branch is moved or checked out; a move found during a run blocks the Operation ([I](I-recovery.md#the-integration-branch)).
 
 ## Snapshot, Shipper and delivery
 
@@ -261,7 +261,7 @@ Surt never writes the repository's `.git/config` or the user's global Git config
 ## Decided elsewhere
 
 - Reaction to a Builder delivering no new commit, iteration limits, the scope of a re-review after a conflict, and what a blocked child means for its dependents: [G. State Machines](G-state-machines.md).
-- Reconciling each partial state of these Operations (branch without worktree, `locked initializing` worktree, ref moved outside Surt): section I ([Estratégia de recuperação e reconciliação](../../.scratch/surt-architecture/issues/12-recuperacao-e-reconciliacao.md)).
+- Reconciling each partial state of these Operations (branch without worktree, `locked initializing` worktree, ref moved outside Surt), worktree preparation before every Attempt, and an interrupted fast-forward into the Base: [I. Recovery and Reconciliation](I-recovery.md).
 - What happens to worktrees and branches of terminal runs: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
 - `--base`, a per-run override of `merge_into_base`, and the exact output of refusals: section J ([Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md)).
 - Physical tables for worktrees, tips and the project id: [D. Database Schema](D-database.md#git-state).
