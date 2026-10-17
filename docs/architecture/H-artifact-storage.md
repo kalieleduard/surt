@@ -177,6 +177,7 @@ Surt writes `.surt/.gitignore` so that only project configuration is versioned:
 ├── config.toml        ✔ versioned (project configuration)
 ├── agents/            ✔ versioned (local agent overrides, section F)
 ├── features/          ✖ ignored: Working Copies; the truth is in SQLite
+├── logs/              ✖ ignored: agent and Check logs, one directory per Subject
 ├── surt.db            ✖ ignored (with -wal and -shm)
 └── runtime/           ✖ ignored: locks, slots, Execution directories
 ```
@@ -195,15 +196,16 @@ Versioning `features/` would create a second source of truth. Task branches woul
 ## After a run ends
 
 - Revisions, blobs and Approvals stay in SQLite for as long as the Workflow Run exists. Removing old runs (purge) is section I.
-- Cleanup of a terminal run removes its Working Copy `.surt/features/<subject>/` and its `.surt/runtime/executions/<id>/` directories. Both are views that can be regenerated: `surt show <subject> <artifact>` reads any Revision.
+- Cleanup of a terminal run removes its Working Copy `.surt/features/<subject>/` and its `.surt/runtime/executions/<id>/` directories. Both are views that can be regenerated: `surt show <subject> <artifact>` reads any Revision. A Working Copy file with an unrecorded edit is kept, and `--new-run` refuses while it is there ([I. Cleanup](I-cleanup.md#unrecorded-working-copy-edits)).
+- Agent logs live in `.surt/logs/<subject>/`, outside `runtime/`, and survive cleanup ([I. Cleanup](I-cleanup.md#logs)).
 - Nothing is committed into the user's branches. The Shipper does not commit the spec; its delivery text summarizes the spec's intent ([A. Git Integration](A-git-integration.md#snapshot-shipper-and-delivery)).
 
 ## Decided elsewhere
 
 - Physical tables for blobs, Revisions, baselines and Approvals: [D. Database Schema](D-database.md#artifacts-revisions-and-approvals).
 - Item key and path naming rules, worktree layout: [A. Git Integration](A-git-integration.md) ([Modelo de integração Git](../../.scratch/surt-architecture/issues/09-modelo-de-integracao-git.md)).
-- What cleanup removes, when, and purge of old runs: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
+- What cleanup removes, when, and purge of old runs: [I. Cleanup, Delete and Logs](I-cleanup.md).
 - Exact output and exit codes of `show`, `restore`, `approve --rev` and the refusals: [J. CLI Surface](J-cli.md).
-- Where logs and streams live and when they are removed: [Cleanup, `surt delete` e logs](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md).
+- Where logs and streams live and when they are removed: [I. Cleanup](I-cleanup.md#logs).
 
 Decision record: [ADR 0005 — Edits to a pinned Revision are refused, not recorded](../adr/0005-edits-to-pinned-revisions-are-refused.md).

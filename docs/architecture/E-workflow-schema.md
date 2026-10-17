@@ -305,5 +305,5 @@ Operations, Checks, the `check-report` and `conflict` artifacts, and the opt-in 
 - Iteration and Attempt limits, Task blocking, and what a blocked child means for its dependents: [G. State Machines](G-state-machines.md).
 - Revalidation after an approved artifact is edited: [H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md).
 - Operation registry, Integration Branch, Checks, item key constraints: [A. Git Integration](A-git-integration.md) ([Modelo de integração Git](../../.scratch/surt-architecture/issues/09-modelo-de-integracao-git.md)).
-- What `on_success = "clean"` removes: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
+- What `on_success = "clean"` removes, and what a cancelled run removes regardless of it: [I. Cleanup, Delete and Logs](I-cleanup.md#what-each-ending-removes).
 - `surt reject`, and which command drives after it (a fixed table in the CLI, not a schema field): [J. CLI Surface](J-cli.md#next-command-hints).

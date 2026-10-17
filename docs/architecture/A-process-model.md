@@ -157,7 +157,7 @@ All lock files live apart from `surt.db`, `-wal` and `-shm`. SQLite uses POSIX l
     └── agent-<i>.lock       # agent concurrency slots, i in 0..max_concurrent_agents
 ```
 
-`.surt/runtime/` also holds one directory per Execution (`executions/<id>/{inputs,delivery}/`). It is ignored by Git with the rest of `.surt/` except `config.toml` and `agents/`; see [H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md).
+`.surt/runtime/` also holds one directory per Execution (`executions/<id>/{inputs,delivery}/`). Logs are not runtime state: they live in `.surt/logs/<subject>/<execution-id>/` ([I. Cleanup](I-cleanup.md#logs)). It is ignored by Git with the rest of `.surt/` except `config.toml` and `agents/`; see [H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md).
 
 ## Daemon fit
 

@@ -24,4 +24,5 @@ Fora da v1 (não decidir aqui): teste de toda linha das tabelas de recuperação
 - **Concorrência:** segundo Driver no mesmo run recusa; `kill -9` libera locks ([A-process-model](../../../docs/architecture/A-process-model.md)).
 - **SQLite:** testes contra arquivo real (não in-memory); os CHECKs/índices únicos que sustentam invariantes (≤1 root ativo por Subject, ≤1 Execution viva por Step Run) ([D](../../../docs/architecture/D-database.md)).
 - **CLI:** cada exit code (0, 2, 3, 4, 5, 130) e leitura não altera nada ([J](../../../docs/architecture/J-cli.md)).
+- **Cleanup:** o E2E termina verificando o estado final de [I. Cleanup](../../../docs/architecture/I-cleanup.md#what-each-ending-removes) — worktrees e Task Branches fora, Integration Branch e `.surt/logs/<subject>/` dentro, `cleaned_at` gravado; falha de remoção deixa `cleanup pending` e o próximo comando termina; `surt delete` interrompido termina ao rodar de novo.
 - **Fixture real:** quando [19](19-fixture-stream-real-claude-code.md) sair, o stream capturado vira teste do parser do Claude Code Runtime; não bloqueia o desenho do Fake.

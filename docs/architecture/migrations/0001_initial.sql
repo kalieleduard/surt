@@ -74,6 +74,8 @@ CREATE TABLE workflow_run (
   driver_start_time   INTEGER,                         -- native process start time
   driver_boot_id      TEXT,
   driver_since        TEXT,
+  -- root: when the cleanup of a terminal run finished (section I, Cleanup); NULL = pending or kept
+  cleaned_at          TEXT,
   CHECK ((id = root_run_id) = (parent_step_run_id IS NULL)),
   CHECK ((parent_step_run_id IS NULL) = (item_key IS NULL)),
   CHECK ((parent_step_run_id IS NULL) = (ordinal IS NOT NULL)),
@@ -81,7 +83,8 @@ CREATE TABLE workflow_run (
   CHECK (parent_step_run_id IS NULL OR (cancel_requested_at IS NULL AND stop_requested_at IS NULL AND driver_pid IS NULL)),
   CHECK ((cancel_requested_at IS NULL) = (cancel_requested_by IS NULL)),
   CHECK ((stop_requested_at IS NULL) = (stop_requested_by IS NULL)),
-  CHECK ((state = 'active') = (finished_at IS NULL))
+  CHECK ((state = 'active') = (finished_at IS NULL)),
+  CHECK (cleaned_at IS NULL OR (parent_step_run_id IS NULL AND state <> 'active'))
 ) STRICT;
 
 CREATE UNIQUE INDEX one_active_root_per_subject ON workflow_run(subject_id)

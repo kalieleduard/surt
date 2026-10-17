@@ -88,6 +88,7 @@ No table, column or value names Feature, Task, Spec, Builder, Reviewer or Shippe
 - `ordinal` numbers root runs within their Subject (1, 2, …). It gives the Integration Branch suffix `.N` from the second run on.
 - `state` stores only `active`, `succeeded` and `cancelled`. `RUNNING`, `AWAITING APPROVAL`, `BLOCKED` and `INTERRUPTED` are derived on read ([G](G-state-machines.md#workflow-run)).
 - `cancel_requested_at` / `cancel_requested_by` are the pending request written by `surt cancel`. `stop_requested_at` / `stop_requested_by` are the pending Interruption request written by `surt stop` ([J](J-cli.md#stop-and-cancel)); a driving command clears it when it takes the run lock, because it addresses only the Driver that was live when it was written. `driver_pid`, `driver_start_time` (native), `driver_boot_id` and `driver_since` identify the last Driver for display and recovery. The run lock decides ownership, never these columns ([ADR 0002](../adr/0002-file-locks-over-sqlite-leases.md)).
+- `cleaned_at` (root only, terminal only) is written when the cleanup of a terminal run finishes. A terminal root run whose policy calls for a cleanup and whose `cleaned_at` is NULL is cleanup pending; the next command that takes its lock finishes it ([I. Cleanup](I-cleanup.md#when-cleanup-runs)).
 
 ### Step Runs
 
@@ -107,7 +108,7 @@ No table, column or value names Feature, Task, Spec, Builder, Reviewer or Shippe
 - An agent Execution references its Agent's frozen snapshot (`agent_snapshot_sha256`). An Operation Execution references its `operation_id`. Only agent Executions can be `queued` or hold a `slot`.
 - A `failed` Execution has a `failure_class` (`retryable`, `not_retryable` or `transient`), which the Agent Runtime or Operation sets. A `transient` failure does not count toward the Attempt limit ([I](I-recovery.md#transient-failures-network-and-rate-limits)). `error_code` and `error_message` are its diagnosis.
 - `pid`, `process_start_time` and `process_boot_id` identify the process tree so recovery can stop an orphan without mistaking a reused pid ([A. Process Model](A-process-model.md#orphaned-agents)). An Operation that spawns a long-running tree (a Check) records that tree's identity in the same columns while it runs.
-- `runtime_info` is JSON: Claude Code version, session id, reported model, requested effort, usage, cost, permission denials. Unknown values are absent, never zero ([F](F-agent-contract.md)).
+- `runtime_info` is JSON: Claude Code version, session id, reported model, requested effort, exit code, turn count, usage, cost, permission denials. It is what `inspect` shows when the log files are gone ([I. Cleanup](I-cleanup.md#logs)). Unknown values are absent, never zero ([F](F-agent-contract.md)).
 
 ### Artifacts, Revisions and Approvals
 
@@ -167,7 +168,7 @@ $ surt inspect 20261017-add-login B
 16:10:00  step.unblocked      budget_base 3
 ```
 
-- `kind` is an open set, not a CHECK, so a new kind needs no table rebuild. Initial kinds: `run.created`, `run.cancel_requested`, `run.stop_requested`, `run.cancelled`, `run.succeeded`, `driver.started`, `driver.stopped`, `driver.recovered`, `intention.confirmed`, `intention.discarded`, `worktree.salvaged`, `worktree.repaired`, `agents.paused`, `agents.resumed`, `iteration.started`, `step.running`, `step.done`, `step.skipped`, `step.blocked`, `step.unblocked`, `step.cancelled`, `execution.queued`, `execution.started`, `execution.succeeded`, `execution.failed`, `execution.interrupted`, `execution.cancelled`, `execution.orphan_stopped`, `revision.published`, `revision.pinned`, `working_copy.edit_detected`, `working_copy.edit_refused`, `approval.recorded`.
+- `kind` is an open set, not a CHECK, so a new kind needs no table rebuild. Initial kinds: `run.created`, `run.cancel_requested`, `run.stop_requested`, `run.cancelled`, `run.succeeded`, `driver.started`, `driver.stopped`, `driver.recovered`, `intention.confirmed`, `intention.discarded`, `worktree.salvaged`, `worktree.repaired`, `agents.paused`, `agents.resumed`, `iteration.started`, `step.running`, `step.done`, `step.skipped`, `step.blocked`, `step.unblocked`, `step.cancelled`, `execution.queued`, `execution.started`, `execution.succeeded`, `execution.failed`, `execution.interrupted`, `execution.cancelled`, `execution.orphan_stopped`, `revision.published`, `revision.pinned`, `working_copy.edit_detected`, `working_copy.edit_refused`, `approval.recorded`, `cleanup.finished`, `cleanup.incomplete`.
 - A trigger aborts any `UPDATE`. Rows leave only with their Subject.
 
 ## When rows are created
@@ -212,7 +213,7 @@ No table has `deleted_at`. Removing a Subject's history is a **purge**: one tran
 
 - Composition foreign keys are `ON DELETE CASCADE`: subject → runs → Step Runs → Executions, run → artifacts → Revisions → files, Approvals, baselines, inputs, branch row, events, and snapshot → its files.
 - Cross-references (input → Revision, reject → reason Revision, files → blob, anything → snapshot) are `NO ACTION`, not `RESTRICT`. `NO ACTION` is checked at the end of the statement, after the cascade has removed both sides. `RESTRICT` would fail in the middle of the cascade.
-- When and how a purge is offered, and what it does on disk and in Git, is section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)). Rationale: [ADR 0009](../adr/0009-history-is-purged-not-soft-deleted.md).
+- A purge is `surt delete`: Git and disk first, this transaction last, so an interrupted delete is finished by running it again ([I. Cleanup](I-cleanup.md#surt-delete)). Rationale: [ADR 0009](../adr/0009-history-is-purged-not-soft-deleted.md).
 
 ## Example reads
 
@@ -257,7 +258,7 @@ External providers (GitHub, Linear, Jira) get no column yet. A column with no fo
 - What a Revision is, Working Copy and pinning rules: [H. Artifact Storage](H-artifact-storage.md).
 - Ownership by file locks, Driver identity, slots: [A. Process Model](A-process-model.md).
 - Reconciling these rows with Git and processes after a crash: [I. Recovery and Reconciliation](I-recovery.md).
-- When purge runs: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
+- When cleanup and purge run: [I. Cleanup, Delete and Logs](I-cleanup.md).
 - Commands, output formats and exit codes that read these rows: [J. CLI Surface](J-cli.md).
 - The `store` module and its interface: section B ([Estrutura do workspace Rust e traits centrais](../../.scratch/surt-architecture/issues/15-workspace-rust-e-traits.md)).
 

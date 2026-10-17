@@ -15,4 +15,6 @@ Decidir:
 - **Corte de mecanismos já decididos:** o que foi desenhado nos tickets resolvidos mas pode ficar para depois sem mudar o schema (ex.: pausa por Transient Failure, `merge_into_base`, Salvage Refs, `restore`). Para cada um, confirmar que adiar não exige migration destrutiva.
 - **Milestones seguintes:** ordem e objetivo em uma linha cada.
 
+Candidatos de corte vindos de [I. Cleanup](../../../docs/architecture/I-cleanup.md): `on_success = "keep"`, salvage antes de remover worktree no `cancel`, `surt delete` (e a checagem de `--new-run` concorrente). `cleaned_at` e `.surt/logs/` já estão no schema/layout; adiar não exige migration.
+
 Saída: seções K e L (ADRs pendentes consolidados). Fecha o mapa.

@@ -294,7 +294,7 @@ Only then may Surt publish the resulting Revisions and successful Outcome. Files
 
 Auth failure, unavailable/mismatched model, unsupported settings, non-zero exit, missing result, malformed envelope, missing files, invalid Item List or a configured limit being reached are technical failures. `changes_requested` with valid feedback is a successful Outcome. Interruption and Cancellation retain their distinct meaning from section A; their state names, and the fact that neither counts toward the Attempt limit, are in [G. State Machines](G-state-machines.md).
 
-The runtime neither invents billing precision nor reports a missing usage field as zero. Record available session/model/version identity, requested effort, turn counts, cost estimates and permission denials; unknown data remains unknown. Stream/log retention and secret redaction policy remain on the map, outside this ticket's contract decision.
+The runtime neither invents billing precision nor reports a missing usage field as zero. Record available session/model/version identity, requested effort, turn counts, cost estimates and permission denials; unknown data remains unknown. The stream and stderr are written to `.surt/logs/<subject>/<execution-id>/` and survive cleanup; secret redaction is not in v1 ([I. Cleanup](I-cleanup.md#logs)).
 
 ## Agent Runtime and Fake Runtime
 

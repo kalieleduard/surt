@@ -101,7 +101,7 @@ What each Operation's next Attempt does. Every one of them is safe to run again.
 | `git.snapshot_integration` | none: it only reads | runs again |
 | `git.merge_into_base` | `ref_move` (`base.sha` → tip, `worktree_path` when the Base branch is checked out) | [ref move rule](#ref-moves) plus [the interrupted fast-forward case](#an-interrupted-fast-forward-into-the-base) |
 
-Every worktree is created with `git worktree add --lock --reason "surt <run-id>"`, so `git gc` never prunes the metadata of a worktree whose run resumes months later. The cleanup unlocks it ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
+Every worktree is created with `git worktree add --lock --reason "surt <run-id>"`, so `git gc` never prunes the metadata of a worktree whose run resumes months later. The cleanup unlocks it before removing it ([I. Cleanup](I-cleanup.md#cleanup-steps)).
 
 ## Preparing a worktree for every Attempt
 
@@ -128,7 +128,7 @@ Commits a human made on a Task Branch are salvaged and reset like any other left
     inspect: git log -p refs/surt/salvage/0192f3…
 ```
 
-Salvage Refs live until the run's cleanup ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
+Salvage Refs live until the cleanup of a `succeeded` run; a `cancelled` run keeps them, and salvages its worktrees once more before removing them, until `surt delete` ([I. Cleanup](I-cleanup.md#what-each-ending-removes)).
 
 ### Worktree states
 
@@ -260,7 +260,7 @@ $ surt cancel 20261017-add-login
 - Ownership by file locks, orphan stopping, the first and second Ctrl-C: [A. Process Model](A-process-model.md).
 - Execution and Step Run states, Attempt and Iteration limits, leaving `blocked`: [G. State Machines](G-state-machines.md).
 - Columns of `ref_move`, `run_branch`, `working_copy_file` and `execution.failure_class`: [D. Database Schema](D-database.md) and [`migrations/0001_initial.sql`](migrations/0001_initial.sql).
-- What the cleanup removes (Salvage Refs, worktree locks, `.orphaned-` directories, branches): [Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md).
+- What the cleanup and `surt delete` remove (Salvage Refs, worktree locks, branches, logs), and the retry of a pending cleanup by the next command that takes the lock: [I. Cleanup, Delete and Logs](I-cleanup.md).
 - Message shape and exit codes of the refusals and warnings above: [J. CLI Surface](J-cli.md) (a refusal at start exits `3`, `merge_into_base_interrupted` exits `4`).
 
 Decision record: [ADR 0010 — Every Attempt starts from a clean worktree; leftovers are salvaged, never continued](../adr/0010-every-attempt-starts-from-a-clean-worktree.md).

@@ -36,7 +36,7 @@ surt delete  <feature>
 | `cancel` | no | Asks the live Driver to cancel, or cancels directly when no Driver is live. |
 | `status`, `inspect`, `show`, `logs` | no | Read only ([Reading never writes](#reading-never-writes)). |
 | `restore` | no | Rewrites a Working Copy from the latest Revision, discarding an unrecorded edit. |
-| `delete` | no | Name reserved. What it removes and how it confirms: [Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md). |
+| `delete` | no | Purges a Feature: worktrees, refs (except delivered Integration Branches), logs and history ([I. Cleanup](I-cleanup.md#surt-delete)). |
 
 The brief's `resume <workflow>` is "run the phase command again" ([A. Process Model](A-process-model.md#commands-of-the-built-in-feature-workflow)). Its `stop <workflow>` is `surt stop`. Its `workflow delete <id>` is `surt delete`.
 
@@ -113,7 +113,7 @@ $ surt init
    $ surt feature 20261017-add-login --new-run
    ✔ run 2 of 20261017-add-login   base main @ b22e310   branch surt/20261017-add-login.2
    ```
-   Run `N+1` takes the Subject's latest `request` Revision as a new human-origin Initial Artifact. Its Base is the current `HEAD`, or `--base`. It freezes the definitions, agents and configuration again. A `succeeded` Subject works the same way.
+   It refuses with exit `3` while the Working Copy holds an unrecorded edit left by the previous run ([I](I-cleanup.md#unrecorded-working-copy-edits)). Run `N+1` takes the Subject's latest `request` Revision as a new human-origin Initial Artifact. Its Base is the current `HEAD`, or `--base`. It freezes the definitions, agents and configuration again. A `succeeded` Subject works the same way.
 
 `--base <ref>` resolves `<ref>` to a commit when the run is created; the default is `HEAD`. `--merge` and `--no-merge` override `[git] merge_into_base` for this run only, as `ff-only` and `never`, before the configuration is frozen. They exist on no other command.
 
@@ -213,7 +213,7 @@ $ surt status fix-cache
   approve: surt approve 20261016-fix-cache    reject: surt reject 20261016-fix-cache -m "…"
 ```
 
-Blocked Tasks show the blocked step, its last error and the command to resume ([G](G-state-machines.md#workflow-run)). Integration shows the merged SHA or the Conflict reason (`merge: src/auth.rs`, `checks: test`). Recovery-related lines (`⟳ integrating … (pending)`, an agent running unattended) are in [I](I-recovery.md).
+Blocked Tasks show the blocked step, its last error and the command to resume ([G](G-state-machines.md#workflow-run)). Integration shows the merged SHA or the Conflict reason (`merge: src/auth.rs`, `checks: test`). Recovery-related lines (`⟳ integrating … (pending)`, an agent running unattended) are in [I](I-recovery.md). Terminal runs show `cleanup pending` or `kept` ([I. Cleanup](I-cleanup.md#in-surt-status)).
 
 ### `surt inspect`
 
@@ -267,7 +267,7 @@ $ surt show add-login spec --rev 1 > old-spec.md
 
 ### `surt logs`
 
-`logs` renders the agents' streams from disk; there is no daemon to ask. Where streams live and when they are removed is decided with cleanup ([Cleanup, `surt delete` e logs](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)). When a stream no longer exists, `logs` says so and points at `inspect`.
+`logs` renders the agents' streams from disk; there is no daemon to ask. Streams live in `.surt/logs/<subject>/<execution-id>/` and survive cleanup; only `surt delete` removes them ([I. Cleanup](I-cleanup.md#logs)). When a stream no longer exists, `logs` says so and points at `inspect`.
 
 ```
 $ surt logs add-login -f            # every agent running in this Feature, multiplexed
@@ -334,13 +334,14 @@ The same on macOS, Linux and Windows.
 |---|---|---|
 | `cancel` | **yes**, showing the impact | it ends the run for good |
 | `restore` | **yes**, showing the edit that is lost | it discards an unrecorded human edit |
-| `delete` | yes; the rest is the cleanup ticket | it removes history |
+| `delete` | **yes**, showing runs, refs, disk and history removed ([I](I-cleanup.md#surt-delete)) | it removes history |
 | `stop`, `approve`, `reject` | no | resumable, or guarded by `--rev` |
 
 ```
 $ surt cancel add-login
 cancel 20261017-add-login run 1?
   2 running executions will be stopped · 2/4 tasks merged stay on surt/20261017-add-login
+  worktrees are removed; task branches and salvage refs stay until surt delete
   starting over later needs a new run (surt feature 20261017-add-login --new-run)
 [y/N] y
 
@@ -416,5 +417,5 @@ stop_grace_period = "10s"   # graceful stop before a forced kill
 - Working Copy, edit detection, `--rev`, naming of Features: [H. Artifact Storage](H-artifact-storage.md).
 - Recovery lines and refusals at start: [I. Recovery and Reconciliation](I-recovery.md).
 - The stop and cancel request columns: [D. Database Schema](D-database.md#workflow-runs).
-- What `delete` and cleanup remove: [Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md).
-- Which streams `logs` can read: [Cleanup, `surt delete` e logs](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md).
+- What `delete` and cleanup remove, the cleanup lines of `status`, and the `--new-run` refusal for unrecorded edits: [I. Cleanup, Delete and Logs](I-cleanup.md).
+- Which streams `logs` can read: [I. Cleanup](I-cleanup.md#logs).

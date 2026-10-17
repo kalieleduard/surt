@@ -130,7 +130,7 @@ run = ["cargo", "clippy", "--workspace", "--", "-D", "warnings"]
 - `run` is an argument vector, executed without a shell on every platform. Pipelines and `&&` belong in a script that `run` points to. `name` follows the identifier rules of agent ids.
 - Checks are part of the project configuration **frozen at root run creation**, like agents ([F](F-agent-contract.md)). They are never read from the `.surt/config.toml` inside a worktree, so a Builder cannot disable the Check that fails.
 - `checks.run` runs every Check in declaration order with the Task worktree as working directory, even after one fails, so the Builder sees all failures at once. It is an Operation and takes no agent slot. A Check that exceeds its `timeout` is stopped like any child process tree ([A](A-process-model.md)) and counts as failed. With no `[[checks]]`, the Outcome is `passed` with an empty report.
-- `check-report` ([schema](schemas/check-report.schema.json)) records the tested SHA and, per Check, its status, exit code, duration and the last 200 lines of combined output. The full output is part of the Execution's logs ([Cleanup, `surt delete` e logs](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
+- `check-report` ([schema](schemas/check-report.schema.json)) records the tested SHA and, per Check, its status, exit code, duration and the last 200 lines of combined output. The full output is the Execution's `output.log` ([I. Cleanup](I-cleanup.md#logs)).
 - `failed` skips `review` and `integrate` (`when = { step = "check", outcome = "passed" }`). A new Iteration starts, and the Builder reads that `check-report`. No Reviewer time is spent on a commit that does not pass.
 
 ```
@@ -262,7 +262,7 @@ Surt never writes the repository's `.git/config` or the user's global Git config
 
 - Reaction to a Builder delivering no new commit, iteration limits, the scope of a re-review after a conflict, and what a blocked child means for its dependents: [G. State Machines](G-state-machines.md).
 - Reconciling each partial state of these Operations (branch without worktree, `locked initializing` worktree, ref moved outside Surt), worktree preparation before every Attempt, and an interrupted fast-forward into the Base: [I. Recovery and Reconciliation](I-recovery.md).
-- What happens to worktrees and branches of terminal runs: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
+- What happens to worktrees and branches of terminal runs and on `surt delete`: [I. Cleanup, Delete and Logs](I-cleanup.md).
 - `--base`, the per-run override `--merge`/`--no-merge`, and the shape of refusals: [J. CLI Surface](J-cli.md).
 - Physical tables for worktrees, tips and the project id: [D. Database Schema](D-database.md#git-state).
 
