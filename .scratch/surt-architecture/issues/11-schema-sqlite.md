@@ -2,8 +2,9 @@
 
 Map: [Surt — Arquitetura e plano de implementação](../map.md)
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: 01, 03, 05, 06, 08
+Assignee: Kaliel
 
 ## Question
 
@@ -30,3 +31,27 @@ De [Armazenamento de artefatos, congelamento e revalidação](08-armazenamento-c
 De [Modelo de integração Git](09-modelo-de-integracao-git.md) ([A. Git Integration](../../../docs/architecture/A-git-integration.md)): persistir o `project_id` (`<dir-slug>-<6hex>`, gerado ao criar o `surt.db`); por Child Run de Task: caminho absoluto da worktree, nome da Task Branch e SHA de `start`; por root run: nome da Integration Branch (com `.N` a partir do segundo run do Subject, então o ordinal do run dentro do Subject precisa existir), ponta gravada (para o CAS e para detectar movimento externo) e a config de projeto congelada (`[[checks]]`, `[git] merge_into_base`). `base` é um Initial Artifact (Revision human-origin criada junto com `request` na criação do root run). Operations são Executions: datas fixas do `commit-tree` = início gravado da Execution.
 
 De [Máquina de estados do loop Builder ↔ Reviewer](10-loop-builder-reviewer.md) ([G. State Machines](../../../docs/architecture/G-state-machines.md)): estados com CHECK — Execution `queued|running|succeeded|failed|interrupted|cancelled`; Step Run `pending|running|done|skipped|blocked|cancelled` (`blocked` não é final); Workflow Run grava só `active|succeeded|cancelled` + pedido de cancel (quando, por quem), e `RUNNING/AWAITING APPROVAL/BLOCKED/INTERRUPTED` são derivados na leitura (índices para isso). Contadores de Attempt e de Iteration guardam o histórico inteiro, mas o orçamento é medido desde o último desbloqueio (gravar quando o Step Run voltou a `running`). `max_attempts`/`max_iterations` fazem parte da config de projeto congelada no root run. **Agora há um único Agent Profile por Agent** (sem `default_profile`, sem perfis nomeados): o snapshot do agente contém um perfil e a Execution só referencia esse snapshot.
+
+## Answer
+
+Resolvido por troca humana em duas rodadas, mais revisões pedidas sobre exemplos completos do schema. Seção completa em [D. Database Schema](../../../docs/architecture/D-database.md); migration inicial testada em [`migrations/0001_initial.sql`](../../../docs/architecture/migrations/0001_initial.sql); trade-off em [ADR 0009 — History is purged, not soft-deleted](../../../docs/adr/0009-history-is-purged-not-soft-deleted.md).
+
+Decisões finais:
+
+- **17 tabelas, nomes no singular**, não as 7 do brief: `project`, `blob`, `snapshot`, `snapshot_file`, `run_snapshot`, `subject`, `workflow_run`, `step_run`, `execution`, `execution_input`, `artifact`, `artifact_revision`, `revision_file`, `approval`, `working_copy_file`, `run_branch`, `event`. `step_dependencies` não existe (os `needs` vêm da definição congelada); `execution_artifacts` virou `execution_input` (saída = origem da Revision).
+- **Representação:** UUIDv7 em TEXT hifenizado; timestamps TEXT UTC de 24 caracteres (`…T14:02:11.483Z`) sempre gravados pelo Rust, sem `CURRENT_TIMESTAMP`; `event.seq` INTEGER autoincremento; tudo `STRICT`.
+- **Sem `deleted_at`:** purge = um `DELETE FROM subject` em cascata + GC de snapshots e blobs órfãos. Composição em `CASCADE`, referências cruzadas em `NO ACTION` (testado: `RESTRICT` quebraria a cascata). `event` append-only por trigger (ADR 0009).
+- **Snapshots content-addressed** para workflow, agente e config de projeto, compartilhados entre runs; `run_snapshot` registra o fecho de cada root run.
+- **`commit-tree` usa `step_run.started_at`**, não o início da Execution: a seção A dizia que um novo Attempt recalculava o mesmo `M`, o que era falso com datas por Execution. [A. Git Integration](../../../docs/architecture/A-git-integration.md#integration) corrigida.
+- **Conexão:** WAL ligado na criação sob `db.lock`, `synchronous = FULL` (o registro de intenção não pode sumir depois do efeito), `BEGIN IMMEDIATE`. Queries `query_as` em runtime, sem `.sqlx`; migrations embutidas, LF forçado, nunca editadas.
+- **Step Run:** `budget_base` (falhas ou Iterations contadas no último desbloqueio) e `blocked_reason` ∈ `attempts_exhausted | not_retryable | iterations_exhausted`; o detalhe vem do `error_message` da última Execution.
+- **Approval:** uma decisão por Revision; `gate_step_run_id` NULL para aprovação de revalidação; reject exige a Revision do motivo. `actor` = `git user.email`, com fallback no usuário do sistema.
+- **Pin:** só `pinned_at`, gravado na transação que fixa o primeiro Input ou expande a Item List (a expansão pina antes de existir Execution); motivo em evento.
+- **`run_branch` tipada** (uma branch por run, `ref_name` único, `tip_sha` para CAS, `worktree_path`, `merged_as_sha`).
+- **JSON** só em `execution.runtime_info` e `event.data`, que nenhuma decisão do engine lê. `event` é auditoria transacional, nunca fonte de verdade, com `kind` aberto.
+- **`project`:** `project_id` (`<slug>-<6hex>`, legível porque nomeia `~/.surt/worktrees/<project-id>/`) é a PK; o trigger `project_single_row` recusa uma segunda linha. Nenhuma coluna `singleton`.
+- **Nascimento das linhas:** Step Runs do topo nascem `pending` com o run; os do corpo de um Loop, no início de cada Iteration; os runs filhos, todos na expansão do Per-Item Step (junto com o pin); `artifact` só nasce com a primeira Revision.
+- **Purge testado de ponta a ponta:** `snapshot_file → snapshot` é composição (`CASCADE`), para o GC de snapshots órfãos funcionar; `run_snapshot → snapshot` continua `NO ACTION`, então um snapshot em uso não pode ser apagado.
+- Colunas só de root ficam em `workflow_run` com CHECKs (o índice de ≤1 run ativo por Subject precisa de `state` na mesma tabela). **`external_ref` não foi reservado**: entra por migration aditiva quando houver provider.
+
+Validação: a migration roda em `sqlite3` 3.51 com `-bail`; o fluxo inteiro, de `surt init` ao purge, foi escrito como SQL executável e rodado contra ela (Revisions, snapshots e blobs com hashes reais conferidos); um ciclo completo (Attempt falho, Revision, reject com motivo, aprovação, revalidação, pin, filho com branch bloqueado), 7 recusas esperadas de constraints, purge com `foreign_key_check` e `integrity_check` limpos. Notas de contexto acrescentadas a [Estratégia de recuperação e reconciliação](12-recuperacao-e-reconciliacao.md), [Segurança do cleanup e do ciclo de vida](13-cleanup-e-ciclo-de-vida.md), [Superfície e UX da CLI](14-superficie-e-ux-da-cli.md), [Estrutura do workspace Rust e traits centrais](15-workspace-rust-e-traits.md) e [Estratégia de testes](16-estrategia-de-testes.md). Nenhum ticket novo.

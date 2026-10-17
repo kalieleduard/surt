@@ -173,6 +173,6 @@ What a daemon would add (`--detach`, and a live log channel for clients) is out 
 
 - Execution, Step Run and Workflow Run state names (interrupted, queued, cancel requested): [G. State Machines](G-state-machines.md).
 - What recovery does with orphans' leftovers and partial Operations: section I.
-- Columns for the Driver identity, cancel request and slot held: section D.
+- Columns for the Driver identity, cancel request and slot held: [D. Database Schema](D-database.md#workflow-runs).
 - The Agent Profile, permissions and the decision to omit execution timeouts: section F.
 - Full CLI contracts, output formats and exit codes: section J.

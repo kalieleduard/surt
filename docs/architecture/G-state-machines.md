@@ -218,7 +218,7 @@ An invalid Reviewer delivery (missing JSON, `approved` with a blocking finding, 
 ## Decided elsewhere
 
 - What an orphan or a second Ctrl-C leaves behind, partial Operations, and which network and rate-limit errors wait instead of failing: section I ([Estratégia de recuperação e reconciliação](../../.scratch/surt-architecture/issues/12-recuperacao-e-reconciliacao.md)).
-- Columns for these states, the cancel request, Attempt and Iteration counters and budgets: section D ([Schema SQLite](../../.scratch/surt-architecture/issues/11-schema-sqlite.md)).
+- Columns for these states, the cancel request, Attempt and Iteration counters and budgets: [D. Database Schema](D-database.md).
 - `status` layout, exit codes, and how each command refers to an existing run: section J ([Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md)).
 - Agent Profile (one per Agent, no escalation): [F. Agent Contract](F-agent-contract.md#agent-profile).
 

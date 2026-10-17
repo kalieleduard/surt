@@ -69,7 +69,7 @@ Project-local files are optional:
   schemas/<name>.schema.json
 ```
 
-The binary contains complete defaults for `spec`, `tasks`, `builder`, `reviewer` and `shipper`. Local files replace or override those defaults; Surt does not overwrite them on upgrade. A schema path is relative to its agent's asset directory. Only local schema assets are supported: no network references. Freeze the transitive closure of local schema references too. Revisions are stored as content-addressed blobs in SQLite ([H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md)); the physical tables, including agent snapshots, belong to section D.
+The binary contains complete defaults for `spec`, `tasks`, `builder`, `reviewer` and `shipper`. Local files replace or override those defaults; Surt does not overwrite them on upgrade. A schema path is relative to its agent's asset directory. Only local schema assets are supported: no network references. Freeze the transitive closure of local schema references too. Revisions are stored as content-addressed blobs in SQLite ([H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md)); the physical tables, including agent snapshots, are in [D. Database Schema](D-database.md#snapshots).
 
 ## Agent Profile
 

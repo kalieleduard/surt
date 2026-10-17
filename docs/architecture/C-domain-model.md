@@ -1,6 +1,6 @@
 # C. Domain Model
 
-Conceptual entities, relationships and invariants, independent of physical tables. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md); this section adds structure and rules. The physical schema (section D) must serve this model, not the other way around.
+Conceptual entities, relationships and invariants, independent of physical tables. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md); this section adds structure and rules. The physical schema ([D. Database Schema](D-database.md)) must serve this model, not the other way around.
 
 ## Two layers
 
@@ -77,6 +77,6 @@ Subject 20261015-add-login
 
 - States and transitions of runs, Step Runs and Executions, and the Iteration and Attempt limits: [G. State Machines](G-state-machines.md).
 - Where Revisions live, Working Copies, edit detection, pinning and revalidation: [H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md).
-- Physical tables: section D ([Schema SQLite](../../.scratch/surt-architecture/issues/11-schema-sqlite.md)).
+- Physical tables: [D. Database Schema](D-database.md).
 
 Decision record: [ADR 0001 — Task Cycle runs as a Child Workflow Run](../adr/0001-task-cycle-as-child-workflow-run.md).

@@ -7,16 +7,16 @@ Where Artifact Revisions live, how humans read and edit them, and what happens w
 Every file of every Revision is stored as a content-addressed blob inside `.surt/surt.db`:
 
 ```sql
--- Indicative; the physical schema is section D.
-CREATE TABLE blobs (
+-- Indicative; the physical schema is D-database.md (tables blob, revision_file).
+CREATE TABLE blob (
   sha256 TEXT PRIMARY KEY,          -- lowercase hex of the bytes
   bytes  BLOB NOT NULL
 ) STRICT;
 
-CREATE TABLE revision_files (
-  revision_id INTEGER NOT NULL,
+CREATE TABLE revision_file (
+  revision_id TEXT    NOT NULL,
   rel_path    TEXT    NOT NULL,     -- portable relative path, '/' separator
-  sha256      TEXT    NOT NULL REFERENCES blobs(sha256),
+  sha256      TEXT    NOT NULL REFERENCES blob(sha256),
   PRIMARY KEY (revision_id, rel_path)
 ) STRICT;
 ```
@@ -200,7 +200,7 @@ Versioning `features/` would create a second source of truth. Task branches woul
 
 ## Decided elsewhere
 
-- Physical tables for blobs, Revisions, baselines and Approvals: section D ([Schema SQLite](../../.scratch/surt-architecture/issues/11-schema-sqlite.md)).
+- Physical tables for blobs, Revisions, baselines and Approvals: [D. Database Schema](D-database.md#artifacts-revisions-and-approvals).
 - Item key and path naming rules, worktree layout: [A. Git Integration](A-git-integration.md) ([Modelo de integração Git](../../.scratch/surt-architecture/issues/09-modelo-de-integracao-git.md)).
 - What cleanup removes, when, and purge of old runs: section I ([Segurança do cleanup e do ciclo de vida](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md)).
 - Exact output and exit codes of `show`, `restore`, `approve --rev` and the refusals: section J ([Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md)).
