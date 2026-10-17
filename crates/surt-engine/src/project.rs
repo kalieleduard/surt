@@ -1,19 +1,75 @@
+mod config;
 mod create_run;
+mod discovery;
 mod error;
+mod init;
+mod layout;
 
-pub use self::create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};
-pub use self::error::{Error, InternalError, Refusal};
+use std::path::Path;
+
+pub use crate::git::GitVersion;
 pub use crate::workflow::{
     AgentAssets, Catalog, DefinitionFile, InvalidDefinition, Problem, StepField,
 };
+pub use config::{Check, Config, GitConfig, MergeIntoBase};
+pub use create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};
+pub use error::{Error, InternalError, Refusal};
+pub use init::{FileState, InitFile, Initialized};
 
 use crate::store::Store;
-use crate::workflow::RunConfig;
+use discovery::SurtHome;
+use layout::Layout;
 
 pub struct Project {
-    store: Store,
+    layout: Layout,
+    id: String,
+    config: Config,
     catalog: Catalog,
-    config: RunConfig,
+}
+
+impl Project {
+    pub async fn init(cwd: &Path) -> Result<Initialized, Error> {
+        init::run(cwd, &SurtHome::from_env()).await
+    }
+
+    pub async fn open(cwd: &Path, catalog: Catalog) -> Result<Project, Error> {
+        Self::open_in(cwd, &SurtHome::from_env(), catalog).await
+    }
+
+    async fn open_in(cwd: &Path, home: &SurtHome, catalog: Catalog) -> Result<Project, Error> {
+        let layout = discovery::find_project(cwd, home).await?;
+        let config = config::load(&layout.config())?;
+        let store = open_store(&layout).await?;
+        let id = store.project_id().await?;
+        store.close().await;
+        Ok(Project {
+            layout,
+            id,
+            config,
+            catalog,
+        })
+    }
+
+    pub fn root(&self) -> &Path {
+        self.layout.root()
+    }
+
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+}
+
+async fn open_store(layout: &Layout) -> Result<Store, Error> {
+    Ok(Store::open(
+        &layout.database(),
+        &layout.database_lock(),
+        &layout.project_name(),
+    )
+    .await?)
 }
 
 #[cfg(test)]

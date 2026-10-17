@@ -1,8 +1,10 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::num::NonZeroU32;
 
-use super::{Error, Project, Refusal};
-use crate::store::{NewInitialArtifact, NewRunRows, RunCreation};
-use crate::workflow::freeze;
+use serde::Serialize;
+
+use super::{Check, Config, Error, GitConfig, Project, Refusal, open_store};
+use crate::store::{NewInitialArtifact, NewRunRows, RunCreation, unix_now};
+use crate::workflow::{FreezeError, freeze};
 
 #[derive(Clone, Debug)]
 pub struct NewRun {
@@ -33,13 +35,22 @@ impl RunId {
     }
 }
 
+#[derive(Serialize)]
+struct FrozenConfig<'a> {
+    max_attempts: NonZeroU32,
+    max_iterations: NonZeroU32,
+    git: &'a GitConfig,
+    checks: &'a [Check],
+}
+
 impl Project {
     pub async fn create_run(&self, new: NewRun) -> Result<RunId, Error> {
         let names = new
             .initial_artifacts
             .iter()
             .map(|artifact| artifact.name.as_str());
-        let frozen = freeze(&self.catalog, &new.workflow, names, &self.config)?;
+        let config = frozen_config(&self.config).map_err(FreezeError::from)?;
+        let frozen = freeze(&self.catalog, &new.workflow, names, config)?;
         let rows = NewRunRows {
             subject: new.subject,
             frozen,
@@ -58,7 +69,10 @@ impl Project {
             actor: new.actor,
             now: unix_now(),
         };
-        match self.store.create_run(rows).await? {
+        let store = open_store(&self.layout).await?;
+        let created = store.create_run(rows).await;
+        store.close().await;
+        match created? {
             RunCreation::Created(run) => Ok(RunId(run)),
             RunCreation::ActiveRunExists(run) => {
                 Err(Error::Refused(Refusal::ActiveRunExists { run: RunId(run) }))
@@ -67,10 +81,11 @@ impl Project {
     }
 }
 
-fn unix_now() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| {
-            i64::try_from(elapsed.as_secs()).unwrap_or(i64::MAX)
-        })
+fn frozen_config(config: &Config) -> Result<String, toml::ser::Error> {
+    toml::to_string(&FrozenConfig {
+        max_attempts: config.max_attempts,
+        max_iterations: config.max_iterations,
+        git: &config.git,
+        checks: &config.checks,
+    })
 }

@@ -1,1 +1,2 @@
 *.sql text eol=lf
+crates/surt-engine/assets/** text eol=lf

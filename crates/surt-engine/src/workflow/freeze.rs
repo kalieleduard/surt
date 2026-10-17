@@ -1,6 +1,5 @@
 use super::catalog::Catalog;
 use super::closure::{self, Closure};
-use super::config::RunConfig;
 use super::definition::Definition;
 use super::error::InvalidDefinition;
 use super::flow::Available;
@@ -77,7 +76,7 @@ pub(crate) fn freeze<'a>(
     catalog: &Catalog,
     workflow: &str,
     initial_artifacts: impl IntoIterator<Item = &'a str>,
-    config: &RunConfig,
+    config: String,
 ) -> Result<FrozenRun, FreezeError> {
     let external: Available = initial_artifacts
         .into_iter()
@@ -91,12 +90,7 @@ pub(crate) fn freeze<'a>(
         snapshots.push(workflow_snapshot(child)?);
     }
     snapshots.extend(agent_snapshots(catalog, &closure)?);
-    let config = single_file(
-        SnapshotKind::Config,
-        CONFIG_NAME,
-        CONFIG_FILE,
-        config.canonical()?,
-    );
+    let config = single_file(SnapshotKind::Config, CONFIG_NAME, CONFIG_FILE, config);
     let config_sha256 = config.sha256.clone();
     snapshots.push(config);
     let steps = top_level_steps(&closure.root);

@@ -4,12 +4,12 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{FromRow, Sqlite, SqlitePool};
 use tempfile::TempDir;
 
+use crate::project::layout::Layout;
+use crate::project::open_store;
 use crate::project::{
-    AgentAssets, ArtifactFile, Catalog, DefinitionFile, Error, InitialArtifact, InvalidDefinition,
-    NewRun, Problem, Project, Refusal,
+    AgentAssets, ArtifactFile, Catalog, Config, DefinitionFile, Error, InitialArtifact,
+    InvalidDefinition, NewRun, Problem, Project, Refusal,
 };
-use crate::store::Store;
-use crate::workflow::{GitConfig, MergeIntoBase, RunConfig};
 
 pub(super) const DRAFT_WORKFLOW: &str = r#"
 schema = 1
@@ -95,15 +95,8 @@ pub(super) fn draft_catalog() -> Catalog {
         .agent("writer", writer())
 }
 
-pub(super) fn default_config() -> RunConfig {
-    RunConfig {
-        max_attempts: 3,
-        max_iterations: 5,
-        git: GitConfig {
-            merge_into_base: MergeIntoBase::Never,
-        },
-        checks: Vec::new(),
-    }
+pub(super) fn default_config() -> Config {
+    Config::default()
 }
 
 pub(super) fn new_run(workflow: &str) -> NewRun {
@@ -172,24 +165,25 @@ impl ProjectDir {
         }
     }
 
-    fn database(&self) -> PathBuf {
-        self.root.path().join("surt.db")
+    fn layout(&self) -> Layout {
+        Layout::new(self.root.path().to_path_buf())
     }
 
-    pub(super) async fn project(&self, catalog: Catalog, config: RunConfig) -> Project {
-        let lock = self
-            .root
-            .path()
-            .join("runtime")
-            .join("locks")
-            .join("db.lock");
-        let store = Store::open(&self.database(), &lock)
+    fn database(&self) -> PathBuf {
+        self.layout().database()
+    }
+
+    pub(super) async fn project(&self, catalog: Catalog, config: Config) -> Project {
+        open_store(&self.layout())
             .await
-            .expect("the store opens");
+            .expect("the store opens")
+            .close()
+            .await;
         Project {
-            store,
-            catalog,
+            layout: self.layout(),
+            id: "test-project".to_owned(),
             config,
+            catalog,
         }
     }
 

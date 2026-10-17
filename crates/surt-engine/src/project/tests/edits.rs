@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use super::fixtures::{
     ProjectDir, WRITER_AGENT, WRITER_SCHEMAS, default_config, draft_catalog, new_run,
 };
@@ -51,7 +53,7 @@ async fn editing_definitions_and_config_after_create_run_leaves_its_snapshots_un
         .expect("the first run is created");
     let before: Vec<FrozenFile> = dir.rows(FROZEN_FILES_OF_FIRST_RUN).await;
     let mut edited_config = default_config();
-    edited_config.max_attempts = 7;
+    edited_config.max_attempts = NonZeroU32::new(7).expect("a positive limit");
 
     dir.project(edited_catalog(), edited_config)
         .await

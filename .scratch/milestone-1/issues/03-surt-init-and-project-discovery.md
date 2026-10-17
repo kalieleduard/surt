@@ -8,11 +8,11 @@ Spec: [Milestone 1](../spec.md) (stories 1–9, 95–100, 103) · Slice: S1 Skel
 
 **Status:** ready-for-agent
 
-- [ ] `surt init` creates `.surt/` at the toplevel of the repository's main worktree, opens the database, writes a `.surt/.gitignore` that versions only `config.toml` and `agents/`, and a commented `config.toml` with the defaults (`max_concurrent_agents = 3`, `max_attempts = 3`, `max_iterations = 5`, `merge_into_base = "never"`, an example `[[checks]]`)
-- [ ] `surt init` refuses with a fix when Git < 2.38 or no user identity is configured
-- [ ] Rerunning `surt init` is idempotent and never overwrites `config.toml` or `agents/`
-- [ ] Any other command outside an initialized project exits `3` and points at `surt init`; inside a Surt-managed worktree under `~/.surt/worktrees/` it refuses
-- [ ] Unknown keys in `config.toml` are errors; `merge_into_base = "ff-only"` refuses with exit `3`
-- [ ] Errors follow J's shape (`✖` line, at most two context lines, one to three labelled copyable commands); progress and errors go to stderr, data to stdout
-- [ ] An unexpected error prints `✖ internal error: …` and suggests `SURT_LOG=debug`; `SURT_LOG` enables diagnostics on stderr; `NO_COLOR` disables colour
+- [x] `surt init` creates `.surt/` at the toplevel of the repository's main worktree, opens the database, writes a `.surt/.gitignore` that versions only `config.toml` and `agents/`, and a commented `config.toml` with the defaults (`max_concurrent_agents = 3`, `max_attempts = 3`, `max_iterations = 5`, `merge_into_base = "never"`, an example `[[checks]]`)
+- [x] `surt init` refuses with a fix when Git < 2.38 or no user identity is configured
+- [x] Rerunning `surt init` is idempotent and never overwrites `config.toml` or `agents/`
+- [x] Any other command outside an initialized project exits `3` and points at `surt init`; inside a Surt-managed worktree under `~/.surt/worktrees/` it refuses
+- [x] Unknown keys in `config.toml` are errors; `merge_into_base = "ff-only"` refuses with exit `3`
+- [x] Errors follow J's shape (`✖` line, at most two context lines, one to three labelled copyable commands); progress and errors go to stderr, data to stdout
+- [x] An unexpected error prints `✖ internal error: …` and suggests `SURT_LOG=debug`; `SURT_LOG` enables diagnostics on stderr; `NO_COLOR` disables colour
 - [ ] Binary tests on the three OSes cover first init, rerun, missing identity, outside-project refusal and an unknown config key

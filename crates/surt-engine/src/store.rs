@@ -1,6 +1,6 @@
 use std::io;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sqlx::migrate::{MigrateError, Migrator};
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqliteSynchronous};
@@ -37,19 +37,49 @@ pub(crate) struct Store {
 }
 
 impl Store {
-    pub(crate) async fn open(database: &Path, lock: &Path) -> Result<Store, StoreError> {
-        Self::open_with_busy_timeout(database, lock, BUSY_TIMEOUT).await
+    pub(crate) async fn open(
+        database: &Path,
+        lock: &Path,
+        project_name: &str,
+    ) -> Result<Store, StoreError> {
+        Self::open_with_busy_timeout(database, lock, project_name, BUSY_TIMEOUT).await
     }
 
     async fn open_with_busy_timeout(
         database: &Path,
         lock: &Path,
+        project_name: &str,
         busy_timeout: Duration,
     ) -> Result<Store, StoreError> {
+        tracing::debug!(database = %database.display(), "opening the database");
         let _migration_lock = take_lock(lock.to_path_buf()).await?;
         let pool = SqlitePool::connect_with(connect_options(database, busy_timeout)).await?;
         migrate(&pool).await?;
-        Ok(Store { pool })
+        let store = Store { pool };
+        store.record_project(project_name).await?;
+        Ok(store)
+    }
+
+    pub(crate) async fn close(self) {
+        self.pool.close().await;
+    }
+
+    pub(crate) async fn project_id(&self) -> Result<String, sqlx::Error> {
+        sqlx::query_scalar("SELECT project_id FROM project")
+            .fetch_one(&self.pool)
+            .await
+    }
+
+    async fn record_project(&self, project_name: &str) -> Result<(), sqlx::Error> {
+        let mut transaction = self.begin_write().await?;
+        sqlx::query(
+            "INSERT INTO project (project_id, created_at) SELECT ?1 || '-' || lower(hex(randomblob(3))), ?2 WHERE NOT EXISTS (SELECT 1 FROM project)",
+        )
+        .bind(project_name)
+        .bind(unix_now())
+        .execute(&mut *transaction)
+        .await?;
+        transaction.commit().await
     }
 
     async fn begin_write(&self) -> Result<Transaction<'static, Sqlite>, sqlx::Error> {
@@ -64,6 +94,14 @@ impl Store {
             }
         }
     }
+}
+
+pub(crate) fn unix_now() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| {
+            i64::try_from(elapsed.as_secs()).unwrap_or(i64::MAX)
+        })
 }
 
 fn is_busy(error: &sqlx::Error) -> bool {

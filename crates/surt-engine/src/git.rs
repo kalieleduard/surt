@@ -1,1 +1,139 @@
+use std::fmt;
+use std::io;
+use std::path::{Path, PathBuf};
+use std::process::ExitStatus;
 
+use tokio::process::Command;
+
+pub(crate) const MIN_VERSION: GitVersion = GitVersion {
+    major: 2,
+    minor: 38,
+    patch: 0,
+};
+
+const PORCELAIN_WORKTREE_PREFIX: &str = "worktree ";
+const PORCELAIN_BARE: &str = "bare";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct GitVersion {
+    pub major: u32,
+    pub minor: u32,
+    pub patch: u32,
+}
+
+impl GitVersion {
+    pub(crate) fn parse(output: &str) -> Option<GitVersion> {
+        let number = output.trim().strip_prefix("git version ")?;
+        let mut parts = number
+            .split(|character: char| !character.is_ascii_digit())
+            .map(str::parse::<u32>);
+        let major = parts.next()?.ok()?;
+        let minor = parts.next()?.ok()?;
+        let patch = parts.next().and_then(Result::ok).unwrap_or_default();
+        Some(GitVersion {
+            major,
+            minor,
+            patch,
+        })
+    }
+}
+
+impl fmt::Display for GitVersion {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{}.{}.{}", self.major, self.minor, self.patch)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum GitError {
+    #[error("git is not on PATH")]
+    NotFound,
+    #[error("cannot run git: {0}")]
+    Spawn(#[source] io::Error),
+    #[error("git {args} failed ({status}): {stderr}")]
+    Failed {
+        args: String,
+        status: ExitStatus,
+        stderr: String,
+    },
+    #[error("unexpected output from git {args}: {output:?}")]
+    Unexpected { args: String, output: String },
+}
+
+pub(crate) enum MainWorktree {
+    Toplevel(PathBuf),
+    Bare(PathBuf),
+}
+
+pub(crate) async fn version() -> Result<GitVersion, GitError> {
+    let args = ["--version"];
+    let output = run(Path::new("."), &args).await?;
+    GitVersion::parse(&output).ok_or_else(|| unexpected(&args, output))
+}
+
+pub(crate) async fn committer_email(cwd: &Path) -> Result<Option<String>, GitError> {
+    match run(cwd, &["var", "GIT_COMMITTER_IDENT"]).await {
+        Ok(ident) => Ok(email_of(&ident)),
+        Err(GitError::Failed { .. }) => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+pub(crate) async fn main_worktree(cwd: &Path) -> Result<Option<MainWorktree>, GitError> {
+    let args = ["worktree", "list", "--porcelain", "-z"];
+    let output = match run(cwd, &args).await {
+        Err(GitError::Failed { .. }) => return Ok(None),
+        result => result?,
+    };
+    parse_main_worktree(&output)
+        .map(Some)
+        .ok_or_else(|| unexpected(&args, output))
+}
+
+fn parse_main_worktree(output: &str) -> Option<MainWorktree> {
+    let mut fields = output.split('\0').take_while(|field| !field.is_empty());
+    let path = PathBuf::from(fields.next()?.strip_prefix(PORCELAIN_WORKTREE_PREFIX)?);
+    if fields.any(|field| field == PORCELAIN_BARE) {
+        return Some(MainWorktree::Bare(path));
+    }
+    Some(MainWorktree::Toplevel(path))
+}
+
+fn email_of(ident: &str) -> Option<String> {
+    let (_, after_open) = ident.split_once('<')?;
+    let (email, _) = after_open.split_once('>')?;
+    Some(email.to_owned())
+}
+
+fn unexpected(args: &[&str], output: String) -> GitError {
+    GitError::Unexpected {
+        args: args.join(" "),
+        output,
+    }
+}
+
+async fn run(cwd: &Path, args: &[&str]) -> Result<String, GitError> {
+    tracing::debug!(cwd = %cwd.display(), ?args, "running git");
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .env("LC_ALL", "C")
+        .kill_on_drop(true)
+        .output()
+        .await
+        .map_err(|error| match error.kind() {
+            io::ErrorKind::NotFound => GitError::NotFound,
+            _ => GitError::Spawn(error),
+        })?;
+    if !output.status.success() {
+        return Err(GitError::Failed {
+            args: args.join(" "),
+            status: output.status,
+            stderr: String::from_utf8_lossy(&output.stderr).trim().to_owned(),
+        });
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+#[cfg(test)]
+mod tests;
