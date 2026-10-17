@@ -8,6 +8,10 @@ use sqlx::{Sqlite, SqlitePool, Transaction};
 
 use crate::platform::{self, ExclusiveLock};
 
+mod runs;
+
+pub(crate) use runs::{NewInitialArtifact, NewRunRows, RunCreation};
+
 static MIGRATOR: Migrator = sqlx::migrate!();
 
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
@@ -92,7 +96,7 @@ impl Store {
     }
 }
 
-fn unix_now() -> i64 {
+pub(crate) fn unix_now() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |elapsed| {

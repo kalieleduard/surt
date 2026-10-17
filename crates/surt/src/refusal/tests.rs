@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use surt_engine::project::{GitVersion, Refusal};
+use surt_engine::project::{DefinitionFile, GitVersion, InvalidDefinition, Problem, Refusal};
 
 use super::message;
 
@@ -66,6 +66,16 @@ fn every_refusal() -> Vec<Refusal> {
         Refusal::MergeIntoBaseUnsupported {
             path: path.join(".surt/config.toml"),
         },
+        Refusal::InvalidDefinition(Box::new(InvalidDefinition {
+            file: DefinitionFile::Workflow("feature".to_owned()),
+            step: Some("ship".to_owned()),
+            problem: Problem::MissingKind,
+        })),
+        Refusal::InvalidDefinition(Box::new(InvalidDefinition {
+            file: DefinitionFile::Agent("builder".to_owned()),
+            step: None,
+            problem: Problem::MissingClaudeProfile,
+        })),
     ]
 }
 
@@ -126,5 +136,16 @@ fn a_managed_worktree_points_back_at_the_project_when_it_is_known() {
         text(&refusal).contains("\n  fix: cd /work/app\n"),
         "{}",
         text(&refusal)
+    );
+}
+
+#[test]
+fn an_invalid_definition_names_the_file_and_the_step() {
+    let refusal = &every_refusal()[12];
+
+    assert!(
+        text(refusal).starts_with("✖ invalid built-in definition: workflow feature [steps.ship]\n"),
+        "{}",
+        text(refusal)
     );
 }

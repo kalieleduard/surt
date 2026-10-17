@@ -1,3 +1,15 @@
+mod active;
+mod agents;
+mod created;
+mod edits;
+mod fixtures;
+mod flows;
+mod frozen;
+mod parsing;
+mod per_item;
+mod references;
+mod shapes;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -6,7 +18,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use tempfile::TempDir;
 
 use super::discovery::SurtHome;
-use super::{Config, Error, FileState, InitFile, Project, Refusal, init};
+use super::{Catalog, Config, Error, FileState, InitFile, Project, Refusal, init};
 
 struct Sandbox {
     dir: TempDir,
@@ -67,7 +79,7 @@ impl Sandbox {
     }
 
     async fn open(&self, cwd: &Path) -> Result<Project, Error> {
-        Project::open_in(cwd, &self.surt_home()).await
+        Project::open_in(cwd, &self.surt_home(), Catalog::new()).await
     }
 }
 

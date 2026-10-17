@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use surt_engine::project::Refusal;
+use surt_engine::project::{DefinitionFile, InvalidDefinition, Refusal};
 
 use crate::message::Message;
 
@@ -50,7 +50,27 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
                     format!("set merge_into_base = \"never\" in {}", path.display()),
                 )
         }
+        Refusal::ActiveRunExists { run } => Message::new(format!(
+            "this feature already has an active run {}",
+            run.as_str()
+        ))
+        .way("inspect", "surt status"),
+        Refusal::InvalidDefinition(invalid) => invalid_definition(invalid),
     }
+}
+
+fn invalid_definition(invalid: &InvalidDefinition) -> Message {
+    let file = match &invalid.file {
+        DefinitionFile::Workflow(name) => format!("workflow {name}"),
+        DefinitionFile::Agent(name) => format!("agent {name}"),
+    };
+    let location = match &invalid.step {
+        Some(step) => format!("{file} [steps.{step}]"),
+        None => file,
+    };
+    Message::new(format!("invalid built-in definition: {location}"))
+        .context(format!("{:?}", invalid.problem))
+        .way("fix", "reinstall surt")
 }
 
 fn managed_worktree(path: &Path, project: Option<&Path>) -> Message {

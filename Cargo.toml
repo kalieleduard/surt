@@ -14,9 +14,11 @@ clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 sqlx = { version = "0.9", default-features = false, features = ["sqlite", "runtime-tokio", "migrate", "macros"] }
 thiserror = "2"
-tempfile = "3"
 serde = { version = "1", features = ["derive"] }
-toml = "1"
+toml = { version = "1", features = ["preserve_order"] }
+sha2 = "0.11"
+uuid = { version = "1", features = ["v7"] }
+tempfile = "3"
 tracing = "0.1"
 dunce = "1"
 anstream = "1"

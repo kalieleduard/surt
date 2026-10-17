@@ -2,8 +2,10 @@ use std::error::Error as StdError;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use super::RunId;
 use crate::git::{GitError, GitVersion};
 use crate::store::StoreError;
+use crate::workflow::{FreezeError, InvalidDefinition};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -46,6 +48,10 @@ pub enum Refusal {
     MergeIntoBaseUnsupported {
         path: PathBuf,
     },
+    ActiveRunExists {
+        run: RunId,
+    },
+    InvalidDefinition(Box<InvalidDefinition>),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -99,6 +105,15 @@ impl From<GitError> for Error {
         match error {
             GitError::NotFound => Error::Refused(Refusal::GitNotFound),
             other => Error::Internal(InternalError(Box::new(other))),
+        }
+    }
+}
+
+impl From<FreezeError> for Error {
+    fn from(error: FreezeError) -> Error {
+        match error {
+            FreezeError::Invalid(invalid) => Error::Refused(Refusal::InvalidDefinition(invalid)),
+            canonical => Error::Internal(InternalError(Box::new(canonical))),
         }
     }
 }
