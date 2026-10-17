@@ -1,6 +1,6 @@
 # I. Cleanup, Delete and Logs
 
-What Surt removes when a Workflow Run ends and when the user deletes a Feature, what it keeps, in which order, and where agent logs live. Companion to [I. Recovery and Reconciliation](I-recovery.md). Vocabulary (**Cleanup**, **Purge**, **Salvage Ref**, **Working Copy**, **Integration Branch**, **Task Branch**) is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [Cleanup, `surt delete` e logs](../../.scratch/surt-architecture/issues/13-cleanup-e-ciclo-de-vida.md).
+What Surt removes when a Workflow Run ends and when the user deletes a Feature, what it keeps, in which order, and where agent logs live. Companion to [I. Recovery and Reconciliation](I-recovery.md). Vocabulary (**Cleanup**, **Purge**, **Salvage Ref**, **Working Copy**, **Integration Branch**, **Task Branch**) is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [Cleanup, `surt delete` and logs](../../.scratch/surt-architecture/issues/13-cleanup-delete-and-logs.md).
 
 ## Principles
 
@@ -178,7 +178,7 @@ A kept run shows `cleanup  kept (on_success = "keep") — remove with: surt dele
 - Removing a Task's worktree as soon as the Task is integrated. There is one cleanup, at the end of the root run.
 - Redacting secrets from logs, opt-in full logs, log rotation or retention limits, archiving without deleting.
 - Removing `.orphaned-*` directories ([Worktree states](I-recovery.md#worktree-states)); unreferenced commits are left to `git gc`.
-- Protection against junctions and `\\?\` paths beyond what `remove_dir_all` already gives ([Primitivas multiplataforma](../../.scratch/surt-architecture/issues/18-primitivas-multiplataforma.md)).
+- Protection against junctions and `\\?\` paths beyond what `remove_dir_all` already gives ([Cross-platform primitives (macOS, Linux, Windows)](../../.scratch/surt-architecture/issues/18-cross-platform-primitives.md)).
 
 ## Decided elsewhere
 

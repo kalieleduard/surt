@@ -1,6 +1,6 @@
 # A. Git Integration
 
-How code flows from a Builder's commit to the branch the Shipper delivers, and how Surt proves that nothing unreviewed gets in. Vocabulary (**Base**, **Integration Branch**, **Task Branch**, **Check**, **Operation**) is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [Modelo de integração Git](../../.scratch/surt-architecture/issues/09-modelo-de-integracao-git.md). Facts about Git behaviour come from [Mecânica de worktree/merge no Git e estados parciais](../../.scratch/surt-architecture/issues/04-git-worktree-merge-estados-parciais.md), whose full report is on branch `research/git-worktree-merge`.
+How code flows from a Builder's commit to the branch the Shipper delivers, and how Surt proves that nothing unreviewed gets in. Vocabulary (**Base**, **Integration Branch**, **Task Branch**, **Check**, **Operation**) is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [Git integration model](../../.scratch/surt-architecture/issues/09-git-integration-model.md). Facts about Git behaviour come from [Git worktree/merge mechanics and partial states](../../.scratch/surt-architecture/issues/04-git-worktree-merge-partial-states.md), whose full report is on branch `research/git-worktree-merge`.
 
 ## Shape of the flow
 

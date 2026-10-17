@@ -1,6 +1,6 @@
 # A. Process Model and Concurrency
 
-Part of section A (Architecture); the component overview is [A. Overview](A-overview.md). It covers who advances a Workflow Run, for how long, and how Surt prevents duplicate work between processes. Vocabulary (**Driver**, **Interruption**, **Cancellation**) is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [Modelo de processo e controle de concorrência](../../.scratch/surt-architecture/issues/05-modelo-de-processo-e-concorrencia.md).
+Part of section A (Architecture); the component overview is [A. Overview](A-overview.md). It covers who advances a Workflow Run, for how long, and how Surt prevents duplicate work between processes. Vocabulary (**Driver**, **Interruption**, **Cancellation**) is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [Process model and concurrency control](../../.scratch/surt-architecture/issues/05-process-and-concurrency-model.md).
 
 ## Driving a run
 

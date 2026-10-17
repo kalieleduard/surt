@@ -1,6 +1,6 @@
 # D. Database Schema
 
-The physical SQLite schema behind [C. Domain Model](C-domain-model.md). SQLite is the source of truth for every Workflow Run. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [Schema SQLite](../../.scratch/surt-architecture/issues/11-schema-sqlite.md).
+The physical SQLite schema behind [C. Domain Model](C-domain-model.md). SQLite is the source of truth for every Workflow Run. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [SQLite schema](../../.scratch/surt-architecture/issues/11-sqlite-schema.md).
 
 The complete initial migration is [`migrations/0001_initial.sql`](migrations/0001_initial.sql). It runs in `sqlite3` 3.46+ (the range sqlx 0.9 bundles). In Milestone 1 it moves to the crate's `migrations/` directory unchanged. It carries no comments, following the project's comment rule ([`rules/clean-code.md`](../../rules/clean-code.md)); a tool directive such as sqlx's `-- no-transaction` is the only exception. This section explains it; the SQL file is the authority on columns.
 

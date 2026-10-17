@@ -1,6 +1,6 @@
 # B. Rust Workspace, Modules and Traits
 
-How the code is organised into crates and modules, what each module hides, and which traits exist between them. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md); the module diagram is in [A. Overview](A-overview.md). Decision ticket: [Estrutura do workspace Rust e traits centrais](../../.scratch/surt-architecture/issues/15-workspace-rust-e-traits.md).
+How the code is organised into crates and modules, what each module hides, and which traits exist between them. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md); the module diagram is in [A. Overview](A-overview.md). Decision ticket: [Rust workspace structure and core traits](../../.scratch/surt-architecture/issues/15-rust-workspace-and-traits.md).
 
 Rust contracts here are signatures and invariants, not bodies. Names may change during implementation; the seams and what crosses them may not without a new decision.
 
@@ -119,7 +119,7 @@ pub trait AgentRuntime: Send + Sync {
 ```
 
 - Native `async` in traits, no `async-trait`. The trait is not object-safe and does not need to be: `drive` takes `&impl AgentRuntime`, so `Project` carries no type parameter.
-- `ClaudeCodeRuntime` and `FakeRuntime` both live in `surt-engine::runtime` and are public. The Fake goes through the same delivery validation and never writes to SQLite ([F](F-agent-contract.md#agent-runtime-and-fake-runtime)). How a test selects the Fake for the binary is decided in [Estratégia de testes](../../.scratch/surt-architecture/issues/16-estrategia-de-testes.md).
+- `ClaudeCodeRuntime` and `FakeRuntime` both live in `surt-engine::runtime` and are public. The Fake goes through the same delivery validation and never writes to SQLite ([F](F-agent-contract.md#agent-runtime-and-fake-runtime)). How a test selects the Fake for the binary is decided in [Test strategy](../../.scratch/surt-architecture/issues/16-test-strategy.md).
 - `RuntimeError` carries the `FailureClass` (`transient`, `not_retryable`, `retryable`) classified by the adapter ([I. Recovery](I-recovery.md#transient-failures-network-and-rate-limits)). `drive` records it on the Execution; it never crosses the facade as an error.
 
 Rationale: [ADR 0012](../adr/0012-agent-runtime-is-the-only-trait.md).
@@ -287,4 +287,4 @@ Not used: `dirs`/`directories` (`std::env::home_dir` is correct on Windows and n
 - The `AgentRuntime` protocol and acceptance rules: [F. Agent Contract](F-agent-contract.md#agent-runtime-and-fake-runtime).
 - Checkpoints the store methods implement: [I. Recovery](I-recovery.md#transactional-checkpoints).
 - Commands, messages and exit codes: [J. CLI Surface](J-cli.md).
-- How tests drive the Fake Runtime and which checkpoints are covered: [Estratégia de testes](../../.scratch/surt-architecture/issues/16-estrategia-de-testes.md).
+- How tests drive the Fake Runtime and which checkpoints are covered: [Test strategy](../../.scratch/surt-architecture/issues/16-test-strategy.md).

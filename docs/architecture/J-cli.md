@@ -1,6 +1,6 @@
 # J. CLI Surface
 
-The commands of v1 ([K](K-roadmap.md) lists the subset Milestone 1 ships), how they refer to things, what they print, their exit codes and the configuration they read. The engine is generic; these commands are the built-in feature workflow's front end and are the only layer that knows its phases. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [Superfície e UX da CLI](../../.scratch/surt-architecture/issues/14-superficie-e-ux-da-cli.md).
+The commands of v1 ([K](K-roadmap.md) lists the subset Milestone 1 ships), how they refer to things, what they print, their exit codes and the configuration they read. The engine is generic; these commands are the built-in feature workflow's front end and are the only layer that knows its phases. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [CLI surface and UX](../../.scratch/surt-architecture/issues/14-cli-surface-and-ux.md).
 
 ## Commands
 
@@ -274,7 +274,7 @@ $ surt logs add-login -f            # every agent running in this Feature, multi
 B build#2 │ Read src/auth.rs
 C build#1 │ Bash cargo test -p auth
 B build#2 │ Edit src/auth.rs (+12 −3)
-B build#2 │ "Adicionei o callback OAuth; falta o teste de expiração…"
+B build#2 │ "Added the OAuth callback; the expiry test is still missing…"
 C build#1 │ ✔ delivered (commit 9e04b7d)
 ```
 

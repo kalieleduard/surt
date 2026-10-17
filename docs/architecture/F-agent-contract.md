@@ -1,6 +1,6 @@
 # F. Agent Contract
 
-Decision ticket: [Contrato de agente](../../.scratch/surt-architecture/issues/07-contrato-de-agente.md). Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md). The workflow's use of agent contracts is defined in [E. Workflow Definition Schema](E-workflow-schema.md).
+Decision ticket: [Agent contract](../../.scratch/surt-architecture/issues/07-agent-contract.md). Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md). The workflow's use of agent contracts is defined in [E. Workflow Definition Schema](E-workflow-schema.md).
 
 This section records the accepted agent contract, including the per-Task Markdown files delivered with the approved manifest. It defines the engineering plan, not an implemented runtime.
 
@@ -12,7 +12,7 @@ This mode provides partial isolation. It must not be described as a sandbox or a
 
 An explicit API-key mode uses `--bare` for stronger isolation. It is an alternative to the default subscription mode. The authentication choice is explicit; merely finding an API key in the environment must not silently change a subscription execution into an API-billed execution.
 
-The existing research found that `--bare` does not reuse subscription OAuth credentials, and that changing `CLAUDE_CONFIG_DIR` also changes credential lookup. A fresh config directory is therefore not a way to preserve the existing login automatically. Research context: [Capacidades headless do Claude Code CLI](../../.scratch/surt-architecture/issues/02-claude-code-cli-headless.md), with its full report on branch `research/claude-code-cli-headless`.
+The existing research found that `--bare` does not reuse subscription OAuth credentials, and that changing `CLAUDE_CONFIG_DIR` also changes credential lookup. A fresh config directory is therefore not a way to preserve the existing login automatically. Research context: [Claude Code CLI headless capabilities](../../.scratch/surt-architecture/issues/02-claude-code-cli-headless.md), with its full report on branch `research/claude-code-cli-headless`.
 
 ## Delivery: files and a structured result
 
@@ -40,7 +40,7 @@ Every agent delivers the same envelope shape; its concrete JSON Schema is genera
 
 The Outcome must belong to the contract's closed set, and output names must match the contract. Paths are relative to this Execution's delivery directory. Paths that escape the directory, symbolic links and missing or invalid required files are rejected. Surt validates each file against its declared format and, where applicable, schema, and only accepts a complete valid delivery.
 
-Concrete file schemas and runtime success checks are specified below. The Claude Code `structured_output` shape and the failure streams below were observed in the real-stream fixtures (`docs/research/fixtures/claude-code/` on branch `research/claude-code-cli-headless`), captured with Claude Code 2.1.301 by [Capturar stream real do Claude Code como fixture](../../.scratch/surt-architecture/issues/19-fixture-stream-real-claude-code.md).
+Concrete file schemas and runtime success checks are specified below. The Claude Code `structured_output` shape and the failure streams below were observed in the real-stream fixtures (`docs/research/fixtures/claude-code/` on branch `research/claude-code-cli-headless`), captured with Claude Code 2.1.301 by [Capture a real Claude Code stream as a fixture](../../.scratch/surt-architecture/issues/19-real-claude-code-stream-fixture.md).
 
 ## Freezing agents
 
@@ -79,7 +79,7 @@ An Agent has exactly one Agent Profile, the `[profile]` table of its `agent.toml
 - A new Iteration uses the same profile too. A Loop that keeps failing is stopped by the Iteration limit and becomes blocked ([G. State Machines](G-state-machines.md#limits)); it never switches to a larger model.
 - The Agent Runtime does not silently switch models to work around failures.
 
-Different Agents may still use different models: each Agent's profile is configured, and overridden locally, on its own. Decision: [Máquina de estados do loop Builder ↔ Reviewer](../../.scratch/surt-architecture/issues/10-loop-builder-reviewer.md).
+Different Agents may still use different models: each Agent's profile is configured, and overridden locally, on its own. Decision: [Builder ↔ Reviewer loop state machine](../../.scratch/surt-architecture/issues/10-builder-reviewer-loop.md).
 
 ## Permissions and tools
 
@@ -276,7 +276,7 @@ For subscription auth add `--safe-mode --setting-sources user` and preserve the 
 
 For explicit API-key auth use `--bare` instead of `--safe-mode`, take the key from the named `api_key_env` and pass it in the child environment. Keep generated settings and the explicit tool/MCP/skill controls. Do not claim that bare removes managed policy or supplies an OS sandbox. This MVP does not add Bedrock, Vertex, Foundry or arbitrary gateways.
 
-The complete combination (subscription auth) was validated with a successful authenticated Execution on macOS with Claude Code 2.1.301; see the real-stream fixtures (`docs/research/fixtures/claude-code/` on branch `research/claude-code-cli-headless`). The API-key (`--bare`) mode and Windows remain unvalidated by a real run; the CI matrix and the manual smoke of [16](../../.scratch/surt-architecture/issues/16-estrategia-de-testes.md) cover them. Primary references: [CLI reference](https://code.claude.com/docs/en/cli-reference), [programmatic execution](https://code.claude.com/docs/en/headless), [bare mode](https://code.claude.com/docs/en/headless#start-faster-with-bare-mode).
+The complete combination (subscription auth) was validated with a successful authenticated Execution on macOS with Claude Code 2.1.301; see the real-stream fixtures (`docs/research/fixtures/claude-code/` on branch `research/claude-code-cli-headless`). The API-key (`--bare`) mode and Windows remain unvalidated by a real run; the CI matrix and the manual smoke of [16](../../.scratch/surt-architecture/issues/16-test-strategy.md) cover them. Primary references: [CLI reference](https://code.claude.com/docs/en/cli-reference), [programmatic execution](https://code.claude.com/docs/en/headless), [bare mode](https://code.claude.com/docs/en/headless#start-faster-with-bare-mode).
 
 ## Runtime success and failure
 

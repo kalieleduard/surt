@@ -1,6 +1,6 @@
 # H. Artifact Storage, Freezing and Revalidation
 
-Where Artifact Revisions live, how humans read and edit them, and what happens when an approved artifact changes. Vocabulary (**Artifact**, **Artifact Revision**, **Working Copy**, **Pinned Revision**, **Approval**) is defined in [`CONTEXT.md`](../../CONTEXT.md); invariants are in [C. Domain Model](C-domain-model.md). Decision ticket: [Armazenamento de artefatos, congelamento e revalidação](../../.scratch/surt-architecture/issues/08-armazenamento-congelamento-revalidacao.md).
+Where Artifact Revisions live, how humans read and edit them, and what happens when an approved artifact changes. Vocabulary (**Artifact**, **Artifact Revision**, **Working Copy**, **Pinned Revision**, **Approval**) is defined in [`CONTEXT.md`](../../CONTEXT.md); invariants are in [C. Domain Model](C-domain-model.md). Decision ticket: [Artifact storage, freezing and revalidation](../../.scratch/surt-architecture/issues/08-artifact-storage-freezing-revalidation.md).
 
 ## Revision bytes live in SQLite
 
@@ -154,7 +154,7 @@ The Context Assembler points the agent at `inputs/`, and the runtime adds `Read`
 `surt feature "<description>"` derives the Subject name `YYYYMMDD-<slug>`:
 
 1. `YYYYMMDD` is the **local** date. If the local offset cannot be determined, Surt uses UTC without warning.
-2. The slug is the description transliterated to ASCII, lowercased, reduced to `[a-z0-9-]`, with runs of hyphens collapsed and no leading or trailing hyphen. It is truncated to 40 characters at a word boundary. `"Adicionar Login com Google / OAuth"` → `20261016-adicionar-login-com-google-oauth`.
+2. The slug is the description transliterated to ASCII, lowercased, reduced to `[a-z0-9-]`, with runs of hyphens collapsed and no leading or trailing hyphen. It is truncated to 40 characters at a word boundary. `"Add Login with Google / OAuth"` → `20261016-add-login-with-google-oauth`.
 3. Windows reserved names (`CON`, `NUL`, `COM1`…) cannot occur, because the name always starts with digits. Lowercase removes case-insensitive collisions on APFS and NTFS. A trailing dot or space cannot survive the slug.
 4. If a Subject with that name already exists, Surt appends `-2`, `-3`… Exception: when a Feature with the same slug (ignoring date and suffix) has an active run, `surt feature` refuses and points at resuming it, unless `--new` is given ([J](J-cli.md#surt-feature-create-resume-or-start-again)):
    ```
@@ -203,7 +203,7 @@ Versioning `features/` would create a second source of truth. Task branches woul
 ## Decided elsewhere
 
 - Physical tables for blobs, Revisions, baselines and Approvals: [D. Database Schema](D-database.md#artifacts-revisions-and-approvals).
-- Item key and path naming rules, worktree layout: [A. Git Integration](A-git-integration.md) ([Modelo de integração Git](../../.scratch/surt-architecture/issues/09-modelo-de-integracao-git.md)).
+- Item key and path naming rules, worktree layout: [A. Git Integration](A-git-integration.md) ([Git integration model](../../.scratch/surt-architecture/issues/09-git-integration-model.md)).
 - What cleanup removes, when, and purge of old runs: [I. Cleanup, Delete and Logs](I-cleanup.md).
 - Exact output and exit codes of `show`, `restore`, `approve --rev` and the refusals: [J. CLI Surface](J-cli.md).
 - Where logs and streams live and when they are removed: [I. Cleanup](I-cleanup.md#logs).

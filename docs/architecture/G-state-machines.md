@@ -1,6 +1,6 @@
 # G. State Machines
 
-States and transitions of Executions, Step Runs and Workflow Runs, the Attempt and Iteration limits, and how the built-in Task Cycle uses them. Vocabulary (**Execution**, **Step Run**, **Iteration**, **Attempt**, **Blocked**, **Interruption**, **Cancellation**) is defined in [`CONTEXT.md`](../../CONTEXT.md); entities and invariants are in [C. Domain Model](C-domain-model.md). Decision ticket: [Máquina de estados do loop Builder ↔ Reviewer](../../.scratch/surt-architecture/issues/10-loop-builder-reviewer.md).
+States and transitions of Executions, Step Runs and Workflow Runs, the Attempt and Iteration limits, and how the built-in Task Cycle uses them. Vocabulary (**Execution**, **Step Run**, **Iteration**, **Attempt**, **Blocked**, **Interruption**, **Cancellation**) is defined in [`CONTEXT.md`](../../CONTEXT.md); entities and invariants are in [C. Domain Model](C-domain-model.md). Decision ticket: [Builder ↔ Reviewer loop state machine](../../.scratch/surt-architecture/issues/10-builder-reviewer-loop.md).
 
 Recovery after a crash (what an orphan or a second Ctrl-C leaves behind, partial Operations) is [I. Recovery and Reconciliation](I-recovery.md). This section only names the states recovery moves between.
 

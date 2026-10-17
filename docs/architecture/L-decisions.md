@@ -1,6 +1,6 @@
 # L. Architecture Decision Records
 
-Index of the decisions that were hard to reverse, surprising without context and the result of a real trade-off. Each record lives in [`docs/adr/`](../adr/); this page only lists them. Every other decision is in the section it shapes (A–K) and in the ticket that resolved it on the [map](../../.scratch/surt-architecture/map.md). Decision ticket: [Roadmap e Milestone 1](../../.scratch/surt-architecture/issues/17-roadmap-e-milestone-1.md).
+Index of the decisions that were hard to reverse, surprising without context and the result of a real trade-off. Each record lives in [`docs/adr/`](../adr/); this page only lists them. Every other decision is in the section it shapes (A–K) and in the ticket that resolved it on the [map](../../.scratch/surt-architecture/map.md). Decision ticket: [Roadmap + Milestone 1 proposal](../../.scratch/surt-architecture/issues/17-roadmap-and-milestone-1.md).
 
 | ADR | Decision | Shapes |
 |---|---|---|

@@ -1,6 +1,6 @@
 # K. Roadmap and Milestone 1
 
-What gets built first, in which order, and what follows. Sections A–J describe **v1**, the whole design. Milestone 1 is the smallest subset of v1 that delivers a Feature end to end. Every cut below is a subset of v1, not a different design, and none needs a migration. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [Roadmap e Milestone 1](../../.scratch/surt-architecture/issues/17-roadmap-e-milestone-1.md).
+What gets built first, in which order, and what follows. Sections A–J describe **v1**, the whole design. Milestone 1 is the smallest subset of v1 that delivers a Feature end to end. Every cut below is a subset of v1, not a different design, and none needs a migration. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [Roadmap + Milestone 1 proposal](../../.scratch/surt-architecture/issues/17-roadmap-and-milestone-1.md).
 
 ## Milestone 1
 
@@ -8,7 +8,7 @@ What gets built first, in which order, and what follows. Sections A–J describe
 
 **Done when:**
 
-1. `cargo fmt --all -- --check`, `cargo clippy --all-targets --features test-support -- -D warnings` and `cargo test --features test-support` pass in CI on macOS, Linux and Windows ([`rules/rust.md`](../../rules/rust.md)). The suite holds everything in [Estratégia de testes](../../.scratch/surt-architecture/issues/16-estrategia-de-testes.md): the brief's E2E with the Fake Runtime (2+ Tasks, a rejected review, a new Builder, the Shipper, cleanup), fault points at the eight checkpoints of [I. Recovery](I-recovery.md#transactional-checkpoints), the `kill` smoke, and the three Git scenarios. The E2E stays under 60 s per OS.
+1. `cargo fmt --all -- --check`, `cargo clippy --all-targets --features test-support -- -D warnings` and `cargo test --features test-support` pass in CI on macOS, Linux and Windows ([`rules/rust.md`](../../rules/rust.md)). The suite holds everything in [Test strategy](../../.scratch/surt-architecture/issues/16-test-strategy.md): the brief's E2E with the Fake Runtime (2+ Tasks, a rejected review, a new Builder, the Shipper, cleanup), fault points at the eight checkpoints of [I. Recovery](I-recovery.md#transactional-checkpoints), the `kill` smoke, and the three Git scenarios. The E2E stays under 60 s per OS.
 2. A manual smoke with the real Claude Code passes **on macOS**: in a toy repository, a Feature with two Tasks reaches `succeeded`. Its script is the checklist `docs/smoke-claude-code.md`.
 
 ### What the user sees

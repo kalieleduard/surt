@@ -1,6 +1,6 @@
 # I. Recovery and Reconciliation
 
-How Surt resumes any Workflow Run, days later, after a crash, a reboot, a `kill -9` or a second Ctrl-C, without duplicating work and without trusting an old Claude session. Vocabulary (**Recovery**, **Intention**, **Salvage Ref**, **Transient Failure**, **Driver**, **Interruption**) is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [Estratégia de recuperação e reconciliação](../../.scratch/surt-architecture/issues/12-recuperacao-e-reconciliacao.md). Facts about Git's partial states come from [Mecânica de worktree/merge no Git e estados parciais](../../.scratch/surt-architecture/issues/04-git-worktree-merge-estados-parciais.md) (full table on branch `research/git-worktree-merge`).
+How Surt resumes any Workflow Run, days later, after a crash, a reboot, a `kill -9` or a second Ctrl-C, without duplicating work and without trusting an old Claude session. Vocabulary (**Recovery**, **Intention**, **Salvage Ref**, **Transient Failure**, **Driver**, **Interruption**) is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [Recovery and reconciliation strategy](../../.scratch/surt-architecture/issues/12-recovery-and-reconciliation.md). Facts about Git's partial states come from [Git worktree/merge mechanics and partial states](../../.scratch/surt-architecture/issues/04-git-worktree-merge-partial-states.md) (full table on branch `research/git-worktree-merge`).
 
 ## Principles
 
@@ -203,7 +203,7 @@ Claude Code already retries API errors by itself (`system/api_retry`). When it g
 | `not_retryable` | `authentication_failed`, `billing_error`, `model_not_found`, `invalid_request`, and the launch errors of [G](G-state-machines.md#attempts) | Step Run `blocked` at once |
 | `retryable` | every other technical failure ([F](F-agent-contract.md#runtime-success-and-failure)) | counts; a new Attempt at once |
 
-Observed in the real streams of [Capturar stream real do Claude Code como fixture](../../.scratch/surt-architecture/issues/19-fixture-stream-real-claude-code.md): `authentication_failed` and `model_not_found` arrive in `assistant.error` with a `result` of `terminal_reason = "api_error"` (`api_error_status` 404 for the model); a rate-limited or network failure was not captured. An unknown error category is `retryable`, so a misclassification costs Attempts and never makes Surt wait forever on a permanent error.
+Observed in the real streams of [Capture a real Claude Code stream as a fixture](../../.scratch/surt-architecture/issues/19-real-claude-code-stream-fixture.md): `authentication_failed` and `model_not_found` arrive in `assistant.error` with a `result` of `terminal_reason = "api_error"` (`api_error_status` 404 for the model); a rate-limited or network failure was not captured. An unknown error category is `retryable`, so a misclassification costs Attempts and never makes Surt wait forever on a permanent error.
 
 **The pause.** An account rate limit hits every agent at once, so a Transient Failure pauses **every agent launch of that Driver**, not only its own Step Run:
 

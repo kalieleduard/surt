@@ -1,6 +1,6 @@
 # E. Workflow Definition Schema
 
-How a Workflow Definition is written in TOML. Vocabulary (**Step**, **Outcome**, **Loop**, **Per-Item Step**, **Item List**, **Operation**) is defined in [`CONTEXT.md`](../../CONTEXT.md); entities and invariants are in [C. Domain Model](C-domain-model.md). Decision ticket: [Schema TOML de workflow](../../.scratch/surt-architecture/issues/06-schema-toml-de-workflow.md).
+How a Workflow Definition is written in TOML. Vocabulary (**Step**, **Outcome**, **Loop**, **Per-Item Step**, **Item List**, **Operation**) is defined in [`CONTEXT.md`](../../CONTEXT.md); entities and invariants are in [C. Domain Model](C-domain-model.md). Decision ticket: [Workflow TOML schema](../../.scratch/surt-architecture/issues/06-workflow-toml-schema.md).
 
 ## Not a language
 
@@ -301,9 +301,9 @@ Operations, Checks, the `check-report` and `conflict` artifacts, and the opt-in 
 
 ## Decided elsewhere
 
-- Agent contract format (`outcomes`, `[inputs]`, `[outputs]`, `[profile]`, freezing of agents): section F ([Contrato de agente](../../.scratch/surt-architecture/issues/07-contrato-de-agente.md)).
+- Agent contract format (`outcomes`, `[inputs]`, `[outputs]`, `[profile]`, freezing of agents): section F ([Agent contract](../../.scratch/surt-architecture/issues/07-agent-contract.md)).
 - Iteration and Attempt limits, Task blocking, and what a blocked child means for its dependents: [G. State Machines](G-state-machines.md).
 - Revalidation after an approved artifact is edited: [H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md).
-- Operation registry, Integration Branch, Checks, item key constraints: [A. Git Integration](A-git-integration.md) ([Modelo de integração Git](../../.scratch/surt-architecture/issues/09-modelo-de-integracao-git.md)).
+- Operation registry, Integration Branch, Checks, item key constraints: [A. Git Integration](A-git-integration.md) ([Git integration model](../../.scratch/surt-architecture/issues/09-git-integration-model.md)).
 - What `on_success = "clean"` removes, and what a cancelled run removes regardless of it: [I. Cleanup, Delete and Logs](I-cleanup.md#what-each-ending-removes).
 - `surt reject`, and which command drives after it (a fixed table in the CLI, not a schema field): [J. CLI Surface](J-cli.md#next-command-hints).
