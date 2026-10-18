@@ -132,15 +132,19 @@ async fn setup_creates_a_locked_worktree_on_a_task_branch_at_the_integration_tip
         )]
     );
     assert_eq!(feature.sha(&task_branch("A")), Some(base));
-    let listed = feature.git(&["worktree", "list", "--porcelain"]);
     let entry = format!(
-        "worktree {}\nHEAD {}\nbranch {}\nlocked surt {}",
-        worktree.display(),
+        "HEAD {}\nbranch {}\nlocked surt {}",
         feature.base(),
         task_branch("A"),
         child_run(&feature, "A").await
     );
-    assert!(listed.contains(&entry), "{listed}");
+    let listed = feature.listed_worktree(&worktree);
+    assert!(
+        listed
+            .as_deref()
+            .is_some_and(|fields| fields.starts_with(&entry)),
+        "{listed:?}"
+    );
     let requests = runtime.requests();
     assert_eq!(requests.len(), 1);
     assert_eq!(requests[0].launch.working_dir, worktree);

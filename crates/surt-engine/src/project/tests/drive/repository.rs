@@ -76,10 +76,20 @@ impl Feature {
         self.git(&["rev-parse", "main"])
     }
 
+    pub(super) fn listed_worktree(&self, path: &Path) -> Option<String> {
+        let listed = self.git(&["worktree", "list", "--porcelain"]);
+        listed.split("\n\n").find_map(|record| {
+            let (first, fields) = record.split_once('\n')?;
+            let listed_path = first.strip_prefix("worktree ").map(Path::new)?;
+            (listed_path == path).then(|| fields.to_owned())
+        })
+    }
+
     pub(super) fn worktree(&self, key: &str) -> PathBuf {
         self.dir
             .home()
-            .join(".surt/worktrees")
+            .join(".surt")
+            .join("worktrees")
             .join(PROJECT_ID)
             .join(SUBJECT)
             .join(key)

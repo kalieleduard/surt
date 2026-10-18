@@ -34,8 +34,8 @@ pub(super) fn render(text: &mut String, status: &RunStatus) {
         field(text, label, &summary);
         if matches!(gate.status, GateStatus::Waiting { .. }) {
             for file in &revision.files {
-                let path = gate.working_copy.join(file);
-                let _ = writeln!(text, "{CONTINUATION}{}", path.display());
+                let directory = gate.working_copy.display();
+                let _ = writeln!(text, "{CONTINUATION}{directory}/{file}");
             }
         }
         changes(text, gate, revision.number);

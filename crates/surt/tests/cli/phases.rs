@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::{MAIN_SEPARATOR, Path};
 
 use jiff::Zoned;
 
@@ -298,14 +299,17 @@ fn driving_commands_refuse_when_local_agent_overrides_exist() {
     ok(surt(&sandbox, &["reject", &name, "-m", "no"]));
     let agents = sandbox.dot_surt().join("agents");
     fs::create_dir_all(agents.join("spec")).expect("an override");
+    let unsupported = format!(
+        "{MAIN_SEPARATOR}{} are not supported yet\n",
+        Path::new(".surt").join("agents").display()
+    );
 
     let resumed = refused(sandbox.feature(&[&name]));
     let created = refused(sandbox.feature(&["other thing"]));
 
     for refusal in [resumed, created] {
         assert!(
-            refusal.starts_with("✖ local agent overrides in ")
-                && refusal.contains("/.surt/agents are not supported yet\n"),
+            refusal.starts_with("✖ local agent overrides in ") && refusal.contains(&unsupported),
             "{refusal}"
         );
     }

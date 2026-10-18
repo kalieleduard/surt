@@ -23,7 +23,7 @@ impl Targets {
         }
         for directory in &self.directories {
             if let Err(error) = disk::remove_dir(directory) {
-                leave(&mut left, shown(layout, directory), error);
+                leave(&mut left, layout.relative(directory).display(), error);
             }
         }
         Ok(left)
@@ -52,10 +52,6 @@ impl Targets {
             leave(left, REFS, error);
         }
     }
-}
-
-fn shown<'a>(layout: &Layout, path: &'a Path) -> std::path::Display<'a> {
-    path.strip_prefix(layout.root()).unwrap_or(path).display()
 }
 
 fn leave(left: &mut Vec<Left>, item: impl Display, reason: impl Display) {

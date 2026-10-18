@@ -33,10 +33,7 @@ pub(super) async fn views(
             status,
             decided_by: row.actor,
             decided_at: row.decided_at,
-            working_copy: dir
-                .strip_prefix(layout.root())
-                .unwrap_or(&dir)
-                .to_path_buf(),
+            working_copy: layout.relative(&dir),
             edited: comparison.edited,
             missing: comparison.missing,
         });

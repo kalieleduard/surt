@@ -1,5 +1,6 @@
 use std::fs;
 use std::num::NonZeroU32;
+use std::path::Path;
 
 use super::super::fixtures::SUBJECT;
 use super::fixtures::Feature;
@@ -136,13 +137,17 @@ async fn a_third_party_git_lock_is_waited_out_with_backoff_then_fails_the_attemp
         .dir
         .rows("SELECT failure_class, error_code, error_message FROM execution")
         .await;
+    let [(class, code, message)] = failures.as_slice() else {
+        panic!("one failed execution: {failures:?}");
+    };
     assert_eq!(
-        failures,
-        [(
-            "retryable".to_owned(),
-            "git_lock_held".to_owned(),
-            format!("git lock held: {}", lock.display())
-        )]
+        (class.as_str(), code.as_str()),
+        ("retryable", "git_lock_held")
+    );
+    assert_eq!(
+        message.strip_prefix("git lock held: ").map(Path::new),
+        Some(lock.as_path()),
+        "{message}"
     );
     assert_eq!(feature.sha(&integration_branch()), None);
 }

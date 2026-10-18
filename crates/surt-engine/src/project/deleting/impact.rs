@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::{Error, Layout, RunState, relative};
+use super::{Error, Layout, RunState};
 use crate::artifacts::working_copy::unrecorded_edits;
 use crate::cleanup::{RefKind, Targets, size};
 use crate::drive::graph;
@@ -107,7 +107,7 @@ fn directories(layout: &Layout, targets: &Targets) -> Result<Vec<Directory>, Err
         .map(|path| {
             let bytes = size(path).map_err(|error| Error::io("measure", path, error))?;
             Ok(Directory {
-                path: relative(layout, path),
+                path: layout.relative(path),
                 bytes,
             })
         })
@@ -128,7 +128,7 @@ async fn edits(
     for artifact in store.working_copy(&last.id).await? {
         let paths = unrecorded_edits(&dir, &artifact.files)
             .map_err(|error| Error::io("read", &dir, error))?;
-        edited.extend(paths.iter().map(|path| relative(layout, &dir.join(path))));
+        edited.extend(paths.iter().map(|path| layout.relative(&dir.join(path))));
     }
     Ok(edited)
 }
