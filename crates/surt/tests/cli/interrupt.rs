@@ -134,9 +134,7 @@ fn a_second_ctrl_c_forces_the_stop_without_waiting_for_a_running_check() {
     assert!(!stderr.contains("task A check passed"), "{stderr}");
     assert_eq!(
         sandbox
-            .texts(
-                "SELECT state FROM execution WHERE pid IS NOT NULL ORDER BY rowid DESC LIMIT 1"
-            )
+            .texts("SELECT state FROM execution WHERE pid IS NOT NULL ORDER BY rowid DESC LIMIT 1")
             .concat(),
         "running",
         "the forced stop leaves the slow Check to recovery"

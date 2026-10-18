@@ -155,5 +155,10 @@ fn restore_reports_a_live_driver_before_asking_anything() {
             "✖ {name} is being driven by pid {driver}\n  fix: surt stop {name}, or Ctrl-C in its terminal, then rerun\n"
         )
     );
-    assert_eq!(fs::read_to_string(spec_file(&sandbox, &name)).ok().as_deref(), Some(EDITED));
+    assert_eq!(
+        fs::read_to_string(spec_file(&sandbox, &name))
+            .ok()
+            .as_deref(),
+        Some(EDITED)
+    );
 }
