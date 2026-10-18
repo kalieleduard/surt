@@ -11,7 +11,7 @@ use crate::failure::Failure;
 use crate::message::{Mark, Message};
 use crate::status::run_selector;
 use crate::symbols::printable;
-use source::{Files, prefixes, render};
+use source::{Files, Format, prefixes, render};
 
 #[derive(clap::Args)]
 pub(crate) struct LogsArgs {
@@ -82,21 +82,26 @@ pub(crate) async fn run(cwd: &Path, args: LogsArgs) -> Result<(), Failure> {
     let project = Project::open_read_only(cwd).await?;
     let target = Target::select(&project, &args.feature, args.task.as_deref(), args.run).await?;
     let logs = target.logs(&project).await?;
+    let format = if args.raw {
+        Format::Raw
+    } else {
+        Format::Rendered
+    };
     if args.follow && logs.live {
-        return follow::follow(&project, target, logs, args.raw).await;
+        return follow::follow(&project, target, logs, format).await;
     }
-    print(&project, &logs.sources, args.raw)
+    print(&project, &logs.sources, format)
 }
 
-fn print(project: &Project, sources: &[LogSource], raw: bool) -> Result<(), Failure> {
+fn print(project: &Project, sources: &[LogSource], format: Format) -> Result<(), Failure> {
     let found = read(project, sources)?;
     let shown: Vec<&LogSource> = found.iter().map(|(source, _)| *source).collect();
     let text: String = found
         .iter()
         .zip(prefixes(&shown))
-        .map(|((_, files), prefix)| render(files, &prefix, raw))
+        .map(|((_, files), prefix)| render(files, &prefix, format))
         .collect();
-    emit(&text, raw).map(|_| ())
+    emit(&text, format).map(|_| ())
 }
 
 fn read<'a>(
@@ -105,7 +110,7 @@ fn read<'a>(
 ) -> Result<Vec<(&'a LogSource, Files)>, Failure> {
     let mut found = Vec::new();
     for source in sources {
-        match Files::read(&source.directory)? {
+        match Files::read(source)? {
             Some(files) => found.push((source, files)),
             None if sources.len() == 1 => return Err(Failure::Refused(missing(project, source))),
             None => missing(project, source).print(Mark::Warning),
@@ -138,8 +143,8 @@ fn slashed(path: &Path) -> String {
     parts.join("/")
 }
 
-fn emit(text: &str, raw: bool) -> Result<bool, Failure> {
-    if raw {
+fn emit(text: &str, format: Format) -> Result<bool, Failure> {
+    if format == Format::Raw {
         write(text.as_bytes())
     } else {
         write(printable(text).as_bytes())

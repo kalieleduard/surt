@@ -41,7 +41,7 @@ fn impact() -> DeleteImpact {
                 kept: true,
             },
         ],
-        task_branches: vec![
+        item_branches: vec![
             format!("surt/task/{SUBJECT}/A"),
             format!("surt/task/{SUBJECT}/B"),
             format!("surt/task/{SUBJECT}.2/C"),
@@ -80,7 +80,7 @@ fn the_question_says_when_git_and_disk_hold_nothing() {
     let mut empty = impact();
     empty.runs.truncate(1);
     empty.integration_branches.clear();
-    empty.task_branches.clear();
+    empty.item_branches.clear();
     empty.salvage_refs = 2;
     empty.directories.clear();
     empty.unrecorded_edits.clear();

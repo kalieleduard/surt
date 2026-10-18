@@ -1,19 +1,19 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
+use crate::drive::graph::RunState;
 use crate::git::{self, worktrees::WorktreeEntry};
 use crate::project::{Error, Layout};
 use crate::reconcile::worktree::same_path;
-use crate::store::{Store, SubjectBranch, SubjectRun};
+use crate::store::{Store, SubjectBranch, SubjectRun, number};
 
 const SURT_BRANCHES: &str = "refs/heads/surt/";
 const SALVAGE_REFS: &str = "refs/surt/salvage/";
-const SUCCEEDED: &str = "succeeded";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum RefKind {
     Integration { run: u32 },
-    Task,
+    Item,
     Salvage,
 }
 
@@ -90,10 +90,10 @@ fn branch_refs(
     let mut doomed = Vec::new();
     let mut kept = Vec::new();
     for branch in branches.iter().filter(|b| existing.contains(&b.ref_name)) {
-        let run = u32::try_from(branch.ordinal).unwrap_or_default();
+        let run = number(branch.ordinal);
         let name = branch.ref_name.clone();
-        let kind = match (branch.item, branch.root_state == SUCCEEDED) {
-            (true, _) => RefKind::Task,
+        let kind = match (branch.item, branch.root_run_state() == RunState::Succeeded) {
+            (true, _) => RefKind::Item,
             (false, true) => {
                 kept.push(KeptBranch { name, run });
                 continue;

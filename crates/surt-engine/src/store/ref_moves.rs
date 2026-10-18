@@ -1,7 +1,7 @@
 use serde_json::json;
 use sqlx::{FromRow, SqliteConnection};
 
-use super::revisions::number;
+use super::columns::number;
 use super::{About, Checkpoint, Store, StoreError, record_event_data, unix_now};
 use crate::drive::StepLabel;
 

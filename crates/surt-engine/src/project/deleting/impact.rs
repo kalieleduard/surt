@@ -3,17 +3,16 @@ use std::path::PathBuf;
 use super::{Error, Layout, RunState, relative};
 use crate::artifacts::working_copy::unrecorded_edits;
 use crate::cleanup::{RefKind, Targets, size};
+use crate::drive::graph;
 use crate::git;
-use crate::store::{Store, SubjectRun};
-
-const SUCCEEDED: &str = "succeeded";
+use crate::store::{Store, SubjectRun, count, number};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DeleteImpact {
     pub subject: String,
     pub runs: Vec<DeletedRun>,
     pub integration_branches: Vec<BranchFate>,
-    pub task_branches: Vec<String>,
+    pub item_branches: Vec<String>,
     pub salvage_refs: usize,
     pub directories: Vec<Directory>,
     pub unrecorded_edits: Vec<PathBuf>,
@@ -52,7 +51,7 @@ pub(super) async fn read(
         subject: subject.to_owned(),
         runs: targets.runs.iter().map(deleted_run).collect(),
         integration_branches: integration_branches(targets),
-        task_branches: names(targets, |kind| kind == RefKind::Task),
+        item_branches: names(targets, |kind| kind == RefKind::Item),
         salvage_refs: names(targets, |kind| kind == RefKind::Salvage).len(),
         directories: directories(layout, targets)?,
         unrecorded_edits: edits(store, layout, subject, targets.runs.last()).await?,
@@ -64,8 +63,8 @@ pub(super) async fn read(
 
 fn deleted_run(run: &SubjectRun) -> DeletedRun {
     DeletedRun {
-        run: u32::try_from(run.ordinal).unwrap_or_default(),
-        state: if run.state == SUCCEEDED {
+        run: number(run.ordinal),
+        state: if run.run_state() == graph::RunState::Succeeded {
             RunState::Succeeded
         } else {
             RunState::Cancelled
@@ -80,7 +79,7 @@ fn integration_branches(targets: &Targets) -> Vec<BranchFate> {
             run,
             kept: false,
         }),
-        RefKind::Task | RefKind::Salvage => None,
+        RefKind::Item | RefKind::Salvage => None,
     });
     let kept = targets.kept.iter().map(|kept| BranchFate {
         branch: git::short_branch(&kept.name).to_owned(),
@@ -132,8 +131,4 @@ async fn edits(
         edited.extend(paths.iter().map(|path| relative(layout, &dir.join(path))));
     }
     Ok(edited)
-}
-
-fn count(value: i64) -> usize {
-    usize::try_from(value).unwrap_or_default()
 }

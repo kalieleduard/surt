@@ -2,6 +2,7 @@ use std::error::Error as StdError;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use super::ExecutionState;
 use crate::git::{GitError, GitVersion};
 use crate::store::StoreError;
 use crate::workflow::{FreezeError, InvalidDefinition};
@@ -46,7 +47,7 @@ pub struct ExecutionCandidate {
     pub step: String,
     pub iteration: Option<u32>,
     pub attempt: u32,
-    pub state: String,
+    pub state: ExecutionState,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

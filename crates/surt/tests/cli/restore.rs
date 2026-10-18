@@ -5,6 +5,9 @@ use crate::scripts::{build, review, ship, tasks};
 use crate::start::{feature_name, planned};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
+#[cfg(unix)]
+use crate::interrupt::{Driving, waiting_builder};
+
 const EDITED: &str = "# Spec 1, edited after planning\n";
 
 fn surt(sandbox: &Sandbox, args: &[&str]) -> Run {
@@ -128,5 +131,34 @@ fn restore_of_an_artifact_without_a_working_copy_lists_the_restorable_ones() {
             "✖ request has no working copy to restore\n  restorable: manifest, spec\n  \
              inspect: surt status {name}\n"
         )
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn restore_reports_a_live_driver_before_asking_anything() {
+    let name = feature_name();
+    let sandbox = waiting_builder(&name);
+    let mut driving = Driving::start(&sandbox, &name);
+    driving.wait_for("● task A build started\n");
+    fs::write(spec_file(&sandbox, &name), EDITED).expect("the edit is written");
+    let driver = driving.pid();
+
+    let refused = surt(&sandbox, &["restore", &name, "spec"]);
+    driving.signal("INT");
+    driving.finish();
+
+    assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
+    assert_eq!(
+        refused.stderr,
+        format!(
+            "✖ {name} is being driven by pid {driver}\n  fix: surt stop {name}, or Ctrl-C in its terminal, then rerun\n"
+        )
+    );
+    assert_eq!(
+        fs::read_to_string(spec_file(&sandbox, &name))
+            .ok()
+            .as_deref(),
+        Some(EDITED)
     );
 }

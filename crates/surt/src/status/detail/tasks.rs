@@ -5,6 +5,7 @@ use surt_engine::project::{AgentSlots, Conflict, ItemState, ItemStatus};
 use super::line;
 use crate::driving::{local_time, short};
 use crate::phase::TASK_STEP;
+use crate::states::item_state_name;
 use crate::symbols::{BLOCKED, ERROR, PAUSED, SEPARATOR, STARTED, STOPPED, SUCCESS, WAITING};
 
 const LIST_SEPARATOR: &str = ", ";
@@ -33,14 +34,15 @@ pub(super) fn render(text: &mut String, tasks: &[ItemStatus], slots: AgentSlots)
 
 fn look(task: &ItemStatus) -> (&'static str, String) {
     let step = || task.step.clone().unwrap_or_default();
+    let named = || item_state_name(task.state).to_owned();
     match task.state {
         ItemState::Succeeded => (SUCCESS, "merged".to_owned()),
         ItemState::Running => (STARTED, step()),
-        ItemState::Queued => (WAITING, "queued".to_owned()),
-        ItemState::Pending => (PAUSED, "pending".to_owned()),
+        ItemState::Queued => (WAITING, named()),
+        ItemState::Pending => (PAUSED, named()),
         ItemState::Interrupted => (STOPPED, "stopped".to_owned()),
-        ItemState::Blocked => (BLOCKED, "blocked".to_owned()),
-        ItemState::Cancelled => (ERROR, "cancelled".to_owned()),
+        ItemState::Blocked => (BLOCKED, named()),
+        ItemState::Cancelled => (ERROR, named()),
     }
 }
 

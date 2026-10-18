@@ -15,6 +15,7 @@ mod branches;
 mod cancelling;
 mod checkpoints;
 mod cleanup;
+mod columns;
 mod control;
 mod details;
 mod drivers;
@@ -48,6 +49,7 @@ pub use checkpoints::Checkpoint;
 #[cfg(feature = "test-support")]
 pub(crate) use checkpoints::Faults;
 pub(crate) use cleanup::{ChildBranch, CleanupRecord};
+pub(crate) use columns::{count, number};
 pub(crate) use drivers::StaleExecution;
 pub(crate) use execution_detail::{ExecutionDetailRow, ExecutionInputRow, ExecutionScopeRow};
 pub(crate) use executions::{

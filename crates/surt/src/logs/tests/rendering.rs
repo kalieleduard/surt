@@ -2,9 +2,9 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 
-use surt_engine::project::LogSource;
+use surt_engine::project::{ExecutionState, LogFiles, LogSource};
 
-use super::super::source::{Files, Offsets, prefixes, render};
+use super::super::source::{Files, Format, Offsets, Pass, prefixes, render};
 use super::super::stream::Stream;
 
 const INIT: &str = r#"{"type":"system","subtype":"init","cwd":"/work/tree","model":"m"}"#;
@@ -36,8 +36,9 @@ fn source(item: Option<&str>, step: &str, attempt: u32) -> LogSource {
         step: step.to_owned(),
         iteration: Some(1),
         attempt,
-        state: "running".to_owned(),
+        state: ExecutionState::Running,
         directory: PathBuf::from("logs"),
+        files: LogFiles::in_directory(&PathBuf::from("logs")),
     }
 }
 
@@ -160,10 +161,10 @@ fn a_source_renders_its_stream_then_passes_stderr_and_check_output_through() {
     };
 
     assert_eq!(
-        render(&files, "B check#1 │ ", false),
+        render(&files, "B check#1 │ ", Format::Rendered),
         "B check#1 │ warning: slow\nB check#1 │ === test: cargo test\nB check#1 │ ok\n"
     );
-    assert_eq!(render(&edit, "", false), "Read a\n");
+    assert_eq!(render(&edit, "", Format::Rendered), "Read a\n");
 }
 
 #[test]
@@ -175,7 +176,7 @@ fn raw_prints_only_the_original_stream_lines() {
     };
 
     assert_eq!(
-        render(&files, "B build#1 │ ", true),
+        render(&files, "B build#1 │ ", Format::Raw),
         format!("{INIT}\nnot json\n")
     );
 }
@@ -186,13 +187,14 @@ fn appended_files_hold_back_an_unfinished_line_until_the_last_read() {
     let stream = directory.path().join("stream.jsonl");
     fs::write(&stream, "first\nsecond").expect("a stream");
     fs::write(directory.path().join("output.log"), "=== test\n").expect("an output");
+    let files = LogFiles::in_directory(directory.path());
     let mut offsets = Offsets::default();
 
-    let started = Files::appended(directory.path(), &mut offsets, false).expect("read");
+    let started = Files::appended(&files, &mut offsets, Pass::Ongoing).expect("read");
     let mut file = OpenOptions::new().append(true).open(&stream).expect("open");
     write!(file, " half\nthird").expect("append");
-    let continued = Files::appended(directory.path(), &mut offsets, false).expect("read");
-    let last = Files::appended(directory.path(), &mut offsets, true).expect("read");
+    let continued = Files::appended(&files, &mut offsets, Pass::Ongoing).expect("read");
+    let last = Files::appended(&files, &mut offsets, Pass::Final).expect("read");
 
     let read = |files: &Files| {
         (

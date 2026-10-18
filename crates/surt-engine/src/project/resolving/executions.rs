@@ -1,6 +1,6 @@
 use super::Subject;
-use crate::project::{Error, ExecutionCandidate, Project, Refusal};
-use crate::store::{ExecutionScopeRow, Store};
+use crate::project::{Error, ExecutionCandidate, ExecutionState, Project, Refusal};
+use crate::store::{ExecutionScopeRow, Store, number};
 
 pub(crate) const MINIMUM_PREFIX: usize = 8;
 
@@ -68,12 +68,12 @@ impl From<ExecutionScopeRow> for ExecutionCandidate {
         ExecutionCandidate {
             id: row.id,
             subject: row.subject,
-            run: u32::try_from(row.ordinal).unwrap_or_default(),
+            run: number(row.ordinal),
             item: row.item,
             step: row.step,
             iteration: row.iteration.and_then(|value| u32::try_from(value).ok()),
-            attempt: u32::try_from(row.attempt).unwrap_or_default(),
-            state: row.state,
+            attempt: number(row.attempt),
+            state: ExecutionState::from_column(&row.state),
         }
     }
 }

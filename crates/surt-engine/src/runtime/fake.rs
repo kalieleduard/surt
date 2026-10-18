@@ -10,14 +10,14 @@ use serde_json::{Map, Value, json};
 
 use super::{
     AgentRuntime, Exit, FailureClass, FinalResult, Initialization, RuntimeCompletion, RuntimeError,
-    RuntimeEvent, RuntimeEventSink, RuntimeReport, RuntimeRequest, StepAttempt, StopSignal,
+    RuntimeEvent, RuntimeEventSink, RuntimeReport, RuntimeRequest, STREAM_LOG, StepAttempt,
+    StopSignal,
 };
 
 pub use scripted::InvalidScript;
 use worktree::{WorktreeCommit, resolve_head};
 
 const SUCCESS_EXIT_CODE: i32 = 0;
-const STREAM_LOG: &str = "stream.jsonl";
 
 #[derive(Clone, Debug)]
 pub struct FakeRuntime {

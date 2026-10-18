@@ -205,9 +205,17 @@ fn assert_cleaned(sandbox: &Sandbox, name: &str) {
 }
 
 pub fn planned(name: &str, scripts: &[String]) -> Sandbox {
+    planned_with(name, scripts, None)
+}
+
+/// `config` is written before the run is created, since a run freezes its configuration.
+pub fn planned_with(name: &str, scripts: &[String], config: Option<&str>) -> Sandbox {
     let mut all = vec![spec(1, "# Spec 1\n")];
     all.extend_from_slice(scripts);
     let sandbox = project(&all);
+    if let Some(config) = config {
+        sandbox.write_config(config);
+    }
     ok(sandbox.feature(&["add login"]));
     ok(surt(&sandbox, &["approve", name]));
     ok(surt(&sandbox, &["plan", name]));
@@ -330,8 +338,19 @@ fn every_phase_command_finishes_a_pending_cleanup_of_the_feature() {
         std::fs::create_dir_all(&leftover).expect("a leftover execution directory");
         sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
 
-        let finished = ok(surt(&sandbox, &[command, &name]));
+        let run = surt(&sandbox, &[command, &name]);
 
+        let finished = if command == "feature" {
+            assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
+            assert!(
+                run.stderr.contains("--new-run"),
+                "{command}: {}",
+                run.stderr
+            );
+            run.stderr.split("✖").next().unwrap_or_default().to_owned()
+        } else {
+            ok(run)
+        };
         assert!(
             finished.ends_with("✔ run succeeded\n↻ cleanup done\n"),
             "{command}: {finished}"

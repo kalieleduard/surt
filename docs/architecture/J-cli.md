@@ -175,8 +175,8 @@ T1     resume: surt start 20261017-add-login
 
 `surt restore <feature> <artifact>` discards an unrecorded Working Copy edit ([H](H-artifact-storage.md#editing-an-item-list)).
 
-- It acts only on the Subject's **active** run. It takes that root run's lock with `try_lock`; a live Driver refuses with exit `3`, naming its pid. A terminal run refuses with I's `fix: move or delete the file` ([I. Cleanup](I-cleanup.md#unrecorded-working-copy-edits)).
-- It shows what will be lost, per file: changed with added and removed line counts, a new file (removed), or a missing file (recreated), then asks `[y/N]` ([Confirmations](#confirmations)) The line counts come from a small line-based count in the engine, not a diff library.
+- It acts only on the Subject's **active** run. It takes that root run's lock with `try_lock` before showing anything; a live Driver refuses with exit `3`, naming its pid, without asking. Under the lock it first finishes pending Working Copy writes, so the impact it shows is what the restore does. A terminal run refuses with I's `fix: move or delete the file` ([I. Cleanup](I-cleanup.md#unrecorded-working-copy-edits)).
+- It shows what will be lost, per file: changed with added and removed line counts, a new file (removed), or a missing file (recreated), then asks `[y/N]` ([Confirmations](#confirmations)). The line counts come from a small line-based count in the engine, not a diff library.
 - When nothing differs it says so and exits `0`:
   ```
   $ surt restore 20261017-add-login spec
@@ -330,7 +330,7 @@ A driving command prints one line per relevant state change: a Step Run starting
   ↻ task B build attempt 2
   ── 2 running (B build 6m, C review 1m) · 1 queued · slots 3/3 · 32m ──
   ```
-- The footer is drawn with `\r` plus ANSI erase-line, erased before each event line and redrawn after it, and erased before the final summary, so the scrollback holds only event lines. Durations read `42s`, `6m`, `2h05m`.
+- The footer is drawn with `\r` plus ANSI erase-line, erased before each event line and redrawn after it, and erased before the final summary, so the scrollback holds only event lines. A footer wider than the terminal is cut to one line ending in `…`, since erase-line clears only the physical line the cursor is on; the width comes from the console (falling back to `COLUMNS`, then 80). Durations read `42s`, `6m`, `2h05m`.
 - **Without a TTY** there is no footer. After 5 minutes without an event it prints a line so CI does not assume a hang: `… still running: B build (15m), C review (3m)`.
 - It ends with a summary and the next command, as in the mocks of sections A, G and I.
 
@@ -397,18 +397,18 @@ Each document serialises the read view the human output renders (`RunStatus`, `T
      "since": "2026-10-17T14:05:02Z", "merged_sha": "3c1aa2…(40 hex)"},
     {"key": "B", "state": "blocked", "step": "build", "iteration": 1, "attempt": 3,
      "since": "2026-10-17T14:09:40Z", "blocked_reason": "attempts_exhausted",
-     "last_error": {"attempt": 3, "code": "exit_code", "message": "the agent exited with code 1"},
+     "last_error": {"execution": "01a14f9b-c44f-7608-80bd-fe56114a4306", "attempt": 3, "code": "exit_code", "message": "the agent exited with code 1"},
      "resume": "surt start 20261017-add-login"}
   ],
   "blocked": [
     {"step": "build", "task": "B", "iteration": 1, "reason": "attempts_exhausted",
-     "last_error": {"attempt": 3, "code": "exit_code", "message": "the agent exited with code 1"}}
+     "last_error": {"execution": "01a14f9b-c44f-7608-80bd-fe56114a4306", "attempt": 3, "code": "exit_code", "message": "the agent exited with code 1"}}
   ],
   "resume": "surt start 20261017-add-login"
 }
 ```
 
-Optional Feature fields: `ended_at`, `driver` (`pid`, `since`); per gate `edited` and `missing`; per Task `waits_for`, `conflict` (`kind` `merge` with `paths`, or `checks` with `failed`); per last error `resets_at`.
+Optional Feature fields: `ended_at`, `driver` (`pid`, `since`), `cleanup` (`state` `done`, `pending` or `kept`; `left` lists items with `item` and `reason`; `kept` lists `moved_branch` with `branch`, or `unrecorded_edit` or `foreign_path` with `path`); per gate `edited` and `missing`; per Task `waits_for`, `conflict` (`kind` `merge` with `paths`, or `checks` with `failed`); per last error `resets_at`.
 
 `surt inspect <feature> [<task>] --json` prints the timeline; each event keeps its `data` object as recorded ([D](D-database.md)):
 

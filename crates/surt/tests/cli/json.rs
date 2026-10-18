@@ -39,6 +39,12 @@ fn status_json_of_a_blocked_feature_says_which_task_is_blocked_why_and_how_to_re
         "SELECT b.merged_as_sha FROM run_branch b JOIN workflow_run w ON w.id = b.workflow_run_id \
          WHERE w.item_key = 'A'",
     );
+    let failed = text(
+        &sandbox,
+        "SELECT e.id FROM execution e JOIN step_run s ON s.id = e.step_run_id \
+         JOIN workflow_run w ON w.id = s.workflow_run_id \
+         WHERE w.item_key = 'B' AND e.attempt = 3",
+    );
     let spec_sha = text(
         &sandbox,
         "SELECT r.identity_sha256 FROM artifact_revision r JOIN artifact a ON a.id = r.artifact_id \
@@ -82,7 +88,7 @@ fn status_json_of_a_blocked_feature_says_which_task_is_blocked_why_and_how_to_re
     assert_eq!(blocked["blocked_reason"], "attempts_exhausted");
     assert_eq!(
         blocked["last_error"],
-        json!({"attempt": 3, "code": "exit_code", "message": "the agent exited with code 1"})
+        json!({"execution": failed, "attempt": 3, "code": "exit_code", "message": "the agent exited with code 1"})
     );
     assert_eq!(blocked["resume"], format!("surt start {name}"));
     assert_utc(&blocked["since"]);

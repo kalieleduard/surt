@@ -92,18 +92,14 @@ fn a_stopped_process_has_no_exit_code() {
 }
 
 #[test]
-fn a_denied_tool_is_reported_with_its_input() {
+fn a_denied_tool_is_reported_by_name_without_its_input() {
     let report = reported(Fixture::PermissionDenied, Fixture::PermissionDenied.exit());
 
     assert_eq!(
         report["permission_denials"],
         json!([{
             "tool_name": "Write",
-            "tool_use_id": "toolu_01GJCQkNisG7uD9GYaJjKQUc",
-            "tool_input": {
-                "file_path": "/tmp/surt-fixture/delivery/note.md",
-                "content": "hello from fixture\n"
-            }
+            "tool_use_id": "toolu_01GJCQkNisG7uD9GYaJjKQUc"
         }])
     );
 }

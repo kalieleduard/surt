@@ -1,7 +1,7 @@
 use sqlx::SqliteConnection;
 
+use super::columns::number;
 use super::graph::failure_class_name;
-use super::revisions::number;
 use super::runs::new_id;
 use super::{
     About, Checkpoint, Store, StoreError, details, record_event, record_event_data, unix_now,

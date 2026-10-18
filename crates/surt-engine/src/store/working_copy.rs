@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 
 use sqlx::{FromRow, SqliteConnection};
 
-use super::revisions::{Origin, number, publish};
+use super::columns::number;
+use super::revisions::{Origin, publish};
 use super::{About, Store, StoreError, record_event_data, unix_now};
 
 const EDIT: &str = "edit";

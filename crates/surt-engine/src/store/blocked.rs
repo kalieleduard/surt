@@ -1,7 +1,7 @@
 use sqlx::FromRow;
 
+use super::columns::number;
 use super::graph::block_reason;
-use super::revisions::number;
 use super::{Store, StoreError};
 use crate::drive::graph::BlockReason;
 

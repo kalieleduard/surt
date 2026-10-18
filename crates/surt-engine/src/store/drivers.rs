@@ -1,6 +1,6 @@
 use sqlx::FromRow;
 
-use super::revisions::number;
+use super::columns::number;
 use super::{About, Checkpoint, Store, StoreError, record_event_data, unix_now};
 use crate::drive::StepLabel;
 use crate::drive::graph::RunId;

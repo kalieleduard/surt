@@ -1,6 +1,6 @@
 use std::io::{IsTerminal, Write};
 
-use surt_engine::project::ActivitySnapshot;
+use surt_engine::project::{ActivitySnapshot, stderr_columns};
 
 use super::activity::{Activity, Output, Terminal, on_tick};
 use crate::message::{Mark, Message};
@@ -10,7 +10,7 @@ const ERASE_LINE: &str = "\r\x1b[2K";
 
 pub(super) struct Screen {
     activity: Activity,
-    terminal: Terminal,
+    tty: bool,
     footer: bool,
 }
 
@@ -20,18 +20,14 @@ pub(super) fn now() -> i64 {
 
 impl Screen {
     pub(super) fn new(started: i64) -> Screen {
-        let terminal = if std::io::stderr().is_terminal() {
-            Terminal::Tty
-        } else {
-            Terminal::Plain
-        };
+        let tty = std::io::stderr().is_terminal();
         Screen {
             activity: Activity {
                 snapshot: None,
                 started,
                 last_line: started,
             },
-            terminal,
+            tty,
             footer: false,
         }
     }
@@ -49,7 +45,7 @@ impl Screen {
     }
 
     pub(super) fn tick(&mut self, now: i64) {
-        match on_tick(&self.activity, now, self.terminal) {
+        match on_tick(&self.activity, now, self.terminal()) {
             Some(Output::Footer(text)) => {
                 write(&format!("{ERASE_LINE}{text}"));
                 self.footer = true;
@@ -59,6 +55,16 @@ impl Screen {
                 self.activity.last_line = now;
             }
             None => {}
+        }
+    }
+
+    fn terminal(&self) -> Terminal {
+        if self.tty {
+            Terminal::Tty {
+                width: stderr_columns(),
+            }
+        } else {
+            Terminal::Plain
         }
     }
 

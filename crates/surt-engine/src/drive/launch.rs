@@ -19,7 +19,8 @@ use crate::context::{Assembly, ContextInput, PreviousIteration};
 use crate::platform;
 use crate::project::Error;
 use crate::runtime::{
-    AgentRuntime, Rejection, RuntimeEvent, RuntimeRequest, StepAttempt, StopLevel, Verdict, accept,
+    AgentRuntime, Rejection, RuntimeEvent, RuntimeRequest, STDERR_LOG, STREAM_LOG, StepAttempt,
+    StopLevel, Verdict, accept,
 };
 use crate::store::{
     ExecutionEnd, ExecutionKind, ExecutionStart, RunBranch, StartedExecution, StepRow,
@@ -28,7 +29,7 @@ use crate::workflow::{DeliveryCheck, StepSpec};
 
 const DELIVERY_DIR: &str = "delivery";
 const LAUNCH_DIR: &str = "launch";
-const LOG_FILES: [&str; 2] = ["stream.jsonl", "stderr.log"];
+const LOG_FILES: [&str; 2] = [STREAM_LOG, STDERR_LOG];
 const SKIPPED: &str = "SKIPPED";
 const FIRST_ITERATION: u32 = 1;
 const RUNTIME_VERSION: &str = "runtime_version";

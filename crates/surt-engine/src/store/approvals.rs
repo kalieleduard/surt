@@ -1,7 +1,8 @@
 use sqlx::{FromRow, SqliteConnection};
 
+use super::columns::number;
 use super::details::{self, ApprovalDetails};
-use super::revisions::{Origin, artifact_id, number, publish};
+use super::revisions::{Origin, artifact_id, publish};
 use super::runs::new_id;
 use super::{About, Store, StoreError, record_event_data, unix_now};
 

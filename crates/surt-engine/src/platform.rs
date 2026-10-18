@@ -9,6 +9,7 @@ mod process;
 
 pub(crate) use children::{contain, exit_code, interrupt};
 pub use console::outputs_utf8 as console_outputs_utf8;
+pub use console::stderr_columns;
 pub(crate) use executable::find_executable;
 pub(crate) use process::{ProcessIdentity, identify, is_alive, stop};
 

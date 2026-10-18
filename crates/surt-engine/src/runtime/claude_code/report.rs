@@ -2,6 +2,8 @@ use serde_json::{Map, Value};
 
 use crate::runtime::RuntimeReport;
 
+const DENIAL_KEYS: [&str; 2] = ["tool_name", "tool_use_id"];
+
 const USAGE_COUNTERS: [&str; 4] = [
     "input_tokens",
     "output_tokens",
@@ -28,7 +30,18 @@ pub(super) fn finished(report: &mut RuntimeReport, event: &Value) {
     report.turns = event["num_turns"].as_u64();
     report.usage = event["usage"].as_object().map(usage);
     report.cost_usd = event["total_cost_usd"].as_f64();
-    report.permission_denials = event["permission_denials"].as_array().cloned();
+    report.permission_denials = event["permission_denials"]
+        .as_array()
+        .map(|denials| denials.iter().map(denial).collect());
+}
+
+/// Keeps which tool was denied, never its input: that can be large or sensitive.
+fn denial(reported: &Value) -> Value {
+    DENIAL_KEYS
+        .into_iter()
+        .filter_map(|key| Some((key.to_owned(), reported.get(key)?.clone())))
+        .collect::<Map<String, Value>>()
+        .into()
 }
 
 fn usage(reported: &Map<String, Value>) -> Map<String, Value> {

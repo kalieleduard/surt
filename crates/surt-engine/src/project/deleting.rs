@@ -4,11 +4,10 @@ mod locks;
 use super::{Error, Layout, Project, Refusal, RunState};
 use crate::cleanup::Left;
 use crate::cleanup::Targets;
+use crate::drive::graph;
 use crate::store::{Store, SubjectRun};
 pub use impact::{BranchFate, DeleteImpact, DeletedRun, Directory};
 use locks::RunLocks;
-
-const ACTIVE: &str = "active";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Deletion {
@@ -33,6 +32,7 @@ impl Project {
 
     async fn read_impact(&self, store: &Store, subject: &str) -> Result<DeleteImpact, Error> {
         let runs = deletable_runs(store, subject).await?;
+        let _locks = RunLocks::take(&self.layout, subject, &runs).await?;
         let targets = Targets::gather(store, &self.layout, subject, runs).await?;
         impact::read(store, &self.layout, subject, &targets).await
     }
@@ -66,7 +66,10 @@ async fn deletable_runs(store: &Store, subject: &str) -> Result<Vec<SubjectRun>,
         }
         .into());
     }
-    if runs.iter().any(|run| run.state == ACTIVE) {
+    if runs
+        .iter()
+        .any(|run| run.run_state() == graph::RunState::Active)
+    {
         return Err(Refusal::ActiveRunBlocksDelete {
             subject: subject.to_owned(),
         }

@@ -1,6 +1,6 @@
 use sqlx::FromRow;
 
-use super::revisions::number;
+use super::columns::{count, number};
 use super::{Store, StoreError};
 use crate::drive::graph::{
     BlockReason, ExecutionState, FailureClass, Outcome, RunId, RunState, StepRunState,
@@ -162,7 +162,7 @@ impl From<RawStep> for StepRow {
             loop_step: raw.loop_step_run_id,
             iteration: raw.iteration.map(number),
             state,
-            budget_base: usize::try_from(raw.budget_base).unwrap_or_default(),
+            budget_base: count(raw.budget_base),
         }
     }
 }
@@ -190,7 +190,7 @@ pub(super) fn execution_state(state: &str, failure_class: Option<&str>) -> Execu
     }
 }
 
-fn run_state(state: &str) -> RunState {
+pub(super) fn run_state(state: &str) -> RunState {
     match state {
         "succeeded" => RunState::Succeeded,
         "cancelled" => RunState::Cancelled,

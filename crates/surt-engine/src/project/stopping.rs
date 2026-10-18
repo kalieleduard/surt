@@ -1,7 +1,7 @@
 use super::{Error, Project, Refusal, RunId, open_store};
 use crate::drive::cancel::wait_for_lock;
 use crate::platform;
-use crate::store::Store;
+use crate::store::{Store, count};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StopRequest {
@@ -45,7 +45,7 @@ impl Project {
         Ok(StopRequest {
             run: RunId(run.id),
             driver: driver.pid,
-            executions: usize::try_from(executions).unwrap_or_default(),
+            executions: count(executions),
         })
     }
 }

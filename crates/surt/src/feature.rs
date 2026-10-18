@@ -42,9 +42,7 @@ pub(crate) async fn run(cwd: &Path, args: FeatureArgs) -> Result<(), Failure> {
         return new_run::start(&project, &args.description, args.base.as_deref()).await;
     }
     if let Some(subject) = project.subject_named(&args.description).await? {
-        if SPEC.finish_cleanup(&project, &subject).await? {
-            return Ok(());
-        }
+        SPEC.finish_cleanup(&project, &subject).await?;
         if subject.active_run.is_none() {
             return Err(new_run::suggested(&project, &subject.name).await);
         }

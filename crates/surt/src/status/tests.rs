@@ -2,11 +2,13 @@ use std::path::PathBuf;
 
 use surt_engine::project::{
     AgentSlots, BlockReason, BlockedStep, CleanupState, Commit, Conflict, GateStatus, GateView,
-    IntegrationBranch, ItemState, ItemStatus, Kept, MergeIntoBase, PendingIntegration,
+    IntegrationBranch, ItemState, ItemStatus, Kept, Left, MergeIntoBase, PendingIntegration,
     RevisionOrigin, RevisionSummary, RunState, RunStatus, StepLabel, Unattended,
 };
 
-use super::{detail, overview};
+use serde_json::json;
+
+use super::{detail, json, overview};
 use crate::symbols::Symbols;
 
 const SUBJECT: &str = "20261017-add-login";
@@ -295,4 +297,43 @@ fn the_overview_and_a_cleaned_detail_print_only_ascii_in_ascii_mode() {
     for text in texts {
         assert!(Symbols::Ascii.render(&text).is_ascii(), "{text}");
     }
+}
+
+#[test]
+fn status_json_carries_the_cleanup_state_the_detail_shows() {
+    let cleanup = |state| {
+        let mut status = cancelled_and_cleaned();
+        status.cleanup = state;
+        serde_json::Value::from(json::feature(&status))["cleanup"].clone()
+    };
+    let moved = Kept::MovedBranch {
+        branch: format!("surt/{SUBJECT}"),
+    };
+    let edited = Kept::UnrecordedEdit {
+        path: PathBuf::from(".surt/working/x/spec.md"),
+    };
+    let left = Left {
+        item: "worktree ~/w/B".to_owned(),
+        reason: "locked".to_owned(),
+    };
+
+    assert_eq!(
+        cleanup(Some(CleanupState::Finished {
+            kept: vec![moved.clone()]
+        })),
+        json!({"state": "done", "kept": [{"kind": "moved_branch", "branch": format!("surt/{SUBJECT}")}]})
+    );
+    assert_eq!(
+        cleanup(Some(CleanupState::Pending {
+            left: vec![left],
+            kept: vec![edited]
+        })),
+        json!({
+            "state": "pending",
+            "left": [{"item": "worktree ~/w/B", "reason": "locked"}],
+            "kept": [{"kind": "unrecorded_edit", "path": ".surt/working/x/spec.md"}]
+        })
+    );
+    assert_eq!(cleanup(Some(CleanupState::Kept)), json!({"state": "kept"}));
+    assert_eq!(cleanup(None), serde_json::Value::Null);
 }

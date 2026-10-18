@@ -3,6 +3,7 @@ use surt_engine::project::ExecutionCandidate;
 use crate::feature::quoted;
 use crate::inspect::scope;
 use crate::message::Message;
+use crate::states::execution_state_name;
 use crate::symbols::{ELLIPSIS, SEPARATOR};
 use crate::table;
 
@@ -50,7 +51,7 @@ fn listed(message: Message, candidates: &[ExecutionCandidate]) -> Message {
             [
                 candidate.id.clone(),
                 described(candidate),
-                candidate.state.clone(),
+                execution_state_name(candidate.state).to_owned(),
             ]
         })
         .collect();

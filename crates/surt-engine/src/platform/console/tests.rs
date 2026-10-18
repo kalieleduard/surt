@@ -77,3 +77,20 @@ mod code_page {
         assert!(code_page_is_utf8(NO_CONSOLE));
     }
 }
+
+mod columns {
+    use super::super::columns_variable;
+
+    #[test]
+    fn columns_falls_back_on_a_positive_whole_number_only() {
+        assert_eq!(columns_variable(Some(" 120 ".to_owned())), Some(120));
+        for unusable in ["0", "-3", "wide", ""] {
+            assert_eq!(
+                columns_variable(Some(unusable.to_owned())),
+                None,
+                "{unusable}"
+            );
+        }
+        assert_eq!(columns_variable(None), None);
+    }
+}

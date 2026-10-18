@@ -1,6 +1,6 @@
 use sqlx::FromRow;
 
-use super::revisions::number;
+use super::columns::number;
 use super::{BaselineFile, Store, StoreError};
 
 pub(crate) struct RestoreTarget {
