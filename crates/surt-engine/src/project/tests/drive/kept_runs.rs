@@ -74,7 +74,8 @@ async fn a_new_run_of_a_kept_subject_clears_the_baseline_working_copy_and_keeps_
         .project
         .create_run(next_run(&feature))
         .await
-        .expect("run 2 is created");
+        .expect("run 2 is created")
+        .run;
 
     assert!(!feature.working_copy("").exists());
     feature.assert_untouched(&before);
@@ -88,7 +89,8 @@ async fn the_next_run_of_a_kept_subject_drives_on_its_own_dot_two_names() {
         .project
         .create_run(next_run(&feature))
         .await
-        .expect("run 2 is created");
+        .expect("run 2 is created")
+        .run;
 
     feature
         .drive(Script::new().on("plan", 1, 1, plan(ITEMS)))
