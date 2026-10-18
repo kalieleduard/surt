@@ -11,6 +11,7 @@ mod inspect;
 #[cfg(unix)]
 mod interrupt;
 mod json;
+mod kept;
 mod kill;
 mod logs;
 mod new_run;

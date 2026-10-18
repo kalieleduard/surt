@@ -13,6 +13,7 @@ pub(crate) enum Mark {
     Retry,
     Warning,
     Waiting,
+    Note,
 }
 
 impl Mark {
@@ -27,6 +28,7 @@ impl Mark {
             Mark::Retry => symbols::RETRY,
             Mark::Warning => symbols::WARNING,
             Mark::Waiting => symbols::WAITING,
+            Mark::Note => symbols::DOT,
         }
     }
 
@@ -38,6 +40,7 @@ impl Mark {
                 AnsiColor::Yellow.on_default().bold()
             }
             Mark::Started => AnsiColor::Cyan.on_default().bold(),
+            Mark::Note => Style::new().dimmed(),
         }
     }
 }
