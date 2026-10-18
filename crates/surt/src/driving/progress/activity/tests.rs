@@ -238,3 +238,21 @@ fn the_paused_footer_reads_in_ascii_mode() {
         format!("-- 0 running | [paused] paused until {at} | 2 waiting | slots 0/3 | 32m --")
     );
 }
+
+#[test]
+fn the_paused_heartbeat_line_reads_in_ascii_mode() {
+    let at = local_time(RESET).expect("a local time");
+    let last_line = STARTED + 31 * MINUTE;
+    let building = vec![running(Some("B"), "build", None, STARTED + 26 * MINUTE)];
+
+    let heartbeat = ascii(on_tick(
+        &activity(paused(building, 1, None), last_line),
+        last_line + 5 * MINUTE,
+        Terminal::Plain,
+    ));
+
+    assert_eq!(
+        heartbeat,
+        format!("... still running: B build (10m) | agent launches paused until {at} - 1 waiting")
+    );
+}

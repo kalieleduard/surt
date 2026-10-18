@@ -315,3 +315,25 @@ fn the_pause_shows_until_when_why_and_how_many_wait_and_the_resume_how_long_it_l
          13:00:01  agents.paused   until 2025-10-18 12:00 · rate_limit · 1 waiting\n"
     );
 }
+
+#[test]
+fn the_pause_prints_only_ascii_in_ascii_mode() {
+    let events = vec![
+        event(
+            NOON,
+            "agents.paused",
+            json!({ "until": NOON + 180, "code": "overloaded", "backoff_step": 2, "waiting": 1 }),
+        ),
+        event(
+            NOON + 180,
+            "agents.resumed",
+            json!({ "paused_seconds": 180 }),
+        ),
+    ];
+
+    assert_eq!(
+        Symbols::Ascii.render(&shown(&timeline(None, events))),
+        "12:00:00  agents.paused   until 12:03 | overloaded | backoff step 2 | 1 waiting\n\
+         12:03:00  agents.resumed  after 3m00s\n"
+    );
+}
