@@ -12,7 +12,7 @@ use super::frozen::{CorruptSnapshot, Frozen};
 use super::graph::{RunId, StepRunId};
 use super::load::Loaded;
 use super::operate::Flight;
-use super::outcome::{DriveOutcome, Progress, ProgressSink};
+use super::outcome::{ActivitySnapshot, DriveOutcome, Progress, ProgressSink};
 use crate::artifacts::working_copy::{WorkingCopy, finish_pending_writes};
 use crate::platform;
 use crate::project::{Error, Layout, Refusal};
@@ -44,6 +44,7 @@ pub(super) struct Driver<'a, R> {
     pub(super) agents: StopSignal,
     pub(super) cancelling: AtomicBool,
     pub(super) branches: Mutex<()>,
+    pub(super) activity: std::sync::Mutex<Option<ActivitySnapshot>>,
 }
 
 enum Tick {
@@ -89,6 +90,7 @@ pub(crate) async fn drive<R: AgentRuntime>(
         agents: StopSignal::new(),
         cancelling: AtomicBool::new(false),
         branches: Mutex::new(()),
+        activity: std::sync::Mutex::new(None),
     };
     if let Some(refusal) = driver.guard().await? {
         return Ok(DriveOutcome::Halted(refusal));
@@ -202,7 +204,8 @@ impl<R: AgentRuntime> Driver<'_, R> {
             stop: stop_level(self.stop.level()),
         };
         let mut launches = Vec::new();
-        let actions = decide::decide(&loaded.graph, &ctx);
+        let decision = decide::decision(&loaded.graph, &ctx);
+        let actions = decision.actions;
         if let Some(refusal) = self.guard_readers(&actions).await? {
             return Ok(Tick::Return(DriveOutcome::Halted(refusal)));
         }
@@ -222,7 +225,10 @@ impl<R: AgentRuntime> Driver<'_, R> {
                     end: RunEnd::Cancelled,
                     ..
                 } => return Ok(Tick::Cancel),
-                Action::Wait => return Ok(Tick::Wait),
+                Action::Wait => {
+                    self.observe(&loaded, decision.queued, ctx.free_slots.len());
+                    return Ok(Tick::Wait);
+                }
                 Action::Return(outcome) => {
                     return Ok(Tick::Return(self.public(&loaded, outcome)?));
                 }

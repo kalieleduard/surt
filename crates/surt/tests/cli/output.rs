@@ -1,8 +1,11 @@
 use std::fs;
 
+use crate::scripts::{build, review, ship, tasks};
+use crate::start::{feature_name, planned};
 use crate::support::{INTERNAL_ERROR_EXIT_CODE, REFUSED_EXIT_CODE, Sandbox};
 
 const ESCAPE: char = '\u{1b}';
+const EVENT_MARKS: [char; 4] = ['●', '✔', '↻', ' '];
 const NOT_A_DATABASE: &str = "this file is not an SQLite database, it only pretends to be one";
 const CORRUPT_COPIES: usize = 128;
 
@@ -130,4 +133,35 @@ fn no_color_and_the_ascii_symbols_are_independent() {
         "{}",
         plain_unicode.stderr
     );
+}
+
+#[test]
+fn a_driving_command_without_a_tty_prints_only_event_lines() {
+    let name = feature_name();
+    let sandbox = planned(
+        &name,
+        &[
+            tasks(1, &["A", "B"]),
+            build("A", 1, 1, "login.txt", "login\n"),
+            review("A", 1, "approved"),
+            build("B", 1, 1, "logout.txt", "logout\n"),
+            review("B", 1, "approved"),
+            ship(),
+        ],
+    );
+
+    let run = sandbox.surt(&sandbox.repo(), &["start", &name]);
+
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
+    assert!(
+        run.stderr.contains("● task B build started\n"),
+        "{}",
+        run.stderr
+    );
+    assert!(!run.stderr.contains(['\r', ESCAPE]), "{:?}", run.stderr);
+    assert!(!run.stderr.contains("running ("), "{}", run.stderr);
+    assert!(!run.stderr.contains("still running"), "{}", run.stderr);
+    for line in run.stderr.lines() {
+        assert!(line.starts_with(EVENT_MARKS), "{line:?}\n{}", run.stderr);
+    }
 }
