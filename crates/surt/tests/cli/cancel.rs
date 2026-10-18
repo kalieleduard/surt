@@ -29,7 +29,7 @@ fn cancel_without_a_terminal_and_without_yes_refuses_and_changes_nothing() {
     assert_eq!(
         refused.stderr,
         format!(
-            "✖ cancel asks for a confirmation and there is no terminal to ask\n  confirm: surt cancel {name} --yes\n"
+            "✖ cancel asks for a confirmation and there is no terminal to ask\n  fix: surt cancel {name} --yes\n"
         )
     );
     assert_eq!(root_state(&sandbox), "active");

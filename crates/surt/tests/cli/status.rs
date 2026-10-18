@@ -174,7 +174,7 @@ fn status_of_a_blocked_feature_shows_each_task_and_how_to_resume_each_blocked_st
              B  ⛔ blocked   build iter 1 · attempt 3\n  \
              ⛔ task B build blocked: attempts exhausted\n     \
              attempt 3 failed (exit_code): the agent exited with code 1\n     \
-             log: .surt/logs/{name}/{execution}/stream.jsonl\n  \
+             inspect: .surt/logs/{name}/{execution}/stream.jsonl\n  \
              resume: surt start {name}\n",
             short(&merged)
         )

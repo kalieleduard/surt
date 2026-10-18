@@ -34,6 +34,7 @@ pub(crate) const TASKS: Phase = Phase {
 };
 
 const PHASES: [&Phase; 2] = [&SPEC, &TASKS];
+const NEXT: &str = "next";
 
 pub(crate) fn current_command(subject: &str, approved: impl Fn(&str) -> bool) -> String {
     PHASES
@@ -79,7 +80,7 @@ impl Phase {
             GateStatus::Waiting { revision } => (
                 format!("{artifact} rev {revision} awaiting approval"),
                 (
-                    format!("review {artifact} rev {revision}, then"),
+                    self.review_label(revision),
                     format!("surt approve {subject}"),
                 ),
             ),
@@ -95,6 +96,16 @@ impl Phase {
         Err(Failure::Refused(
             Message::new(format!("{artifact} not approved yet ({state})")).way(&way.0, way.1),
         ))
+    }
+
+    fn review_label(&self, revision: u32) -> String {
+        if self.covers_item_files {
+            return format!(
+                "review {} rev {revision} and its Task Markdown files, then",
+                self.artifact
+            );
+        }
+        NEXT.to_owned()
     }
 
     pub(crate) async fn finish_cleanup(

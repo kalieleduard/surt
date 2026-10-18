@@ -27,7 +27,7 @@ fn message(blocked: &BlockedStep) -> Message {
     };
     let message = Message::new(headline).context(last_error(failure));
     match &failure.log {
-        Some(log) => message.way("log", log.display().to_string()),
+        Some(log) => message.way("inspect", log.display().to_string()),
         None => message,
     }
 }

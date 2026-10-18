@@ -256,10 +256,10 @@ fn blocked_tasks_stop_start_with_exit_4_naming_each_last_error_and_log() {
         run.stderr.ends_with(&format!(
             "⛔ task B build blocked: attempts exhausted\n  \
              attempt 3 failed (exit_code): {b_message}\n  \
-             log: .surt/logs/{name}/{b_execution}/stream.jsonl\n\
+             inspect: .surt/logs/{name}/{b_execution}/stream.jsonl\n\
              ⛔ task C build blocked: cannot be retried\n  \
              attempt 1 failed (rate_limit): {c_message} — resets {resets}\n  \
-             log: .surt/logs/{name}/{c_execution}/stream.jsonl\n  \
+             inspect: .surt/logs/{name}/{c_execution}/stream.jsonl\n  \
              resume: surt start {name}\n"
         )),
         "{}",
@@ -298,7 +298,7 @@ fn start_refuses_until_the_manifest_is_approved() {
     assert_eq!(
         run.stderr,
         format!(
-            "✖ manifest not approved yet (manifest rev 1 awaiting approval)\n  review manifest rev 1, then: surt approve {name}\n"
+            "✖ manifest not approved yet (manifest rev 1 awaiting approval)\n  review manifest rev 1 and its Task Markdown files, then: surt approve {name}\n"
         )
     );
     assert_eq!(count(&sandbox, "execution"), executions);

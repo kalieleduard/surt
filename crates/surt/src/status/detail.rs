@@ -90,7 +90,7 @@ fn blocked(text: &mut String, status: &RunStatus, resume: &str) {
         };
         line(text, &format!("   {}", last_error(failure)));
         if let Some(log) = &failure.log {
-            line(text, &format!("   log: {}", log.display()));
+            line(text, &format!("   inspect: {}", log.display()));
         }
     }
     if !status.blocked.is_empty() {
