@@ -1,6 +1,6 @@
 use super::catalog::Catalog;
 use super::closure::{self, Closure};
-use super::definition::Definition;
+use super::definition::{Definition, OnSuccess};
 use super::error::InvalidDefinition;
 use super::flow::Available;
 use super::references::local_references;
@@ -77,7 +77,7 @@ pub(crate) fn freeze<'a>(
     catalog: &Catalog,
     workflow: &str,
     initial_artifacts: impl IntoIterator<Item = &'a str>,
-    config: String,
+    config: impl FnOnce(OnSuccess) -> Result<String, toml::ser::Error>,
 ) -> Result<FrozenRun, FreezeError> {
     let external: Available = initial_artifacts
         .into_iter()
@@ -91,6 +91,7 @@ pub(crate) fn freeze<'a>(
         snapshots.push(workflow_snapshot(child)?);
     }
     snapshots.extend(agent_snapshots(catalog, &closure)?);
+    let config = config(closure.root.on_success())?;
     let config = single_file(SnapshotKind::Config, CONFIG_NAME, CONFIG_FILE, config);
     let config_sha256 = config.sha256.clone();
     snapshots.push(config);

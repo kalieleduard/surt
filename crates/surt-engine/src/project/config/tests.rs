@@ -7,6 +7,8 @@ use tempfile::TempDir;
 use super::{Check, Config, MergeIntoBase, TEMPLATE, load};
 use crate::project::{Error, Refusal};
 
+mod cleanup;
+
 struct ConfigFile {
     dir: TempDir,
 }
@@ -55,6 +57,7 @@ fn the_generated_template_holds_exactly_the_documented_defaults() {
     assert_eq!(config.max_iterations, nonzero(5));
     assert_eq!(config.git.merge_into_base, MergeIntoBase::Never);
     assert!(config.checks.is_empty());
+    assert_eq!(config.cleanup.on_success, None);
     assert_eq!(config, Config::default());
 }
 

@@ -10,7 +10,7 @@ use crate::operations::checks::CheckSpec;
 use crate::project::{Check, Error, GitConfig, MergeIntoBase, parse_timeout};
 use crate::runtime::AgentLaunch;
 use crate::store::FrozenFile;
-use crate::workflow::{AgentContract, Definition, StepSpec};
+use crate::workflow::{AgentContract, CleanupPolicy, Definition, OnSuccess, StepSpec};
 
 const WORKFLOW_FILE: &str = "workflow.toml";
 const AGENT_FILE: &str = "agent.toml";
@@ -23,6 +23,7 @@ pub(crate) struct Frozen {
     pub(crate) limits: Limits,
     pub(crate) checks: Vec<CheckSpec>,
     pub(crate) merge_into_base: MergeIntoBase,
+    pub(crate) on_success: OnSuccess,
 }
 
 pub(crate) struct FrozenAgent {
@@ -46,12 +47,15 @@ struct FrozenConfig {
     checks: Vec<Check>,
     #[serde(default)]
     git: GitConfig,
+    #[serde(default)]
+    cleanup: CleanupPolicy,
 }
 
 struct Settings {
     limits: Limits,
     checks: Vec<CheckSpec>,
     merge_into_base: MergeIntoBase,
+    on_success: OnSuccess,
 }
 
 struct Files {
@@ -109,6 +113,7 @@ impl Frozen {
             limits: settings.limits,
             checks: settings.checks,
             merge_into_base: settings.merge_into_base,
+            on_success: settings.on_success,
         })
     }
 
@@ -217,6 +222,7 @@ fn frozen_config(files: &Files) -> Result<Settings, CorruptSnapshot> {
         limits,
         checks,
         merge_into_base: config.git.merge_into_base,
+        on_success: config.cleanup.on_success,
     })
 }
 

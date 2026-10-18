@@ -11,10 +11,11 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::drive::RunEnd;
 use crate::drive::graph::RunId;
+use crate::drive::{Frozen, Progress, ProgressSink, RunEnd};
 use crate::project::{Error, Layout};
-use crate::store::{CleanupRecord, Store};
+use crate::store::{CleanupRecord, Ending, Store};
+use crate::workflow::OnSuccess;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Cleanup {
@@ -54,23 +55,54 @@ struct Sweep<'a> {
     report: Cleanup,
 }
 
-pub(crate) async fn clean_up(
+pub(crate) async fn finish(
     store: &Store,
     layout: &Layout,
     run: &RunId,
-) -> Result<Option<Cleanup>, Error> {
+    progress: &ProgressSink,
+) -> Result<(), Error> {
     let Some(ending) = store.ending(run).await? else {
-        return Ok(None);
+        return Ok(());
     };
     if ending.cleaned {
-        return Ok(None);
+        return Ok(());
     }
+    if kept(store, run, ending).await? {
+        let _ = progress.send(Progress::RunKept);
+        return Ok(());
+    }
+    let report = clean_up(store, layout, run, ending.end).await?;
+    let _ = progress.send(Progress::CleanedUp(report));
+    Ok(())
+}
+
+pub(crate) async fn is_kept(store: &Store, run: &RunId) -> Result<bool, Error> {
+    match store.ending(run).await? {
+        Some(ending) => kept(store, run, ending).await,
+        None => Ok(false),
+    }
+}
+
+async fn kept(store: &Store, run: &RunId, ending: Ending) -> Result<bool, Error> {
+    if ending.cleaned || ending.end != RunEnd::Succeeded {
+        return Ok(false);
+    }
+    let frozen = Frozen::from_files(store.frozen_files(run.as_str()).await?)?;
+    Ok(frozen.on_success == OnSuccess::Keep)
+}
+
+async fn clean_up(
+    store: &Store,
+    layout: &Layout,
+    run: &RunId,
+    end: RunEnd,
+) -> Result<Cleanup, Error> {
     let root = run.as_str();
     let mut sweep = Sweep {
         store,
         layout,
         root,
-        end: ending.end,
+        end,
         report: Cleanup::default(),
     };
     sweep.working_copy().await?;
@@ -78,7 +110,7 @@ pub(crate) async fn clean_up(
     sweep.repository().await?;
     let report = sweep.report;
     store.record_cleanup(root, record(&report)).await?;
-    Ok(Some(report))
+    Ok(report)
 }
 
 impl Sweep<'_> {

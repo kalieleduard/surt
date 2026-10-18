@@ -40,6 +40,9 @@ impl Driven<'_> {
         if let Some(cleanup) = printed.cleaned {
             cleanup::report(&cleanup, self.resume_command());
         }
+        if printed.kept {
+            cleanup::report_kept(self.subject);
+        }
         concluded
     }
 

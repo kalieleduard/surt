@@ -157,6 +157,7 @@ pub(super) fn message(progress: &Progress) -> (Mark, Message) {
             )),
         ),
         Progress::CleanedUp(cleanup) => (Mark::Retry, Message::new(summary(cleanup))),
+        Progress::RunKept => (Mark::Note, Message::new("cleanup kept")),
         Progress::Activity(snapshot) => (
             Mark::Waiting,
             Message::new(format!("{} running", snapshot.running.len())),

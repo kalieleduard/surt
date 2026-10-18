@@ -1,6 +1,6 @@
 use super::decide::RunEnd;
 use super::driver::Driving;
-use super::outcome::{DriveOutcome, Progress, ProgressSink};
+use super::outcome::{DriveOutcome, ProgressSink};
 use crate::cleanup;
 use crate::project::Error;
 
@@ -28,8 +28,6 @@ async fn ended(driving: &Driving<'_>, progress: &ProgressSink) -> Result<Option<
     let Some(ending) = driving.store.ending(driving.root).await? else {
         return Ok(None);
     };
-    if let Some(cleanup) = cleanup::clean_up(driving.store, driving.layout, driving.root).await? {
-        let _ = progress.send(Progress::CleanedUp(cleanup));
-    }
+    cleanup::finish(driving.store, driving.layout, driving.root, progress).await?;
     Ok(Some(ending.end))
 }

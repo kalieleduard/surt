@@ -113,7 +113,7 @@ A Step Run that cannot go on without a human, because it reached its Attempt or 
 _Avoid_: Failed, stuck, error
 
 **Cleanup**:
-What Surt removes after a Workflow Run ends: the views and scratch space it can rebuild or never accepted, such as the Working Copy and the Task worktrees. It never removes history, logs, a human's unrecorded edit, or the Integration Branch, and a cancelled run keeps its unintegrated work as refs. A cleanup that could not finish is pending and is finished by the next command that takes over the run.
+What Surt removes after a Workflow Run ends: the views and scratch space it can rebuild or never accepted, such as the Working Copy and the Task worktrees. It never removes history, logs, a human's unrecorded edit, or the Integration Branch, and a cancelled run keeps its unintegrated work as refs. A cleanup that could not finish is pending and is finished by the next command that takes over the run. A `succeeded` run whose effective policy is `on_success = "keep"` is kept instead: it has no cleanup until `surt delete`.
 _Avoid_: Garbage collection, purge, archive
 
 **Purge**:
