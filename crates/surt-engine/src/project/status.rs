@@ -14,11 +14,11 @@ use crate::cleanup::{Kept, Left};
 use crate::drive::{Frozen, StepLabel};
 use crate::git;
 use crate::platform;
+use crate::runtime::FailureClass;
 use crate::store::{LastAgentEnd, RootRunRow, Store};
 
 const SUCCEEDED: &str = "succeeded";
 const CANCELLED: &str = "cancelled";
-const TRANSIENT: &str = "transient";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StatusScope<'a> {
@@ -244,7 +244,7 @@ impl Project {
 }
 
 fn pause(end: LastAgentEnd) -> Option<LaunchPause> {
-    if end.failure_class.as_deref() != Some(TRANSIENT) || end.started_after {
+    if end.failure_class() != Some(FailureClass::Transient) || end.started_after {
         return None;
     }
     Some(LaunchPause {

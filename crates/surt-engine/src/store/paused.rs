@@ -1,14 +1,22 @@
 use sqlx::FromRow;
 
+use super::graph::parse_failure_class;
 use super::{Store, StoreError};
+use crate::runtime::FailureClass;
 
 #[derive(Clone, Debug, FromRow)]
 pub(crate) struct LastAgentEnd {
-    pub(crate) failure_class: Option<String>,
+    failure_class: Option<String>,
     pub(crate) error_code: Option<String>,
     pub(crate) resets_at: Option<i64>,
     pub(crate) finished_at: i64,
     pub(crate) started_after: bool,
+}
+
+impl LastAgentEnd {
+    pub(crate) fn failure_class(&self) -> Option<FailureClass> {
+        self.failure_class.as_deref().map(parse_failure_class)
+    }
 }
 
 impl Store {
