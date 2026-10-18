@@ -10,14 +10,21 @@ pub(crate) enum Verdict {
     Rejected(Rejection),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub(crate) enum Rejection {
+    #[error("the agent exited with code {0}")]
     ExitCode(i32),
+    #[error("the agent never reported its initialization")]
     MissingInitialization,
+    #[error("the agent reported session {reported}, not {expected}")]
     SessionMismatch { expected: Uuid, reported: Uuid },
+    #[error("the agent ran model {reported}, not {requested}")]
     ModelMismatch { requested: String, reported: String },
+    #[error("the agent ended without a final result")]
     MissingResult,
+    #[error("the agent's final result is not a success")]
     UnsuccessfulResult,
+    #[error(transparent)]
     Delivery(DeliveryRejection),
 }
 

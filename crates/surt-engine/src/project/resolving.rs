@@ -1,5 +1,5 @@
 use super::naming::without_date;
-use super::{Error, Project, Refusal, RunId, open_store};
+use super::{Error, Project, Refusal, RunId};
 use crate::store::SubjectRow;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -41,7 +41,7 @@ impl Project {
     }
 
     async fn subjects(&self) -> Result<Vec<Subject>, Error> {
-        let store = open_store(&self.layout).await?;
+        let store = self.reader().await?;
         let rows = store.subjects().await;
         store.close().await;
         Ok(rows?.into_iter().map(Subject::from).collect())

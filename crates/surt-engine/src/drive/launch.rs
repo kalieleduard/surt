@@ -206,7 +206,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 Verdict::Rejected(rejection) => Ending::Ended(ExecutionEnd::Failed {
                     class: rejection.class(),
                     code: rejection_code(&rejection).to_owned(),
-                    message: format!("{rejection:?}"),
+                    message: rejection.to_string(),
                     resets_at: None,
                 }),
             },

@@ -36,7 +36,7 @@ impl Project {
             .collect())
     }
 
-    fn blocked_step(&self, subject: &str, row: BlockedRow) -> BlockedStep {
+    pub(super) fn blocked_step(&self, subject: &str, row: BlockedRow) -> BlockedStep {
         BlockedStep {
             step: StepLabel {
                 key: row.key,

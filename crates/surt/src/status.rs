@@ -1,11 +1,65 @@
+mod detail;
+mod overview;
+
 use std::path::Path;
 
-use surt_engine::project::Project;
+use surt_engine::project::{GateStatus, Project, RunState, RunStatus, StatusScope};
 
-use crate::builtin;
 use crate::failure::Failure;
+use crate::phase;
 
-pub(crate) async fn run(cwd: &Path) -> Result<(), Failure> {
-    Project::open(cwd, builtin::catalog()).await?;
+#[derive(clap::Args)]
+pub(crate) struct StatusArgs {
+    feature: Option<String>,
+    #[arg(long, conflicts_with = "feature")]
+    all: bool,
+}
+
+pub(crate) async fn run(cwd: &Path, args: StatusArgs) -> Result<(), Failure> {
+    let project = Project::open_read_only(cwd).await?;
+    if let Some(feature) = &args.feature {
+        for status in project.status(StatusScope::Feature(feature)).await? {
+            anstream::print!("{}", detail::render(&status));
+        }
+        return Ok(());
+    }
+    let scope = if args.all {
+        StatusScope::All
+    } else {
+        StatusScope::Active
+    };
+    let statuses = project.status(scope).await?;
+    if statuses.is_empty() {
+        anstream::eprintln!("no feature has an active run (surt status --all lists finished ones)");
+        return Ok(());
+    }
+    anstream::print!("{}", overview::render(&statuses));
     Ok(())
 }
+
+fn state_names(states: &[RunState]) -> String {
+    states
+        .iter()
+        .map(|state| match state {
+            RunState::Running => "RUNNING",
+            RunState::AwaitingApproval => "AWAITING APPROVAL",
+            RunState::Blocked => "BLOCKED",
+            RunState::Interrupted => "INTERRUPTED",
+            RunState::Succeeded => "SUCCEEDED",
+            RunState::Cancelled => "CANCELLED",
+        })
+        .collect::<Vec<_>>()
+        .join(" + ")
+}
+
+fn resume_command(status: &RunStatus) -> String {
+    phase::current_command(&status.subject, |gate| {
+        status
+            .gates
+            .iter()
+            .any(|view| view.step == gate && matches!(view.status, GateStatus::Approved { .. }))
+    })
+}
+
+#[cfg(test)]
+mod tests;

@@ -35,6 +35,17 @@ pub(crate) const TASKS: Phase = Phase {
 
 const PHASES: [&Phase; 2] = [&SPEC, &TASKS];
 
+pub(crate) fn current_command(subject: &str, approved: impl Fn(&str) -> bool) -> String {
+    PHASES
+        .into_iter()
+        .rev()
+        .find(|phase| approved(phase.gate))
+        .map_or_else(
+            || SPEC.resume_command(subject),
+            |phase| phase.next_command(subject),
+        )
+}
+
 impl Phase {
     pub(crate) fn of_gate(gate: &str) -> Option<&'static Phase> {
         PHASES.into_iter().find(|phase| phase.gate == gate)

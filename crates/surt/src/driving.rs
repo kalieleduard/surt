@@ -11,7 +11,10 @@ use crate::failure::Failure;
 use crate::message::{Mark, Message};
 use crate::refusal;
 use interruption::Interruptions;
-use progress::short;
+
+pub(crate) use blocked::{last_error, local_time, reason};
+pub(crate) use cleanup::kept_line;
+pub(crate) use progress::{label, short};
 
 pub(crate) struct Driven<'a> {
     pub(crate) project: &'a Project,

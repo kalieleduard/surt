@@ -6,11 +6,11 @@ use sqlx::{FromRow, Sqlite, SqlitePool};
 use tempfile::TempDir;
 
 use crate::project::layout::Layout;
+use crate::project::{Access, SurtHome, open_store};
 use crate::project::{
     AgentAssets, ArtifactFile, Catalog, Config, DefinitionFile, Error, InitialArtifact,
     InvalidDefinition, NewRun, Problem, Project, Refusal,
 };
-use crate::project::{SurtHome, open_store};
 
 pub(super) const DRAFT_WORKFLOW: &str = r#"
 schema = 1
@@ -201,6 +201,7 @@ impl ProjectDir {
             config,
             catalog,
             home: SurtHome::at(&self.home()),
+            access: Access::ReadWrite,
         }
     }
 

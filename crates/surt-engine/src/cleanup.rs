@@ -4,7 +4,7 @@ mod repository;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::drive::RunEnd;
@@ -21,7 +21,7 @@ pub struct Cleanup {
     pub left: Vec<Left>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Kept {
     UnrecordedEdit { path: PathBuf },
@@ -29,7 +29,7 @@ pub enum Kept {
     ForeignPath { path: PathBuf },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Left {
     pub item: String,
     pub reason: String,
