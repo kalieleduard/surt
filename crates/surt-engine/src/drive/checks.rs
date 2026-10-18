@@ -32,7 +32,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         let Some((branch, worktree)) = located else {
             return Err(Failure::not_retryable(
                 "no_worktree",
-                "checks run in a task's worktree".into(),
+                "checks run in a child run's worktree".into(),
             )
             .into());
         };

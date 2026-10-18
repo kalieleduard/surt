@@ -11,7 +11,7 @@ const SUBJECT: &str = "20261017-add-login";
 fn impact(executions: usize, tasks: usize, merged: usize, branch: bool) -> CancelImpact {
     CancelImpact {
         executions,
-        tasks,
+        items: tasks,
         merged,
         integration_branch: branch.then(|| format!("surt/{SUBJECT}")),
     }

@@ -1,6 +1,6 @@
 mod facts;
 mod gates;
-mod tasks;
+mod items;
 
 pub(super) use gates::origin;
 
@@ -37,7 +37,7 @@ pub struct RunStatus {
     pub merge_into_base: MergeIntoBase,
     pub slots: AgentSlots,
     pub gates: Vec<GateView>,
-    pub tasks: Vec<TaskStatus>,
+    pub items: Vec<ItemStatus>,
     pub blocked: Vec<BlockedStep>,
     pub unattended: Vec<Unattended>,
     pub integrating: Vec<PendingIntegration>,
@@ -77,9 +77,9 @@ pub struct RevisionSummary {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TaskStatus {
+pub struct ItemStatus {
     pub key: String,
-    pub state: TaskState,
+    pub state: ItemState,
     pub step: Option<String>,
     pub iteration: Option<u32>,
     pub attempt: Option<u32>,
@@ -96,7 +96,7 @@ pub enum Conflict {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TaskState {
+pub enum ItemState {
     Pending,
     Queued,
     Running,
@@ -180,7 +180,7 @@ impl Project {
             },
             total: self.config.max_concurrent_agents.get(),
         };
-        let readiness = tasks::Readiness {
+        let readiness = items::Readiness {
             driven: driver.is_some(),
             slots_full: slots.in_use >= slots.total,
         };
@@ -199,7 +199,7 @@ impl Project {
             merge_into_base: frozen.merge_into_base,
             slots,
             gates: gates::views(store, &self.layout, run).await?,
-            tasks: tasks::statuses(store, run, &frozen, readiness).await?,
+            items: items::statuses(store, run, &frozen, readiness).await?,
             unattended: facts::unattended(store, root, driver.is_some()).await?,
             integrating: facts::integrating(store, root).await?,
             cleanup: facts::cleanup(store, run).await?,

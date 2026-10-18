@@ -125,9 +125,9 @@ pub enum Refusal {
         revision: u32,
         latest: u32,
     },
-    UnknownTask {
+    UnknownItem {
         subject: String,
-        task: String,
+        item: String,
         known: Vec<String>,
     },
     InvalidDefinition(Box<InvalidDefinition>),

@@ -35,7 +35,7 @@ pub(super) fn render(status: &RunStatus) -> String {
         );
     }
     gates::render(&mut text, status);
-    tasks::render(&mut text, &status.tasks, status.slots);
+    tasks::render(&mut text, &status.items, status.slots);
     blocked(&mut text, status, &resume);
     for unattended in &status.unattended {
         line(

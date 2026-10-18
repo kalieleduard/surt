@@ -7,7 +7,7 @@ use crate::store::Store;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CancelImpact {
     pub executions: usize,
-    pub tasks: usize,
+    pub items: usize,
     pub merged: usize,
     pub integration_branch: Option<String>,
 }
@@ -40,7 +40,7 @@ async fn impact(store: &Store, root: &str) -> Result<CancelImpact, Error> {
     let branch = store.run_branch(root).await?;
     Ok(CancelImpact {
         executions: count(row.executions),
-        tasks: count(row.tasks),
+        items: count(row.items),
         merged: count(row.merged),
         integration_branch: branch.map(|branch| git::short_branch(&branch.ref_name).to_owned()),
     })

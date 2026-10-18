@@ -51,7 +51,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             "branch": git::short_branch(&branch.ref_name),
             "base": base,
             "tip": branch.tip_sha,
-            "tasks": self.merged_tasks(&launch.row.run).await?,
+            "tasks": self.merged_items(&launch.row.run).await?,
         });
         let bytes = serde_json::to_vec_pretty(&integration).map_err(Error::internal)?;
         Ok(Finished {
@@ -65,8 +65,8 @@ impl<R: AgentRuntime> Driver<'_, R> {
         })
     }
 
-    async fn merged_tasks(&self, run: &str) -> Result<Vec<Value>, OperationError> {
-        let mut tasks = Vec::new();
+    async fn merged_items(&self, run: &str) -> Result<Vec<Value>, OperationError> {
+        let mut merged = Vec::new();
         for (key, merge) in self.driving.store.merged_children(run).await? {
             let reviewed = format!("{merge}{SECOND_PARENT}");
             let reviewed = git::commit_sha(self.driving.layout.root(), &reviewed)
@@ -74,11 +74,11 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 .ok_or_else(|| {
                     Failure::not_retryable(
                         "not_a_merge",
-                        format!("task {key} was recorded as merged by {merge}, which is no merge"),
+                        format!("item {key} was recorded as merged by {merge}, which is no merge"),
                     )
                 })?;
-            tasks.push(json!({ "key": key, "reviewed_commit": reviewed, "merge_commit": merge }));
+            merged.push(json!({ "key": key, "reviewed_commit": reviewed, "merge_commit": merge }));
         }
-        Ok(tasks)
+        Ok(merged)
     }
 }

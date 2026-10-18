@@ -157,14 +157,14 @@ fn every_refusal() -> Vec<Refusal> {
             revision: 3,
             latest: 2,
         },
-        Refusal::UnknownTask {
+        Refusal::UnknownItem {
             subject: "20261017-add-login".to_owned(),
-            task: "Z".to_owned(),
+            item: "Z".to_owned(),
             known: vec!["A".to_owned(), "B".to_owned()],
         },
-        Refusal::UnknownTask {
+        Refusal::UnknownItem {
             subject: "20261017-add-login".to_owned(),
-            task: "A".to_owned(),
+            item: "A".to_owned(),
             known: Vec::new(),
         },
         Refusal::ActiveRunExists {
@@ -180,7 +180,7 @@ fn reading_refusals_list_what_exists_and_how_to_look_it_up() {
             refusal,
             Refusal::UnknownArtifact { .. }
                 | Refusal::UnknownRevision { .. }
-                | Refusal::UnknownTask { .. }
+                | Refusal::UnknownItem { .. }
         )
     });
 

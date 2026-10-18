@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use surt_engine::project::{
     AgentSlots, BlockReason, BlockedStep, CleanupState, Commit, Conflict, GateStatus, GateView,
-    IntegrationBranch, Kept, MergeIntoBase, PendingIntegration, RevisionOrigin, RevisionSummary,
-    RunState, RunStatus, StepLabel, TaskState, TaskStatus, Unattended,
+    IntegrationBranch, ItemState, ItemStatus, Kept, MergeIntoBase, PendingIntegration,
+    RevisionOrigin, RevisionSummary, RunState, RunStatus, StepLabel, Unattended,
 };
 
 use super::{detail, overview};
@@ -52,8 +52,8 @@ fn gate_over(
     }
 }
 
-fn task(key: &str, state: TaskState) -> TaskStatus {
-    TaskStatus {
+fn task(key: &str, state: ItemState) -> ItemStatus {
+    ItemStatus {
         key: key.to_owned(),
         state,
         step: Some("build".to_owned()),
@@ -98,24 +98,24 @@ fn stopped_with_everything_pending() -> RunStatus {
                 &[],
             ),
         ],
-        tasks: vec![
-            task("A", TaskState::Queued),
-            TaskStatus {
+        items: vec![
+            task("A", ItemState::Queued),
+            ItemStatus {
                 conflict: Some(Conflict::Merge {
                     paths: vec!["src/auth.rs".to_owned(), "src/user.rs".to_owned()],
                 }),
-                ..task("B", TaskState::Interrupted)
+                ..task("B", ItemState::Interrupted)
             },
-            task("C", TaskState::Cancelled),
-            TaskStatus {
+            task("C", ItemState::Cancelled),
+            ItemStatus {
                 waits_for: vec!["B".to_owned(), "C".to_owned()],
-                ..task("D", TaskState::Pending)
+                ..task("D", ItemState::Pending)
             },
-            TaskStatus {
+            ItemStatus {
                 conflict: Some(Conflict::Checks {
                     failed: vec!["test".to_owned()],
                 }),
-                ..task("E", TaskState::Running)
+                ..task("E", ItemState::Running)
             },
         ],
         blocked: vec![BlockedStep {
@@ -157,7 +157,7 @@ fn cancelled_and_cleaned() -> RunStatus {
             &[],
             &["manifest.json", "tasks/A.md", "tasks/B.md"],
         )],
-        tasks: Vec::new(),
+        items: Vec::new(),
         blocked: Vec::new(),
         unattended: Vec::new(),
         integrating: Vec::new(),
@@ -214,7 +214,7 @@ fn a_cleaned_terminal_run_shows_what_its_cleanup_kept_and_no_driver_column() {
 #[test]
 fn the_overview_joins_simultaneous_states_and_falls_back_to_the_blocked_step() {
     let mut blocked_at_spec = stopped_with_everything_pending();
-    blocked_at_spec.tasks.clear();
+    blocked_at_spec.items.clear();
     blocked_at_spec.blocked[0].step = step("spec", None, None);
 
     let text = overview::render(&[blocked_at_spec, cancelled_and_cleaned()]);

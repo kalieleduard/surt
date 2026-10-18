@@ -141,11 +141,11 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             revision,
             latest,
         } => reading::unknown_revision(subject, artifact, *revision, *latest),
-        Refusal::UnknownTask {
+        Refusal::UnknownItem {
             subject,
-            task,
+            item,
             known,
-        } => reading::unknown_task(subject, task, known),
+        } => reading::unknown_task(subject, item, known),
     }
 }
 

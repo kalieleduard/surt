@@ -37,7 +37,7 @@ pub(crate) use branches::{PreviousExecution, RunBranch};
 pub use checkpoints::Checkpoint;
 #[cfg(feature = "test-support")]
 pub(crate) use checkpoints::Faults;
-pub(crate) use cleanup::{CleanupRecord, TaskBranch};
+pub(crate) use cleanup::{ChildBranch, CleanupRecord};
 pub(crate) use drivers::StaleExecution;
 pub(crate) use executions::{
     ExecutionEnd, ExecutionKind, ExecutionStart, InputRequest, StartedExecution,
@@ -45,7 +45,7 @@ pub(crate) use executions::{
 pub(crate) use frozen::FrozenFile;
 pub(crate) use graph::{RunRows, StepRow};
 pub(crate) use items::{Expansion, ListRevision, NewChild};
-pub(crate) use reading::{GateViewRow, RootRunRow, TaskRow};
+pub(crate) use reading::{GateViewRow, ItemRunRow, RootRunRow};
 pub(crate) use ref_moves::{PendingRefMove, RefMove};
 pub(crate) use revisions::{Producer, StoredRevision};
 pub(crate) use runs::{NewInitialArtifact, NewRunRows, RunCreation};

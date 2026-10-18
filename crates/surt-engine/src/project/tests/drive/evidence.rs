@@ -326,7 +326,7 @@ async fn a_commit_that_does_not_descend_from_the_task_start_is_an_invalid_delive
 
     assert!(
         refusal(&failures).ends_with(&format!(
-            " does not descend from the task's start {}",
+            " does not descend from the child run's start {}",
             feature.base()
         )),
         "{failures:?}"

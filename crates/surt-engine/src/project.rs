@@ -44,8 +44,8 @@ pub use repository::Commit;
 pub use resolving::Subject;
 pub use show::{ArtifactSummary, ShowRequest, Shown};
 pub use status::{
-    AgentSlots, CleanupState, Conflict, Driver, GateView, PendingIntegration, RevisionSummary,
-    RunStatus, StatusScope, TaskState, TaskStatus, Unattended,
+    AgentSlots, CleanupState, Conflict, Driver, GateView, ItemState, ItemStatus,
+    PendingIntegration, RevisionSummary, RunStatus, StatusScope, Unattended,
 };
 pub use subjects::FreeName;
 

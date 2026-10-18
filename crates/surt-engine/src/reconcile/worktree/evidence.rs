@@ -18,7 +18,7 @@ pub(crate) enum Unproven {
     NotACommit { sha: String },
     #[error("{sha} is not checked out as the tip of {branch}")]
     NotCheckedOut { sha: String, branch: String },
-    #[error("{sha} does not descend from the task's start {start}")]
+    #[error("{sha} does not descend from the child run's start {start}")]
     NotFromStart { sha: String, start: String },
     #[error("{sha} does not descend from the conflict's integration tip {tip}")]
     NotFromIntegrationTip { sha: String, tip: String },

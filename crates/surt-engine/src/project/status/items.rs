@@ -2,11 +2,11 @@ use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
-use super::{Conflict, TaskState, TaskStatus};
+use super::{Conflict, ItemState, ItemStatus};
 use crate::artifacts::listed_items;
 use crate::drive::Frozen;
 use crate::project::Error;
-use crate::store::{RootRunRow, Store, TaskRow};
+use crate::store::{ItemRunRow, RootRunRow, Store};
 use crate::workflow::StepSpec;
 
 const CONFLICT_ARTIFACT: &str = "conflict";
@@ -38,19 +38,19 @@ pub(super) async fn statuses(
     run: &RootRunRow,
     frozen: &Frozen,
     readiness: Readiness,
-) -> Result<Vec<TaskStatus>, Error> {
-    let rows = store.tasks(&run.id).await?;
+) -> Result<Vec<ItemStatus>, Error> {
+    let rows = store.item_runs(&run.id).await?;
     let needs = needs(store, run, frozen).await?;
     let mut statuses = Vec::new();
     for row in &rows {
         let waits_for = unmet(&rows, needs.get(&row.key));
         let state = state(row, &waits_for, readiness);
         let conflict = match state {
-            TaskState::Succeeded | TaskState::Cancelled => None,
+            ItemState::Succeeded | ItemState::Cancelled => None,
             _ => conflict(store, &row.run).await?,
         };
-        let shows_step = state != TaskState::Queued || row.step_state.as_deref() == Some(PENDING);
-        statuses.push(TaskStatus {
+        let shows_step = state != ItemState::Queued || row.step_state.as_deref() == Some(PENDING);
+        statuses.push(ItemStatus {
             key: row.key.clone(),
             state,
             step: row.step_key.clone().filter(|_| shows_step),
@@ -85,43 +85,43 @@ async fn needs(
     Ok(needs)
 }
 
-fn unmet(rows: &[TaskRow], needs: Option<&Vec<String>>) -> Vec<String> {
+fn unmet(rows: &[ItemRunRow], needs: Option<&Vec<String>>) -> Vec<String> {
     needs
         .into_iter()
         .flatten()
         .filter(|need| {
             !rows
                 .iter()
-                .any(|row| &row.key == *need && state_of_run(row) == Some(TaskState::Succeeded))
+                .any(|row| &row.key == *need && state_of_run(row) == Some(ItemState::Succeeded))
         })
         .cloned()
         .collect()
 }
 
-fn state(row: &TaskRow, waits_for: &[String], readiness: Readiness) -> TaskState {
+fn state(row: &ItemRunRow, waits_for: &[String], readiness: Readiness) -> ItemState {
     if let Some(ended) = state_of_run(row) {
         return ended;
     }
     match (row.step_state.as_deref(), row.execution_state.as_deref()) {
-        (Some("blocked"), _) => TaskState::Blocked,
-        (Some("running"), Some("running")) => TaskState::Running,
-        (Some("running"), Some("queued")) => TaskState::Queued,
-        _ if !waits_for.is_empty() => TaskState::Pending,
-        _ if readiness.driven && readiness.slots_full && next_is_agent(row) => TaskState::Queued,
-        (None | Some(PENDING), _) => TaskState::Pending,
-        _ => TaskState::Interrupted,
+        (Some("blocked"), _) => ItemState::Blocked,
+        (Some("running"), Some("running")) => ItemState::Running,
+        (Some("running"), Some("queued")) => ItemState::Queued,
+        _ if !waits_for.is_empty() => ItemState::Pending,
+        _ if readiness.driven && readiness.slots_full && next_is_agent(row) => ItemState::Queued,
+        (None | Some(PENDING), _) => ItemState::Pending,
+        _ => ItemState::Interrupted,
     }
 }
 
-fn state_of_run(row: &TaskRow) -> Option<TaskState> {
+fn state_of_run(row: &ItemRunRow) -> Option<ItemState> {
     match row.run_state.as_str() {
-        "succeeded" => Some(TaskState::Succeeded),
-        "cancelled" => Some(TaskState::Cancelled),
+        "succeeded" => Some(ItemState::Succeeded),
+        "cancelled" => Some(ItemState::Cancelled),
         _ => None,
     }
 }
 
-fn next_is_agent(row: &TaskRow) -> bool {
+fn next_is_agent(row: &ItemRunRow) -> bool {
     row.step_state.as_deref() != Some(PENDING) || row.step_kind.as_deref() == Some(AGENT)
 }
 

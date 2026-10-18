@@ -5,7 +5,7 @@ use super::{About, Store, StoreError, record_event, unix_now};
 #[derive(FromRow)]
 pub(crate) struct ImpactRow {
     pub(crate) executions: i64,
-    pub(crate) tasks: i64,
+    pub(crate) items: i64,
     pub(crate) merged: i64,
 }
 
@@ -42,7 +42,7 @@ impl Store {
               JOIN workflow_run w ON w.id = s.workflow_run_id \
               WHERE w.root_run_id = ?1 AND e.state IN ('queued', 'running')) AS executions, \
              (SELECT count(*) FROM workflow_run \
-              WHERE root_run_id = ?1 AND parent_step_run_id IS NOT NULL) AS tasks, \
+              WHERE root_run_id = ?1 AND parent_step_run_id IS NOT NULL) AS items, \
              (SELECT count(*) FROM run_branch b JOIN workflow_run w ON w.id = b.workflow_run_id \
               WHERE w.root_run_id = ?1 AND w.parent_step_run_id IS NOT NULL \
               AND b.merged_as_sha IS NOT NULL) AS merged",

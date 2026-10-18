@@ -11,7 +11,7 @@ const HUMAN: &str = "human";
 pub struct ShowRequest<'a> {
     pub artifact: &'a str,
     pub revision: Option<u32>,
-    pub task: Option<&'a str>,
+    pub item: Option<&'a str>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -57,13 +57,13 @@ impl Project {
         request: ShowRequest<'_>,
     ) -> Result<Shown, Error> {
         let root = root_run(store, subject).await?;
-        let run = match request.task {
+        let run = match request.item {
             None => root.clone(),
-            Some(task) => task_run(store, subject, &root, task).await?,
+            Some(item) => item_run(store, subject, &root, item).await?,
         };
         let id = revision_id(store, subject, &run, request).await?;
         let revision = store.revision(&id).await?;
-        let edited = match request.task {
+        let edited = match request.item {
             None => {
                 self.unrecorded_edits(store, subject, &root, request.artifact)
                     .await?
@@ -130,15 +130,15 @@ async fn root_run(store: &Store, subject: &str) -> Result<String, Error> {
     })
 }
 
-async fn task_run(store: &Store, subject: &str, root: &str, task: &str) -> Result<String, Error> {
-    if let Some(run) = store.task_run(root, task).await? {
+async fn item_run(store: &Store, subject: &str, root: &str, item: &str) -> Result<String, Error> {
+    if let Some(run) = store.item_run(root, item).await? {
         return Ok(run);
     }
-    Err(Refusal::UnknownTask {
+    Err(Refusal::UnknownItem {
         subject: subject.to_owned(),
-        task: task.to_owned(),
+        item: item.to_owned(),
         known: store
-            .tasks(root)
+            .item_runs(root)
             .await?
             .into_iter()
             .map(|row| row.key)

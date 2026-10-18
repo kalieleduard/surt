@@ -14,7 +14,7 @@ use super::repository::{commit_file, git, git_succeeds};
 use super::team::{
     Act, INTEGRATED_TASK, Team, assert_valid, builds, built, failures, input, reviews,
 };
-use crate::project::{CONFLICT_SCHEMA, Config, Conflict, DriveOutcome, StatusScope, TaskState};
+use crate::project::{CONFLICT_SCHEMA, Config, Conflict, DriveOutcome, ItemState, StatusScope};
 
 const KEYS: [&str; 2] = ["A", "B"];
 
@@ -246,14 +246,14 @@ async fn a_merge_that_fails_the_checks_sends_the_task_back_and_never_becomes_the
     assert_eq!((merge.sha, merge.first_parent), (tip, first_merge));
 }
 
-async fn conflicts_shown(feature: &Feature) -> Vec<(TaskState, Option<Conflict>)> {
+async fn conflicts_shown(feature: &Feature) -> Vec<(ItemState, Option<Conflict>)> {
     let statuses = feature
         .project
         .status(StatusScope::Feature(SUBJECT))
         .await
         .expect("the status");
     statuses[0]
-        .tasks
+        .items
         .iter()
         .map(|task| (task.state, task.conflict.clone()))
         .collect()
@@ -277,13 +277,13 @@ async fn status_shows_why_a_task_sent_back_by_a_merge_conflict_did_not_merge() {
         DriveOutcome::Blocked { .. }
     ));
     let mut shown = conflicts_shown(&feature).await;
-    shown.sort_by_key(|(state, _)| *state == TaskState::Blocked);
+    shown.sort_by_key(|(state, _)| *state == ItemState::Blocked);
     assert_eq!(
         shown,
         [
-            (TaskState::Succeeded, None),
+            (ItemState::Succeeded, None),
             (
-                TaskState::Blocked,
+                ItemState::Blocked,
                 Some(Conflict::Merge {
                     paths: vec!["shared.txt".to_owned()]
                 })
@@ -311,7 +311,7 @@ async fn status_shows_which_checks_failed_on_the_merge_of_a_task_sent_back() {
     let shown = conflicts_shown(&feature).await;
     assert!(
         shown.contains(&(
-            TaskState::Blocked,
+            ItemState::Blocked,
             Some(Conflict::Checks {
                 failed: vec!["alone".to_owned()]
             })

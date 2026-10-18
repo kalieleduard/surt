@@ -14,7 +14,7 @@ use crate::store::{CleanupRecord, Store};
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Cleanup {
     pub worktrees: usize,
-    pub task_branches: usize,
+    pub child_branches: usize,
     pub salvage_refs: usize,
     pub working_copy: bool,
     pub kept: Vec<Kept>,

@@ -19,7 +19,7 @@ pub(crate) struct RootRunRow {
 }
 
 #[derive(Clone, Debug, FromRow)]
-pub(crate) struct TaskRow {
+pub(crate) struct ItemRunRow {
     pub(crate) run: String,
     pub(crate) key: String,
     pub(crate) run_state: String,
@@ -90,7 +90,7 @@ impl Store {
         .await?)
     }
 
-    pub(crate) async fn tasks(&self, root: &str) -> Result<Vec<TaskRow>, StoreError> {
+    pub(crate) async fn item_runs(&self, root: &str) -> Result<Vec<ItemRunRow>, StoreError> {
         Ok(sqlx::query_as(
             "SELECT w.id AS run, w.item_key AS key, w.state AS run_state, b.merged_as_sha AS merged_as, \
              s.step_key, s.kind AS step_kind, s.state AS step_state, s.iteration, e.attempt, e.state AS execution_state, \
@@ -177,7 +177,7 @@ impl Store {
         .await?)
     }
 
-    pub(crate) async fn task_run(
+    pub(crate) async fn item_run(
         &self,
         root: &str,
         key: &str,
