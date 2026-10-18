@@ -138,7 +138,7 @@ Two limits stop work that would otherwise repeat without a human watching. Both 
   - an Integration Branch whose tip moved outside Surt, or that is checked out in a worktree ([A. Git Integration](A-git-integration.md#ownership-of-the-integration-branch));
   - API errors retrying cannot fix: `authentication_failed`, `billing_error`, `model_not_found`, `invalid_request`;
   - a worktree path that belongs to something Surt did not create, and an interrupted fast-forward into the Base in the user's worktree ([I](I-recovery.md#an-interrupted-fast-forward-into-the-base)).
-- **Transient Failures** (rate limit, overload, server or network errors) spend no Attempt. The Execution is `failed` with `failure_class = 'transient'`, and the Driver pauses every agent launch until the reported reset time or a backoff ends, then starts a new Attempt ([I](I-recovery.md#transient-failures-network-and-rate-limits)).
+- **Transient Failures** (rate limit, overload, server or network errors) spend no Attempt and never block. The Execution is `failed` with `failure_class = 'transient'`, the Step Run stays `running`, and the Driver pauses every agent launch until the latest reported reset time or the next backoff step (1, 2, 4, 8, then 15 minutes) ends, then starts a new Attempt. Operations keep running meanwhile, and there is no ceiling ([I](I-recovery.md#transient-failures-network-and-rate-limits)).
 
 ```
 ✖ task B build attempt 1: invalid delivery — final JSON missing "outputs"

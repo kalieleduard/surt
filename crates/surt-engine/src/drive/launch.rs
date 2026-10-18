@@ -13,14 +13,15 @@ use super::graph::{StepRunId, StepRunState};
 use super::inputs::scoped;
 use super::load::{Loaded, label};
 use super::outcome::Progress;
+use super::pausing::AgentEnd;
 use super::record::WorkingCopy;
 use crate::artifacts::{AcceptedDelivery, DeliveryContract};
 use crate::context::{Assembly, ContextInput, PreviousIteration};
 use crate::platform;
 use crate::project::Error;
 use crate::runtime::{
-    AgentRuntime, Rejection, RuntimeEvent, RuntimeRequest, STDERR_LOG, STREAM_LOG, StepAttempt,
-    StopLevel, Verdict, accept,
+    AgentRuntime, FailureClass, Rejection, RuntimeEvent, RuntimeRequest, STDERR_LOG, STREAM_LOG,
+    StepAttempt, StopLevel, Verdict, accept,
 };
 use crate::store::{
     ExecutionEnd, ExecutionKind, ExecutionStart, RunBranch, StartedExecution, StepRow,
@@ -116,7 +117,20 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 return self.end(&launch.row, &launch.started, end).await;
             }
         }
-        match self.execute(&launch).await? {
+        let ending = self.execute(&launch).await?;
+        self.learn(&match &ending {
+            Ending::Ended(ExecutionEnd::Failed {
+                class: FailureClass::Transient,
+                code,
+                resets_at,
+                ..
+            }) => AgentEnd::Transient {
+                code,
+                resets_at: *resets_at,
+            },
+            _ => AgentEnd::Other,
+        });
+        match ending {
             Ending::Accepted(delivery) => match failed(self.prove(&launch, &delivery).await)? {
                 Some(end) => self.end(&launch.row, &launch.started, end).await,
                 None => self.publish(&launch, delivery).await,

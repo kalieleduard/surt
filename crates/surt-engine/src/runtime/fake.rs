@@ -42,6 +42,10 @@ pub enum Behavior {
     LimitFailure {
         resets_at: Option<i64>,
     },
+    /// A limit failure whose reset time is `seconds` after it happens.
+    LimitFailureIn {
+        seconds: i64,
+    },
     WaitUntilStopped,
 }
 
@@ -221,6 +225,12 @@ impl Behavior {
                 "the scripted usage limit was reached",
             )
             .resetting_at(*resets_at)),
+            Behavior::LimitFailureIn { seconds } => Err(RuntimeError::new(
+                FailureClass::Transient,
+                "rate_limit",
+                "the scripted usage limit was reached",
+            )
+            .resetting_at(Some(jiff::Timestamp::now().as_second() + seconds))),
             Behavior::WaitUntilStopped => {
                 stop.requested().await;
                 Ok(ended(Exit::Stopped, None))

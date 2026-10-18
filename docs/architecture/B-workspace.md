@@ -227,7 +227,8 @@ The engine never prints. It reports typed events, and the CLI renders lines, the
 ```rust
 pub enum Progress {
     StepStarted { .. }, StepFinished { .. }, AttemptRetry { .. }, Merged { key: ItemKey, sha: Sha },
-    Salvaged { .. }, OrphanStopped { .. }, Paused { until: Option<Timestamp> },
+    Salvaged { .. }, OrphanStopped { .. },
+    Paused { until: i64, waiting: usize, backoff: Option<u64> }, Resumed { paused_seconds: u64 },
     Activity(ActivitySnapshot),       // running steps + start times, queued, slots: input for the footer
     Cleanup { .. },
 }
