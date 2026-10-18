@@ -14,6 +14,7 @@ use super::graph::{RunId, StepRunId};
 use super::load::Loaded;
 use super::operate::Flight;
 use super::outcome::{ActivitySnapshot, DriveOutcome, Progress, ProgressSink};
+use super::pausing::{Pausing, unix_now};
 use super::recovered;
 use crate::artifacts::working_copy::{WorkingCopy, finish_pending_writes};
 use crate::platform;
@@ -48,6 +49,7 @@ pub(super) struct Driver<'a, R> {
     pub(super) cancelling: AtomicBool,
     pub(super) branches: Mutex<()>,
     pub(super) activity: std::sync::Mutex<Option<ActivitySnapshot>>,
+    pub(super) pausing: std::sync::Mutex<Pausing>,
 }
 
 enum Tick {
@@ -110,6 +112,7 @@ async fn drive_recovered<R: AgentRuntime>(
         cancelling: AtomicBool::new(false),
         branches: Mutex::new(()),
         activity: std::sync::Mutex::new(None),
+        pausing: std::sync::Mutex::new(Pausing::default()),
     };
     if let Some(refusal) = driver.guard().await? {
         return Ok(DriveOutcome::Halted(refusal));
@@ -199,9 +202,10 @@ impl<R: AgentRuntime> Driver<'_, R> {
         F: Future<Output = Result<(), Error>>,
     {
         let busy = !flights.is_empty();
+        let nap = self.pause_left().map_or(TICK, |left| left.min(TICK));
         tokio::select! {
             landed = flights.landed(), if busy => settle(landed),
-            () = tokio::time::sleep(TICK) => Ok(()),
+            () = tokio::time::sleep(nap) => Ok(()),
             () = self.stop.raised_above(seen) => Ok(()),
         }
     }
@@ -223,15 +227,20 @@ impl<R: AgentRuntime> Driver<'_, R> {
         self.read_stop_request(rows.stop_requested);
         let lists = self.item_lists(&rows).await?;
         let loaded = Loaded::new(&self.frozen, rows, &lists)?;
+        let now = unix_now();
         let ctx = Ctx {
             limits: self.frozen.limits,
             free_slots,
             stop: stop_level(self.stop.level()),
-            paused_until: None,
-            now: jiff::Timestamp::now().as_second(),
+            paused_until: self.paused_until(now).await?,
+            now,
         };
         let mut launches = Vec::new();
         let decision = decide::decision(&loaded.graph, &ctx);
+        let waiting = decision.queued;
+        if let (Some(until), decide::StopLevel::None, 1..) = (ctx.paused_until, ctx.stop, waiting) {
+            self.announce(until, now, waiting).await?;
+        }
         let actions = decision.actions;
         if let Some(refusal) = self.guard_readers(&actions).await? {
             return Ok(Tick::Return(DriveOutcome::Halted(refusal)));
