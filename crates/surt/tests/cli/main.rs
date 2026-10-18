@@ -1,6 +1,7 @@
 mod cancel;
 #[cfg(unix)]
 mod claude;
+mod delete;
 mod discovery;
 mod feature;
 mod init;
@@ -11,6 +12,7 @@ mod kill;
 mod new_run;
 mod output;
 mod phases;
+mod restore;
 mod scripts;
 mod show;
 mod start;

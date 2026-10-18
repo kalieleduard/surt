@@ -58,6 +58,18 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
                     format!("set merge_into_base = \"never\" in {}", path.display()),
                 )
         }
+        Refusal::ActiveRunBlocksDelete { subject } => Message::new(format!(
+            "{subject} has an active run; delete never stops agents"
+        ))
+        .way("fix", format!("surt cancel {subject}")),
+        Refusal::RunLockBusy { subject } => {
+            Message::new(format!("another surt process is working on {subject}"))
+                .way("retry", format!("surt delete {subject}"))
+        }
+        Refusal::SubjectChangedWhileDeleting { subject } => {
+            Message::new("feature changed while deleting; run again")
+                .way("retry", format!("surt delete {subject}"))
+        }
         Refusal::ActiveRunExists { subject } => {
             Message::new(format!("{subject} already has an active run"))
                 .way("resume", format!("surt feature {subject}"))
@@ -130,8 +142,18 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             subject,
             artifact,
             problem,
+            ..
+        } => edits::invalid(subject, artifact, problem),
+        Refusal::NotRestorable {
+            subject,
+            artifact,
+            restorable,
+        } => edits::not_restorable(subject, artifact, restorable),
+        Refusal::TerminalRun {
+            subject,
+            run,
             files,
-        } => edits::invalid(subject, artifact, problem, files),
+        } => edits::terminal_run(subject, *run, files),
         Refusal::IntegrationBranchMoved {
             subject,
             branch,

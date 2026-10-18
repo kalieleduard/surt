@@ -55,8 +55,10 @@ fn progress(status: &RunStatus) -> String {
                 .map(|blocked| format!("{} blocked", label(&blocked.step))),
         );
     }
-    if let Some(CleanupState::Pending { .. }) = status.cleanup {
-        parts.push("cleanup pending".to_owned());
+    match status.cleanup {
+        Some(CleanupState::Pending { .. }) => parts.push("cleanup pending".to_owned()),
+        Some(CleanupState::Kept) => parts.push("kept".to_owned()),
+        _ => {}
     }
     if parts.is_empty() {
         return NONE.to_owned();

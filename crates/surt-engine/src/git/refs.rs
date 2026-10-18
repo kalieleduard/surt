@@ -24,6 +24,12 @@ pub(crate) async fn delete_refs(cwd: &Path, refs: &[(String, String)]) -> Result
     Ok(())
 }
 
+pub(crate) async fn delete_refs_anywhere(cwd: &Path, refs: &[String]) -> Result<(), GitError> {
+    let commands: String = refs.iter().map(|name| format!("delete {name}\n")).collect();
+    run_with_stdin(cwd, &["update-ref", "--no-deref", "--stdin"], &commands).await?;
+    Ok(())
+}
+
 const NOT_AN_ANCESTOR: i32 = 1;
 
 pub(crate) async fn is_valid_branch_name(cwd: &Path, name: &str) -> Result<bool, GitError> {

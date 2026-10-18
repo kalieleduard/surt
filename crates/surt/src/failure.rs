@@ -17,6 +17,7 @@ pub(crate) enum Failure {
     Blocked(Message),
     Cancelled(Message),
     Interrupted(Message),
+    Incomplete(Message),
     Internal(Box<dyn StdError>),
 }
 
@@ -27,6 +28,7 @@ impl Failure {
             Failure::Blocked(message) => stop(&message, Mark::Blocked, BLOCKED),
             Failure::Cancelled(message) => stop(&message, Mark::Error, CANCELLED),
             Failure::Interrupted(message) => stop(&message, Mark::Stopped, INTERRUPTED),
+            Failure::Incomplete(message) => stop(&message, Mark::Error, INTERNAL),
             Failure::Internal(error) => {
                 Message::new(format!("internal error: {}", chain(error.as_ref())))
                     .context("rerun with SURT_LOG=debug for details")

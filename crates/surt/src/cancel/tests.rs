@@ -2,8 +2,9 @@ use std::io::Cursor;
 
 use surt_engine::project::{CancelImpact, Cancellation};
 
-use super::confirmation::{ask, question};
+use super::confirmation::question;
 use super::ended;
+use crate::confirmation::ask;
 use crate::message::Mark;
 
 const SUBJECT: &str = "20261017-add-login";

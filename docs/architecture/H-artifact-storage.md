@@ -78,10 +78,18 @@ A scan of an Item List artifact assembles the whole set, the JSON index and ever
 $ surt approve 20261016-add-login
 ✖ manifest edit is invalid, no revision recorded:
   tasks/C.md is not referenced by any item
-  fix it or run: surt restore 20261016-add-login manifest
+  undo: surt restore 20261016-add-login manifest
 ```
 
-`surt restore <subject> <artifact>` rewrites the Working Copy from the latest recorded Revision and discards the unrecorded edit. It creates no Revision.
+`surt restore <subject> <artifact>` rewrites the Working Copy from the latest recorded Revision and discards the unrecorded edit. It creates no Revision, no Approval and no pin, and records one `working_copy.restored` event:
+
+- the Working Copy ends up equal to the Revision's file set: changed files are rewritten, missing ones recreated, files the Revision does not have are removed; the baseline already holds those hashes;
+- it acts only on the Subject's **active** run, under that root run's lock taken with `try_lock`; a live Driver refuses with its pid ([J](J-cli.md#surt-restore));
+- before comparing, it settles a pending Working Copy write with the same code reconciliation uses ([I. Recovery](I-recovery.md#working-copy-files)), so a half-published agent Revision is never taken for an edit;
+- only artifacts with a Working Copy (behind an Approval Gate) can be restored; another name refuses and lists those that can;
+- on a terminal run it refuses and keeps the file ([I. Cleanup](I-cleanup.md#unrecorded-working-copy-edits)).
+
+Both refusals of an edit, the invalid edit above and the pinned edit below, name this command as their way out (`undo: surt restore <subject> <artifact>`), never `rm <file>`.
 
 ## Revalidation
 

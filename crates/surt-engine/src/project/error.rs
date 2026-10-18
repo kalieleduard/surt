@@ -88,6 +88,15 @@ pub enum Refusal {
     MergeIntoBaseUnsupported {
         path: PathBuf,
     },
+    ActiveRunBlocksDelete {
+        subject: String,
+    },
+    RunLockBusy {
+        subject: String,
+    },
+    SubjectChangedWhileDeleting {
+        subject: String,
+    },
     ActiveRunExists {
         subject: String,
     },
@@ -129,6 +138,16 @@ pub enum Refusal {
         subject: String,
         artifact: String,
         problem: String,
+        files: Vec<String>,
+    },
+    NotRestorable {
+        subject: String,
+        artifact: String,
+        restorable: Vec<String>,
+    },
+    TerminalRun {
+        subject: String,
+        run: u32,
         files: Vec<String>,
     },
     AgentOverrides {

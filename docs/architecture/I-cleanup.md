@@ -95,6 +95,15 @@ $ surt feature 20261017-add-login --new-run
 
 It exits `3` ([J](J-cli.md#exit-codes)). `surt delete` removes those files and lists them in its confirmation.
 
+`surt restore` never rewrites the Working Copy of a run that is over. On a terminal run it refuses with exit `3` and the same way out:
+
+```
+$ surt restore 20261017-add-login spec
+✖ 20261017-add-login run 1 has ended; restore only rewrites an active run
+    .surt/features/20261017-add-login/spec.md
+  fix: move or delete the file
+```
+
 ## Logs
 
 Logs are history, not scratch space. They live outside `runtime/`, grouped by Subject:

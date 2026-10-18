@@ -2,6 +2,7 @@ mod blocked;
 mod cancelling;
 mod config;
 mod create_run;
+mod deleting;
 mod delivery;
 mod discovery;
 mod driving;
@@ -14,6 +15,7 @@ mod layout;
 mod naming;
 mod repository;
 mod resolving;
+mod restoring;
 mod show;
 mod status;
 mod stopping;
@@ -21,6 +23,7 @@ mod subjects;
 
 use std::path::Path;
 
+pub use crate::artifacts::working_copy::restoring::{Change, FileChange};
 pub use crate::cleanup::{Cleanup, Kept, Left};
 pub use crate::drive::cancel::Cancellation;
 pub use crate::drive::graph::BlockReason;
@@ -39,6 +42,7 @@ pub use cancelling::CancelImpact;
 pub(crate) use config::parse_timeout;
 pub use config::{Check, Config, GitConfig, MergeIntoBase};
 pub use create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};
+pub use deleting::{BranchFate, DeleteImpact, DeletedRun, Deletion, Directory};
 pub use delivery::IntegrationBranch;
 pub use error::{
     AwaitedRevision, Candidate, Error, ExecutionCandidate, InternalError, KnownRun, Refusal,
@@ -54,6 +58,7 @@ pub use inspect::{
 pub use naming::Slug;
 pub use repository::Commit;
 pub use resolving::{Reference, RunSelector, Subject};
+pub use restoring::RestoreImpact;
 pub use show::{ArtifactSummary, ShowRequest, Shown};
 pub use status::{
     AgentSlots, CleanupState, Conflict, Driver, GateView, ItemState, ItemStatus,
@@ -146,6 +151,11 @@ impl Project {
     #[cfg(feature = "test-support")]
     pub fn crash_after(&self, checkpoint: Checkpoint) {
         self.faults.arm(checkpoint);
+    }
+
+    #[cfg(feature = "test-support")]
+    pub fn interleave_before_purge(&self, work: impl Future<Output = ()> + Send + 'static) {
+        self.faults.interleave_before_purge(Box::pin(work));
     }
 
     async fn store(&self) -> Result<Store, Error> {

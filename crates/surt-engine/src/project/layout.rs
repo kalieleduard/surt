@@ -44,7 +44,11 @@ impl Layout {
     }
 
     pub(crate) fn execution_logs(&self, subject: &str, execution: &str) -> PathBuf {
-        self.dot_surt().join("logs").join(subject).join(execution)
+        self.logs(subject).join(execution)
+    }
+
+    pub(crate) fn logs(&self, subject: &str) -> PathBuf {
+        self.dot_surt().join("logs").join(subject)
     }
 
     pub(crate) fn working_copy(&self, subject: &str) -> PathBuf {

@@ -218,6 +218,27 @@ fn a_cleaned_terminal_run_shows_what_its_cleanup_kept_and_no_driver_column() {
 }
 
 #[test]
+fn a_run_kept_by_its_cleanup_policy_says_how_to_remove_it() {
+    let mut kept = cancelled_and_cleaned();
+    kept.states = vec![RunState::Succeeded];
+    kept.cleanup = Some(CleanupState::Kept);
+
+    let detail = detail::render(&kept);
+    let overview = overview::render(&[kept]);
+
+    assert!(
+        detail.ends_with(&format!(
+            "  cleanup  kept (on_success = \"keep\") — remove with: surt delete {SUBJECT}\n"
+        )),
+        "{detail}"
+    );
+    assert!(
+        overview.contains(&format!("{SUBJECT}  1    SUCCEEDED  —       kept\n")),
+        "{overview}"
+    );
+}
+
+#[test]
 fn the_overview_joins_simultaneous_states_and_falls_back_to_the_blocked_step() {
     let mut blocked_at_spec = stopped_with_everything_pending();
     blocked_at_spec.items.clear();
