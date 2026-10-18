@@ -32,7 +32,7 @@ fn surt(sandbox: &Sandbox, args: &[&str]) -> Run {
     sandbox.surt(&sandbox.repo(), args)
 }
 
-fn latest(sandbox: &Sandbox, item: &str, step: &str) -> String {
+pub fn latest(sandbox: &Sandbox, item: &str, step: &str) -> String {
     sandbox
         .texts(&format!(
             "SELECT x.id FROM execution x JOIN step_run s ON s.id = x.step_run_id \
@@ -42,7 +42,7 @@ fn latest(sandbox: &Sandbox, item: &str, step: &str) -> String {
         .concat()
 }
 
-fn logs_of(sandbox: &Sandbox, name: &str, execution: &str) -> PathBuf {
+pub fn logs_of(sandbox: &Sandbox, name: &str, execution: &str) -> PathBuf {
     sandbox.dot_surt().join("logs").join(name).join(execution)
 }
 
@@ -126,6 +126,20 @@ fn raw_logs_print_the_original_stream_lines() {
 
     assert_eq!(execution, SUCCESS);
     assert_eq!(task, SIGTERM);
+}
+
+#[test]
+fn following_a_run_without_a_live_driver_prints_what_exists_and_exits() {
+    let logged = logged();
+    let (name, plan) = (logged.name.as_str(), logged.plan.as_str());
+
+    let feature = ok(surt(&logged.sandbox, &["logs", name, "-f"]));
+    let task = ok(surt(&logged.sandbox, &["logs", name, "B", "--follow"]));
+    let execution = ok(surt(&logged.sandbox, &["logs", plan, "-f", "--raw"]));
+
+    assert_eq!(feature, ok(surt(&logged.sandbox, &["logs", name])));
+    assert_eq!(task, "Write delivery/a.md\nboom\n");
+    assert_eq!(execution, SUCCESS);
 }
 
 #[test]

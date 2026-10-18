@@ -106,6 +106,29 @@ async fn a_feature_logs_the_latest_execution_with_a_log_of_the_run_and_of_each_t
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn a_task_lists_every_execution_with_a_log_in_start_order() {
+    let feature = delivered_with_one_recheck().await;
+    let rechecked = rechecked_task(&feature).await;
+
+    let logs = feature
+        .project
+        .logs(SUBJECT, task(&rechecked))
+        .await
+        .expect("the task's logs are selected");
+
+    assert_eq!(
+        scopes(&logs.executions),
+        [
+            (Some(rechecked.as_str()), "build", 1),
+            (Some(rechecked.as_str()), "check", 1),
+            (Some(rechecked.as_str()), "review", 1),
+            (Some(rechecked.as_str()), "integrate", 1)
+        ]
+    );
+    assert_eq!(logs.executions.last(), logs.sources.last());
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn a_task_narrows_the_logs_to_its_latest_execution_even_when_its_log_was_removed() {
     let feature = delivered_with_one_recheck().await;
     let other = if rechecked_task(&feature).await == "A" {
@@ -172,12 +195,16 @@ async fn an_execution_prefix_selects_that_execution_and_its_log_directory() {
     let feature = delivered_with_one_recheck().await;
     let build = execution_of(&feature, "A", "build").await;
 
-    let source = feature
+    let logs = feature
         .project
         .execution_logs(&build[..build.len() - 2])
         .await
         .expect("the execution is found");
 
+    let [source] = logs.sources.as_slice() else {
+        panic!("one source: {logs:?}");
+    };
+    assert_eq!((logs.subject.as_str(), logs.run), (SUBJECT, 1));
     assert_eq!(source.execution, build);
     assert_eq!(
         (source.subject.as_str(), source.run, source.item.as_deref()),
@@ -192,4 +219,28 @@ async fn an_execution_prefix_selects_that_execution_and_its_log_directory() {
         source.directory,
         feature.root().join(".surt/logs").join(SUBJECT).join(&build)
     );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn logs_say_whether_the_run_s_driver_is_live() {
+    let feature = delivered_with_one_recheck().await;
+    let build = execution_of(&feature, "A", "build").await;
+    let live = async || {
+        let run = feature.project.logs(SUBJECT, task("A")).await;
+        let execution = feature.project.execution_logs(&build).await;
+        (
+            run.expect("the run").live,
+            execution.expect("the execution").live,
+        )
+    };
+
+    let driving = live().await;
+    feature
+        .dir
+        .execute("UPDATE workflow_run SET driver_pid = NULL")
+        .await;
+    let gone = live().await;
+
+    assert_eq!(driving, (true, true));
+    assert_eq!(gone, (false, false));
 }

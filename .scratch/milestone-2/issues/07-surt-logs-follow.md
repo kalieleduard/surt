@@ -8,9 +8,9 @@ Spec: [Milestone 2](../spec.md) (stories 11, 16) · Slice: R2 Logs · Plan: [J. 
 
 **Status:** ready-for-agent
 
-- [ ] `-f` polls the files and the engine's Execution list at bounded intervals; no file-watcher dependency
-- [ ] New Executions are picked up as they start
-- [ ] It stops once the run's Driver is gone and every file is drained, exit `0`
-- [ ] With no live Driver at start, it prints what exists and exits `0`
-- [ ] Works with `--raw` and with a Task or Execution target
-- [ ] Binary test: `logs -f` follows two Tasks of a live Fake run to the end; process waits are bounded polling, no fixed sleeps
+- [x] `-f` polls the files and the engine's Execution list at bounded intervals; no file-watcher dependency
+- [x] New Executions are picked up as they start
+- [x] It stops once the run's Driver is gone and every file is drained, exit `0`
+- [x] With no live Driver at start, it prints what exists and exits `0`
+- [x] Works with `--raw` and with a Task or Execution target
+- [x] Binary test: `logs -f` follows two Tasks of a live Fake run to the end; process waits are bounded polling, no fixed sleeps

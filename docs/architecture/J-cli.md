@@ -316,8 +316,8 @@ C build#1 │ ✔ delivered (commit 9e04b7d)
 - **Rendered** by default: one line per tool call (`<Tool> <main argument>`, a path relative to the agent's working directory, an edit's `(+added −removed)` lines), the first line of each assistant message in quotes (`…` when more follows), `✔ delivered` for the runtime's accepted structured output (with a non-default outcome and the commit), no tool results. Unknown event types, unknown fields and lines that are not JSON render nothing. `stderr.log` and an Operation's `output.log` (one `=== <check>: <command>` header per Check) pass through after the stream.
 - **`--raw`** prints the original `stream.jsonl` lines untouched and nothing else, without prefix, so the output pipes to `jq`.
 - **Without `-f`**: the latest Execution of the run's own steps and of each Task, or of the given Task, or the given Execution. An Operation that ran no process has no log and is skipped when picking the latest. Sources print one after another, run first, then Tasks by key.
-- **`-f`** follows until the run's Driver stops, picking up new Executions (the next Attempt, the next Task) as they start.
-- The `B build#2 │` prefix (Task, step, `#`Attempt; the run's own steps have no Task) appears only when more than one source is printed, padded to align.
+- **`-f`** follows until the run's Driver stops, picking up new Executions (the next Attempt, the next Task) as they start. It polls the log files and the run's Execution list every 200 ms (no file watcher), prints each file's new complete lines, and once the Driver is gone drains every file to its end and exits `0`. With no live Driver at start it prints what exists, as without `-f`, and exits. An Execution target follows only that Execution.
+- The `B build#2 │` prefix (Task, step, `#`Attempt; the run's own steps have no Task) appears only when more than one source is printed, padded to align. With `-f` it appears for a Feature or Task target (the sources are not known in advance), padded to the longest label seen so far, and never for an Execution target.
 
 ## Foreground progress
 
