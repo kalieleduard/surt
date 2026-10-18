@@ -16,8 +16,8 @@ pub(crate) mod worktrees;
 
 pub(crate) use merge::{CommitTree, MergeTree, commit_tree, merge_tree, move_ref};
 pub(crate) use refs::{
-    absolute_git_dir, common_dir, create_ref, delete_refs, is_ancestor, is_valid_branch_name,
-    refs_under, set_ref,
+    absolute_git_dir, common_dir, create_ref, delete_refs, delete_refs_anywhere, is_ancestor,
+    is_valid_branch_name, refs_under, set_ref,
 };
 
 pub(crate) const MIN_VERSION: GitVersion = GitVersion {

@@ -1,6 +1,7 @@
 mod cancel;
 #[cfg(unix)]
 mod claude;
+mod delete;
 mod discovery;
 mod feature;
 mod init;

@@ -2,6 +2,7 @@ mod blocked;
 mod cancelling;
 mod config;
 mod create_run;
+mod deleting;
 mod delivery;
 mod discovery;
 mod driving;
@@ -41,6 +42,7 @@ pub use cancelling::CancelImpact;
 pub(crate) use config::parse_timeout;
 pub use config::{Check, Config, GitConfig, MergeIntoBase};
 pub use create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};
+pub use deleting::{BranchFate, DeleteImpact, DeletedRun, Deletion, Directory};
 pub use delivery::IntegrationBranch;
 pub use error::{AwaitedRevision, Candidate, Error, InternalError, KnownRun, Refusal, RunState};
 pub use gate_status::GateStatus;
@@ -143,6 +145,11 @@ impl Project {
     #[cfg(feature = "test-support")]
     pub fn crash_after(&self, checkpoint: Checkpoint) {
         self.faults.arm(checkpoint);
+    }
+
+    #[cfg(feature = "test-support")]
+    pub fn interleave_before_purge(&self, work: impl Future<Output = ()> + Send + 'static) {
+        self.faults.interleave_before_purge(Box::pin(work));
     }
 
     async fn store(&self) -> Result<Store, Error> {

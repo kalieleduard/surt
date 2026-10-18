@@ -12,7 +12,8 @@ use crate::symbols::Symbols;
 
 const MAX_CONTEXT_LINES: usize = 2;
 const MAX_WAYS_OUT: usize = 3;
-const LABELS: [&str; 9] = [
+const LABELS: [&str; 10] = [
+    "retry:",
     "fix:",
     "next:",
     "resume:",
@@ -174,6 +175,15 @@ fn every_refusal() -> Vec<Refusal> {
         Refusal::NoLiveDriver {
             subject: "20261017-add-login".to_owned(),
             states: vec![RunState::AwaitingApproval, RunState::Blocked],
+        },
+        Refusal::ActiveRunBlocksDelete {
+            subject: "20261017-add-login".to_owned(),
+        },
+        Refusal::RunLockBusy {
+            subject: "20261017-add-login".to_owned(),
+        },
+        Refusal::SubjectChangedWhileDeleting {
+            subject: "20261017-add-login".to_owned(),
         },
         Refusal::UnrecordedEditsBlockNewRun {
             subject: "20261017-add-login".to_owned(),
@@ -521,4 +531,25 @@ fn every_refusal_prints_only_ascii_in_ascii_mode() {
 
         assert!(Symbols::Ascii.render(&text).is_ascii(), "{text}");
     }
+}
+
+#[test]
+fn delete_refusals_point_at_cancel_or_at_running_the_delete_again() {
+    let refusals = every_refusal();
+    let texts: Vec<String> = refusals[refusals.len() - 5..refusals.len() - 2]
+        .iter()
+        .map(text)
+        .collect();
+
+    assert_eq!(
+        texts,
+        [
+            "✖ 20261017-add-login has an active run; delete never stops agents\n  \
+             fix: surt cancel 20261017-add-login\n",
+            "✖ another surt process is working on 20261017-add-login\n  \
+             retry: surt delete 20261017-add-login\n",
+            "✖ feature changed while deleting; run again\n  \
+             retry: surt delete 20261017-add-login\n",
+        ]
+    );
 }

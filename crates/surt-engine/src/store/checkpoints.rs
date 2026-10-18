@@ -1,4 +1,6 @@
 #[cfg(feature = "test-support")]
+use std::pin::Pin;
+#[cfg(feature = "test-support")]
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use super::{Store, StoreError};
@@ -16,15 +18,30 @@ pub enum Checkpoint {
 }
 
 #[cfg(feature = "test-support")]
-#[derive(Clone, Debug, Default)]
+pub(crate) type Interleaved = Pin<Box<dyn Future<Output = ()> + Send>>;
+
+#[cfg(feature = "test-support")]
+#[derive(Clone, Default)]
 pub(crate) struct Faults {
     armed: Arc<Mutex<Option<Checkpoint>>>,
+    before_purge: Arc<Mutex<Option<Interleaved>>>,
 }
 
 #[cfg(feature = "test-support")]
 impl Faults {
     pub(crate) fn arm(&self, checkpoint: Checkpoint) {
         *self.armed() = Some(checkpoint);
+    }
+
+    pub(crate) fn interleave_before_purge(&self, work: Interleaved) {
+        *lock(&self.before_purge) = Some(work);
+    }
+
+    pub(crate) async fn before_purge(&self) {
+        let work = lock(&self.before_purge).take();
+        if let Some(work) = work {
+            work.await;
+        }
     }
 
     fn trip(&self, checkpoint: Checkpoint) -> Result<(), StoreError> {
@@ -37,8 +54,13 @@ impl Faults {
     }
 
     fn armed(&self) -> MutexGuard<'_, Option<Checkpoint>> {
-        self.armed.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.armed)
     }
+}
+
+#[cfg(feature = "test-support")]
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 #[cfg(feature = "test-support")]

@@ -41,6 +41,12 @@ pub(crate) async fn remove(repository: &Path, path: &Path) -> Result<(), GitErro
     Ok(())
 }
 
+pub(crate) async fn unlock(repository: &Path, path: &Path) -> Result<(), GitError> {
+    let path = path.to_string_lossy();
+    run(repository, &["worktree", "unlock", &path]).await?;
+    Ok(())
+}
+
 pub(crate) async fn repair(repository: &Path, path: &Path) -> Result<(), GitError> {
     let path = path.to_string_lossy();
     run(repository, &["worktree", "repair", &path]).await?;

@@ -60,7 +60,7 @@ pub(super) fn render(status: &RunStatus) -> String {
             ),
         );
     }
-    cleanup(&mut text, status.cleanup.as_ref(), &resume);
+    cleanup(&mut text, status, &resume);
     text
 }
 
@@ -119,13 +119,20 @@ fn blocked(text: &mut String, status: &RunStatus, resume: &str) {
     }
 }
 
-fn cleanup(text: &mut String, cleanup: Option<&CleanupState>, resume: &str) {
-    let Some(cleanup) = cleanup else {
+fn cleanup(text: &mut String, status: &RunStatus, resume: &str) {
+    let Some(cleanup) = &status.cleanup else {
         return;
     };
     let (headline, kept, left) = match cleanup {
         CleanupState::Finished { kept } => ("done", kept, &Vec::new()),
         CleanupState::Pending { left, kept } => ("pending", kept, left),
+        CleanupState::Kept => {
+            let kept = format!(
+                "kept (on_success = \"keep\") {DASH} remove with: surt delete {}",
+                status.subject
+            );
+            return field(text, "cleanup", &kept);
+        }
     };
     field(text, "cleanup", headline);
     for left in left {
