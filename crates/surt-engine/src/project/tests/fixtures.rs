@@ -237,4 +237,12 @@ impl ProjectDir {
         pool.close().await;
         rows
     }
+
+    pub(super) async fn event_data(&self, kind: &str) -> Vec<serde_json::Value> {
+        let sql = format!("SELECT data FROM event WHERE kind = '{kind}' ORDER BY seq");
+        let rows: Vec<(String,)> = self.rows(&sql).await;
+        rows.into_iter()
+            .map(|(data,)| serde_json::from_str(&data).expect("event data is JSON"))
+            .collect()
+    }
 }

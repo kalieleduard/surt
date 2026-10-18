@@ -46,3 +46,19 @@ async fn create_run_commits_the_subject_an_active_root_run_and_its_top_level_ste
         [(run.as_str().to_owned(), "run.created".to_owned())]
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn run_created_carries_the_base_and_the_actor() {
+    let dir = ProjectDir::new();
+    let project = dir.project(draft_catalog(), default_config()).await;
+
+    project
+        .create_run(new_run("draft"))
+        .await
+        .expect("the run is created");
+
+    assert_eq!(
+        dir.event_data("run.created").await,
+        [serde_json::json!({ "base": { "sha": "abc" }, "actor": "dev@example.com" })]
+    );
+}

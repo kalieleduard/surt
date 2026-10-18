@@ -1,7 +1,7 @@
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 
-use super::{Checkpoint, Store, StoreError};
+use super::{About, Checkpoint, Store, StoreError, details, record_event_data};
 use crate::workflow::FrozenRun;
 
 mod content;
@@ -54,14 +54,14 @@ impl Store {
                 .execute(&mut *transaction)
                 .await?;
         }
-        sqlx::query(
-            "INSERT INTO event (at, root_run_id, workflow_run_id, kind) VALUES (?, ?, ?, ?)",
+        let data = details::run_created(&rows);
+        record_event_data(
+            &mut transaction,
+            About::Run(&run),
+            RUN_CREATED,
+            rows.now,
+            &data,
         )
-        .bind(rows.now)
-        .bind(&run)
-        .bind(&run)
-        .bind(RUN_CREATED)
-        .execute(&mut *transaction)
         .await?;
         transaction.commit().await?;
         self.reached(Checkpoint::RunCreated)?;

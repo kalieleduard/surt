@@ -20,6 +20,7 @@ mod operate;
 mod outcome;
 mod public;
 mod record;
+mod recovered;
 mod snapshot;
 mod worktrees;
 

@@ -1,7 +1,8 @@
+use serde_json::json;
 use sqlx::SqliteConnection;
 
 use super::revisions::{Origin, Published, artifact_id, publish};
-use super::{About, Checkpoint, Store, StoreError, record_event, unix_now};
+use super::{About, Checkpoint, Store, StoreError, record_event, record_event_data, unix_now};
 
 pub(crate) struct Acceptance<'a> {
     pub(crate) execution: &'a str,
@@ -54,7 +55,8 @@ impl Store {
                 stage_working_copy(&mut transaction, &revision).await?;
             }
             let about = About::Execution(acceptance.execution);
-            record_event(&mut transaction, about, "revision.published", now).await?;
+            let data = json!({ "artifact": output.name, "revision": revision.number, "origin": "execution" });
+            record_event_data(&mut transaction, about, "revision.published", now, &data).await?;
             published.push((output.name.clone(), revision));
         }
         if let Some(tip) = acceptance.tip {

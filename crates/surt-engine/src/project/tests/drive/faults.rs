@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 use std::fs;
 
+use serde_json::json;
+
 use super::super::fixtures::{ProjectDir, SUBJECT, default_config, new_run};
 use super::fixtures::{ACTOR, Feature, draft, review_catalog, summary};
 use super::planned::{TASK_WORKFLOW, approved, work};
@@ -202,6 +204,26 @@ async fn a_crash_right_after_an_execution_starts_keeps_the_approval_and_retries_
     assert_eq!(
         feature.attempts_of("publish").await,
         [(1, "interrupted".to_owned()), (2, "succeeded".to_owned())]
+    );
+    let pid = std::process::id();
+    assert_eq!(
+        feature.dir.event_data("driver.recovered").await,
+        [json!({
+            "previous_pid": pid,
+            "found": [{
+                "kind": "interrupted_with_driver",
+                "step": "publish",
+                "item": null,
+                "iteration": null,
+                "attempt": 1
+            }]
+        })]
+    );
+    let pids = json!({ "pid": pid });
+    assert_eq!(
+        feature.dir.event_data("driver.stopped").await,
+        [pids.clone(), pids],
+        "the crashed drive records no stop"
     );
 }
 

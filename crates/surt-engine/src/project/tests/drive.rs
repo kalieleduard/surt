@@ -5,6 +5,7 @@ mod checks;
 mod cleanup;
 mod conflicts;
 mod drivers;
+mod events;
 mod evidence;
 mod fault_intentions;
 mod faults;

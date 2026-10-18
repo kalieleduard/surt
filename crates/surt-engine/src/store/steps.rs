@@ -1,6 +1,10 @@
+use serde_json::json;
+
 use super::graph::block_reason_name;
 use super::runs::new_id;
-use super::{About, Checkpoint, Store, StoreError, record_event, unix_now};
+use super::{
+    About, Checkpoint, Store, StoreError, details, record_event, record_event_data, unix_now,
+};
 use crate::drive::RunEnd;
 use crate::drive::graph::BlockReason;
 
@@ -44,6 +48,14 @@ impl StepMove<'_> {
         }
     }
 
+    fn details(&self) -> serde_json::Value {
+        match self {
+            StepMove::Open | StepMove::Skip => json!({}),
+            StepMove::Block(reason) => json!({ "reason": block_reason_name(*reason) }),
+            StepMove::Finish(outcome) => json!({ "outcome": outcome }),
+        }
+    }
+
     fn event(&self) -> &'static str {
         match self {
             StepMove::Open => STEP_RUNNING,
@@ -59,6 +71,7 @@ impl Store {
         &self,
         loop_step: &str,
         body: &[(&str, &str)],
+        until: &str,
     ) -> Result<(), StoreError> {
         let now = unix_now();
         let mut transaction = self.begin_write().await?;
@@ -94,13 +107,10 @@ impl Store {
         if moved.rows_affected() > 0 {
             record_event(&mut transaction, About::Step(loop_step), STEP_RUNNING, now).await?;
         }
-        record_event(
-            &mut transaction,
-            About::Step(loop_step),
-            ITERATION_STARTED,
-            now,
-        )
-        .await?;
+        let data =
+            details::iteration_started(&mut transaction, loop_step, iteration, until).await?;
+        let about = About::Step(loop_step);
+        record_event_data(&mut transaction, about, ITERATION_STARTED, now, &data).await?;
         transaction.commit().await?;
         self.reached(Checkpoint::IterationOrExpansion)
     }
@@ -156,7 +166,9 @@ impl Store {
             .execute(&mut *transaction)
             .await?;
         if moved.rows_affected() > 0 {
-            record_event(&mut transaction, About::Step(step), movement.event(), now).await?;
+            let data = movement.details();
+            let about = About::Step(step);
+            record_event_data(&mut transaction, about, movement.event(), now, &data).await?;
         }
         Ok(transaction.commit().await?)
     }

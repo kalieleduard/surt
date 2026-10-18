@@ -1,7 +1,7 @@
 use sqlx::FromRow;
 
 use super::revisions::number;
-use super::{About, Checkpoint, Store, StoreError, record_event, unix_now};
+use super::{About, Checkpoint, Store, StoreError, record_event_data, unix_now};
 use crate::drive::StepLabel;
 use crate::drive::graph::RunId;
 use crate::platform::ProcessIdentity;
@@ -58,7 +58,15 @@ impl Store {
         .bind(root)
         .execute(&mut *transaction)
         .await?;
-        record_event(&mut transaction, About::Run(root), DRIVER_STARTED, now).await?;
+        let data = serde_json::json!({ "pid": pid });
+        record_event_data(
+            &mut transaction,
+            About::Run(root),
+            DRIVER_STARTED,
+            now,
+            &data,
+        )
+        .await?;
         Ok(transaction.commit().await?)
     }
 
