@@ -165,6 +165,11 @@ impl ProjectDir {
         }
     }
 
+    #[cfg(feature = "test-support")]
+    pub(super) fn path(&self) -> PathBuf {
+        self.root.path().to_path_buf()
+    }
+
     fn layout(&self) -> Layout {
         Layout::new(self.root.path().to_path_buf())
     }

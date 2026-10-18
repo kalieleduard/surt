@@ -50,6 +50,20 @@ pub enum Refusal {
     ActiveRunExists {
         subject: String,
     },
+    DriverLive {
+        subject: String,
+        pid: Option<u32>,
+        since: Option<i64>,
+    },
+    NoGateWaiting {
+        subject: String,
+    },
+    StaleRevision {
+        subject: String,
+        artifact: String,
+        expected: u32,
+        latest: u32,
+    },
     InvalidDefinition(Box<InvalidDefinition>),
 }
 
@@ -67,6 +81,10 @@ struct IoFailure {
 }
 
 impl Error {
+    pub(crate) fn internal(error: impl StdError + Send + Sync + 'static) -> Error {
+        Error::Internal(InternalError(Box::new(error)))
+    }
+
     pub(crate) fn io(action: &'static str, path: &Path, source: io::Error) -> Error {
         Error::Internal(InternalError(Box::new(IoFailure {
             action,

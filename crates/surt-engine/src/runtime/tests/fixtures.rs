@@ -61,6 +61,8 @@ impl Execution {
             step: StepAttempt::new(STEP, 1, 1),
             session_id: Uuid::now_v7(),
             model: MODEL.to_owned(),
+            log_dir: dir.path().join("logs"),
+            context: String::new(),
             delivery_dir,
         };
         Execution {

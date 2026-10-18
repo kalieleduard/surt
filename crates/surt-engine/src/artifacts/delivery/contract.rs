@@ -55,11 +55,25 @@ impl DeliveryContract {
         })
     }
 
+    #[cfg_attr(
+        not(all(test, feature = "test-support")),
+        expect(
+            dead_code,
+            reason = "the built-in workflow registers consistency checks from ticket 13 on"
+        )
+    )]
     pub(crate) fn with_check(mut self, check: ConsistencyCheck) -> DeliveryContract {
         self.checks.push(check);
         self
     }
 
+    #[cfg_attr(
+        not(all(test, feature = "test-support")),
+        expect(
+            dead_code,
+            reason = "human Item List edits are validated from ticket 10 on"
+        )
+    )]
     pub(crate) fn output(&self, name: &str) -> Option<&OutputRule> {
         self.outputs.get(name)
     }

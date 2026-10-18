@@ -8,10 +8,10 @@ Spec: [Milestone 1](../spec.md) (stories 16, 24–29, 45, 70, 101) · Slice: S3 
 
 **Status:** ready-for-agent
 
-- [ ] One Driver per root run via a file lock on the run; a second `drive` refuses with the live Driver's pid; dropping the process releases the lock
-- [ ] Each tick reloads the `RunGraph`, so an Approval recorded by another process is seen without caching
-- [ ] Revisions are SHA-256 blobs in SQLite with atomic publication; an Approval stores id + hash and targets the gate's latest Revision; `--rev N` mismatch is refused
-- [ ] The Context Assembler writes per-Execution inputs with labels (Iteration and producing step) and, from the second Iteration on, why the Iteration started; every Execution is a fresh session with only its fixed Inputs
-- [ ] Each Execution's stream and stderr go to the Feature's log directory under `.surt/logs/`, which survives cleanup
-- [ ] The engine never prints: it emits typed `Progress` events; outcomes map to `DriveOutcome` and errors to `Refused`/`Internal`
-- [ ] `Project` tests: agent → gate (`AtGate`), reject → Iteration 2 reads reason and rejected Revision → approve → next step; a second Driver refuses
+- [x] One Driver per root run via a file lock on the run; a second `drive` refuses with the live Driver's pid; dropping the process releases the lock
+- [x] Each tick reloads the `RunGraph`, so an Approval recorded by another process is seen without caching
+- [x] Revisions are SHA-256 blobs in SQLite with atomic publication; an Approval stores id + hash and targets the gate's latest Revision; `--rev N` mismatch is refused
+- [x] The Context Assembler writes per-Execution inputs with labels (Iteration and producing step) and, from the second Iteration on, why the Iteration started; every Execution is a fresh session with only its fixed Inputs
+- [x] Each Execution's stream and stderr go to the Feature's log directory under `.surt/logs/`, which survives cleanup
+- [x] The engine never prints: it emits typed `Progress` events; outcomes map to `DriveOutcome` and errors to `Refused`/`Internal`
+- [x] `Project` tests: agent → gate (`AtGate`), reject → Iteration 2 reads reason and rejected Revision → approve → next step; a second Driver refuses

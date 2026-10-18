@@ -4,13 +4,27 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sqlx::migrate::{MigrateError, Migrator};
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqliteSynchronous};
-use sqlx::{Sqlite, SqlitePool, Transaction};
+use sqlx::{Sqlite, SqliteConnection, SqlitePool, Transaction};
 
 use crate::platform::{self, ExclusiveLock};
 
+mod acceptance;
+mod approvals;
+mod drivers;
+mod executions;
+mod frozen;
+mod graph;
+mod revisions;
 mod runs;
+mod steps;
 mod subjects;
 
+pub(crate) use acceptance::{Acceptance, PublishedOutput};
+pub(crate) use approvals::{Decision, DecisionOutcome, NewDecision};
+pub(crate) use executions::{ExecutionEnd, ExecutionStart, InputRequest, StartedExecution};
+pub(crate) use frozen::FrozenFile;
+pub(crate) use graph::{RunRows, StepRow};
+pub(crate) use revisions::{Producer, StoredRevision};
 pub(crate) use runs::{NewInitialArtifact, NewRunRows, RunCreation};
 
 static MIGRATOR: Migrator = sqlx::migrate!();
@@ -95,6 +109,48 @@ impl Store {
             }
         }
     }
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum About<'a> {
+    Run(&'a str),
+    Step(&'a str),
+    Execution(&'a str),
+}
+
+pub(super) async fn record_event(
+    connection: &mut SqliteConnection,
+    about: About<'_>,
+    kind: &str,
+    at: i64,
+) -> Result<(), sqlx::Error> {
+    let (sql, id) = match about {
+        About::Run(id) => (
+            "INSERT INTO event (at, root_run_id, workflow_run_id, kind) \
+             SELECT ?1, w.root_run_id, w.id, ?2 FROM workflow_run w WHERE w.id = ?3",
+            id,
+        ),
+        About::Step(id) => (
+            "INSERT INTO event (at, root_run_id, workflow_run_id, step_run_id, kind) \
+             SELECT ?1, w.root_run_id, w.id, s.id, ?2 FROM step_run s \
+             JOIN workflow_run w ON w.id = s.workflow_run_id WHERE s.id = ?3",
+            id,
+        ),
+        About::Execution(id) => (
+            "INSERT INTO event (at, root_run_id, workflow_run_id, step_run_id, execution_id, kind) \
+             SELECT ?1, w.root_run_id, w.id, s.id, e.id, ?2 FROM execution e \
+             JOIN step_run s ON s.id = e.step_run_id \
+             JOIN workflow_run w ON w.id = s.workflow_run_id WHERE e.id = ?3",
+            id,
+        ),
+    };
+    sqlx::query(sql)
+        .bind(at)
+        .bind(kind)
+        .bind(id)
+        .execute(connection)
+        .await?;
+    Ok(())
 }
 
 pub(crate) fn unix_now() -> i64 {
