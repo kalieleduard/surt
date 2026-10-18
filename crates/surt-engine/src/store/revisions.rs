@@ -75,6 +75,15 @@ impl Store {
             producer,
         })
     }
+
+    pub(crate) async fn revision_paths(&self, id: &str) -> Result<Vec<String>, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT rel_path FROM revision_file WHERE revision_id = ? ORDER BY rel_path",
+        )
+        .bind(id)
+        .fetch_all(&self.pool)
+        .await?)
+    }
 }
 
 pub(super) fn number(value: i64) -> u32 {

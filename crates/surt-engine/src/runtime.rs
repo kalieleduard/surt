@@ -13,7 +13,7 @@ pub(crate) use acceptance::{Rejection, Verdict, accept};
 pub use claude_code::ClaudeCodeRuntime;
 pub use error::{FailureClass, RuntimeError};
 #[cfg(feature = "test-support")]
-pub use fake::{Behavior, Delivery, FakeRuntime, Script};
+pub use fake::{Behavior, Delivery, FakeRuntime, InvalidScript, Script};
 pub use launch::AgentLaunch;
 pub use protocol::{
     Exit, FinalResult, Initialization, RuntimeCompletion, RuntimeEvent, RuntimeEventSink,

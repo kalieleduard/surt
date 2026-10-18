@@ -12,6 +12,7 @@ mod parsing;
 mod per_item;
 mod references;
 mod repository;
+mod resolving;
 mod shapes;
 mod subjects;
 

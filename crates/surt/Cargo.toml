@@ -9,6 +9,11 @@ publish.workspace = true
 name = "surt"
 path = "src/main.rs"
 
+[[test]]
+name = "cli"
+path = "tests/cli/main.rs"
+required-features = ["test-support"]
+
 [features]
 test-support = ["surt-engine/test-support"]
 

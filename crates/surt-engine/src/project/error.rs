@@ -64,6 +64,16 @@ pub enum Refusal {
         expected: u32,
         latest: u32,
     },
+    AgentOverrides {
+        path: PathBuf,
+    },
+    UnknownSubject {
+        reference: String,
+    },
+    AmbiguousSubject {
+        reference: String,
+        candidates: Vec<String>,
+    },
     InvalidDefinition(Box<InvalidDefinition>),
 }
 

@@ -1,7 +1,42 @@
 use anstyle::{AnsiColor, Style};
 
-const ERROR: Style = AnsiColor::Red.on_default().bold();
-const SUCCESS: Style = AnsiColor::Green.on_default().bold();
+#[derive(Clone, Copy)]
+pub(crate) enum Mark {
+    Success,
+    Error,
+    Paused,
+    Blocked,
+    Stopped,
+    Started,
+    Retry,
+    Warning,
+}
+
+impl Mark {
+    fn symbol(self) -> &'static str {
+        match self {
+            Mark::Success => "✔",
+            Mark::Error => "✖",
+            Mark::Paused => "⏸",
+            Mark::Blocked => "⛔",
+            Mark::Stopped => "⏹",
+            Mark::Started => "●",
+            Mark::Retry => "↻",
+            Mark::Warning => "⚠",
+        }
+    }
+
+    fn style(self) -> Style {
+        match self {
+            Mark::Success => AnsiColor::Green.on_default().bold(),
+            Mark::Error | Mark::Blocked => AnsiColor::Red.on_default().bold(),
+            Mark::Paused | Mark::Stopped | Mark::Retry | Mark::Warning => {
+                AnsiColor::Yellow.on_default().bold()
+            }
+            Mark::Started => AnsiColor::Cyan.on_default().bold(),
+        }
+    }
+}
 
 pub(crate) struct Message {
     headline: String,
@@ -27,15 +62,15 @@ impl Message {
     }
 
     pub(crate) fn print_error(&self) {
-        self.print("✖", ERROR);
+        self.print(Mark::Error);
     }
 
     pub(crate) fn print_success(&self) {
-        self.print("✔", SUCCESS);
+        self.print(Mark::Success);
     }
 
-    fn print(&self, symbol: &str, style: Style) {
-        anstream::eprint!("{}", self.render(symbol, style));
+    pub(crate) fn print(&self, mark: Mark) {
+        anstream::eprint!("{}", self.render(mark.symbol(), mark.style()));
     }
 
     fn render(&self, symbol: &str, style: Style) -> String {

@@ -1,6 +1,24 @@
+use sqlx::FromRow;
+
 use super::Store;
 
+#[derive(Clone, Debug, FromRow)]
+pub(crate) struct SubjectRow {
+    pub(crate) name: String,
+    pub(crate) active_run: Option<String>,
+}
+
 impl Store {
+    pub(crate) async fn subjects(&self) -> Result<Vec<SubjectRow>, sqlx::Error> {
+        sqlx::query_as(
+            "SELECT s.name, w.id AS active_run FROM subject s LEFT JOIN workflow_run w \
+             ON w.subject_id = s.id AND w.parent_step_run_id IS NULL AND w.state = 'active' \
+             ORDER BY s.name",
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub(crate) async fn names_of_subjects_with_active_runs(
         &self,
     ) -> Result<Vec<String>, sqlx::Error> {

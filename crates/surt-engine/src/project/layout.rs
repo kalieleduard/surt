@@ -59,6 +59,10 @@ impl Layout {
         self.dot_surt().join("config.toml")
     }
 
+    pub(crate) fn agents(&self) -> PathBuf {
+        self.dot_surt().join("agents")
+    }
+
     pub(crate) fn gitignore(&self) -> PathBuf {
         self.dot_surt().join(".gitignore")
     }

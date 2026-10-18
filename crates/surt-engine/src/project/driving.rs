@@ -10,6 +10,7 @@ impl Project {
         progress: ProgressSink,
         stop: StopSignal,
     ) -> Result<DriveOutcome, Error> {
+        self.refuse_agent_overrides()?;
         let store = open_store(&self.layout).await?;
         let driving = Driving {
             store: &store,

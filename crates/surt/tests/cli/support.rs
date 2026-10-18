@@ -9,6 +9,8 @@ use tempfile::TempDir;
 pub const REFUSED_EXIT_CODE: i32 = 3;
 pub const INTERNAL_ERROR_EXIT_CODE: i32 = 1;
 
+const RUNTIME_VARIABLE: &str = "SURT_RUNTIME";
+
 const IDENTITY_CONFIG: &str = "[user]\n\tname = Surt Tester\n\temail = tester@example.com\n";
 const NO_IDENTITY_CONFIG: &str = "[user]\n\tuseConfigOnly = true\n";
 
@@ -85,6 +87,14 @@ impl Sandbox {
         path
     }
 
+    fn script_path(&self) -> PathBuf {
+        self.root.path().join("script.toml")
+    }
+
+    pub fn script(&self, entries: &[String]) {
+        fs::write(self.script_path(), entries.concat()).expect("the Fake Runtime script");
+    }
+
     fn git_config(&self) -> PathBuf {
         self.root.path().join("gitconfig")
     }
@@ -100,7 +110,8 @@ impl Sandbox {
             .env("HOME", self.home())
             .env("USERPROFILE", self.home())
             .env("GIT_CONFIG_GLOBAL", self.git_config())
-            .env("GIT_CONFIG_NOSYSTEM", "1");
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .env(RUNTIME_VARIABLE, self.script_path());
         for variable in INHERITED_VARIABLES {
             command.env_remove(variable);
         }
@@ -161,24 +172,45 @@ impl Sandbox {
     }
 
     pub fn texts(&self, sql: &str) -> Vec<String> {
-        let database = self.dot_surt().join("surt.db");
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("a runtime")
-            .block_on(async {
-                let options = SqliteConnectOptions::new()
-                    .filename(database)
-                    .read_only(true);
-                let pool = SqlitePool::connect_with(options)
-                    .await
-                    .expect("the database opens read-only");
-                let rows = sqlx::query_scalar::<_, String>(AssertSqlSafe(sql.to_owned()))
-                    .fetch_all(&pool)
-                    .await
-                    .expect("the rows are readable");
-                pool.close().await;
-                rows
-            })
+        let options = SqliteConnectOptions::new()
+            .filename(self.database())
+            .read_only(true);
+        block_on(async {
+            let pool = SqlitePool::connect_with(options)
+                .await
+                .expect("the database opens read-only");
+            let rows = sqlx::query_scalar::<_, String>(AssertSqlSafe(sql.to_owned()))
+                .fetch_all(&pool)
+                .await
+                .expect("the rows are readable");
+            pool.close().await;
+            rows
+        })
     }
+
+    pub fn execute(&self, sql: &str) {
+        let options = SqliteConnectOptions::new().filename(self.database());
+        block_on(async {
+            let pool = SqlitePool::connect_with(options)
+                .await
+                .expect("the database opens");
+            sqlx::query(AssertSqlSafe(sql.to_owned()))
+                .execute(&pool)
+                .await
+                .expect("the statement runs");
+            pool.close().await;
+        });
+    }
+
+    fn database(&self) -> PathBuf {
+        self.dot_surt().join("surt.db")
+    }
+}
+
+fn block_on<T>(future: impl Future<Output = T>) -> T {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("a runtime")
+        .block_on(future)
 }
