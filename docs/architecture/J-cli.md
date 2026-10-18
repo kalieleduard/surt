@@ -294,6 +294,7 @@ A driving command prints one line per relevant state change: a Step Run starting
   ↻ task B build attempt 2
   ── 2 running (B build 6m, C review 1m) · 1 queued · slots 3/3 · 32m ──
   ```
+- The footer is drawn with `\r` plus ANSI erase-line, erased before each event line and redrawn after it, and erased before the final summary, so the scrollback holds only event lines. Durations read `42s`, `6m`, `2h05m`.
 - **Without a TTY** there is no footer. After 5 minutes without an event it prints a line so CI does not assume a hang: `… still running: B build (15m), C review (3m)`.
 - It ends with a summary and the next command, as in the mocks of sections A, G and I.
 
@@ -308,7 +309,18 @@ A driving command prints one line per relevant state change: a Step Run starting
   B
   ```
 - **Without a TTY** nothing is ever asked. A command that would confirm refuses with exit `3` unless `--yes` is given. There are no colours, spinners or footers, only the same lines.
-- `NO_COLOR` disables colour. When the terminal is not UTF-8 (an old Windows console), the symbols become `[ok] [error] [warn] [retry] [paused] [blocked]`.
+- `NO_COLOR` disables colour. When the terminal is not UTF-8 (an old Windows console), the symbols become `[ok] [error] [warn] [retry] [paused] [blocked]`. The two settings are independent.
+  - The engine's `platform` module answers "does the console output UTF-8". Unix: the first non-empty of `LC_ALL`, `LC_CTYPE`, `LANG` must name UTF-8 (`UTF-8` or `utf8`, any case); none set counts as UTF-8. Windows: the console output code page must be `65001`; a process with no console, or whose stdout and stderr are both redirected, counts as UTF-8, since the bytes go to a pipe or file, not to the console.
+  - Every glyph the CLI prints lives in one symbol table (`surt` crate, `symbols.rs`), which also holds its ASCII form. Lines are converted at the print boundary, so a glyph in an engine message (the `→` of a cycle) is converted too. `show` file content is never converted.
+
+    | Glyph | ASCII | Glyph | ASCII | Glyph | ASCII |
+    |---|---|---|---|---|---|
+    | `✔` | `[ok]` | `⏹` | `[stopped]` | `─` | `-` |
+    | `✖` | `[error]` | `●` | `*` | `…` | `...` |
+    | `⚠` | `[warn]` | `⏳` | `[waiting]` | `−` | `-` |
+    | `↻` | `[retry]` | `✎` | `[edited]` | `—` | `-` |
+    | `⏸` | `[paused]` | `⟳` | `[integrating]` | `·` | `\|` |
+    | `⛔` | `[blocked]` | `│` | `\|` | `→` | `->` |
 - `SURT_LOG` (`tracing` filter syntax, e.g. `SURT_LOG=debug`) turns on Surt's own diagnostic logs on stderr, for any command.
 
 ## Exit codes

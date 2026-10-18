@@ -6,4 +6,5 @@ mod fixtures;
 mod item_files;
 mod item_lists;
 mod planner;
+mod reports;
 mod scripts;

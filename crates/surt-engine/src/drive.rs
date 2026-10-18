@@ -1,3 +1,4 @@
+mod activity;
 mod branches;
 pub(crate) mod cancel;
 mod checks;
@@ -26,4 +27,6 @@ mod worktrees;
 pub(crate) use decide::RunEnd;
 pub(crate) use driver::{Driving, drive};
 pub(crate) use frozen::{CorruptSnapshot, Frozen};
-pub use outcome::{DriveOutcome, Gate, Progress, ProgressSink, StepLabel};
+pub use outcome::{
+    ActivitySnapshot, DriveOutcome, Gate, Progress, ProgressSink, RunningStep, StepLabel,
+};

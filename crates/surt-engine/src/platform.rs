@@ -3,10 +3,12 @@ use std::io;
 use std::path::Path;
 
 mod children;
+mod console;
 mod executable;
 mod process;
 
 pub(crate) use children::{contain, exit_code, interrupt};
+pub use console::outputs_utf8 as console_outputs_utf8;
 pub(crate) use executable::find_executable;
 pub(crate) use process::{ProcessIdentity, identify, is_alive, stop};
 

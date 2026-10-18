@@ -7,6 +7,7 @@ use surt_engine::project::{CleanupState, MergeIntoBase, RunState, RunStatus};
 
 use super::{resume_command, state_names};
 use crate::driving::{kept_line, label, last_error, local_time, reason, short};
+use crate::symbols::{ARROW, BLOCKED, DASH, DOT, INTEGRATING, WARNING};
 
 const LABEL_WIDTH: usize = 8;
 const CONTINUATION: &str = "           ";
@@ -27,7 +28,7 @@ pub(super) fn render(status: &RunStatus) -> String {
             &mut text,
             "branch",
             &format!(
-                "{} @ {} · merge into base: {}",
+                "{} @ {} {DOT} merge into base: {}",
                 branch.name,
                 short(&branch.tip),
                 merge_into_base(status.merge_into_base)
@@ -41,7 +42,7 @@ pub(super) fn render(status: &RunStatus) -> String {
         line(
             &mut text,
             &format!(
-                "⚠ {} still running unattended (pid {}) — stopped on next: {resume}",
+                "{WARNING} {} still running unattended (pid {}) {DASH} stopped on next: {resume}",
                 label(&unattended.step),
                 unattended.pid
             ),
@@ -51,7 +52,7 @@ pub(super) fn render(status: &RunStatus) -> String {
         line(
             &mut text,
             &format!(
-                "⟳ {}   {}: {} → {} (pending)",
+                "{INTEGRATING} {}   {}: {} {ARROW} {} (pending)",
                 label(&pending.step),
                 pending.branch,
                 short(&pending.from),
@@ -84,7 +85,7 @@ fn headline(status: &RunStatus) -> String {
         (None, _) => "   (no driver)".to_owned(),
     };
     format!(
-        "{} · run {}   {}{driver}\n",
+        "{} {DOT} run {}   {}{driver}\n",
         status.subject,
         status.run,
         state_names(&status.states)
@@ -95,7 +96,11 @@ fn blocked(text: &mut String, status: &RunStatus, resume: &str) {
     for step in &status.blocked {
         line(
             text,
-            &format!("⛔ {} blocked: {}", label(&step.step), reason(step.reason)),
+            &format!(
+                "{BLOCKED} {} blocked: {}",
+                label(&step.step),
+                reason(step.reason)
+            ),
         );
         let Some(failure) = &step.last_failure else {
             continue;

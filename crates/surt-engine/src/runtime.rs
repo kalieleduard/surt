@@ -5,6 +5,7 @@ mod error;
 mod fake;
 mod launch;
 mod protocol;
+mod report;
 mod stop;
 
 use std::future::Future;
@@ -19,6 +20,7 @@ pub use protocol::{
     Exit, FinalResult, Initialization, RuntimeCompletion, RuntimeEvent, RuntimeEventSink,
     RuntimeRequest, StepAttempt,
 };
+pub use report::RuntimeReport;
 pub use stop::{StopLevel, StopSignal};
 
 pub trait AgentRuntime: Send + Sync {

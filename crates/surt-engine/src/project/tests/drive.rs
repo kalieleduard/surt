@@ -1,3 +1,4 @@
+mod activity;
 mod blocked;
 mod branches;
 mod cancelling;
@@ -23,6 +24,7 @@ mod recovery;
 mod ref_moves;
 mod repository;
 mod reviews;
+mod runtime_info;
 mod shipping;
 mod stopping;
 mod team;

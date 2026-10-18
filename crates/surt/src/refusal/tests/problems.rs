@@ -1,6 +1,7 @@
 use surt_engine::project::{DefinitionFile, InvalidDefinition, Problem, Refusal, StepField};
 
 use super::text;
+use crate::symbols::Symbols;
 
 fn problem_line(problem: Problem) -> String {
     let refusal = Refusal::InvalidDefinition(Box::new(InvalidDefinition {
@@ -183,4 +184,16 @@ fn every_definition_problem_is_described_in_one_line_of_words() {
     for (problem, expected) in cases {
         assert_eq!(problem_line(problem), expected);
     }
+}
+
+#[test]
+fn a_cycle_in_ascii_mode_is_drawn_with_ascii_arrows() {
+    let line = problem_line(Problem::Cycle {
+        path: vec![owned("a"), owned("b"), owned("a")],
+    });
+
+    assert_eq!(
+        Symbols::Ascii.render(&line),
+        "the steps form a cycle: a -> b -> a"
+    );
 }
