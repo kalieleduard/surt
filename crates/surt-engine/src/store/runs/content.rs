@@ -1,24 +1,10 @@
 use sqlx::SqliteConnection;
 
-use super::{NewInitialArtifact, NewRunRows, new_id};
-use crate::artifacts::{identity, sha256_hex};
+use super::{NewInitialArtifact, NewRunRows};
+use crate::store::revisions::{Origin, artifact_id, insert_blob, publish};
 use crate::workflow::Snapshot;
 
-const FIRST_REVISION: i64 = 1;
-
-async fn insert_blob(
-    connection: &mut SqliteConnection,
-    sha256: &str,
-    bytes: &[u8],
-) -> Result<(), sqlx::Error> {
-    sqlx::query("INSERT OR IGNORE INTO blob (sha256, size, bytes) VALUES (?, ?, ?)")
-        .bind(sha256)
-        .bind(i64::try_from(bytes.len()).unwrap_or(i64::MAX))
-        .bind(bytes)
-        .execute(connection)
-        .await?;
-    Ok(())
-}
+const INITIAL: &str = "initial";
 
 pub(super) async fn insert_snapshot(
     connection: &mut SqliteConnection,
@@ -48,41 +34,11 @@ pub(super) async fn insert_initial_artifact(
     artifact: &NewInitialArtifact,
     rows: &NewRunRows,
 ) -> Result<(), sqlx::Error> {
-    let artifact_id = new_id();
-    sqlx::query("INSERT INTO artifact (id, workflow_run_id, name) VALUES (?, ?, ?)")
-        .bind(&artifact_id)
-        .bind(run)
-        .bind(&artifact.name)
-        .execute(&mut *connection)
-        .await?;
-    let files: Vec<(&str, String, &[u8])> = artifact
-        .files
-        .iter()
-        .map(|(rel_path, bytes)| (rel_path.as_str(), sha256_hex(bytes), bytes.as_slice()))
-        .collect();
-    let revision = new_id();
-    sqlx::query(
-        "INSERT INTO artifact_revision (id, artifact_id, number, identity_sha256, origin, human_action, actor, created_at) \
-         VALUES (?, ?, ?, ?, 'human', 'initial', ?, ?)",
-    )
-    .bind(&revision)
-    .bind(&artifact_id)
-    .bind(FIRST_REVISION)
-    .bind(identity(files.iter().map(|(rel_path, sha256, _)| (*rel_path, sha256.as_str()))))
-    .bind(&rows.actor)
-    .bind(rows.now)
-    .execute(&mut *connection)
-    .await?;
-    for (rel_path, sha256, bytes) in &files {
-        insert_blob(&mut *connection, sha256, bytes).await?;
-        sqlx::query(
-            "INSERT INTO revision_file (revision_id, rel_path, blob_sha256) VALUES (?, ?, ?)",
-        )
-        .bind(&revision)
-        .bind(rel_path)
-        .bind(sha256)
-        .execute(&mut *connection)
-        .await?;
-    }
+    let artifact_id = artifact_id(&mut *connection, run, &artifact.name).await?;
+    let origin = Origin::Human {
+        action: INITIAL,
+        actor: &rows.actor,
+    };
+    publish(connection, &artifact_id, &artifact.files, origin, rows.now).await?;
     Ok(())
 }

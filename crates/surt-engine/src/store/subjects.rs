@@ -22,4 +22,13 @@ impl Store {
             .fetch_all(&self.pool)
             .await
     }
+
+    pub(crate) async fn subject_of_run(&self, run: &str) -> Result<String, sqlx::Error> {
+        sqlx::query_scalar(
+            "SELECT s.name FROM subject s JOIN workflow_run w ON w.subject_id = s.id WHERE w.id = ?",
+        )
+        .bind(run)
+        .fetch_one(&self.pool)
+        .await
+    }
 }

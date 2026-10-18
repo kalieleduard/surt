@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::Path;
 
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, json};
 
 use super::{
     AgentRuntime, Exit, FailureClass, FinalResult, Initialization, RuntimeCompletion, RuntimeError,
@@ -10,6 +11,7 @@ use super::{
 };
 
 const SUCCESS_EXIT_CODE: i32 = 0;
+const STREAM_LOG: &str = "stream.jsonl";
 
 #[derive(Clone, Debug)]
 pub struct FakeRuntime {
@@ -138,12 +140,17 @@ impl AgentRuntime for FakeRuntime {
                 format!("no scripted behaviour for {:?}", request.step),
             )
         })?;
-        let _ = events.send(RuntimeEvent::Launched { pid: None });
         let initialization = Initialization {
             session_id: request.session_id,
             model: behavior.reported_model(&request.model),
         };
-        let _ = events.send(RuntimeEvent::Initialized(initialization.clone()));
+        for event in [
+            RuntimeEvent::Launched { pid: None },
+            RuntimeEvent::Initialized(initialization.clone()),
+        ] {
+            log(&request.log_dir, &event)?;
+            let _ = events.send(event);
+        }
         behavior
             .play(&request.delivery_dir, initialization, &stop)
             .await
@@ -191,6 +198,17 @@ impl Behavior {
             }
         }
     }
+}
+
+fn log(log_dir: &Path, event: &RuntimeEvent) -> Result<(), RuntimeError> {
+    fs::create_dir_all(log_dir).map_err(write_failure)?;
+    let mut stream = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_dir.join(STREAM_LOG))
+        .map_err(write_failure)?;
+    let line = json!({ "type": "fake", "event": format!("{event:?}") });
+    writeln!(stream, "{line}").map_err(write_failure)
 }
 
 fn write_failure(error: std::io::Error) -> RuntimeError {

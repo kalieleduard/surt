@@ -1,10 +1,13 @@
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the tick loop of drive executes decide from ticket 08 on"
-    )
-)]
-
 mod decide;
-mod graph;
+mod driver;
+mod frozen;
+pub(crate) mod graph;
+mod launch;
+mod load;
+mod outcome;
+mod record;
+
+pub(crate) use decide::RunEnd;
+pub(crate) use driver::{Driving, drive};
+pub(crate) use frozen::{CorruptSnapshot, Frozen};
+pub use outcome::{DriveOutcome, Gate, Progress, ProgressSink, StepLabel};
