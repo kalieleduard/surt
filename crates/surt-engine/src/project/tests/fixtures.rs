@@ -110,6 +110,7 @@ pub(super) fn new_run(workflow: &str) -> NewRun {
             initial("request", "request.txt", b"add login"),
             initial("base", "base.json", br#"{"sha": "abc"}"#),
         ],
+        carried: Vec::new(),
         actor: "dev@example.com".to_owned(),
     }
 }

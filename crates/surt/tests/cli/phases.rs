@@ -269,7 +269,7 @@ fn approving_with_no_gate_waiting_is_refused() {
 }
 
 #[test]
-fn a_feature_without_an_active_run_is_refused_by_every_phase_command() {
+fn a_feature_without_an_active_run_is_refused_by_plan_approve_and_reject() {
     let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n")]);
     let name = feature_name();
     sandbox.execute(
@@ -277,7 +277,6 @@ fn a_feature_without_an_active_run_is_refused_by_every_phase_command() {
     );
 
     for args in [
-        vec!["feature", name.as_str()],
         vec!["plan", name.as_str()],
         vec!["approve", name.as_str()],
         vec!["reject", name.as_str(), "-m", "no"],

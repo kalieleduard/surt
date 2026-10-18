@@ -22,10 +22,13 @@ use std::path::Path;
 pub use crate::cleanup::{Cleanup, Kept, Left};
 pub use crate::drive::cancel::Cancellation;
 pub use crate::drive::graph::BlockReason;
-pub use crate::drive::{DriveOutcome, Gate, Progress, ProgressSink, StepLabel};
+pub use crate::drive::{
+    ActivitySnapshot, DriveOutcome, Gate, Progress, ProgressSink, RunningStep, StepLabel,
+};
 pub use crate::git::GitVersion;
 pub use crate::operations::checks::REPORT_SCHEMA as CHECK_REPORT_SCHEMA;
 pub use crate::operations::{BASE_SCHEMA, CONFLICT_SCHEMA, INTEGRATION_SCHEMA};
+pub use crate::platform::console_outputs_utf8;
 pub use crate::workflow::{
     AgentAssets, Catalog, DefinitionFile, DeliveryCheck, InvalidDefinition, Problem, StepField,
 };
@@ -35,13 +38,13 @@ pub(crate) use config::parse_timeout;
 pub use config::{Check, Config, GitConfig, MergeIntoBase};
 pub use create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};
 pub use delivery::IntegrationBranch;
-pub use error::{AwaitedRevision, Candidate, Error, InternalError, Refusal, RunState};
+pub use error::{AwaitedRevision, Candidate, Error, InternalError, KnownRun, Refusal, RunState};
 pub use gate_status::GateStatus;
 pub use gates::{Decided, RevisionOrigin};
 pub use init::{FileState, InitFile, Initialized};
 pub use naming::Slug;
 pub use repository::Commit;
-pub use resolving::Subject;
+pub use resolving::{RunSelector, Subject};
 pub use show::{ArtifactSummary, ShowRequest, Shown};
 pub use status::{
     AgentSlots, CleanupState, Conflict, Driver, GateView, ItemState, ItemStatus,

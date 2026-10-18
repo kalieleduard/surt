@@ -4,6 +4,7 @@ use surt_engine::project::{FileState, InitFile, Initialized, Project};
 
 use crate::failure::Failure;
 use crate::message::Message;
+use crate::symbols::SUCCESS;
 
 const NEXT_COMMAND: &str = "surt feature \"<what you want to build>\"";
 
@@ -29,7 +30,7 @@ fn report(initialized: &Initialized) -> Message {
     }
     message
         .context(format!(
-            "git {} ✔  identity {} ✔",
+            "git {} {SUCCESS}  identity {} {SUCCESS}",
             initialized.git, initialized.identity
         ))
         .way("next", NEXT_COMMAND)

@@ -8,9 +8,9 @@ Spec: [Milestone 2](../spec.md) (stories 20, 21, 22, 23) · Slice: R3 Full show 
 
 **Status:** ready-for-agent
 
-- [ ] `--iter N` with `--task` prints that Iteration's Revision; an Iteration that produced none refuses
-- [ ] `--iter` without `--task` is invalid usage at the clap level, exit `2`
-- [ ] `--file <path>` prints that file's bytes unchanged
-- [ ] An unknown `--file` path refuses and lists the files of that Revision, exit `3`
-- [ ] The flags combine with `--run`
-- [ ] Binary tests for each flag and refusal; "reads never write" covers them
+- [x] `--iter N` with `--task` prints that Iteration's Revision; an Iteration that produced none refuses
+- [x] `--iter` without `--task` is invalid usage at the clap level, exit `2`
+- [x] `--file <path>` prints that file's bytes unchanged
+- [x] An unknown `--file` path refuses and lists the files of that Revision, exit `3`
+- [x] The flags combine with `--run`
+- [x] Binary tests for each flag and refusal; "reads never write" covers them

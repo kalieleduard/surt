@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 
 use crate::scripts::{build, crash_in, review, ship, spec, tasks};
 use crate::start::{feature_name, planned};
-use crate::support::{Run, Sandbox};
+use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const BLOCKED_EXIT_CODE: i32 = 4;
 const SHORT_SHA_CHARS: usize = 7;
@@ -273,6 +273,20 @@ fn show_reads_any_revision_after_cleanup_including_a_tasks_own_artifacts() {
 }
 
 #[test]
+fn status_run_1_of_a_single_run_feature_is_the_detail_shown_by_default() {
+    let name = feature_name();
+    let sandbox = at_the_manifest_gate(&name);
+
+    let selected = ok(surt(&sandbox, &["status", &name, "--run", "1"]));
+
+    assert_eq!(selected, ok(surt(&sandbox, &["status", &name])));
+    assert!(
+        selected.starts_with(&format!("{name} · run 1 ")),
+        "{selected}"
+    );
+}
+
+#[test]
 fn status_and_show_write_nothing_to_the_database_or_the_working_copy() {
     let name = feature_name();
     let sandbox = at_the_manifest_gate(&name);
@@ -285,19 +299,75 @@ fn status_and_show_write_nothing_to_the_database_or_the_working_copy() {
         vec!["status"],
         vec!["status", "--all"],
         vec!["status", &name],
+        vec!["status", &name, "--run", "1"],
         vec!["show", &name],
         vec!["show", &name, "manifest"],
         vec!["show", &name, "spec", "--rev", "1"],
+        vec!["show", &name, "--run", "1"],
+        vec!["show", &name, "manifest", "--run", "1"],
+        vec!["show", &name, "manifest", "--file", "tasks/A.md"],
+        vec![
+            "show",
+            &name,
+            "manifest",
+            "--file",
+            "tasks/B.md",
+            "--run",
+            "1",
+        ],
     ] {
         ok(surt(&sandbox, &args));
     }
+    let refused = surt(
+        &sandbox,
+        &["show", &name, "manifest", "--file", "tasks/Z.md"],
+    );
 
-    let mut after = hashes(&sandbox.dot_surt());
+    assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
+    assert_unchanged(&sandbox.dot_surt(), before);
+    assert!(!working_copy.join("tasks/B.md").exists());
+}
+
+#[test]
+fn show_of_an_iteration_writes_nothing_to_the_database() {
+    let name = feature_name();
+    let sandbox = delivered(&name);
+    let before = hashes(&sandbox.dot_surt());
+
+    for args in [
+        vec!["show", &name, "feedback", "--task", "A", "--iter", "1"],
+        vec![
+            "show", &name, "feedback", "--task", "A", "--iter", "1", "--run", "1",
+        ],
+        vec![
+            "show",
+            &name,
+            "feedback",
+            "--task",
+            "A",
+            "--iter",
+            "1",
+            "--file",
+            "feedback.json",
+        ],
+    ] {
+        ok(surt(&sandbox, &args));
+    }
+    let refused = surt(
+        &sandbox,
+        &["show", &name, "feedback", "--task", "A", "--iter", "2"],
+    );
+
+    assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
+    assert_unchanged(&sandbox.dot_surt(), before);
+}
+
+fn assert_unchanged(root: &Path, before: BTreeMap<String, String>) {
+    let mut after = hashes(root);
     let shared_memory = after.remove(SQLITE_SHARED_MEMORY);
     let log = after.remove(SQLITE_WRITE_AHEAD_LOG);
     assert_eq!(after, before);
     assert!(shared_memory.is_none() || log.as_deref() == Some(EMPTY_SHA256));
-    assert!(!working_copy.join("tasks/B.md").exists());
 }
 
 fn project(scripts: &[String]) -> Sandbox {

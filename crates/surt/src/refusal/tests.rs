@@ -8,6 +8,7 @@ use surt_engine::project::{
 };
 
 use super::message;
+use crate::symbols::Symbols;
 
 const MAX_CONTEXT_LINES: usize = 2;
 const MAX_WAYS_OUT: usize = 3;
@@ -166,6 +167,11 @@ fn every_refusal() -> Vec<Refusal> {
             subject: "20261017-add-login".to_owned(),
             item: "A".to_owned(),
             known: Vec::new(),
+        },
+        Refusal::UnrecordedEditsBlockNewRun {
+            subject: "20261017-add-login".to_owned(),
+            run: 1,
+            files: vec!["spec.md".to_owned(), "notes.md".to_owned()],
         },
         Refusal::ActiveRunExists {
             subject: "20261017-add-login".to_owned(),
@@ -363,6 +369,26 @@ fn an_active_run_points_at_resuming_the_feature() {
 }
 
 #[test]
+fn unrecorded_edits_left_by_the_previous_run_are_listed_before_a_new_run() {
+    let single = Refusal::UnrecordedEditsBlockNewRun {
+        subject: "20261017-add-login".to_owned(),
+        run: 1,
+        files: vec!["spec.md".to_owned()],
+    };
+    let refusals = every_refusal();
+    let several = &refusals[refusals.len() - 2];
+
+    assert_eq!(
+        text(&single),
+        "✖ working copy has unrecorded edits from run 1\n    .surt/features/20261017-add-login/spec.md\n  fix: move or delete the file, then run again\n"
+    );
+    assert_eq!(
+        text(several),
+        "✖ working copy has unrecorded edits from run 1\n    .surt/features/20261017-add-login/spec.md .surt/features/20261017-add-login/notes.md\n  fix: move or delete the files, then run again\n"
+    );
+}
+
+#[test]
 fn an_unapproved_edit_points_at_approving_it() {
     let refusal = &every_refusal()[20];
 
@@ -439,4 +465,13 @@ fn an_ambiguous_feature_lists_every_candidate_and_asks_for_the_full_name() {
          20261017-add-login-2  AWAITING APPROVAL (manifest rev 2) + BLOCKED\n  \
          use the full name\n"
     );
+}
+
+#[test]
+fn every_refusal_prints_only_ascii_in_ascii_mode() {
+    for refusal in every_refusal() {
+        let text = text(&refusal);
+
+        assert!(Symbols::Ascii.render(&text).is_ascii(), "{text}");
+    }
 }

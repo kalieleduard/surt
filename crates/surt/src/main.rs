@@ -14,6 +14,7 @@ mod runtime;
 mod show;
 mod start;
 mod status;
+mod symbols;
 mod table;
 
 use std::process::ExitCode;

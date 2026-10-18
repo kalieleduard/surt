@@ -227,7 +227,7 @@ The engine never prints. It reports typed events, and the CLI renders lines, the
 pub enum Progress {
     StepStarted { .. }, StepFinished { .. }, AttemptRetry { .. }, Merged { key: ItemKey, sha: Sha },
     Salvaged { .. }, OrphanStopped { .. }, Paused { until: Option<Timestamp> },
-    Running(Vec<RunningExecution>),   // input for the footer
+    Activity(ActivitySnapshot),       // running steps + start times, queued, slots: input for the footer
     Cleanup { .. },
 }
 pub type ProgressSink = tokio::sync::mpsc::UnboundedSender<Progress>;
@@ -235,6 +235,8 @@ pub type ProgressSink = tokio::sync::mpsc::UnboundedSender<Progress>;
 pub struct StopSignal(/* tokio::sync::watch<StopLevel> */);
 pub enum StopLevel { None, Graceful, Force }
 ```
+
+`drive` emits `Activity` when it changes, on the ticks where the Driver waits for running work, so a snapshot never shows a step it has just decided to launch as queued. The footer and the five-minute line are pure functions of (last snapshot, time of the last event line, `now`, whether stderr is a TTY) in the CLI's progress module; a one-second Tokio interval only calls them.
 
 The CLI's first Ctrl-C (or SIGHUP, or the console closing) calls `graceful()`, the second `force()`. A stop request written by `surt stop` is read by `drive` on its next tick and raised on the same signal, so both paths run the same Interruption ([A. Process Model](A-process-model.md#interruption-ctrl-c-and-cancellation)).
 

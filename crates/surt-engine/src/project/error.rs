@@ -32,6 +32,12 @@ pub struct Candidate {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KnownRun {
+    pub run: u32,
+    pub states: Vec<RunState>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AwaitedRevision {
     pub artifact: String,
     pub revision: u32,
@@ -72,6 +78,11 @@ pub enum Refusal {
     },
     ActiveRunExists {
         subject: String,
+    },
+    UnrecordedEditsBlockNewRun {
+        subject: String,
+        run: u32,
+        files: Vec<String>,
     },
     DriverLive {
         subject: String,
@@ -125,10 +136,29 @@ pub enum Refusal {
         revision: u32,
         latest: u32,
     },
+    UnknownRun {
+        subject: String,
+        run: u32,
+        runs: Vec<KnownRun>,
+    },
     UnknownItem {
         subject: String,
         item: String,
         known: Vec<String>,
+    },
+    NoRevisionInIteration {
+        subject: String,
+        item: Option<String>,
+        artifact: String,
+        iteration: u32,
+        iterations: Vec<u32>,
+    },
+    UnknownFile {
+        subject: String,
+        artifact: String,
+        revision: u32,
+        path: String,
+        files: Vec<String>,
     },
     InvalidDefinition(Box<InvalidDefinition>),
     IntegrationBranchMoved {

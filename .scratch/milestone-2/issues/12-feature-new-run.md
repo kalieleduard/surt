@@ -8,13 +8,13 @@ Spec: [Milestone 2](../spec.md) (stories 49–58, 78) · Slice: R6 New run · Pl
 
 **Status:** ready-for-agent
 
-- [ ] `create_run` gains the "new run of an existing Subject" form: the latest `request` Revision as a new human-origin Initial Artifact, a Base (`HEAD` or `--base`) and a fresh freeze of definitions, agents and configuration
-- [ ] Branches are `surt/<feature>.N` and `surt/task/<feature>.N/<key>`; worktrees live under `<feature>.N`
-- [ ] Refuses while the Subject has an active run
-- [ ] Refuses while the previous run's Working Copy differs from its baseline, listing the files
-- [ ] The CLI first calls `drive` on the previous root run to finish a pending cleanup, then `create_run`
-- [ ] `surt feature <feature>` on a Subject with no active run refuses, shows how the last run ended and suggests `--new-run`
-- [ ] The `cancel` confirmation says that starting over needs `surt feature <feature> --new-run`
-- [ ] `surt status <feature>` on a Subject with several runs names the run it shows and how many exist
-- [ ] `Project` tests: `.N` branches and worktree paths, the unrecorded-edit refusal, the active-run refusal
-- [ ] Binary test: cancel → `--new-run` → spec gate with `surt/<feature>.2`; `status --run 1` still shows the cancelled run
+- [x] `create_run` gains the "new run of an existing Subject" form: the latest `request` Revision as a new human-origin Initial Artifact, a Base (`HEAD` or `--base`) and a fresh freeze of definitions, agents and configuration
+- [x] Branches are `surt/<feature>.N` and `surt/task/<feature>.N/<key>`; worktrees live under `<feature>.N`
+- [x] Refuses while the Subject has an active run
+- [x] Refuses while the previous run's Working Copy differs from its baseline, listing the files
+- [x] The CLI first calls `drive` on the previous root run to finish a pending cleanup, then `create_run`
+- [x] `surt feature <feature>` on a Subject with no active run refuses, shows how the last run ended and suggests `--new-run`
+- [x] The `cancel` confirmation says that starting over needs `surt feature <feature> --new-run`
+- [x] `surt status <feature>` on a Subject with several runs names the run it shows and how many exist
+- [x] `Project` tests: `.N` branches and worktree paths, the unrecorded-edit refusal, the active-run refusal
+- [x] Binary test: cancel → `--new-run` → spec gate with `surt/<feature>.2`; `status --run 1` still shows the cancelled run

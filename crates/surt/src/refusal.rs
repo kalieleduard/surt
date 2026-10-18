@@ -61,6 +61,11 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             Message::new(format!("{subject} already has an active run"))
                 .way("resume", format!("surt feature {subject}"))
         }
+        Refusal::UnrecordedEditsBlockNewRun {
+            subject,
+            run,
+            files,
+        } => edits::blocking_new_run(subject, *run, files),
         Refusal::InvalidDefinition(invalid) => invalid_definition(invalid),
         Refusal::AgentOverrides { path } => Message::new(format!(
             "local agent overrides in {} are not supported yet",
@@ -146,6 +151,27 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             item,
             known,
         } => reading::unknown_task(subject, item, known),
+        Refusal::UnknownRun { subject, run, runs } => reading::unknown_run(subject, *run, runs),
+        Refusal::NoRevisionInIteration {
+            subject,
+            item,
+            artifact,
+            iteration,
+            iterations,
+        } => reading::no_revision_in_iteration(
+            subject,
+            item.as_deref(),
+            artifact,
+            *iteration,
+            iterations,
+        ),
+        Refusal::UnknownFile {
+            artifact,
+            revision,
+            path,
+            files,
+            ..
+        } => reading::unknown_file(artifact, *revision, path, files),
     }
 }
 

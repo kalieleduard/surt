@@ -104,6 +104,21 @@ pub enum Progress {
         driver: Option<u32>,
     },
     CleanedUp(Cleanup),
+    Activity(ActivitySnapshot),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ActivitySnapshot {
+    pub running: Vec<RunningStep>,
+    pub queued: usize,
+    pub slots_in_use: usize,
+    pub slots_limit: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RunningStep {
+    pub step: StepLabel,
+    pub started_at: i64,
 }
 
 pub type ProgressSink = UnboundedSender<Progress>;

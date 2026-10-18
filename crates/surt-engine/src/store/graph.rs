@@ -45,6 +45,7 @@ pub(crate) struct StepRow {
 pub(crate) struct ExecutionRow {
     pub(crate) step: String,
     pub(crate) state: ExecutionState,
+    pub(crate) started_at: Option<i64>,
 }
 
 #[derive(FromRow)]
@@ -76,6 +77,7 @@ struct RawExecution {
     step_run_id: String,
     state: String,
     failure_class: Option<String>,
+    started_at: Option<i64>,
 }
 
 impl Store {
@@ -107,7 +109,7 @@ impl Store {
         .fetch_all(&mut *snapshot)
         .await?;
         let executions: Vec<RawExecution> = sqlx::query_as(
-            "SELECT e.step_run_id, e.state, e.failure_class FROM execution e \
+            "SELECT e.step_run_id, e.state, e.failure_class, e.started_at FROM execution e \
              JOIN step_run s ON s.id = e.step_run_id JOIN workflow_run w ON w.id = s.workflow_run_id \
              WHERE w.root_run_id = ? ORDER BY e.step_run_id, e.attempt",
         )
@@ -166,6 +168,7 @@ impl From<RawExecution> for ExecutionRow {
         ExecutionRow {
             state: execution_state(&raw.state, raw.failure_class.as_deref()),
             step: raw.step_run_id,
+            started_at: raw.started_at,
         }
     }
 }

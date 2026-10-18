@@ -58,7 +58,7 @@ $ surt approve add-login
   use the full name
 ```
 
-- **Run.** Commands that write always act on the Subject's active run. Read commands use the active run, or the latest one when none is active. `--run N` selects run `N` (`workflow_run.ordinal`).
+- **Run.** Commands that write always act on the Subject's active run. Read commands use the active run, or the latest one when none is active. `--run N` selects run `N` (`workflow_run.ordinal`). A run `N` the Subject doesn't have is refused (exit `3`), listing the Subject's runs with their derived states.
 - **Task.** By item key (`B`). A task argument selects that item's Child Workflow Run.
 - **Execution.** `inspect` and `logs` also accept an Execution id, or an unambiguous prefix of at least 8 characters, which is how ids appear in Salvage Refs and Execution directories.
 - **Surt's own output** always prints full Feature names, so every suggested command can be copied as is.
@@ -201,6 +201,8 @@ $ surt status add-login
     D  ⏸ pending   waits for B
 ```
 
+When the Feature has several runs, the headline names the one it shows and how many exist: `20261017-add-login · run 2 of 2   AWAITING APPROVAL`. `--run 1` shows the earlier one.
+
 At an Approval Gate it lists everything the Approval covers. For an Item List that is the list and every file it references ([F](F-agent-contract.md)):
 
 ```
@@ -259,7 +261,8 @@ $ surt show add-login feedback --task B     # an artifact of task B's Child Work
 $ surt show add-login spec --rev 1 > old-spec.md
 ```
 
-- Content goes to stdout byte for byte. The latest Revision is the default. `--rev N` selects one, and `--task <key> --iter N` selects the Revision produced in that Iteration of the Task.
+- Content goes to stdout byte for byte. The latest Revision is the default. `--rev N` selects one, and `--task <key> --iter N` selects the Revision produced in that Iteration of the Task. `--iter` without `--task`, or together with `--rev`, is invalid usage (exit `2`); an Iteration that produced no Revision of the artifact refuses and lists the Iterations that did.
+- `--file <path>` prints one file of the selected Revision byte for byte instead of its primary file. An unknown path refuses and lists the files of that Revision.
 - An unknown artifact name refuses and lists the existing ones.
 - When the Working Copy holds an unrecorded edit, `show` prints the recorded Revision and warns on stderr: `⚠ Working Copy has an unrecorded edit to spec.md`.
 - `--json` returns the metadata (number, origin, SHA-256, Approval) together with the content.
@@ -293,6 +296,7 @@ A driving command prints one line per relevant state change: a Step Run starting
   ↻ task B build attempt 2
   ── 2 running (B build 6m, C review 1m) · 1 queued · slots 3/3 · 32m ──
   ```
+- The footer is drawn with `\r` plus ANSI erase-line, erased before each event line and redrawn after it, and erased before the final summary, so the scrollback holds only event lines. Durations read `42s`, `6m`, `2h05m`.
 - **Without a TTY** there is no footer. After 5 minutes without an event it prints a line so CI does not assume a hang: `… still running: B build (15m), C review (3m)`.
 - It ends with a summary and the next command, as in the mocks of sections A, G and I.
 
@@ -307,7 +311,18 @@ A driving command prints one line per relevant state change: a Step Run starting
   B
   ```
 - **Without a TTY** nothing is ever asked. A command that would confirm refuses with exit `3` unless `--yes` is given. There are no colours, spinners or footers, only the same lines.
-- `NO_COLOR` disables colour. When the terminal is not UTF-8 (an old Windows console), the symbols become `[ok] [error] [warn] [retry] [paused] [blocked]`.
+- `NO_COLOR` disables colour. When the terminal is not UTF-8 (an old Windows console), the symbols become `[ok] [error] [warn] [retry] [paused] [blocked]`. The two settings are independent.
+  - The engine's `platform` module answers "does the console output UTF-8". Unix: the first non-empty of `LC_ALL`, `LC_CTYPE`, `LANG` must name UTF-8 (`UTF-8` or `utf8`, any case); none set counts as UTF-8. Windows: the console output code page must be `65001`; a process with no console, or whose stdout and stderr are both redirected, counts as UTF-8, since the bytes go to a pipe or file, not to the console.
+  - Every glyph the CLI prints lives in one symbol table (`surt` crate, `symbols.rs`), which also holds its ASCII form. Lines are converted at the print boundary, so a glyph in an engine message (the `→` of a cycle) is converted too. `show` file content is never converted.
+
+    | Glyph | ASCII | Glyph | ASCII | Glyph | ASCII |
+    |---|---|---|---|---|---|
+    | `✔` | `[ok]` | `⏹` | `[stopped]` | `─` | `-` |
+    | `✖` | `[error]` | `●` | `*` | `…` | `...` |
+    | `⚠` | `[warn]` | `⏳` | `[waiting]` | `−` | `-` |
+    | `↻` | `[retry]` | `✎` | `[edited]` | `—` | `-` |
+    | `⏸` | `[paused]` | `⟳` | `[integrating]` | `·` | `\|` |
+    | `⛔` | `[blocked]` | `│` | `\|` | `→` | `->` |
 - `SURT_LOG` (`tracing` filter syntax, e.g. `SURT_LOG=debug`) turns on Surt's own diagnostic logs on stderr, for any command.
 
 ## Exit codes

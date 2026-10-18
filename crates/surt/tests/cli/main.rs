@@ -7,6 +7,7 @@ mod init;
 #[cfg(unix)]
 mod interrupt;
 mod kill;
+mod new_run;
 mod output;
 mod phases;
 mod scripts;
