@@ -25,7 +25,7 @@ pub(super) struct Pausing {
     since: Option<i64>,
 }
 
-/// How an agent Execution ended, as far as the pause cares.
+#[derive(Debug, PartialEq, Eq)]
 pub(super) enum AgentEnd<'a> {
     Transient {
         code: &'a str,
