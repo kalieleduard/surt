@@ -14,10 +14,11 @@ use super::operate::Flight;
 use super::outcome::{DriveOutcome, Progress, ProgressSink};
 use crate::platform;
 use crate::project::{Error, Layout, Refusal};
+use crate::reconcile::Reconcile;
 use crate::runtime::{AgentRuntime, StopLevel, StopSignal};
 use crate::store::{StepRow, Store};
 use crate::workflow::{Catalog, Definition};
-use crate::working_copy::WorkingCopy;
+use crate::working_copy::{WorkingCopy, finish_pending_writes};
 
 const TICK: Duration = Duration::from_secs(1);
 const DONE: &str = "done";
@@ -65,11 +66,12 @@ pub(crate) async fn drive<R: AgentRuntime>(
         return Err(driver_live(&driving).await?);
     };
     let store = driving.store;
-    store
-        .record_driver(driving.root, std::process::id())
-        .await?;
-    store.interrupt_stale(driving.root).await?;
-    store.unblock(driving.root).await?;
+    let reconcile = Reconcile {
+        store,
+        repository: driving.layout.root(),
+        root: driving.root,
+    };
+    recover(&driving, &reconcile, &progress).await?;
     let frozen = Frozen::from_files(store.frozen_files(driving.root).await?)?;
     let working_copy = WorkingCopy::load(store, driving.layout, driving.root, &frozen).await?;
     let driver = Driver {
@@ -86,7 +88,35 @@ pub(crate) async fn drive<R: AgentRuntime>(
     if let Some(refusal) = driver.guard().await? {
         return Ok(DriveOutcome::Halted(refusal));
     }
+    if let Some(refusal) = reconcile.check_integration_branch().await? {
+        return Ok(DriveOutcome::Halted(refusal));
+    }
+    store.unblock(driver.driving.root).await?;
     driver.run().await
+}
+
+async fn recover(
+    driving: &Driving<'_>,
+    reconcile: &Reconcile<'_>,
+    progress: &ProgressSink,
+) -> Result<(), Error> {
+    let store = driving.store;
+    let previous = store.driver(driving.root).await?.pid;
+    let pid = std::process::id();
+    store
+        .record_driver(driving.root, pid, platform::identify(pid).as_ref())
+        .await?;
+    let found = reconcile.settle().await?;
+    if !found.is_empty() {
+        let driver = previous.and_then(|pid| u32::try_from(pid).ok());
+        let _ = progress.send(Progress::Recovering { driver });
+        for recovered in found {
+            let _ = progress.send(recovered);
+        }
+    }
+    let subject = store.subject_of_run(driving.root).await?;
+    let working_copy = driving.layout.working_copy(&subject);
+    finish_pending_writes(store, &working_copy, driving.root).await
 }
 
 async fn driver_live(driving: &Driving<'_>) -> Result<Error, Error> {

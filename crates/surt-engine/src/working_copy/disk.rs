@@ -73,7 +73,7 @@ pub(super) fn write(target: &Path, bytes: &[u8]) -> io::Result<()> {
     fs::write(target, bytes)
 }
 
-fn read_optional(path: &Path) -> io::Result<Option<Vec<u8>>> {
+pub(super) fn read_optional(path: &Path) -> io::Result<Option<Vec<u8>>> {
     match fs::read(path) {
         Ok(bytes) => Ok(Some(bytes)),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),

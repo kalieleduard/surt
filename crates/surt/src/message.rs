@@ -87,4 +87,9 @@ impl Message {
     pub(crate) fn plain_error(&self) -> String {
         self.render("✖", Style::new())
     }
+
+    #[cfg(test)]
+    pub(crate) fn plain(&self, mark: Mark) -> String {
+        self.render(mark.symbol(), Style::new())
+    }
 }

@@ -15,6 +15,7 @@ use super::outcome::Progress;
 use super::record::WorkingCopy;
 use crate::artifacts::{AcceptedDelivery, DeliveryContract};
 use crate::context::{Assembly, ContextInput, PreviousIteration};
+use crate::platform;
 use crate::project::Error;
 use crate::runtime::{
     AgentRuntime, Rejection, RuntimeEvent, RuntimeRequest, StepAttempt, StopLevel, Verdict, accept,
@@ -218,11 +219,17 @@ impl<R: AgentRuntime> Driver<'_, R> {
         mut events: UnboundedReceiver<RuntimeEvent>,
     ) -> Result<(), Error> {
         while let Some(event) = events.recv().await {
-            if let RuntimeEvent::Identified { version } = event {
-                self.driving
-                    .store
-                    .record_runtime_version(execution, &version)
-                    .await?;
+            let store = self.driving.store;
+            match event {
+                RuntimeEvent::Identified { version } => {
+                    store.record_runtime_version(execution, &version).await?;
+                }
+                RuntimeEvent::Launched { pid: Some(pid) } => {
+                    if let Some(identity) = platform::identify(pid) {
+                        store.record_process(execution, &identity).await?;
+                    }
+                }
+                _ => {}
             }
         }
         Ok(())

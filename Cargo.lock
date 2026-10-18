@@ -1814,6 +1814,7 @@ dependencies = [
  "dunce",
  "jiff",
  "jsonschema",
+ "libc",
  "nix",
  "process-wrap",
  "serde",
@@ -1827,6 +1828,7 @@ dependencies = [
  "tracing",
  "uuid",
  "windows",
+ "windows-sys",
 ]
 
 [[package]]

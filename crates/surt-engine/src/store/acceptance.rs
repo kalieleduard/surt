@@ -72,7 +72,7 @@ impl Store {
             .execute(&mut *transaction)
             .await?;
         sqlx::query(
-            "UPDATE step_run SET state = 'done', outcome = ?, finished_at = ? WHERE id = ?",
+            "UPDATE step_run SET state = 'done', outcome = ?, finished_at = ?, blocked_reason = NULL WHERE id = ?",
         )
         .bind(acceptance.outcome)
         .bind(now)
