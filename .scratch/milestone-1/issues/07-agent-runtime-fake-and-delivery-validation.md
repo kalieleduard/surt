@@ -8,8 +8,8 @@ Spec: [Milestone 1](../spec.md) (stories 113–114) · Slice: S3 Engine + Fake �
 
 **Status:** ready-for-agent
 
-- [ ] `RuntimeError` carries a `FailureClass` (`transient`, `not_retryable`, `retryable`) classified by the adapter; the runtime does not resolve inputs, publish Revisions or write to SQLite
-- [ ] `FakeRuntime` and its typed script (`Script::new().on(<step key>, <iteration>, <attempt>, Behavior::…)`) are public but only with the `test-support` feature
-- [ ] Fake behaviours: valid delivery, invalid JSON, missing file, model mismatch, crash, limit failure (transient, with optional reset time), and an Execution that waits until stopped
-- [ ] Delivery validation: envelope `{outcome, outputs}`, relative paths with no escape or link, formats and JSON Schema draft-07, plus consistency checks registered by the workflow
-- [ ] Tests cover each Fake behaviour against the validator, including every rejection reason
+- [x] `RuntimeError` carries a `FailureClass` (`transient`, `not_retryable`, `retryable`) classified by the adapter; the runtime does not resolve inputs, publish Revisions or write to SQLite
+- [x] `FakeRuntime` and its typed script (`Script::new().on(<step key>, <iteration>, <attempt>, Behavior::…)`) are public but only with the `test-support` feature
+- [x] Fake behaviours: valid delivery, invalid JSON, missing file, model mismatch, crash, limit failure (transient, with optional reset time), and an Execution that waits until stopped
+- [x] Delivery validation: envelope `{outcome, outputs}`, relative paths with no escape or link, formats and JSON Schema draft-07, plus consistency checks registered by the workflow
+- [x] Tests cover each Fake behaviour against the validator, including every rejection reason

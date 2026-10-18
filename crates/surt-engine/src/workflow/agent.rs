@@ -48,17 +48,17 @@ pub(crate) struct InputSpec {
 pub(crate) struct OutputSpec {
     pub(crate) format: Format,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    json_schema: Option<String>,
+    pub(crate) json_schema: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    item_files: BTreeMap<String, ItemFileSpec>,
+    pub(crate) item_files: BTreeMap<String, ItemFileSpec>,
 }
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct ItemFileSpec {
-    format: Format,
+pub(crate) struct ItemFileSpec {
+    pub(crate) format: Format,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    json_schema: Option<String>,
+    pub(crate) json_schema: Option<String>,
 }
 
 #[derive(Deserialize, Serialize)]
