@@ -108,7 +108,7 @@ async fn a_succeeded_run_removes_its_scratch_space_and_keeps_its_product_and_his
         cleanups(&driven),
         [Cleanup {
             worktrees: 2,
-            task_branches: 2,
+            child_branches: 2,
             salvage_refs: 1,
             working_copy: true,
             kept: Vec::new(),
@@ -254,7 +254,7 @@ async fn a_moved_task_branch_and_a_foreign_path_are_kept_with_a_warning() {
         cleanups(&driven),
         [Cleanup {
             worktrees: 1,
-            task_branches: 1,
+            child_branches: 1,
             working_copy: true,
             kept: vec![
                 Kept::ForeignPath {

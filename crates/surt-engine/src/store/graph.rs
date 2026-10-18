@@ -3,7 +3,7 @@ use sqlx::FromRow;
 use super::revisions::number;
 use super::{Store, StoreError};
 use crate::drive::graph::{
-    BlockReason, ExecutionState, FailureClass, Outcome, RunState, StepRunState,
+    BlockReason, ExecutionState, FailureClass, Outcome, RunId, RunState, StepRunState,
 };
 
 #[derive(Clone, Debug)]
@@ -79,7 +79,8 @@ struct RawExecution {
 }
 
 impl Store {
-    pub(crate) async fn run_rows(&self, root: &str) -> Result<RunRows, StoreError> {
+    pub(crate) async fn run_rows(&self, root: &RunId) -> Result<RunRows, StoreError> {
+        let root = root.as_str();
         let mut snapshot = self.pool.begin().await?;
         let run: RootRow = sqlx::query_as(
             "SELECT w.id, s.name AS subject, w.ordinal, w.definition_sha256, w.state, \

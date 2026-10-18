@@ -3,7 +3,7 @@ mod tasks;
 
 use std::fmt::Write;
 
-use surt_engine::project::{CleanupState, RunState, RunStatus};
+use surt_engine::project::{CleanupState, MergeIntoBase, RunState, RunStatus};
 
 use super::{resume_command, state_names};
 use crate::driving::{kept_line, label, last_error, local_time, reason, short};
@@ -26,11 +26,16 @@ pub(super) fn render(status: &RunStatus) -> String {
         field(
             &mut text,
             "branch",
-            &format!("{} @ {}", branch.name, short(&branch.tip)),
+            &format!(
+                "{} @ {} · merge into base: {}",
+                branch.name,
+                short(&branch.tip),
+                merge_into_base(status.merge_into_base)
+            ),
         );
     }
     gates::render(&mut text, status);
-    tasks::render(&mut text, &status.tasks);
+    tasks::render(&mut text, &status.items, status.slots);
     blocked(&mut text, status, &resume);
     for unattended in &status.unattended {
         line(
@@ -56,6 +61,13 @@ pub(super) fn render(status: &RunStatus) -> String {
     }
     cleanup(&mut text, status.cleanup.as_ref(), &resume);
     text
+}
+
+fn merge_into_base(mode: MergeIntoBase) -> &'static str {
+    match mode {
+        MergeIntoBase::Never => "never",
+        MergeIntoBase::FfOnly => "ff-only",
+    }
 }
 
 fn headline(status: &RunStatus) -> String {
@@ -90,7 +102,7 @@ fn blocked(text: &mut String, status: &RunStatus, resume: &str) {
         };
         line(text, &format!("   {}", last_error(failure)));
         if let Some(log) = &failure.log {
-            line(text, &format!("   log: {}", log.display()));
+            line(text, &format!("   inspect: {}", log.display()));
         }
     }
     if !status.blocked.is_empty() {

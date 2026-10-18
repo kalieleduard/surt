@@ -9,17 +9,17 @@ use super::decide::{self, Action, Ctx, RunEnd};
 use super::ending;
 use super::flights::Flights;
 use super::frozen::{CorruptSnapshot, Frozen};
-use super::graph::StepRunId;
+use super::graph::{RunId, StepRunId};
 use super::load::Loaded;
 use super::operate::Flight;
 use super::outcome::{DriveOutcome, Progress, ProgressSink};
+use crate::artifacts::working_copy::{WorkingCopy, finish_pending_writes};
 use crate::platform;
 use crate::project::{Error, Layout, Refusal};
 use crate::reconcile::Reconcile;
 use crate::runtime::{AgentRuntime, StopLevel, StopSignal};
 use crate::store::{StepRow, Store};
 use crate::workflow::{Catalog, Definition};
-use crate::working_copy::{WorkingCopy, finish_pending_writes};
 
 const TICK: Duration = Duration::from_secs(1);
 const DONE: &str = "done";
@@ -27,7 +27,7 @@ const DONE: &str = "done";
 pub(crate) struct Driving<'a> {
     pub(crate) store: &'a Store,
     pub(crate) layout: &'a Layout,
-    pub(crate) root: &'a str,
+    pub(crate) root: &'a RunId,
     pub(crate) max_agents: usize,
     pub(crate) worktrees: Option<PathBuf>,
     pub(crate) actor: &'a str,
@@ -60,24 +60,25 @@ pub(crate) async fn drive<R: AgentRuntime>(
     progress: ProgressSink,
     stop: StopSignal,
 ) -> Result<DriveOutcome, Error> {
-    let path = driving.layout.run_lock(driving.root);
+    let path = driving.layout.run_lock(driving.root.as_str());
     let lock =
         platform::try_lock_exclusive(&path).map_err(|error| Error::io("lock", &path, error))?;
     let Some(_lock) = lock else {
         return Err(driver_live(&driving).await?);
     };
-    if let Some(outcome) = ending::ended(&driving, &progress).await? {
+    if let Some(outcome) = ending::ended_before(&driving, &progress).await? {
         return Ok(outcome);
     }
     let store = driving.store;
     let reconcile = Reconcile {
         store,
         repository: driving.layout.root(),
-        root: driving.root,
+        root: driving.root.as_str(),
     };
     recover(&driving, &reconcile, &progress).await?;
-    let frozen = Frozen::from_files(store.frozen_files(driving.root).await?)?;
-    let working_copy = WorkingCopy::load(store, driving.layout, driving.root, &frozen).await?;
+    let frozen = Frozen::from_files(store.frozen_files(driving.root.as_str()).await?)?;
+    let working_copy =
+        WorkingCopy::load(store, driving.layout, driving.root.as_str(), &frozen).await?;
     let driver = Driver {
         driving,
         frozen,
@@ -97,7 +98,7 @@ pub(crate) async fn drive<R: AgentRuntime>(
     }
     store.unblock(driver.driving.root).await?;
     let outcome = driver.run().await?;
-    let ended = ending::ended(&driver.driving, &driver.progress).await?;
+    let ended = ending::ended_while_driving(&driver.driving, &driver.progress).await?;
     Ok(ended.unwrap_or(outcome))
 }
 
@@ -120,9 +121,9 @@ async fn recover(
             let _ = progress.send(recovered);
         }
     }
-    let subject = store.subject_of_run(driving.root).await?;
+    let subject = store.subject_of_run(driving.root.as_str()).await?;
     let working_copy = driving.layout.working_copy(&subject);
-    finish_pending_writes(store, &working_copy, driving.root).await
+    finish_pending_writes(store, &working_copy, driving.root.as_str()).await
 }
 
 async fn driver_live(driving: &Driving<'_>) -> Result<Error, Error> {
@@ -197,10 +198,9 @@ impl<R: AgentRuntime> Driver<'_, R> {
         let loaded = Loaded::new(&self.frozen, rows, &lists)?;
         let ctx = Ctx {
             limits: self.frozen.limits,
-            free_slots: free_slots.len(),
+            free_slots,
             stop: stop_level(self.stop.level()),
         };
-        let mut slots = free_slots.into_iter();
         let mut launches = Vec::new();
         let actions = decide::decide(&loaded.graph, &ctx);
         if let Some(refusal) = self.guard_readers(&actions).await? {
@@ -208,8 +208,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         }
         for action in actions {
             match action {
-                Action::Launch { step } => {
-                    let slot = slots.next().unwrap_or_default();
+                Action::Launch { step, slot } => {
                     launches.push(Flight::Agent(Box::new(
                         self.launch(&loaded, &step, slot).await?,
                     )));

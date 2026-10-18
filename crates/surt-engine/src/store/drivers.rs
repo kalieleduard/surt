@@ -3,6 +3,7 @@ use sqlx::FromRow;
 use super::revisions::number;
 use super::{About, Checkpoint, Store, StoreError, record_event, unix_now};
 use crate::drive::StepLabel;
+use crate::drive::graph::RunId;
 use crate::platform::ProcessIdentity;
 
 const DRIVER_STARTED: &str = "driver.started";
@@ -39,10 +40,11 @@ struct StaleRow {
 impl Store {
     pub(crate) async fn record_driver(
         &self,
-        root: &str,
+        root: &RunId,
         pid: u32,
         identity: Option<&ProcessIdentity>,
     ) -> Result<(), StoreError> {
+        let root = root.as_str();
         let now = unix_now();
         let mut transaction = self.begin_write().await?;
         sqlx::query(
@@ -60,7 +62,8 @@ impl Store {
         Ok(transaction.commit().await?)
     }
 
-    pub(crate) async fn driver(&self, root: &str) -> Result<DriverRecord, StoreError> {
+    pub(crate) async fn driver(&self, root: &RunId) -> Result<DriverRecord, StoreError> {
+        let root = root.as_str();
         Ok(sqlx::query_as(
             "SELECT s.name AS subject, w.driver_pid AS pid, w.driver_since AS since FROM workflow_run w \
              JOIN subject s ON s.id = w.subject_id WHERE w.id = ?",

@@ -12,7 +12,7 @@ pub(super) const LIMITS: Limits = Limits {
 pub(super) fn ctx() -> Ctx {
     Ctx {
         limits: LIMITS,
-        free_slots: 4,
+        free_slots: vec![0, 1, 2, 3],
         stop: StopLevel::None,
     }
 }
@@ -145,5 +145,12 @@ pub(super) fn id(value: &str) -> StepRunId {
 }
 
 pub(super) fn launch(step: &str) -> Action {
-    Action::Launch { step: id(step) }
+    launch_in(step, 0)
+}
+
+pub(super) fn launch_in(step: &str, slot: usize) -> Action {
+    Action::Launch {
+        step: id(step),
+        slot,
+    }
 }

@@ -1,13 +1,13 @@
 use super::{Error, Project, RunId, open_store};
-use crate::cancel::{Cancel, Cancellation};
 use crate::drive::ProgressSink;
+use crate::drive::cancel::{Cancel, Cancellation};
 use crate::git;
 use crate::store::Store;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CancelImpact {
     pub executions: usize,
-    pub tasks: usize,
+    pub items: usize,
     pub merged: usize,
     pub integration_branch: Option<String>,
 }
@@ -26,7 +26,7 @@ impl Project {
         let cancel = Cancel {
             store: &store,
             layout: &self.layout,
-            root: run.as_str(),
+            root: run,
             actor: &actor,
         };
         let cancellation = cancel.run(&progress).await;
@@ -40,7 +40,7 @@ async fn impact(store: &Store, root: &str) -> Result<CancelImpact, Error> {
     let branch = store.run_branch(root).await?;
     Ok(CancelImpact {
         executions: count(row.executions),
-        tasks: count(row.tasks),
+        items: count(row.items),
         merged: count(row.merged),
         integration_branch: branch.map(|branch| git::short_branch(&branch.ref_name).to_owned()),
     })

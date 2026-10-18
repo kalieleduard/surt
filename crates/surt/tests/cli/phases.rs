@@ -200,7 +200,7 @@ fn plan_refuses_until_the_spec_is_approved() {
     assert_eq!(
         waiting,
         format!(
-            "✖ spec not approved yet (spec rev 1 awaiting approval)\n  review spec rev 1, then: surt approve {name}\n"
+            "✖ spec not approved yet (spec rev 1 awaiting approval)\n  next: surt approve {name}\n"
         )
     );
     assert_eq!(
@@ -241,7 +241,10 @@ fn an_ambiguous_prefix_refuses_listing_the_candidates() {
     assert_eq!(
         ambiguous,
         format!(
-            "✖ \"{prefix}\" matches 2 features:\n    {name}\n    {name}-2\n  use the full name\n"
+            "✖ \"{prefix}\" matches 2 features:\n    \
+             {name}    AWAITING APPROVAL (spec rev 1)\n    \
+             {name}-2  AWAITING APPROVAL (spec rev 1)\n  \
+             use the full name\n"
         )
     );
     assert_eq!(
@@ -336,7 +339,7 @@ fn an_agent_that_keeps_failing_blocks_the_phase_with_exit_4() {
     assert!(
         run.stderr.ends_with(&format!(
             "⛔ spec blocked: attempts exhausted\n  attempt 3 failed (exit_code): the agent exited with code 1\n  \
-             log: .surt/logs/{name}/{execution}/stream.jsonl\n  resume: surt feature {name}\n"
+             inspect: .surt/logs/{name}/{execution}/stream.jsonl\n  resume: surt feature {name}\n"
         )),
         "{}",
         run.stderr

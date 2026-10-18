@@ -2,7 +2,10 @@ use std::path::PathBuf;
 
 mod problems;
 
-use surt_engine::project::{DefinitionFile, GitVersion, InvalidDefinition, Problem, Refusal};
+use surt_engine::project::{
+    AwaitedRevision, Candidate, DefinitionFile, GitVersion, InvalidDefinition, Problem, Refusal,
+    RunState,
+};
 
 use super::message;
 
@@ -154,14 +157,14 @@ fn every_refusal() -> Vec<Refusal> {
             revision: 3,
             latest: 2,
         },
-        Refusal::UnknownTask {
+        Refusal::UnknownItem {
             subject: "20261017-add-login".to_owned(),
-            task: "Z".to_owned(),
+            item: "Z".to_owned(),
             known: vec!["A".to_owned(), "B".to_owned()],
         },
-        Refusal::UnknownTask {
+        Refusal::UnknownItem {
             subject: "20261017-add-login".to_owned(),
-            task: "A".to_owned(),
+            item: "A".to_owned(),
             known: Vec::new(),
         },
         Refusal::ActiveRunExists {
@@ -177,7 +180,7 @@ fn reading_refusals_list_what_exists_and_how_to_look_it_up() {
             refusal,
             Refusal::UnknownArtifact { .. }
                 | Refusal::UnknownRevision { .. }
-                | Refusal::UnknownTask { .. }
+                | Refusal::UnknownItem { .. }
         )
     });
 
@@ -404,13 +407,36 @@ fn an_ambiguous_feature_lists_every_candidate_and_asks_for_the_full_name() {
     let refusal = Refusal::AmbiguousSubject {
         reference: "add-login".to_owned(),
         candidates: vec![
-            "20261015-add-login".to_owned(),
-            "20261017-add-login".to_owned(),
+            Candidate {
+                name: "20261015-add-login".to_owned(),
+                states: vec![RunState::AwaitingApproval],
+                awaiting: Some(AwaitedRevision {
+                    artifact: "spec".to_owned(),
+                    revision: 1,
+                }),
+            },
+            Candidate {
+                name: "20261017-add-login".to_owned(),
+                states: vec![RunState::Running],
+                awaiting: None,
+            },
+            Candidate {
+                name: "20261017-add-login-2".to_owned(),
+                states: vec![RunState::AwaitingApproval, RunState::Blocked],
+                awaiting: Some(AwaitedRevision {
+                    artifact: "manifest".to_owned(),
+                    revision: 2,
+                }),
+            },
         ],
     };
 
     assert_eq!(
         text(&refusal),
-        "✖ \"add-login\" matches 2 features:\n    20261015-add-login\n    20261017-add-login\n  use the full name\n"
+        "✖ \"add-login\" matches 3 features:\n    \
+         20261015-add-login    AWAITING APPROVAL (spec rev 1)\n    \
+         20261017-add-login    RUNNING\n    \
+         20261017-add-login-2  AWAITING APPROVAL (manifest rev 2) + BLOCKED\n  \
+         use the full name\n"
     );
 }

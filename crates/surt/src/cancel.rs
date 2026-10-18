@@ -46,7 +46,7 @@ async fn confirm(project: &Project, subject: &str, run: &RunId, yes: bool) -> Re
     if !io::stdin().is_terminal() {
         return Err(Failure::Refused(
             Message::new("cancel asks for a confirmation and there is no terminal to ask")
-                .way("confirm", format!("surt cancel {subject} --yes")),
+                .way("fix", format!("surt cancel {subject} --yes")),
         ));
     }
     let question = confirmation::question(subject, &project.cancel_impact(run).await?);

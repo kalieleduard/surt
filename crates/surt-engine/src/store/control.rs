@@ -1,9 +1,11 @@
 use sqlx::SqliteConnection;
 
 use super::{About, Store, StoreError, record_event, unix_now};
+use crate::drive::graph::RunId;
 
 impl Store {
-    pub(crate) async fn unblock(&self, root: &str) -> Result<(), StoreError> {
+    pub(crate) async fn unblock(&self, root: &RunId) -> Result<(), StoreError> {
+        let root = root.as_str();
         let now = unix_now();
         let mut transaction = self.begin_write().await?;
         let blocked = ids(
@@ -28,7 +30,8 @@ impl Store {
         Ok(transaction.commit().await?)
     }
 
-    pub(crate) async fn cancel_run(&self, root: &str) -> Result<(), StoreError> {
+    pub(crate) async fn cancel_run(&self, root: &RunId) -> Result<(), StoreError> {
+        let root = root.as_str();
         let now = unix_now();
         let mut transaction = self.begin_write().await?;
         let executions = ids(

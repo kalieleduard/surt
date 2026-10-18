@@ -14,6 +14,7 @@ pub(crate) enum Action {
     },
     Launch {
         step: StepRunId,
+        slot: usize,
     },
     RunOperation {
         step: StepRunId,
@@ -68,10 +69,10 @@ pub(crate) enum StopLevel {
     Force,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Ctx {
     pub(crate) limits: Limits,
-    pub(crate) free_slots: usize,
+    pub(crate) free_slots: Vec<usize>,
     pub(crate) stop: StopLevel,
 }
 

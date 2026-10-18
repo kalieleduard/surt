@@ -4,8 +4,8 @@ use super::branches::{moved, run_stem};
 use super::driver::Driver;
 use super::failure::{Failure, OperationError};
 use super::operate::{Finished, OperationLaunch};
-use crate::checks::CheckReport;
 use crate::git::{self, CommitTree, MergeTree};
+use crate::operations::checks::CheckReport;
 use crate::project::Error;
 use crate::reconcile::{Found, find};
 use crate::runtime::AgentRuntime;
@@ -18,7 +18,7 @@ const CONFLICT: &str = "conflict";
 const CONFLICT_FILE: &str = "conflict.json";
 
 struct Integration {
-    task: RunBranch,
+    child: RunBranch,
     into: RunBranch,
     reviewed: String,
 }
@@ -42,8 +42,8 @@ impl<R: AgentRuntime> Driver<'_, R> {
         }
         self.require_owned(&into).await?;
         let integration = Integration {
-            task: store.run_branch(&launch.row.run).await?.ok_or_else(|| {
-                Failure::not_retryable("no_task_branch", "the task has no branch".into())
+            child: store.run_branch(&launch.row.run).await?.ok_or_else(|| {
+                Failure::not_retryable("no_child_branch", "the child run has no branch".into())
             })?,
             reviewed: self
                 .input_text(&launch.started, FEEDBACK_INPUT, REVIEWED_COMMIT_FIELD)
@@ -104,8 +104,8 @@ impl<R: AgentRuntime> Driver<'_, R> {
             }
         };
         let merge = self.commit_merge(launch, integration, &tree).await?;
-        if *tip != integration.task.start_sha {
-            let report = self.recheck(launch, &integration.task, &merge).await?;
+        if *tip != integration.child.start_sha {
+            let report = self.recheck(launch, &integration.child, &merge).await?;
             if !report.passed() {
                 let conflict = json!({
                     "kind": "checks",
@@ -159,9 +159,9 @@ impl<R: AgentRuntime> Driver<'_, R> {
             .step_started_at(&launch.row.id)
             .await?
             .ok_or_else(|| Error::internal(NotStarted))?;
-        let task = launch.row.item.as_deref().unwrap_or_default();
+        let item = launch.row.item.as_deref().unwrap_or_default();
         let message = format!(
-            "Merge task {task} into {}\n\nSurt-Run: {}\nSurt-Task: {task}\nSurt-Reviewed-Commit: {}",
+            "Merge task {item} into {}\n\nSurt-Run: {}\nSurt-Task: {item}\nSurt-Reviewed-Commit: {}",
             git::short_branch(&integration.into.ref_name),
             run_stem(&launch.subject, launch.ordinal),
             integration.reviewed
@@ -179,17 +179,17 @@ impl<R: AgentRuntime> Driver<'_, R> {
     async fn recheck(
         &self,
         launch: &OperationLaunch,
-        task: &RunBranch,
+        child: &RunBranch,
         merge: &str,
     ) -> Result<CheckReport, OperationError> {
-        let worktree = task.worktree_path.as_deref().ok_or_else(|| {
-            Failure::not_retryable("no_worktree", "the task has no worktree".into())
+        let worktree = child.worktree_path.as_deref().ok_or_else(|| {
+            Failure::not_retryable("no_worktree", "the child run has no worktree".into())
         })?;
-        self.prepare_worktree(&launch.row, &launch.started, task)
+        self.prepare_worktree(&launch.row, &launch.started, child)
             .await?;
         git::run(worktree, &["checkout", "--quiet", "--detach", merge]).await?;
         let report = self.run_frozen_checks(launch, worktree, merge).await?;
-        let branch = git::short_branch(&task.ref_name);
+        let branch = git::short_branch(&child.ref_name);
         git::run(worktree, &["checkout", "--quiet", "--force", branch]).await?;
         Ok(report)
     }

@@ -3,6 +3,7 @@ use std::num::NonZeroU32;
 use serde::Serialize;
 
 use super::{Check, Config, Error, GitConfig, Project, Refusal};
+pub use crate::drive::graph::RunId;
 use crate::store::{NewInitialArtifact, NewRunRows, RunCreation, unix_now};
 use crate::workflow::{FreezeError, freeze};
 
@@ -24,15 +25,6 @@ pub struct InitialArtifact {
 pub struct ArtifactFile {
     pub rel_path: String,
     pub bytes: Vec<u8>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct RunId(pub(crate) String);
-
-impl RunId {
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
 }
 
 #[derive(Serialize)]

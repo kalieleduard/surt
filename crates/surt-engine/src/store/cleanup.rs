@@ -4,6 +4,7 @@ use sqlx::FromRow;
 
 use super::{Store, StoreError, unix_now};
 use crate::drive::RunEnd;
+use crate::drive::graph::RunId;
 
 const FINISHED: &str = "cleanup.finished";
 const INCOMPLETE: &str = "cleanup.incomplete";
@@ -15,7 +16,7 @@ pub(crate) struct Ending {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct TaskBranch {
+pub(crate) struct ChildBranch {
     pub(crate) run: String,
     pub(crate) ref_name: String,
     pub(crate) tip_sha: String,
@@ -30,7 +31,7 @@ struct EndingRow {
 }
 
 #[derive(FromRow)]
-struct TaskBranchRow {
+struct ChildBranchRow {
     run: String,
     ref_name: String,
     tip_sha: String,
@@ -44,7 +45,8 @@ pub(crate) enum CleanupRecord {
 }
 
 impl Store {
-    pub(crate) async fn ending(&self, root: &str) -> Result<Option<Ending>, StoreError> {
+    pub(crate) async fn ending(&self, root: &RunId) -> Result<Option<Ending>, StoreError> {
+        let root = root.as_str();
         let row: Option<EndingRow> = sqlx::query_as(
             "SELECT state, cleaned_at IS NOT NULL AS cleaned FROM workflow_run \
              WHERE id = ? AND state <> 'active'",
@@ -72,8 +74,8 @@ impl Store {
         .await?)
     }
 
-    pub(crate) async fn task_branches(&self, root: &str) -> Result<Vec<TaskBranch>, StoreError> {
-        let rows: Vec<TaskBranchRow> = sqlx::query_as(
+    pub(crate) async fn child_branches(&self, root: &str) -> Result<Vec<ChildBranch>, StoreError> {
+        let rows: Vec<ChildBranchRow> = sqlx::query_as(
             "SELECT b.workflow_run_id AS run, b.ref_name, b.tip_sha, b.worktree_path, \
              (SELECT e.id FROM execution e JOIN step_run s ON s.id = e.step_run_id \
               WHERE s.workflow_run_id = b.workflow_run_id \
@@ -86,7 +88,7 @@ impl Store {
         .await?;
         Ok(rows
             .into_iter()
-            .map(|row| TaskBranch {
+            .map(|row| ChildBranch {
                 run: row.run,
                 ref_name: row.ref_name,
                 tip_sha: row.tip_sha,

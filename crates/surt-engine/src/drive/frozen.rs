@@ -6,8 +6,8 @@ use serde::Deserialize;
 
 use super::decide::Limits;
 use crate::artifacts::DeliveryContract;
-use crate::checks::CheckSpec;
-use crate::project::{Check, Error, parse_timeout};
+use crate::operations::checks::CheckSpec;
+use crate::project::{Check, Error, GitConfig, MergeIntoBase, parse_timeout};
 use crate::runtime::AgentLaunch;
 use crate::store::FrozenFile;
 use crate::workflow::{AgentContract, Definition, StepSpec};
@@ -22,6 +22,7 @@ pub(crate) struct Frozen {
     agents: BTreeMap<String, FrozenAgent>,
     pub(crate) limits: Limits,
     pub(crate) checks: Vec<CheckSpec>,
+    pub(crate) merge_into_base: MergeIntoBase,
 }
 
 pub(crate) struct FrozenAgent {
@@ -43,6 +44,14 @@ struct FrozenConfig {
     max_iterations: NonZeroU32,
     #[serde(default)]
     checks: Vec<Check>,
+    #[serde(default)]
+    git: GitConfig,
+}
+
+struct Settings {
+    limits: Limits,
+    checks: Vec<CheckSpec>,
+    merge_into_base: MergeIntoBase,
 }
 
 struct Files {
@@ -93,13 +102,13 @@ impl Frozen {
                 _ => config = Some(frozen_config(&files)?),
             }
         }
-        let (limits, checks) =
-            config.ok_or_else(|| CorruptSnapshot::new(CONFIG_FILE, "missing"))?;
+        let settings = config.ok_or_else(|| CorruptSnapshot::new(CONFIG_FILE, "missing"))?;
         Ok(Frozen {
             definitions,
             agents,
-            limits,
-            checks,
+            limits: settings.limits,
+            checks: settings.checks,
+            merge_into_base: settings.merge_into_base,
         })
     }
 
@@ -192,7 +201,7 @@ fn group(rows: Vec<FrozenFile>) -> Result<BTreeMap<String, Files>, CorruptSnapsh
     Ok(grouped)
 }
 
-fn frozen_config(files: &Files) -> Result<(Limits, Vec<CheckSpec>), CorruptSnapshot> {
+fn frozen_config(files: &Files) -> Result<Settings, CorruptSnapshot> {
     let config: FrozenConfig = toml::from_str(files.text(CONFIG_FILE)?)
         .map_err(|error| CorruptSnapshot::new(&files.name, error))?;
     let limits = Limits {
@@ -204,7 +213,11 @@ fn frozen_config(files: &Files) -> Result<(Limits, Vec<CheckSpec>), CorruptSnaps
         .into_iter()
         .map(|check| frozen_check(&files.name, check))
         .collect::<Result<_, _>>()?;
-    Ok((limits, checks))
+    Ok(Settings {
+        limits,
+        checks,
+        merge_into_base: config.git.merge_into_base,
+    })
 }
 
 fn frozen_check(snapshot: &str, check: Check) -> Result<CheckSpec, CorruptSnapshot> {

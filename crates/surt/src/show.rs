@@ -29,7 +29,7 @@ pub(crate) async fn run(cwd: &Path, args: ShowArgs) -> Result<(), Failure> {
     let request = ShowRequest {
         artifact,
         revision: args.rev,
-        task: args.task.as_deref(),
+        item: args.task.as_deref(),
     };
     let shown = project.show(&args.feature, request).await?;
     for file in &shown.edited {

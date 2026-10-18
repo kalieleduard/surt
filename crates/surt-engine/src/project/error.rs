@@ -14,6 +14,29 @@ pub enum Error {
     Internal(#[from] InternalError),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RunState {
+    Running,
+    AwaitingApproval,
+    Blocked,
+    Interrupted,
+    Succeeded,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Candidate {
+    pub name: String,
+    pub states: Vec<RunState>,
+    pub awaiting: Option<AwaitedRevision>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AwaitedRevision {
+    pub artifact: String,
+    pub revision: u32,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Refusal {
     NotAProject {
@@ -89,7 +112,7 @@ pub enum Refusal {
     },
     AmbiguousSubject {
         reference: String,
-        candidates: Vec<String>,
+        candidates: Vec<Candidate>,
     },
     UnknownArtifact {
         subject: String,
@@ -102,9 +125,9 @@ pub enum Refusal {
         revision: u32,
         latest: u32,
     },
-    UnknownTask {
+    UnknownItem {
         subject: String,
-        task: String,
+        item: String,
         known: Vec<String>,
     },
     InvalidDefinition(Box<InvalidDefinition>),

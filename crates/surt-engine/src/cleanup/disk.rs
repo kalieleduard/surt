@@ -3,9 +3,9 @@ use std::io;
 use std::path::Path;
 
 use super::{Kept, Sweep};
+use crate::artifacts::working_copy::unrecorded_edits;
 use crate::project::Error;
 use crate::store::WorkingCopyArtifact;
-use crate::working_copy::unrecorded_edits;
 
 impl Sweep<'_> {
     pub(super) async fn working_copy(&mut self) -> Result<(), Error> {

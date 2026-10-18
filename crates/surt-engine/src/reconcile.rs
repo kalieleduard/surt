@@ -1,6 +1,7 @@
 mod branch;
 mod ref_moves;
 mod stale;
+pub(crate) mod worktree;
 
 use std::path::Path;
 

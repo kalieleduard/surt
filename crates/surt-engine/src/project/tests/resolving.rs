@@ -1,5 +1,5 @@
 use super::fixtures::{ProjectDir, default_config, draft_catalog, new_run};
-use crate::project::{Error, Project, Refusal, RunId, Subject};
+use crate::project::{Candidate, Error, Project, Refusal, RunId, RunState, Subject};
 
 async fn project_with(dir: &ProjectDir, subjects: &[&str]) -> (Project, Vec<RunId>) {
     let project = dir.project(draft_catalog(), default_config()).await;
@@ -10,6 +10,14 @@ async fn project_with(dir: &ProjectDir, subjects: &[&str]) -> (Project, Vec<RunI
         runs.push(project.create_run(run).await.expect("the run is created"));
     }
     (project, runs)
+}
+
+fn interrupted(name: &str) -> Candidate {
+    Candidate {
+        name: name.to_owned(),
+        states: vec![RunState::Interrupted],
+        awaiting: None,
+    }
 }
 
 fn refused(result: Result<Subject, Error>) -> Refusal {
@@ -70,8 +78,8 @@ async fn an_ambiguous_slug_or_prefix_refuses_listing_the_candidates() {
         Refusal::AmbiguousSubject {
             reference: "add-login".to_owned(),
             candidates: vec![
-                "20261015-add-login".to_owned(),
-                "20261017-add-login".to_owned()
+                interrupted("20261015-add-login"),
+                interrupted("20261017-add-login")
             ],
         }
     );
@@ -80,8 +88,8 @@ async fn an_ambiguous_slug_or_prefix_refuses_listing_the_candidates() {
         Refusal::AmbiguousSubject {
             reference: "20261017-add-log".to_owned(),
             candidates: vec![
-                "20261017-add-login".to_owned(),
-                "20261017-add-logout".to_owned()
+                interrupted("20261017-add-login"),
+                interrupted("20261017-add-logout")
             ],
         }
     );

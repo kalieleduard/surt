@@ -1,4 +1,4 @@
-use surt_engine::project::{CleanupState, GateStatus, RunStatus, TaskState};
+use surt_engine::project::{CleanupState, GateStatus, ItemState, RunStatus};
 
 use super::state_names;
 use crate::driving::label;
@@ -8,16 +8,24 @@ use crate::table;
 const HEADERS: [&str; 5] = ["FEATURE", "RUN", "STATE", "DRIVER", "PROGRESS"];
 const NONE: &str = "—";
 const SEPARATOR: &str = " · ";
-const COUNTED: [(TaskState, &str); 3] = [
-    (TaskState::Running, "running"),
-    (TaskState::Queued, "queued"),
-    (TaskState::Blocked, "blocked"),
+const COUNTED: [(ItemState, &str); 3] = [
+    (ItemState::Running, "running"),
+    (ItemState::Queued, "queued"),
+    (ItemState::Blocked, "blocked"),
 ];
 
 pub(super) fn render(statuses: &[RunStatus]) -> String {
     let mut rows = vec![HEADERS.map(str::to_owned)];
     rows.extend(statuses.iter().map(row));
-    table::render(&rows)
+    let mut text = table::render(&rows);
+    if let Some(first) = statuses.first() {
+        let in_use: u32 = statuses.iter().map(|status| status.slots.in_use).sum();
+        text.push_str(&format!(
+            "agent slots: {in_use}/{} in use\n",
+            first.slots.total
+        ));
+    }
+    text
 }
 
 fn row(status: &RunStatus) -> [String; 5] {
@@ -34,7 +42,7 @@ fn row(status: &RunStatus) -> [String; 5] {
 
 fn progress(status: &RunStatus) -> String {
     let mut parts = Vec::new();
-    if status.tasks.is_empty() {
+    if status.items.is_empty() {
         parts.extend(gate_progress(status));
     } else {
         parts.push(task_progress(status));
@@ -57,8 +65,8 @@ fn progress(status: &RunStatus) -> String {
 }
 
 fn task_progress(status: &RunStatus) -> String {
-    let merged = count(status, TaskState::Succeeded);
-    let mut parts = vec![format!("{merged}/{} merged", status.tasks.len())];
+    let merged = count(status, ItemState::Succeeded);
+    let mut parts = vec![format!("{merged}/{} merged", status.items.len())];
     for (state, word) in COUNTED {
         let found = count(status, state);
         if found > 0 {
@@ -68,9 +76,9 @@ fn task_progress(status: &RunStatus) -> String {
     parts.join(SEPARATOR)
 }
 
-fn count(status: &RunStatus, state: TaskState) -> usize {
+fn count(status: &RunStatus, state: ItemState) -> usize {
     status
-        .tasks
+        .items
         .iter()
         .filter(|task| task.state == state)
         .count()

@@ -1,5 +1,6 @@
 mod delivery;
 mod items;
+pub(crate) mod working_copy;
 
 use std::fmt::Write;
 
@@ -7,6 +8,7 @@ use sha2::{Digest, Sha256};
 
 pub(crate) use delivery::{
     AcceptedDelivery, DeliveryContract, DeliveryRejection, ItemListProblem, OutputRule,
+    ValidatedOutput,
 };
 pub(crate) use items::{ListedItem, item_view, listed_items};
 

@@ -11,6 +11,7 @@ pub enum DriveOutcome {
     Succeeded,
     Blocked { steps: Vec<StepLabel> },
     Cancelled,
+    AlreadyCancelled,
     Interrupted,
     Halted(Refusal),
 }
@@ -87,6 +88,10 @@ pub enum Progress {
         pid: u32,
     },
     Discarded {
+        step: StepLabel,
+        attempt: u32,
+    },
+    InterruptedWithDriver {
         step: StepLabel,
         attempt: u32,
     },

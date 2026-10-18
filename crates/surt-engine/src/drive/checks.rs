@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use super::driver::Driver;
 use super::failure::{Failure, OperationError};
 use super::operate::{Finished, OperationLaunch};
-use crate::checks::{self, CheckReport};
+use crate::operations::checks::{self, CheckReport};
 use crate::project::Error;
 use crate::runtime::AgentRuntime;
 use crate::store::PublishedOutput;
@@ -32,7 +32,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         let Some((branch, worktree)) = located else {
             return Err(Failure::not_retryable(
                 "no_worktree",
-                "checks run in a task's worktree".into(),
+                "checks run in a child run's worktree".into(),
             )
             .into());
         };

@@ -8,13 +8,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::drive::RunEnd;
+use crate::drive::graph::RunId;
 use crate::project::{Error, Layout};
 use crate::store::{CleanupRecord, Store};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Cleanup {
     pub worktrees: usize,
-    pub task_branches: usize,
+    pub child_branches: usize,
     pub salvage_refs: usize,
     pub working_copy: bool,
     pub kept: Vec<Kept>,
@@ -52,14 +53,15 @@ struct Sweep<'a> {
 pub(crate) async fn clean_up(
     store: &Store,
     layout: &Layout,
-    root: &str,
+    run: &RunId,
 ) -> Result<Option<Cleanup>, Error> {
-    let Some(ending) = store.ending(root).await? else {
+    let Some(ending) = store.ending(run).await? else {
         return Ok(None);
     };
     if ending.cleaned {
         return Ok(None);
     }
+    let root = run.as_str();
     let mut sweep = Sweep {
         store,
         layout,

@@ -6,8 +6,8 @@ use crate::drive::RunEnd;
 use crate::git::{self, worktrees::WorktreeEntry};
 use crate::platform::{self, ExclusiveLock};
 use crate::project::Error;
-use crate::store::TaskBranch;
-use crate::worktree::{self, Target};
+use crate::reconcile::worktree::{self, Target};
+use crate::store::ChildBranch;
 
 const SALVAGE_REFS: &str = "refs/surt/salvage/";
 const REFS: &str = "refs";
@@ -15,7 +15,7 @@ const WORKTREES: &str = "worktrees";
 
 impl Sweep<'_> {
     pub(super) async fn repository(&mut self) -> Result<(), Error> {
-        let branches = self.store.task_branches(self.root).await?;
+        let branches = self.store.child_branches(self.root).await?;
         if branches.is_empty() {
             return Ok(());
         }
@@ -48,7 +48,7 @@ impl Sweep<'_> {
             .map_err(|error| Error::io("lock", &path, error))
     }
 
-    async fn remove_worktree(&mut self, branch: &TaskBranch, listed: &[WorktreeEntry]) -> bool {
+    async fn remove_worktree(&mut self, branch: &ChildBranch, listed: &[WorktreeEntry]) -> bool {
         let Some(path) = branch.worktree_path.as_deref() else {
             return true;
         };
@@ -84,7 +84,7 @@ impl Sweep<'_> {
 
     async fn salvage(
         &self,
-        branch: &TaskBranch,
+        branch: &ChildBranch,
         path: &Path,
     ) -> Result<(), worktree::PrepareError> {
         let owner = branch.last_execution.as_deref().unwrap_or(&branch.run);
@@ -102,8 +102,8 @@ impl Sweep<'_> {
 
     async fn delete_refs(
         &mut self,
-        free: &[&TaskBranch],
-        branches: &[TaskBranch],
+        free: &[&ChildBranch],
+        branches: &[ChildBranch],
     ) -> Result<(), Error> {
         let owners = self.owners(branches).await?;
         let repository = self.layout.root();
@@ -115,7 +115,7 @@ impl Sweep<'_> {
             }
         };
         let mut doomed = self.unmoved(free).await;
-        let task_branches = doomed.len();
+        let child_branches = doomed.len();
         let salvaged = salvage_refs.len();
         doomed.extend(salvage_refs);
         if doomed.is_empty() {
@@ -123,7 +123,7 @@ impl Sweep<'_> {
         }
         match git::delete_refs(repository, &doomed).await {
             Ok(()) => {
-                self.report.task_branches += task_branches;
+                self.report.child_branches += child_branches;
                 self.report.salvage_refs += salvaged;
             }
             Err(error) => self.leave(REFS, error),
@@ -131,7 +131,7 @@ impl Sweep<'_> {
         Ok(())
     }
 
-    async fn unmoved(&mut self, free: &[&TaskBranch]) -> Vec<(String, String)> {
+    async fn unmoved(&mut self, free: &[&ChildBranch]) -> Vec<(String, String)> {
         let mut unmoved = Vec::new();
         for branch in free {
             match git::commit_sha(self.layout.root(), &branch.ref_name).await {
@@ -148,7 +148,7 @@ impl Sweep<'_> {
         unmoved
     }
 
-    async fn owners(&self, branches: &[TaskBranch]) -> Result<BTreeSet<String>, Error> {
+    async fn owners(&self, branches: &[ChildBranch]) -> Result<BTreeSet<String>, Error> {
         let mut owners: BTreeSet<String> = self
             .store
             .execution_ids(self.root)

@@ -42,6 +42,8 @@ The lock was free, so every `queued` or `running` Execution of the root run and 
 
 - `queued` → `interrupted`.
 - `running` with a recorded process identity: if a process with the same pid, native start time and boot id still exists, Surt stops its group with the usual escalation (graceful, `stop_grace_period`, forced) and records `execution.orphan_stopped`. A different boot id means the machine rebooted and the process is gone. Then → `interrupted`.
+- `running` with a recorded identity whose process is gone → `interrupted`, reported as `✖ <step> attempt N exited but was never recorded — discarded`.
+- `running` with no recorded identity (the residual window below, or a runtime that runs inside the Driver) → `interrupted`, reported as `⚠ <step> attempt N was interrupted with the previous driver — discarded`. Nothing says the process exited on its own.
 - Operations that spawn a long-running process tree record its identity in the same columns while it runs: each Check of `checks.run`, and the Checks of `git.integrate`'s re-check. An orphaned Check is stopped like an orphaned agent.
 - `interrupted` never counts toward `max_attempts`. Its Step Run stays `running` with no live Execution, and the scheduler starts its next Attempt ([G](G-state-machines.md#execution)).
 

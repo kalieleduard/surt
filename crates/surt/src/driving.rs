@@ -57,6 +57,10 @@ impl Driven<'_> {
                 Message::new("cancelled by surt cancel (from another terminal)")
                     .way("inspect", format!("surt status {}", self.subject)),
             )),
+            DriveOutcome::AlreadyCancelled => {
+                Message::new(format!("{} was already cancelled", self.subject)).print_success();
+                Ok(())
+            }
             DriveOutcome::Interrupted => Err(Failure::Interrupted(
                 Message::new("interrupted").way("resume", self.resume_command()),
             )),

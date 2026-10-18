@@ -11,11 +11,11 @@ pub(super) fn question(subject: &str, impact: &CancelImpact) -> String {
     if let Some(branch) = impact
         .integration_branch
         .as_ref()
-        .filter(|_| impact.tasks > 0)
+        .filter(|_| impact.items > 0)
     {
         stopped.push(format!(
             "{}/{} tasks merged stay on {branch}",
-            impact.merged, impact.tasks
+            impact.merged, impact.items
         ));
     }
     format!(

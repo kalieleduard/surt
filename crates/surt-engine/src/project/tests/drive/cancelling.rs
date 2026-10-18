@@ -120,7 +120,7 @@ async fn the_impact_of_a_cancel_counts_live_executions_and_the_tasks_merged_that
         impact,
         CancelImpact {
             executions: 0,
-            tasks: 2,
+            items: 2,
             merged: 1,
             integration_branch: Some(format!("surt/{SUBJECT}")),
         }
@@ -142,7 +142,7 @@ async fn the_impact_of_a_cancel_while_driving_counts_the_running_execution() {
         impact,
         CancelImpact {
             executions: 1,
-            tasks: 0,
+            items: 0,
             merged: 0,
             integration_branch: None,
         }
@@ -217,7 +217,7 @@ async fn cancelling_a_crashed_run_settles_what_its_driver_left_then_cancels_and_
     );
     assert_eq!(
         cancelled.progress[0],
-        Progress::Discarded {
+        Progress::InterruptedWithDriver {
             step: label("write", Some(1)),
             attempt: 1
         }

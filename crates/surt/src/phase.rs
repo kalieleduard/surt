@@ -7,6 +7,7 @@ use crate::message::Message;
 use crate::runtime;
 
 pub(crate) struct Phase {
+    name: &'static str,
     command: &'static str,
     gate: &'static str,
     artifact: &'static str,
@@ -16,6 +17,7 @@ pub(crate) struct Phase {
 }
 
 pub(crate) const SPEC: Phase = Phase {
+    name: "spec",
     command: "feature",
     gate: "approve-spec",
     artifact: "spec",
@@ -25,6 +27,7 @@ pub(crate) const SPEC: Phase = Phase {
 };
 
 pub(crate) const TASKS: Phase = Phase {
+    name: "tasks",
     command: "plan",
     gate: "approve-tasks",
     artifact: "manifest",
@@ -34,6 +37,8 @@ pub(crate) const TASKS: Phase = Phase {
 };
 
 const PHASES: [&Phase; 2] = [&SPEC, &TASKS];
+const NEXT: &str = "next";
+pub(crate) const TASK_STEP: &str = "implement";
 
 pub(crate) fn current_command(subject: &str, approved: impl Fn(&str) -> bool) -> String {
     PHASES
@@ -49,6 +54,10 @@ pub(crate) fn current_command(subject: &str, approved: impl Fn(&str) -> bool) ->
 impl Phase {
     pub(crate) fn of_gate(gate: &str) -> Option<&'static Phase> {
         PHASES.into_iter().find(|phase| phase.gate == gate)
+    }
+
+    pub(crate) fn name(&self) -> &'static str {
+        self.name
     }
 
     pub(crate) fn agent(&self) -> &'static str {
@@ -79,7 +88,7 @@ impl Phase {
             GateStatus::Waiting { revision } => (
                 format!("{artifact} rev {revision} awaiting approval"),
                 (
-                    format!("review {artifact} rev {revision}, then"),
+                    self.review_label(revision),
                     format!("surt approve {subject}"),
                 ),
             ),
@@ -95,6 +104,16 @@ impl Phase {
         Err(Failure::Refused(
             Message::new(format!("{artifact} not approved yet ({state})")).way(&way.0, way.1),
         ))
+    }
+
+    fn review_label(&self, revision: u32) -> String {
+        if self.covers_item_files {
+            return format!(
+                "review {} rev {revision} and its Task Markdown files, then",
+                self.artifact
+            );
+        }
+        NEXT.to_owned()
     }
 
     pub(crate) async fn finish_cleanup(

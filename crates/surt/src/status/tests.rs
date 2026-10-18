@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
 use surt_engine::project::{
-    BlockReason, BlockedStep, CleanupState, Commit, GateStatus, GateView, IntegrationBranch, Kept,
-    PendingIntegration, RevisionOrigin, RevisionSummary, RunState, RunStatus, StepLabel, TaskState,
-    TaskStatus, Unattended,
+    AgentSlots, BlockReason, BlockedStep, CleanupState, Commit, Conflict, GateStatus, GateView,
+    IntegrationBranch, ItemState, ItemStatus, Kept, MergeIntoBase, PendingIntegration,
+    RevisionOrigin, RevisionSummary, RunState, RunStatus, StepLabel, Unattended,
 };
 
 use super::{detail, overview};
@@ -22,6 +22,16 @@ fn step(key: &str, item: Option<&str>, iteration: Option<u32>) -> StepLabel {
 }
 
 fn gate(step: &str, artifact: &str, status: GateStatus, edited: &[&str]) -> GateView {
+    gate_over(step, artifact, status, edited, &[&format!("{artifact}.md")])
+}
+
+fn gate_over(
+    step: &str,
+    artifact: &str,
+    status: GateStatus,
+    edited: &[&str],
+    files: &[&str],
+) -> GateView {
     GateView {
         step: step.to_owned(),
         artifact: artifact.to_owned(),
@@ -31,7 +41,7 @@ fn gate(step: &str, artifact: &str, status: GateStatus, edited: &[&str]) -> Gate
             _ => Some(RevisionSummary {
                 number: 1,
                 origin: RevisionOrigin::Human,
-                files: vec![format!("{artifact}.md")],
+                files: files.iter().map(|file| (*file).to_owned()).collect(),
             }),
         },
         decided_by: None,
@@ -42,8 +52,8 @@ fn gate(step: &str, artifact: &str, status: GateStatus, edited: &[&str]) -> Gate
     }
 }
 
-fn task(key: &str, state: TaskState) -> TaskStatus {
-    TaskStatus {
+fn task(key: &str, state: ItemState) -> ItemStatus {
+    ItemStatus {
         key: key.to_owned(),
         state,
         step: Some("build".to_owned()),
@@ -51,7 +61,13 @@ fn task(key: &str, state: TaskState) -> TaskStatus {
         attempt: Some(1),
         since: None,
         merged_as: None,
+        waits_for: Vec::new(),
+        conflict: None,
     }
+}
+
+fn slots(in_use: u32) -> AgentSlots {
+    AgentSlots { in_use, total: 3 }
 }
 
 fn stopped_with_everything_pending() -> RunStatus {
@@ -65,6 +81,8 @@ fn stopped_with_everything_pending() -> RunStatus {
             branch: None,
         }),
         branch: None,
+        merge_into_base: MergeIntoBase::Never,
+        slots: slots(3),
         gates: vec![
             gate(
                 "approve-spec",
@@ -80,11 +98,25 @@ fn stopped_with_everything_pending() -> RunStatus {
                 &[],
             ),
         ],
-        tasks: vec![
-            task("A", TaskState::Queued),
-            task("B", TaskState::Interrupted),
-            task("C", TaskState::Cancelled),
-            task("D", TaskState::Pending),
+        items: vec![
+            task("A", ItemState::Queued),
+            ItemStatus {
+                conflict: Some(Conflict::Merge {
+                    paths: vec!["src/auth.rs".to_owned(), "src/user.rs".to_owned()],
+                }),
+                ..task("B", ItemState::Interrupted)
+            },
+            task("C", ItemState::Cancelled),
+            ItemStatus {
+                waits_for: vec!["B".to_owned(), "C".to_owned()],
+                ..task("D", ItemState::Pending)
+            },
+            ItemStatus {
+                conflict: Some(Conflict::Checks {
+                    failed: vec!["test".to_owned()],
+                }),
+                ..task("E", ItemState::Running)
+            },
         ],
         blocked: vec![BlockedStep {
             step: step("check", Some("B"), Some(2)),
@@ -116,8 +148,16 @@ fn cancelled_and_cleaned() -> RunStatus {
             name: format!("surt/{SUBJECT}"),
             tip: NEW_TIP.to_owned(),
         }),
-        gates: Vec::new(),
-        tasks: Vec::new(),
+        merge_into_base: MergeIntoBase::Never,
+        slots: slots(0),
+        gates: vec![gate_over(
+            "approve-tasks",
+            "manifest",
+            GateStatus::Approved { revision: 1 },
+            &[],
+            &["manifest.json", "tasks/A.md", "tasks/B.md"],
+        )],
+        items: Vec::new(),
         blocked: Vec::new(),
         unattended: Vec::new(),
         integrating: Vec::new(),
@@ -141,11 +181,12 @@ fn the_detail_names_every_task_state_unattended_agent_and_pending_integration() 
              spec     rev 1 (human) ✔ approved\n           \
              ✎ spec.md edited — not recorded\n  \
              plan     rev 1 (human) ✖ rejected\n  \
-             tasks\n    \
-             A  ⏳ queued    build iter 2 · attempt 1\n    \
-             B  ⏹ stopped   build iter 2 · attempt 1\n    \
+             implement\n    \
+             A  ⏳ queued    build iter 2 · attempt 1 · waiting for agent slot (3/3 in use)\n    \
+             B  ⏹ stopped   build iter 2 · attempt 1 · merge: src/auth.rs, src/user.rs\n    \
              C  ✖ cancelled\n    \
-             D  ⏸ pending\n  \
+             D  ⏸ pending   waits for B, C\n    \
+             E  ● build     iter 2 · attempt 1 · checks: test\n  \
              ⛔ task B check iter 2 blocked: iterations exhausted\n  \
              resume: surt plan {SUBJECT}\n  \
              ⚠ task A build iter 2 still running unattended (pid 50122) — stopped on next: surt plan {SUBJECT}\n  \
@@ -162,7 +203,8 @@ fn a_cleaned_terminal_run_shows_what_its_cleanup_kept_and_no_driver_column() {
         text,
         format!(
             "{SUBJECT} · run 1   CANCELLED\n  \
-             branch   surt/{SUBJECT} @ 3c1aa20\n  \
+             branch   surt/{SUBJECT} @ 3c1aa20 · merge into base: never\n  \
+             tasks    manifest rev 1 (human) ✔ approved · 2 tasks\n  \
              cleanup  done\n           \
              kept surt/{SUBJECT} — moved outside surt\n"
         )
@@ -172,7 +214,7 @@ fn a_cleaned_terminal_run_shows_what_its_cleanup_kept_and_no_driver_column() {
 #[test]
 fn the_overview_joins_simultaneous_states_and_falls_back_to_the_blocked_step() {
     let mut blocked_at_spec = stopped_with_everything_pending();
-    blocked_at_spec.tasks.clear();
+    blocked_at_spec.items.clear();
     blocked_at_spec.blocked[0].step = step("spec", None, None);
 
     let text = overview::render(&[blocked_at_spec, cancelled_and_cleaned()]);
@@ -182,7 +224,8 @@ fn the_overview_joins_simultaneous_states_and_falls_back_to_the_blocked_step() {
         format!(
             "FEATURE             RUN  STATE                        DRIVER  PROGRESS\n\
              {SUBJECT}  2    AWAITING APPROVAL + BLOCKED  —       spec blocked\n\
-             {SUBJECT}  1    CANCELLED                    —       —\n"
+             {SUBJECT}  1    CANCELLED                    —       —\n\
+             agent slots: 3/3 in use\n"
         )
     );
 }

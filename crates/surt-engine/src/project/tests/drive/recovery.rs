@@ -138,7 +138,8 @@ async fn a_driver_dropped_mid_execution_frees_the_run_and_its_execution_becomes_
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn an_execution_whose_end_was_never_recorded_is_discarded_even_with_a_valid_delivery() {
+async fn an_unidentified_execution_whose_end_was_never_recorded_is_discarded_even_with_a_valid_delivery()
+ {
     let feature = Feature::review().await;
     feature.dropped_mid_execution().await;
     let ids: Vec<(String,)> = feature.dir.rows("SELECT id FROM execution").await;
@@ -165,7 +166,7 @@ async fn an_execution_whose_end_was_never_recorded_is_discarded_even_with_a_vali
             Progress::Recovering {
                 driver: Some(std::process::id())
             },
-            Progress::Discarded {
+            Progress::InterruptedWithDriver {
                 step: label("write", Some(1)),
                 attempt: 1
             },
@@ -268,6 +269,30 @@ async fn an_agent_left_running_by_a_dead_driver_is_stopped_never_adopted_and_ret
         .rows("SELECT kind FROM event WHERE kind = 'execution.orphan_stopped'")
         .await;
     assert_eq!(stopped.len(), 1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_identified_agent_that_exited_with_its_end_unrecorded_is_discarded() {
+    let feature = Feature::review().await;
+    let mut orphan = feature.orphaned().await;
+    orphan.kill().expect("the orphan can be killed");
+    orphan.wait().expect("the orphan exits");
+
+    let resumed = feature
+        .drive(Script::new().on("write", 1, 2, draft("# Draft 1\n")))
+        .await;
+
+    assert_eq!(
+        resumed.progress[1],
+        Progress::Discarded {
+            step: label("write", Some(1)),
+            attempt: 1
+        }
+    );
+    assert_eq!(
+        feature.attempts().await,
+        [(1, "interrupted".to_owned()), (2, "succeeded".to_owned())]
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

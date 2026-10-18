@@ -1,14 +1,17 @@
 mod facts;
 mod gates;
-mod tasks;
+mod items;
 
 pub(super) use gates::origin;
 
 use std::path::PathBuf;
 
-use super::{BlockedStep, Commit, Error, GateStatus, IntegrationBranch, Project, RevisionOrigin};
+use super::{
+    BlockedStep, Commit, Error, GateStatus, IntegrationBranch, MergeIntoBase, Project,
+    RevisionOrigin, RunState,
+};
 use crate::cleanup::{Kept, Left};
-use crate::drive::StepLabel;
+use crate::drive::{Frozen, StepLabel};
 use crate::git;
 use crate::platform;
 use crate::store::{RootRunRow, Store};
@@ -31,8 +34,10 @@ pub struct RunStatus {
     pub driver: Option<Driver>,
     pub base: Option<Commit>,
     pub branch: Option<IntegrationBranch>,
+    pub merge_into_base: MergeIntoBase,
+    pub slots: AgentSlots,
     pub gates: Vec<GateView>,
-    pub tasks: Vec<TaskStatus>,
+    pub items: Vec<ItemStatus>,
     pub blocked: Vec<BlockedStep>,
     pub unattended: Vec<Unattended>,
     pub integrating: Vec<PendingIntegration>,
@@ -40,13 +45,9 @@ pub struct RunStatus {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RunState {
-    Running,
-    AwaitingApproval,
-    Blocked,
-    Interrupted,
-    Succeeded,
-    Cancelled,
+pub struct AgentSlots {
+    pub in_use: u32,
+    pub total: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -76,18 +77,26 @@ pub struct RevisionSummary {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TaskStatus {
+pub struct ItemStatus {
     pub key: String,
-    pub state: TaskState,
+    pub state: ItemState,
     pub step: Option<String>,
     pub iteration: Option<u32>,
     pub attempt: Option<u32>,
     pub since: Option<i64>,
     pub merged_as: Option<String>,
+    pub waits_for: Vec<String>,
+    pub conflict: Option<Conflict>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Conflict {
+    Merge { paths: Vec<String> },
+    Checks { failed: Vec<String> },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TaskState {
+pub enum ItemState {
     Pending,
     Queued,
     Running,
@@ -134,7 +143,7 @@ impl Project {
         statuses
     }
 
-    async fn read_statuses(
+    pub(super) async fn read_statuses(
         &self,
         store: &Store,
         subject: Option<&str>,
@@ -163,6 +172,18 @@ impl Project {
             .map(|row| self.blocked_step(&run.subject, row))
             .collect::<Vec<_>>();
         let waiting = !store.waiting_gates(root).await?.is_empty();
+        let frozen = Frozen::from_files(store.frozen_files(root).await?)?;
+        let slots = AgentSlots {
+            in_use: match driver {
+                Some(_) => store.running_agents(root).await?,
+                None => 0,
+            },
+            total: self.config.max_concurrent_agents.get(),
+        };
+        let readiness = items::Readiness {
+            driven: driver.is_some(),
+            slots_full: slots.in_use >= slots.total,
+        };
         Ok(RunStatus {
             subject: run.subject.clone(),
             run: run.ordinal(),
@@ -175,8 +196,10 @@ impl Project {
                     name: git::short_branch(&branch.ref_name).to_owned(),
                     tip: branch.tip_sha,
                 }),
+            merge_into_base: frozen.merge_into_base,
+            slots,
             gates: gates::views(store, &self.layout, run).await?,
-            tasks: tasks::statuses(store, root).await?,
+            items: items::statuses(store, run, &frozen, readiness).await?,
             unattended: facts::unattended(store, root, driver.is_some()).await?,
             integrating: facts::integrating(store, root).await?,
             cleanup: facts::cleanup(store, run).await?,

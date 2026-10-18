@@ -29,7 +29,7 @@ fn cancel_without_a_terminal_and_without_yes_refuses_and_changes_nothing() {
     assert_eq!(
         refused.stderr,
         format!(
-            "✖ cancel asks for a confirmation and there is no terminal to ask\n  confirm: surt cancel {name} --yes\n"
+            "✖ cancel asks for a confirmation and there is no terminal to ask\n  fix: surt cancel {name} --yes\n"
         )
     );
     assert_eq!(root_state(&sandbox), "active");
@@ -51,6 +51,27 @@ fn cancel_of_a_feature_without_an_active_run_is_refused() {
     );
 }
 
+#[test]
+fn a_phase_command_finishes_the_cleanup_of_a_cancelled_run_and_reports_it_as_already_cancelled() {
+    let name = feature_name();
+    let sandbox = planned(&name, &[tasks(1, &["A"])]);
+    let cancelled = surt(&sandbox, &["cancel", "--yes", &name]);
+    assert_eq!(cancelled.code, Some(0), "{}", cancelled.stderr);
+    sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
+
+    for command in ["feature", "plan", "start"] {
+        let finished = surt(&sandbox, &[command, &name]);
+
+        assert_eq!(finished.code, Some(0), "{command}: {}", finished.stderr);
+        assert_eq!(
+            finished.stderr,
+            format!("✔ {name} was already cancelled\n↻ cleanup done\n"),
+            "{command}"
+        );
+        sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
+    }
+}
+
 #[cfg(unix)]
 #[test]
 fn cancel_of_a_crashed_run_settles_it_and_a_new_description_starts_a_second_feature() {
@@ -67,7 +88,7 @@ fn cancel_of_a_crashed_run_settles_it_and_a_new_description_starts_a_second_feat
     assert_eq!(cancelled.code, Some(0), "{}", cancelled.stderr);
     assert!(
         cancelled.stderr.starts_with(
-            "✖ task A build attempt 1 exited but was never recorded — discarded\n✔ run cancelled\n↻ cleanup 1 worktree · working copy\n"
+            "⚠ task A build attempt 1 was interrupted with the previous driver — discarded\n✔ run cancelled\n↻ cleanup 1 worktree · working copy\n"
         ),
         "{}",
         cancelled.stderr
