@@ -72,6 +72,12 @@ pub(super) fn describe(problem: &Problem) -> String {
         }
         Problem::MisplacedApiKeyEnv => "api_key_env needs auth = \"api_key\"".to_owned(),
         Problem::InvalidBudget => "max_budget_usd must be a positive number".to_owned(),
+        Problem::UnknownAgentDirectory { known } => {
+            format!("not a built-in agent; agents: {}", known.join(", "))
+        }
+        Problem::StrayAgentFile => {
+            "surt reads only agent.toml, instructions.md and schemas/ here".to_owned()
+        }
     }
 }
 
