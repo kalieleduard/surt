@@ -17,6 +17,7 @@ mod subjects;
 use std::path::Path;
 
 pub use crate::checks::REPORT_SCHEMA as CHECK_REPORT_SCHEMA;
+pub use crate::cleanup::{Cleanup, Kept, Left};
 pub use crate::drive::graph::BlockReason;
 pub use crate::drive::{DriveOutcome, Gate, Progress, ProgressSink, StepLabel};
 pub use crate::git::GitVersion;

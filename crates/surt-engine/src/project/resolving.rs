@@ -6,6 +6,7 @@ use crate::store::SubjectRow;
 pub struct Subject {
     pub name: String,
     pub active_run: Option<RunId>,
+    pub pending_cleanup: Option<RunId>,
 }
 
 impl Project {
@@ -59,6 +60,7 @@ impl From<SubjectRow> for Subject {
         Subject {
             name: row.name,
             active_run: row.active_run.map(RunId),
+            pending_cleanup: row.pending_cleanup.map(RunId),
         }
     }
 }

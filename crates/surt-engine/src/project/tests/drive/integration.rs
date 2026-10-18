@@ -43,6 +43,20 @@ impl Feature {
         })
     }
 
+    pub(super) async fn task_tip(&self, key: &str) -> String {
+        let tips: Vec<(String,)> = self
+            .dir
+            .rows(&format!(
+                "SELECT b.tip_sha FROM run_branch b JOIN workflow_run w ON w.id = b.workflow_run_id \
+                 WHERE w.item_key = '{key}'"
+            ))
+            .await;
+        tips.into_iter()
+            .next()
+            .map(|(tip,)| tip)
+            .expect("the task branch was recorded")
+    }
+
     pub(super) async fn integrations(&self) -> Vec<(String, u32, String)> {
         self.dir
             .rows(
@@ -114,7 +128,7 @@ async fn every_approved_task_enters_the_integration_branch_as_a_merge_of_its_rev
         .expect("the integration branch");
     let mut merges = Vec::new();
     for key in ["A", "B"] {
-        let reviewed = feature.sha(&task_branch_of(key)).expect("the task branch");
+        let reviewed = feature.task_tip(key).await;
         let merge = feature
             .merge_of(&reviewed)
             .expect("a merge of the reviewed sha");

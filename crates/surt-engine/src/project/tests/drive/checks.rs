@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{Value, json};
 
 use super::super::fixtures::SUBJECT;
-use super::evidence::{Committing, change, committed, task_branch};
+use super::evidence::{Committing, change, committed};
 use super::fixtures::Feature;
 use super::planned::review;
 use super::repository::commit_file;
@@ -135,7 +135,7 @@ async fn passing_checks_run_as_argv_in_the_task_worktree_on_the_builders_commit(
         driven.outcome.expect("drive returns"),
         DriveOutcome::Succeeded
     );
-    let sha = feature.sha(&task_branch()).expect("the task branch");
+    let sha = feature.task_tip("A").await;
     let report = report_read_by(&runtime.requests(), "A/review", 1).expect("the review reads it");
     assert_eq!(
         without_durations(report),
@@ -170,7 +170,7 @@ async fn without_checks_the_check_passes_with_an_empty_report() {
         driven.outcome.expect("drive returns"),
         DriveOutcome::Succeeded
     );
-    let sha = feature.sha(&task_branch()).expect("the task branch");
+    let sha = feature.task_tip("A").await;
     assert_eq!(
         report_read_by(&runtime.requests(), "A/review", 1),
         Some(json!({ "commit": sha, "checks": [] }))
@@ -235,7 +235,7 @@ async fn a_failed_check_skips_review_and_the_next_builder_reads_the_check_report
         .map(|request| request.step.iteration)
         .collect();
     assert_eq!(reviewed, [2]);
-    let tip = feature.sha(&task_branch()).expect("the task branch");
+    let tip = feature.task_tip("A").await;
     let first = feature.git(&["rev-parse", &format!("{tip}^")]);
     let report = report_read_by(&requests, "A/build", 2).expect("the builder reads it");
     assert_eq!(report["commit"], json!(first));

@@ -36,6 +36,9 @@ pub(crate) struct FeatureArgs {
 pub(crate) async fn run(cwd: &Path, args: FeatureArgs) -> Result<(), Failure> {
     let project = Project::open(cwd, builtin::catalog()).await?;
     if let Some(subject) = project.subject_named(&args.description).await? {
+        if SPEC.finish_cleanup(&project, &subject).await? {
+            return Ok(());
+        }
         return SPEC.resume(&project, &subject).await;
     }
     create(&project, &args).await

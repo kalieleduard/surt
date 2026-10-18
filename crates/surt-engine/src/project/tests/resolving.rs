@@ -26,6 +26,7 @@ async fn a_full_name_a_unique_slug_or_a_unique_prefix_names_the_feature() {
     let expected = Subject {
         name: "20261017-add-login".to_owned(),
         active_run: Some(runs[0].clone()),
+        pending_cleanup: None,
     };
 
     for reference in ["20261017-add-login", "add-login", "20261017-a"] {

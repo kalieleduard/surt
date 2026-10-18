@@ -2,6 +2,7 @@ mod branches;
 mod checks;
 mod decide;
 mod driver;
+mod ending;
 mod evidence;
 mod expand;
 mod failure;

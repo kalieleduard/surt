@@ -11,21 +11,34 @@ const LOCK_EXTENSION: &str = "lock";
 const SALVAGE_INDEX: &str = "surt-salvage-index";
 const INDEX_VARIABLE: &str = "GIT_INDEX_FILE";
 
+pub(crate) async fn salvage_leftovers(
+    target: &Target<'_>,
+) -> Result<Option<Salvage>, PrepareError> {
+    let admin = git::absolute_git_dir(target.path).await?;
+    keep_leftovers(target, &admin).await
+}
+
+async fn keep_leftovers(
+    target: &Target<'_>,
+    admin: &Path,
+) -> Result<Option<Salvage>, PrepareError> {
+    remove_own_locks(target, admin).await?;
+    let state = State::read(target.path, target.branch, admin).await?;
+    let off_target = !state.at(target.branch, target.tip);
+    if !off_target && !state.dirty && !state.in_progress {
+        return Ok(None);
+    }
+    save(target, admin, &state).await?;
+    Ok(Some(Salvage {
+        reference: target.salvage_ref.to_owned(),
+        off_target,
+    }))
+}
+
 pub(super) async fn reset(target: &Target<'_>) -> Result<Option<Salvage>, PrepareError> {
     let worktree = target.path;
     let admin = git::absolute_git_dir(worktree).await?;
-    remove_own_locks(target, &admin).await?;
-    let state = State::read(worktree, target.branch, &admin).await?;
-    let off_target = !state.at(target.branch, target.tip);
-    let salvage = if off_target || state.dirty || state.in_progress {
-        save(target, &admin, &state).await?;
-        Some(Salvage {
-            reference: target.salvage_ref.to_owned(),
-            off_target,
-        })
-    } else {
-        None
-    };
+    let salvage = keep_leftovers(target, &admin).await?;
     for (marker, quit) in MARKERS {
         if admin.join(marker).exists() {
             git::run(worktree, quit).await?;

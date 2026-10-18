@@ -12,6 +12,7 @@ mod acceptance;
 mod approvals;
 mod blocked;
 mod branches;
+mod cleanup;
 mod control;
 mod drivers;
 mod executions;
@@ -29,6 +30,7 @@ pub(crate) use acceptance::{Acceptance, Integrated, PublishedOutput};
 pub(crate) use approvals::{Decision, DecisionOutcome, GateRow, NewDecision, WaitingGate};
 pub(crate) use blocked::{BlockedRow, FailureRow};
 pub(crate) use branches::{PreviousExecution, RunBranch};
+pub(crate) use cleanup::{CleanupRecord, TaskBranch};
 pub(crate) use executions::{
     ExecutionEnd, ExecutionKind, ExecutionStart, InputRequest, StartedExecution,
 };

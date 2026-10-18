@@ -9,7 +9,8 @@ use std::path::{Path, PathBuf};
 use crate::git::{self, GitError};
 
 pub(crate) use evidence::{Claim, EvidenceError, prove};
-pub(crate) use locate::{Located, Repair};
+pub(crate) use locate::{Located, Repair, same_path};
+pub(crate) use salvage::salvage_leftovers;
 
 pub(crate) struct Target<'a> {
     pub(crate) repository: &'a Path,

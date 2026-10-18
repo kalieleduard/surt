@@ -7,7 +7,7 @@ use super::super::fixtures::SUBJECT;
 #[cfg(unix)]
 use super::checks::{check, with_checks};
 use super::fixtures::Feature;
-use super::integration::{integration_branch, task_branch_of};
+use super::integration::integration_branch;
 #[cfg(unix)]
 use super::integration::{login, logout};
 use super::repository::{commit_file, git, git_succeeds};
@@ -114,14 +114,12 @@ async fn a_merge_conflict_sends_the_task_back_to_its_builder_with_a_conflict() {
         DriveOutcome::Succeeded
     );
     let Conflicted { key, merged_first } = conflicted(&feature).await;
-    let first = feature
-        .sha(&task_branch_of(merged_first))
-        .expect("the first task branch");
+    let first = feature.task_tip(merged_first).await;
     let first_merge = feature.merge_of(&first).expect("the first merge");
     let builder = team.request(&format!("{key}/build"), 2);
     let conflict = input(&builder, "conflict", "conflict.json").expect("the builder reads it");
     assert_valid(CONFLICT_SCHEMA, &conflict);
-    let resolved = feature.sha(&task_branch_of(key)).expect("the task branch");
+    let resolved = feature.task_tip(key).await;
     let rejected = feature.git(&["rev-parse", &format!("{resolved}^1")]);
     assert_eq!(
         conflict,
@@ -164,10 +162,8 @@ async fn after_a_conflict_the_builders_commit_must_descend_from_the_integration_
         driven.outcome.expect("drive returns"),
         DriveOutcome::Succeeded
     );
-    let Conflicted { key, merged_first } = conflicted(&feature).await;
-    let first = feature
-        .sha(&task_branch_of(merged_first))
-        .expect("the first task branch");
+    let Conflicted { merged_first, .. } = conflicted(&feature).await;
+    let first = feature.task_tip(merged_first).await;
     let tip = feature.merge_of(&first).expect("the first merge").sha;
     let refused = failures(&feature, "build").await;
     assert_eq!(refused.len(), 1, "{refused:?}");
@@ -182,7 +178,6 @@ async fn after_a_conflict_the_builders_commit_must_descend_from_the_integration_
         )),
         "{message}"
     );
-    assert!(feature.sha(&task_branch_of(key)).is_some());
 }
 
 #[cfg(unix)]
@@ -215,9 +210,7 @@ async fn a_merge_that_fails_the_checks_sends_the_task_back_and_never_becomes_the
         DriveOutcome::Succeeded
     );
     let Conflicted { key, merged_first } = conflicted(&feature).await;
-    let first = feature
-        .sha(&task_branch_of(merged_first))
-        .expect("the first task branch");
+    let first = feature.task_tip(merged_first).await;
     let first_merge = feature.merge_of(&first).expect("the first merge").sha;
     let conflict = input(
         &team.request(&format!("{key}/build"), 2),
@@ -226,7 +219,7 @@ async fn a_merge_that_fails_the_checks_sends_the_task_back_and_never_becomes_the
     )
     .expect("the builder reads it");
     assert_valid(CONFLICT_SCHEMA, &conflict);
-    let resolved = feature.sha(&task_branch_of(key)).expect("the task branch");
+    let resolved = feature.task_tip(key).await;
     let rejected = feature.git(&["rev-parse", &format!("{resolved}~2")]);
     let failed_merge = conflict["merge_commit"]
         .as_str()

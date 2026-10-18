@@ -6,6 +6,7 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 
 use super::decide::{self, Action, Ctx, RunEnd};
+use super::ending;
 use super::flights::Flights;
 use super::frozen::{CorruptSnapshot, Frozen};
 use super::graph::StepRunId;
@@ -64,6 +65,9 @@ pub(crate) async fn drive<R: AgentRuntime>(
     let Some(_lock) = lock else {
         return Err(driver_live(&driving).await?);
     };
+    if let Some(outcome) = ending::ended(&driving, &progress).await? {
+        return Ok(outcome);
+    }
     let store = driving.store;
     store
         .record_driver(driving.root, std::process::id())
@@ -86,7 +90,9 @@ pub(crate) async fn drive<R: AgentRuntime>(
     if let Some(refusal) = driver.guard().await? {
         return Ok(DriveOutcome::Halted(refusal));
     }
-    driver.run().await
+    let outcome = driver.run().await?;
+    let ended = ending::ended(&driver.driving, &driver.progress).await?;
+    Ok(ended.unwrap_or(outcome))
 }
 
 async fn driver_live(driving: &Driving<'_>) -> Result<Error, Error> {

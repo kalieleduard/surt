@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use tokio::sync::mpsc::UnboundedSender;
 
+use crate::cleanup::Cleanup;
 use crate::project::Refusal;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -77,6 +78,7 @@ pub enum Progress {
         path: String,
         revision: u32,
     },
+    CleanedUp(Cleanup),
 }
 
 pub type ProgressSink = UnboundedSender<Progress>;

@@ -128,6 +128,18 @@ async fn an_approval_of_the_latest_revision_lets_the_next_step_read_it() {
         .approve(&feature.run, Some(2), ACTOR)
         .await
         .expect("the approval is recorded");
+    assert_eq!(
+        fs::read_to_string(
+            feature
+                .dir
+                .path()
+                .join(".surt/features")
+                .join(SUBJECT)
+                .join("draft.md")
+        )
+        .expect("the Working Copy"),
+        "# Draft 2\n"
+    );
     let driven = feature
         .drive(Script::new().on("publish", 1, 1, super::fixtures::summary("ok\n")))
         .await;
@@ -159,17 +171,5 @@ async fn an_approval_of_the_latest_revision_lets_the_next_step_read_it() {
             ("reject".to_owned(), 1, true),
             ("approve".to_owned(), 2, true)
         ]
-    );
-    assert_eq!(
-        fs::read_to_string(
-            feature
-                .dir
-                .path()
-                .join(".surt/features")
-                .join(SUBJECT)
-                .join("draft.md")
-        )
-        .expect("the Working Copy"),
-        "# Draft 2\n"
     );
 }

@@ -1,4 +1,5 @@
 mod blocked;
+mod cleanup;
 mod interruption;
 mod progress;
 
@@ -24,12 +25,20 @@ impl Driven<'_> {
         let (sink, events) = mpsc::unbounded_channel();
         let stop = StopSignal::new();
         let relay = tokio::spawn(interruption::relay(Interruptions::listen()?, stop.clone()));
-        let (outcome, ()) = tokio::join!(
+        let (outcome, cleaned) = tokio::join!(
             self.project.drive(self.run, runtime, sink, stop),
             progress::print(events)
         );
         relay.abort();
-        match outcome? {
+        let concluded = self.conclude(outcome?).await;
+        if let Some(cleanup) = cleaned {
+            cleanup::report(&cleanup, self.resume_command());
+        }
+        concluded
+    }
+
+    async fn conclude(&self, outcome: DriveOutcome) -> Result<(), Failure> {
+        match outcome {
             DriveOutcome::AtGate { gates } => self.awaiting(&gates).await,
             DriveOutcome::Succeeded => self.succeeded().await,
             DriveOutcome::Blocked { .. } => {

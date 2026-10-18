@@ -287,9 +287,8 @@ async fn an_edit_to_a_pinned_item_list_is_refused_by_every_command_that_acts() {
         .approve(&feature.run, None, ACTOR)
         .await
         .expect("the plan is approved");
-    let report = Behavior::Deliver(Delivery::new("done").output("report", "report.txt", "ok\n"));
     feature
-        .drive(Script::new().on("build", 1, 1, report))
+        .drive(Script::new())
         .await
         .outcome
         .expect("the builder reads the plan");

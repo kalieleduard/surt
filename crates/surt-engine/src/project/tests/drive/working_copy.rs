@@ -309,17 +309,14 @@ async fn only_artifacts_behind_an_approval_gate_have_a_working_copy() {
         driven.outcome.expect("drive returns"),
         DriveOutcome::Succeeded
     );
-    let files: Vec<String> = fs::read_dir(feature.working_copy(""))
-        .expect("the Working Copy")
-        .map(|entry| {
-            entry
-                .expect("an entry")
-                .file_name()
-                .to_string_lossy()
-                .into_owned()
-        })
-        .collect();
-    assert_eq!(files, ["draft.md"]);
+    let files: Vec<(String, String)> = feature
+        .dir
+        .rows(
+            "SELECT a.name, w.rel_path FROM working_copy_file w \
+             JOIN artifact a ON a.id = w.artifact_id ORDER BY a.name",
+        )
+        .await;
+    assert_eq!(files, [("draft".to_owned(), "draft.md".to_owned())]);
 }
 
 #[tokio::test(flavor = "multi_thread")]

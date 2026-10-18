@@ -107,7 +107,8 @@ fn the_brief_delivers_a_feature_from_its_description_to_the_integration_branch()
     }
     assert!(
         started.ends_with(&format!(
-            "✔ shipper delivered — {branch} @ {}\n✔ run succeeded\n",
+            "✔ shipper delivered — {branch} @ {}\n✔ run succeeded\n\
+             ↻ cleanup 2 worktrees · 2 task branches · working copy\n",
             short(&tip)
         )),
         "{started}"
@@ -161,10 +162,45 @@ fn the_brief_delivers_a_feature_from_its_description_to_the_integration_branch()
         ),
         "done"
     );
+    assert_cleaned(&sandbox, &name);
     assert!(
         clock.elapsed() < E2E_CEILING,
         "the E2E took {:?}",
         clock.elapsed()
+    );
+}
+
+fn assert_cleaned(sandbox: &Sandbox, name: &str) {
+    let repo = sandbox.repo();
+    let worktrees = sandbox.git_output(&repo, &["worktree", "list", "--porcelain"]);
+    assert_eq!(worktrees.matches("worktree ").count(), 1, "{worktrees}");
+    assert_eq!(
+        sandbox.git_output(
+            &repo,
+            &[
+                "for-each-ref",
+                "--format=%(refname)",
+                "refs/heads/surt/",
+                "refs/surt/"
+            ]
+        ),
+        format!("refs/heads/surt/{name}\n")
+    );
+    let dot_surt = sandbox.dot_surt();
+    assert!(!dot_surt.join("features").join(name).exists());
+    let executions = dot_surt.join("runtime/executions");
+    assert!(
+        std::fs::read_dir(&executions).map_or(true, |mut entries| entries.next().is_none()),
+        "{}",
+        executions.display()
+    );
+    assert!(dot_surt.join("logs").join(name).is_dir());
+    assert_eq!(
+        count(
+            sandbox,
+            "workflow_run WHERE parent_step_run_id IS NULL AND cleaned_at IS NOT NULL"
+        ),
+        "1"
     );
 }
 
@@ -266,4 +302,110 @@ fn start_refuses_until_the_manifest_is_approved() {
         )
     );
     assert_eq!(count(&sandbox, "execution"), executions);
+}
+
+#[test]
+fn every_phase_command_finishes_a_pending_cleanup_of_the_feature() {
+    let name = feature_name();
+    let sandbox = planned(
+        &name,
+        &[
+            tasks(1, &["A"]),
+            build("A", 1, 1, "login.txt", "login\n"),
+            review("A", 1, "approved"),
+            ship(),
+        ],
+    );
+    ok(surt(&sandbox, &["start", &name]));
+    let execution = text(&sandbox, "SELECT id FROM execution ORDER BY id LIMIT 1");
+    let leftover = sandbox
+        .dot_surt()
+        .join("runtime/executions")
+        .join(&execution)
+        .join("inputs");
+
+    for command in ["feature", "plan", "start"] {
+        std::fs::create_dir_all(&leftover).expect("a leftover execution directory");
+        sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
+
+        let finished = ok(surt(&sandbox, &[command, &name]));
+
+        assert!(
+            finished.ends_with("✔ run succeeded\n↻ cleanup done\n"),
+            "{command}: {finished}"
+        );
+        assert!(!leftover.exists(), "{command}");
+        assert_eq!(
+            count(&sandbox, "workflow_run WHERE cleaned_at IS NOT NULL"),
+            "1"
+        );
+    }
+    let refused = surt(&sandbox, &["start", &name]);
+    assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
+}
+
+#[test]
+fn a_cleanup_keeps_an_edited_file_and_says_how_to_retry_what_it_could_not_remove() {
+    let name = feature_name();
+    let sandbox = planned(
+        &name,
+        &[
+            tasks(1, &["A"]),
+            build("A", 1, 1, "login.txt", "login\n"),
+            review("A", 1, "approved"),
+            ship(),
+        ],
+    );
+    ok(surt(&sandbox, &["start", &name]));
+    let spec = text(
+        &sandbox,
+        "SELECT w.rel_path FROM working_copy_file w JOIN artifact a ON a.id = w.artifact_id \
+         WHERE a.name = 'spec'",
+    );
+    let edited = format!(".surt/features/{name}/{spec}");
+    std::fs::create_dir_all(sandbox.dot_surt().join("features").join(&name))
+        .expect("the working copy");
+    std::fs::write(sandbox.repo().join(&edited), "# Spec, edited later\n").expect("an edit");
+    let execution = text(&sandbox, "SELECT id FROM execution ORDER BY id LIMIT 1");
+    let blocker = sandbox
+        .dot_surt()
+        .join("runtime/executions")
+        .join(&execution);
+    std::fs::write(&blocker, "not a directory\n").expect("a file in the way");
+    sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
+
+    let incomplete = ok(surt(&sandbox, &["start", &name]));
+
+    assert!(
+        incomplete.contains(&format!("⚠ kept {edited} — unrecorded edit\n")),
+        "{incomplete}"
+    );
+    assert!(
+        incomplete.contains(&format!(
+            "⚠ cleanup incomplete — could not remove .surt/runtime/executions/{execution} ("
+        )),
+        "{incomplete}"
+    );
+    assert!(
+        incomplete.ends_with(&format!("  retry: surt start {name}\n")),
+        "{incomplete}"
+    );
+    assert_eq!(
+        count(&sandbox, "workflow_run WHERE cleaned_at IS NOT NULL"),
+        "0"
+    );
+    std::fs::remove_file(&blocker).expect("the blocker is removed");
+
+    let finished = ok(surt(&sandbox, &["start", &name]));
+
+    assert!(
+        finished.ends_with(&format!(
+            "↻ cleanup done\n⚠ kept {edited} — unrecorded edit\n"
+        )),
+        "{finished}"
+    );
+    assert_eq!(
+        count(&sandbox, "workflow_run WHERE cleaned_at IS NOT NULL"),
+        "1"
+    );
 }

@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use serde_json::json;
 
 use super::super::fixtures::SUBJECT;
-use super::fixtures::{ACTOR, Feature, agent};
+use super::fixtures::{ACTOR, Feature, agent, preserved};
 use super::planned::{PLANNER, plan};
 use super::repository::{commit_file, git};
 use crate::project::{Catalog, Config, DeliveryCheck, DriveOutcome};
@@ -136,7 +136,7 @@ impl AgentRuntime for Committing {
         self.requests
             .lock()
             .expect("the requests")
-            .push(request.clone());
+            .push(preserved(&request));
         let step = &request.step;
         let act = step
             .step
@@ -189,10 +189,6 @@ pub(super) async fn committed(task: &'static str, config: Config) -> Feature {
     feature
 }
 
-pub(super) fn task_branch() -> String {
-    format!("refs/heads/surt/task/{SUBJECT}/A")
-}
-
 pub(super) fn change(worktree: &Path) -> String {
     commit_file(worktree, "feature.txt", "the feature\n")
 }
@@ -231,8 +227,11 @@ async fn refused_then_accepted(refused: Act) -> (Feature, Vec<(u32, String, Stri
         driven.outcome.expect("drive returns"),
         DriveOutcome::Succeeded
     );
-    let accepted = feature.sha(&task_branch()).expect("the task branch exists");
-    assert_eq!(tip(&feature).await, accepted);
+    let accepted = tip(&feature).await;
+    assert_eq!(
+        feature.git(&["log", "-1", "--format=%s", &accepted]),
+        "feature.txt"
+    );
     let failures = build_failures(&feature).await;
     (feature, failures)
 }
@@ -255,9 +254,12 @@ async fn a_new_commit_on_the_task_branch_is_accepted_and_becomes_its_tip() {
         driven.outcome.expect("drive returns"),
         DriveOutcome::Succeeded
     );
-    let committed = git(&feature.worktree("A"), &["rev-parse", "HEAD"]);
+    let committed = tip(&feature).await;
     assert_ne!(committed, feature.base());
-    assert_eq!(tip(&feature).await, committed);
+    assert_eq!(
+        feature.git(&["log", "-1", "--format=%s", &committed]),
+        "feature.txt"
+    );
     assert!(build_failures(&feature).await.is_empty());
 }
 
