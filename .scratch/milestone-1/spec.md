@@ -2,7 +2,7 @@
 
 Labels: ready-for-agent
 Type: spec
-Status: open (19 of 22 tickets resolved; 03, 20 await the first Linux/Windows CI run, 22 awaits the manual Claude Code smoke)
+Status: resolved (22 of 22 tickets resolved)
 Map: [Surt — Architecture and implementation plan](../surt-architecture/map.md)
 Plan: [K. Roadmap and Milestone 1](../../docs/architecture/K-roadmap.md)
 

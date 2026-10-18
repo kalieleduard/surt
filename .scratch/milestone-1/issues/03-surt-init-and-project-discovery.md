@@ -6,7 +6,7 @@ Spec: [Milestone 1](../spec.md) (stories 1–9, 95–100, 103) · Slice: S1 Skel
 
 **Blocked by:** 02 (Store opens the schema)
 
-**Status:** ready-for-human
+**Status:** resolved
 
 - [x] `surt init` creates `.surt/` at the toplevel of the repository's main worktree, opens the database, writes a `.surt/.gitignore` that versions only `config.toml` and `agents/`, and a commented `config.toml` with the defaults (`max_concurrent_agents = 3`, `max_attempts = 3`, `max_iterations = 5`, `merge_into_base = "never"`, an example `[[checks]]`)
 - [x] `surt init` refuses with a fix when Git < 2.38 or no user identity is configured
@@ -15,8 +15,9 @@ Spec: [Milestone 1](../spec.md) (stories 1–9, 95–100, 103) · Slice: S1 Skel
 - [x] Unknown keys in `config.toml` are errors; `merge_into_base = "ff-only"` refuses with exit `3`
 - [x] Errors follow J's shape (`✖` line, at most two context lines, one to three labelled copyable commands); progress and errors go to stderr, data to stdout
 - [x] An unexpected error prints `✖ internal error: …` and suggests `SURT_LOG=debug`; `SURT_LOG` enables diagnostics on stderr; `NO_COLOR` disables colour
-- [ ] Binary tests on the three OSes cover first init, rerun, missing identity, outside-project refusal and an unknown config key
+- [x] Binary tests on the three OSes cover first init, rerun, missing identity, outside-project refusal and an unknown config key
 
 ## Comments
 
 - 2026-10-18 (orchestrator): Implemented and green on macOS. Open criterion: binary tests on Linux and Windows — waits for the first CI run of the matrix (needs the branch pushed). Merged into `integration/milestone-1` at f5a0ca6; code-review fixes at 931fc99.
+- 2026-10-18 (orchestrator): Resolved. The user validated the binary tests on Linux and Windows.
