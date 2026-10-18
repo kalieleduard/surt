@@ -32,16 +32,30 @@ pub fn hashes(root: &Path) -> BTreeMap<String, String> {
                 found.insert(relative, "directory".to_owned());
                 pending.push(path);
             } else {
-                let bytes = fs::read(&path).expect("a readable file");
-                let hex: String = Sha256::digest(&bytes)
-                    .iter()
-                    .map(|byte| format!("{byte:02x}"))
-                    .collect();
-                found.insert(relative, hex);
+                found.insert(relative, fingerprint(&path));
             }
         }
     }
     found
+}
+
+/// The SHA-256 of a file, or its length and modification time when a live
+/// Driver holds a lock on it (Windows refuses to read a locked range).
+fn fingerprint(path: &Path) -> String {
+    match fs::read(path) {
+        Ok(bytes) => Sha256::digest(&bytes)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect(),
+        Err(_) => {
+            let metadata = fs::metadata(path).expect("a locked file's metadata");
+            format!(
+                "locked, {} bytes, modified {:?}",
+                metadata.len(),
+                metadata.modified().expect("a modification time")
+            )
+        }
+    }
 }
 
 pub fn at_the_manifest_gate(name: &str) -> Sandbox {

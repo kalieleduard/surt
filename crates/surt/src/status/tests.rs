@@ -262,6 +262,18 @@ fn the_overview_joins_simultaneous_states_and_falls_back_to_the_blocked_step() {
 }
 
 #[test]
+fn the_overview_prints_the_project_wide_slot_count_once_not_once_per_feature() {
+    let mut first = stopped_with_everything_pending();
+    first.slots = slots(1);
+    let mut second = cancelled_and_cleaned();
+    second.slots = slots(1);
+
+    let text = overview::render(&[first, second]);
+
+    assert!(text.ends_with("agent slots: 1/3 in use\n"), "{text}");
+}
+
+#[test]
 fn the_detail_in_ascii_mode_replaces_every_glyph() {
     let text = detail::render(&stopped_with_everything_pending());
 
