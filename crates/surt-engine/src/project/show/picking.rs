@@ -4,7 +4,7 @@ use super::ShowRequest;
 use crate::project::{Error, Refusal};
 use crate::store::Store;
 
-pub(super) async fn item_run(
+pub(in crate::project) async fn item_run(
     store: &Store,
     subject: &str,
     root: &str,

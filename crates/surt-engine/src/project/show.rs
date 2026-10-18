@@ -1,6 +1,7 @@
 mod picking;
 
-use picking::{content, item_run, revision_id};
+pub(super) use picking::item_run;
+use picking::{content, revision_id};
 
 use super::status::origin;
 use super::{Error, Project, RevisionOrigin, RunSelector};
