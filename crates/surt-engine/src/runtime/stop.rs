@@ -37,11 +37,15 @@ impl StopSignal {
     }
 
     pub async fn requested(&self) -> StopLevel {
+        self.reached(StopLevel::Graceful).await
+    }
+
+    pub(crate) async fn reached(&self, level: StopLevel) -> StopLevel {
         let mut receiver = self.0.subscribe();
         receiver
-            .wait_for(|level| *level != StopLevel::None)
+            .wait_for(|current| *current >= level)
             .await
-            .map_or(StopLevel::Force, |level| *level)
+            .map_or(StopLevel::Force, |current| *current)
     }
 
     fn raise(&self, level: StopLevel) {

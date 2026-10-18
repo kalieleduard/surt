@@ -1,0 +1,7 @@
+scenario=success
+exit_code=0
+model=claude-haiku-5-5
+session_id=e31e4cde-acd7-481b-b29f-9ee8fae1901a
+claude_version=2.1.301 (Claude Code)
+delivery_files=note.md 
+argv=claude -p --session-id e31e4cde-acd7-481b-b29f-9ee8fae1901a --no-session-persistence --output-format stream-json --verbose --model claude-haiku-5-5 --effort low --permission-mode dontAsk --permission-prompts none --tools Read\,Write --allowedTools Edit\(//tmp/surt-fixture/delivery/\*\*\) Read --disallowedTools Bash --json-schema \{\"type\":\"object\"\,\"additionalProperties\":false\,\"required\":\[\"outcome\"\,\"outputs\"\]\,\"properties\":\{\"outcome\":\{\"enum\":\[\"done\"\]\}\,\"outputs\":\{\"type\":\"object\"\,\"additionalProperties\":false\,\"required\":\[\"note\"\]\,\"properties\":\{\"note\":\{\"type\":\"string\"\}\}\}\}\} --append-system-prompt-file instructions.md --settings settings.json --strict-mcp-config --mcp-config mcp.json --disable-slash-commands --safe-mode --setting-sources user 

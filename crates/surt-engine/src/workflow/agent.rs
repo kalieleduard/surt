@@ -21,7 +21,7 @@ pub(crate) struct AgentContract {
     pub(crate) inputs: BTreeMap<String, InputSpec>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) outputs: BTreeMap<String, OutputSpec>,
-    profile: Profile,
+    pub(crate) profile: Profile,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
@@ -61,19 +61,19 @@ pub(crate) struct ItemFileSpec {
     pub(crate) json_schema: Option<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct Profile {
+pub(crate) struct Profile {
     runtime: RuntimeKind,
-    model: String,
-    effort: Effort,
+    pub(crate) model: String,
+    pub(crate) effort: Effort,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    limits: Option<Limits>,
+    pub(crate) limits: Option<Limits>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    claude: Option<ClaudeProfile>,
+    pub(crate) claude: Option<ClaudeProfile>,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 enum RuntimeKind {
     #[serde(rename = "claude-code")]
     ClaudeCode,
@@ -81,9 +81,9 @@ enum RuntimeKind {
     Fake,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
-enum Effort {
+pub(crate) enum Effort {
     Low,
     Medium,
     High,
@@ -91,36 +91,36 @@ enum Effort {
     Max,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct Limits {
+pub(crate) struct Limits {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    max_turns: Option<NonZeroU32>,
+    pub(crate) max_turns: Option<NonZeroU32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    max_budget_usd: Option<f64>,
+    pub(crate) max_budget_usd: Option<f64>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct ClaudeProfile {
-    auth: Auth,
-    permission_mode: PermissionMode,
-    tools: Vec<String>,
-    allowed_tools: Vec<String>,
-    disallowed_tools: Vec<String>,
+pub(crate) struct ClaudeProfile {
+    pub(crate) auth: Auth,
+    pub(crate) permission_mode: PermissionMode,
+    pub(crate) tools: Vec<String>,
+    pub(crate) allowed_tools: Vec<String>,
+    pub(crate) disallowed_tools: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    api_key_env: Option<String>,
+    pub(crate) api_key_env: Option<String>,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
-enum Auth {
+pub(crate) enum Auth {
     Subscription,
     ApiKey,
 }
 
-#[derive(Deserialize, Serialize)]
-enum PermissionMode {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
+pub(crate) enum PermissionMode {
     #[serde(rename = "dontAsk")]
     DontAsk,
     #[serde(rename = "bypassPermissions")]
