@@ -57,7 +57,9 @@ pub(super) async fn statuses(
             ItemState::Succeeded | ItemState::Cancelled => None,
             _ => conflict(store, &row.run).await?,
         };
-        let shows_step = state != ItemState::Queued || row.step_state.as_deref() == Some(PENDING);
+        let shows_step = state != ItemState::Queued
+            || readiness.paused
+            || row.step_state.as_deref() == Some(PENDING);
         statuses.push(ItemStatus {
             key: row.key.clone(),
             state,

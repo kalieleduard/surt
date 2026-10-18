@@ -322,9 +322,9 @@ async fn status_shows_the_pause_while_the_driver_waits_and_not_once_an_agent_sta
     let tasks: Vec<_> = shown
         .items
         .iter()
-        .map(|task| (task.key.as_str(), task.state))
+        .map(|task| (task.key.as_str(), task.state, task.step.as_deref()))
         .collect();
-    assert_eq!(tasks, [("A", ItemState::Queued)]);
+    assert_eq!(tasks, [("A", ItemState::Queued, Some("build"))]);
 
     let resumed = feature
         .drive(Script::new().on("A/build", 1, 2, work("a")))
