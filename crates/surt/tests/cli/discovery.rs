@@ -128,7 +128,8 @@ fn a_project_key_in_the_global_config_is_refused_as_unknown() {
     assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
     assert!(run.stderr.contains("config.toml:1"), "{}", run.stderr);
     assert!(
-        run.stderr.contains("max_concurrent_agents"),
+        run.stderr
+            .contains("unknown field `max_concurrent_agents`, expected `stop_grace_period`"),
         "{}",
         run.stderr
     );
