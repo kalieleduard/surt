@@ -96,3 +96,29 @@ fn recovery_and_cancel_lines_print_only_ascii_in_ascii_mode() {
          [waiting] cancel requested; waiting for the driver to stop...\n"
     );
 }
+
+#[test]
+fn stop_and_salvage_lines_print_only_ascii_in_ascii_mode() {
+    let lines: String = [
+        Progress::StopRequested,
+        Progress::AttemptInterrupted {
+            step: task("B", "build"),
+            attempt: 1,
+        },
+        Progress::Salvaged {
+            step: task("B", "build"),
+            reference: "refs/surt/salvage/0192f3a8".to_owned(),
+        },
+    ]
+    .iter()
+    .map(line)
+    .collect();
+
+    assert_eq!(
+        Symbols::Ascii.render(&lines),
+        "[waiting] stop requested from another terminal; stopping...\n\
+         [stopped] task B build attempt 1 interrupted\n\
+         [warn] task B build worktree had leftovers - saved to refs/surt/salvage/0192f3a8\n\
+         \x20 inspect: git log -p refs/surt/salvage/0192f3a8\n"
+    );
+}

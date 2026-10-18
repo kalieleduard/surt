@@ -1,4 +1,6 @@
+use super::super::source::{Files, render};
 use super::super::stream::Stream;
+use crate::symbols::Symbols;
 
 macro_rules! captured {
     ($name:literal) => {
@@ -77,5 +79,49 @@ fn relative_paths_stay_as_the_agent_wrote_them() {
             "Write delivery/d.md",
             "Write delivery/note.md"
         ]
+    );
+}
+
+#[test]
+fn every_captured_stream_prints_only_ascii_in_ascii_mode() {
+    let streams = [
+        captured!("success"),
+        captured!("auth-expired"),
+        captured!("bad-model"),
+        captured!("sigterm"),
+        captured!("permission-denied"),
+        captured!("max-turns"),
+    ];
+
+    for stream in streams {
+        let files = Files {
+            stream: stream.to_owned(),
+            stderr: String::new(),
+            output: String::new(),
+        };
+        let text = render(&files, "B build#2 │ ", false);
+
+        assert!(Symbols::Ascii.render(&text).is_ascii(), "{text}");
+    }
+}
+
+#[test]
+fn an_edit_and_a_cut_message_render_their_glyphs_in_ascii() {
+    let mut renderer = Stream::default();
+    renderer.render(r#"{"type":"system","subtype":"init","cwd":"/w"}"#);
+    let edit = renderer.render(
+        r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/w/a.rs","old_string":"a","new_string":"b\nc"}}]}}"#,
+    );
+    let message = renderer.render(
+        r#"{"type":"assistant","message":{"content":[{"type":"text","text":"first\nsecond"}]}}"#,
+    );
+
+    assert_eq!(
+        Symbols::Ascii.render(&edit.expect("an edit line")),
+        "Edit a.rs (+2 -1)"
+    );
+    assert_eq!(
+        Symbols::Ascii.render(&message.expect("a message line")),
+        "\"first...\""
     );
 }

@@ -6,6 +6,7 @@ use surt_engine::project::{
 };
 
 use super::render;
+use crate::symbols::Symbols;
 
 const ID: &str = "0192f3a8-7b1c-7000-8000-000000000001";
 const SUBJECT: &str = "20261017-add-login";
@@ -194,4 +195,13 @@ fn an_operation_is_named_instead_of_a_role_and_profile() {
 
     assert!(text.contains("  operation  checks.run\n"), "{text}");
     assert!(!text.contains("profile"), "{text}");
+}
+
+#[test]
+fn an_execution_prints_only_ascii_in_ascii_mode() {
+    for detail in [failed_builder(), bare()] {
+        let text = render(&detail, NOW);
+
+        assert!(Symbols::Ascii.render(&text).is_ascii(), "{text}");
+    }
 }
