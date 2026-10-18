@@ -92,6 +92,17 @@ pub enum Refusal {
         candidates: Vec<String>,
     },
     InvalidDefinition(Box<InvalidDefinition>),
+    IntegrationBranchMoved {
+        subject: String,
+        branch: String,
+        expected: String,
+        found: Option<String>,
+    },
+    IntegrationBranchCheckedOut {
+        subject: String,
+        branch: String,
+        path: PathBuf,
+    },
 }
 
 #[derive(Debug, thiserror::Error)]

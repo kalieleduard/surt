@@ -111,5 +111,42 @@ fn message(progress: &Progress) -> (Mark, Message) {
                 "{path} was missing; recreated from {artifact} rev {revision}"
             )),
         ),
+        Progress::Recovering { driver } => (Mark::Warning, recovering(*driver)),
+        Progress::OrphanStopped { step, attempt, pid } => (
+            Mark::Warning,
+            Message::new(format!(
+                "{} attempt {attempt} (pid {pid}, alive) — stopped",
+                label(step)
+            )),
+        ),
+        Progress::Discarded { step, attempt } => (
+            Mark::Error,
+            Message::new(format!(
+                "{} attempt {attempt} exited but was never recorded — discarded",
+                label(step)
+            )),
+        ),
+        Progress::IntegrationRecorded {
+            step,
+            branch,
+            merge,
+        } => (
+            Mark::Success,
+            Message::new(format!(
+                "{} had completed ({branch} @ {}) — recorded",
+                label(step),
+                short(merge)
+            )),
+        ),
     }
 }
+
+fn recovering(driver: Option<u32>) -> Message {
+    match driver {
+        Some(pid) => Message::new(format!("previous driver (pid {pid}) is gone — recovering")),
+        None => Message::new("previous driver is gone — recovering"),
+    }
+}
+
+#[cfg(test)]
+mod tests;

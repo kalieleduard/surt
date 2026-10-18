@@ -27,4 +27,6 @@ jiff = "0.2"
 process-wrap = { version = "10", default-features = false, features = ["tokio1", "process-group", "job-object", "kill-on-drop"] }
 anstream = "1"
 anstyle = "1"
+libc = "0.2"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Registry", "Win32_System_Threading"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "std"] }

@@ -9,6 +9,7 @@ use crate::feature::quoted;
 use crate::message::Message;
 
 const GIT_DOWNLOADS: &str = "https://git-scm.com/downloads";
+const SHORT_SHA_CHARS: usize = 7;
 
 pub(crate) fn message(refusal: &Refusal) -> Message {
     match refusal {
@@ -108,7 +109,30 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             problem,
             files,
         } => edits::invalid(subject, artifact, problem, files),
+        Refusal::IntegrationBranchMoved {
+            subject,
+            branch,
+            expected,
+            found,
+        } => Message::new(format!(
+            "{branch} moved outside surt (expected {}, found {})",
+            short(expected),
+            found.as_deref().map_or("no branch", short)
+        ))
+        .way("fix", format!("git branch -f {branch} {expected}"))
+        .way("resume", format!("surt start {subject}")),
+        Refusal::IntegrationBranchCheckedOut {
+            subject,
+            branch,
+            path,
+        } => Message::new(format!("{branch} is checked out in {}", path.display()))
+            .way("fix", format!("git -C {} switch --detach", path.display()))
+            .way("resume", format!("surt start {subject}")),
     }
+}
+
+fn short(sha: &str) -> &str {
+    sha.get(..SHORT_SHA_CHARS).unwrap_or(sha)
 }
 
 fn ambiguous(reference: &str, candidates: &[String]) -> Message {

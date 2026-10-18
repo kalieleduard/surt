@@ -7,6 +7,7 @@ use super::operate::{Finished, OperationLaunch};
 use crate::checks::CheckReport;
 use crate::git::{self, CommitTree, MergeTree};
 use crate::project::Error;
+use crate::reconcile::{Found, find};
 use crate::runtime::AgentRuntime;
 use crate::store::{PublishedOutput, RefMove, RunBranch};
 
@@ -64,14 +65,17 @@ impl<R: AgentRuntime> Driver<'_, R> {
         into: &RunBranch,
         intended: RefMove,
     ) -> Result<Option<Finished>, OperationError> {
-        let found = git::commit_sha(self.driving.layout.root(), &intended.ref_name).await?;
-        if found.as_deref() == Some(intended.new_sha.as_str()) {
-            return Ok(Some(merged(intended.new_sha)));
-        }
-        self.driving.store.forget_ref_move(&launch.row.id).await?;
-        match found {
-            Some(found) if found == intended.old_sha => Ok(None),
-            found => Err(moved(into, found.as_deref().unwrap_or("no branch")).into()),
+        let store = self.driving.store;
+        match find(self.driving.layout.root(), &intended).await? {
+            Found::Moved => Ok(Some(merged(intended.new_sha))),
+            Found::NotMoved => {
+                store.forget_ref_move(&launch.row.id).await?;
+                Ok(None)
+            }
+            Found::Elsewhere(found) => {
+                store.forget_ref_move(&launch.row.id).await?;
+                Err(moved(into, found.as_deref().unwrap_or("no branch")).into())
+            }
         }
     }
 

@@ -1,5 +1,6 @@
 mod candidate;
 mod disk;
+mod pending;
 mod revalidation;
 
 use std::path::PathBuf;
@@ -11,6 +12,8 @@ use crate::store::{EditRecord, Store, WorkingCopyArtifact};
 use crate::workflow::{Definition, StepSpec};
 use candidate::Candidate;
 use disk::Inspection;
+
+pub(crate) use pending::finish_pending_writes;
 
 pub(crate) struct WorkingCopy {
     dir: PathBuf,

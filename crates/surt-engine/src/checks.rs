@@ -12,6 +12,7 @@ use process_wrap::tokio::JobObject;
 use process_wrap::tokio::ProcessGroup;
 use process_wrap::tokio::{ChildWrapper, CommandWrap, KillOnDrop};
 use serde::Serialize;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::Instant;
 
 pub const REPORT_SCHEMA: (&str, &str) = (
@@ -73,6 +74,7 @@ pub(crate) async fn run(
     worktree: &Path,
     commit: &str,
     log: &Path,
+    spawned: &UnboundedSender<u32>,
 ) -> io::Result<CheckReport> {
     if let Some(dir) = log.parent() {
         fs::create_dir_all(dir)?;
@@ -80,7 +82,7 @@ pub(crate) async fn run(
     let mut output = OpenOptions::new().create(true).append(true).open(log)?;
     let mut results = Vec::with_capacity(checks.len());
     for check in checks {
-        results.push(run_one(check, worktree, &mut output, log).await?);
+        results.push(run_one(check, worktree, &mut output, log, spawned).await?);
     }
     Ok(CheckReport {
         commit: commit.to_owned(),
@@ -93,12 +95,18 @@ async fn run_one(
     worktree: &Path,
     output: &mut File,
     log: &Path,
+    spawned: &UnboundedSender<u32>,
 ) -> io::Result<CheckResult> {
     writeln!(output, "=== {}: {}", check.name, check.run.join(" "))?;
     let offset = output.metadata()?.len();
     let started = Instant::now();
     let ended = match spawn(check, worktree, output) {
-        Ok(child) => supervise(child, check.timeout).await?,
+        Ok(child) => {
+            if let Some(pid) = child.id() {
+                let _ = spawned.send(pid);
+            }
+            supervise(child, check.timeout).await?
+        }
         Err(error) => Ended::NotStarted(error),
     };
     let duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);

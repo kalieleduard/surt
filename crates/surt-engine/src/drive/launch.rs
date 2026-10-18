@@ -17,7 +17,8 @@ use crate::artifacts::{AcceptedDelivery, DeliveryContract};
 use crate::context::{Assembly, ContextInput, PreviousIteration};
 use crate::project::Error;
 use crate::runtime::{
-    AgentRuntime, Rejection, RuntimeRequest, StepAttempt, StopLevel, Verdict, accept,
+    AgentRuntime, Rejection, RuntimeCompletion, RuntimeError, RuntimeEvent, RuntimeRequest,
+    StepAttempt, StopLevel, Verdict, accept,
 };
 use crate::store::{
     ExecutionEnd, ExecutionKind, ExecutionStart, RunBranch, StartedExecution, StepRow,
@@ -111,7 +112,10 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 return self.end(&launch.row, &launch.started, end).await;
             }
         }
-        match self.execute(&launch.request, &launch.contract).await {
+        let ending = self
+            .execute(&launch.started.id, &launch.request, &launch.contract)
+            .await?;
+        match ending {
             Ending::Accepted(delivery) => match failed(self.prove(&launch, &delivery).await)? {
                 Some(end) => self.end(&launch.row, &launch.started, end).await,
                 None => self.publish(&launch, delivery).await,
@@ -173,18 +177,34 @@ impl<R: AgentRuntime> Driver<'_, R> {
         })
     }
 
-    async fn execute(&self, request: &RuntimeRequest, contract: &DeliveryContract) -> Ending {
-        let (events, _received) = mpsc::unbounded_channel();
-        let result = self
+    async fn execute(
+        &self,
+        execution: &str,
+        request: &RuntimeRequest,
+        contract: &DeliveryContract,
+    ) -> Result<Ending, Error> {
+        let (events, received) = mpsc::unbounded_channel();
+        let running = self
             .runtime
-            .execute(request.clone(), events, self.agents.clone())
-            .await;
+            .execute(request.clone(), events, self.agents.clone());
+        let result = self
+            .tracking(execution, running, received, launched_pid)
+            .await?;
         if self.cancelling.load(Ordering::SeqCst) {
-            return Ending::Cancelled;
+            return Ok(Ending::Cancelled);
         }
         if self.agents.level() != StopLevel::None {
-            return Ending::Ended(ExecutionEnd::Interrupted);
+            return Ok(Ending::Ended(ExecutionEnd::Interrupted));
         }
+        Ok(self.verdict(request, result, contract))
+    }
+
+    fn verdict(
+        &self,
+        request: &RuntimeRequest,
+        result: Result<RuntimeCompletion, RuntimeError>,
+        contract: &DeliveryContract,
+    ) -> Ending {
         let completion = match result {
             Ok(completion) => completion,
             Err(error) => {
@@ -206,6 +226,13 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 resets_at: None,
             }),
         }
+    }
+}
+
+fn launched_pid(event: RuntimeEvent) -> Option<u32> {
+    match event {
+        RuntimeEvent::Launched { pid } => pid,
+        RuntimeEvent::Initialized(_) => None,
     }
 }
 

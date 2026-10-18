@@ -267,3 +267,49 @@ fn start_refuses_until_the_manifest_is_approved() {
     );
     assert_eq!(count(&sandbox, "execution"), executions);
 }
+
+#[test]
+fn start_refuses_while_the_integration_branch_was_moved_and_resumes_once_restored() {
+    let name = feature_name();
+    let sandbox = planned(
+        &name,
+        &[
+            tasks(1, &["A", "B"]),
+            build("A", 1, 1, "login.txt", "login\n"),
+            review("A", 1, "approved"),
+            crash_in("B/build", 1, 1),
+            crash_in("B/build", 1, 2),
+            crash_in("B/build", 1, 3),
+            build("B", 1, 4, "logout.txt", "logout\n"),
+            review("B", 1, "approved"),
+            ship(),
+        ],
+    );
+    let blocked = surt(&sandbox, &["start", &name]);
+    assert_eq!(blocked.code, Some(BLOCKED_EXIT_CODE), "{}", blocked.stderr);
+    let branch = format!("surt/{name}");
+    let tip = rev_parse(&sandbox, &branch);
+    let base = rev_parse(&sandbox, "HEAD");
+    sandbox.git(&sandbox.repo(), &["branch", "--force", &branch, &base]);
+    let executions = count(&sandbox, "execution");
+
+    let refused = surt(&sandbox, &["start", &name]);
+
+    assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
+    assert_eq!(
+        refused.stderr,
+        format!(
+            "✖ {branch} moved outside surt (expected {}, found {})\n  \
+             fix: git branch -f {branch} {tip}\n  \
+             resume: surt start {name}\n",
+            short(&tip),
+            short(&base)
+        )
+    );
+    assert_eq!(count(&sandbox, "execution"), executions);
+
+    sandbox.git(&sandbox.repo(), &["branch", "--force", &branch, &tip]);
+    let resumed = ok(surt(&sandbox, &["start", &name]));
+
+    assert!(resumed.ends_with("✔ run succeeded\n"), "{resumed}");
+}

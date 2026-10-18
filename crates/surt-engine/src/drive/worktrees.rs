@@ -146,7 +146,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         if let Some(repair) = repair {
             let data = json!({ "path": path, "repair": repair_name(&repair) });
             store
-                .record_worktree_event(&started.id, "worktree.repaired", &data)
+                .record_execution_event(&started.id, "worktree.repaired", &data)
                 .await?;
             self.report(Progress::WorktreeRepaired {
                 step: label(row),
@@ -158,7 +158,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         };
         let data = json!({ "ref": salvage.reference });
         store
-            .record_worktree_event(&started.id, "worktree.salvaged", &data)
+            .record_execution_event(&started.id, "worktree.salvaged", &data)
             .await?;
         if salvage.off_target || previous.is_some_and(ended_badly) {
             self.report(Progress::Salvaged {
