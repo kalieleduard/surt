@@ -1,4 +1,4 @@
-use super::super::{Action, Ctx, DriveOutcome, RunEnd, decide};
+use super::super::{Action, Ctx, DriveOutcome, RunEnd, StopLevel, decide};
 use super::fixtures::{agent, ctx, id, item, launch, launch_in, operation, per_item, root};
 use crate::drive::graph::{
     BlockReason, ExecutionState, Item, OperationId, RunId, RunState, Step, StepRunState,
@@ -149,5 +149,32 @@ fn with_no_free_slot_agents_wait_while_operations_still_run() {
         };
 
         assert_eq!(decide(&root(steps), &ctx), expected);
+    }
+}
+
+#[test]
+fn with_every_slot_held_by_other_drivers_queued_agents_wait_until_a_stop() {
+    let table = [
+        (vec![task("A", &[])], StopLevel::None, Action::Wait),
+        (
+            vec![stuck("A"), task("B", &[])],
+            StopLevel::None,
+            Action::Wait,
+        ),
+        (
+            vec![task("A", &[])],
+            StopLevel::Graceful,
+            Action::Return(DriveOutcome::Interrupted),
+        ),
+    ];
+
+    for (items, stop, expected) in table {
+        let ctx = Ctx {
+            free_slots: Vec::new(),
+            stop,
+            ..ctx()
+        };
+
+        assert_eq!(decide(&root(vec![implement(items)]), &ctx), [expected]);
     }
 }

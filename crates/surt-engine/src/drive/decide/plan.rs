@@ -162,7 +162,9 @@ impl<'a> Plan<'a> {
     }
 
     fn finish(self) -> Vec<Action> {
-        let outcome = if self.ctx.stop != StopLevel::None {
+        let stopping = self.ctx.stop != StopLevel::None;
+        let waiting_for_slot = self.queued > 0 && !stopping;
+        let outcome = if stopping {
             DriveOutcome::Interrupted
         } else if !self.actions.is_empty() {
             return self.actions;
@@ -173,7 +175,7 @@ impl<'a> Plan<'a> {
         } else {
             DriveOutcome::AtGate { gates: self.gates }
         };
-        if self.live {
+        if self.live || waiting_for_slot {
             return vec![Action::Wait];
         }
         vec![Action::Return(outcome)]
