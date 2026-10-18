@@ -19,6 +19,10 @@ pub(crate) struct ShowArgs {
     rev: Option<u32>,
     #[arg(long, value_name = "key", requires = "artifact")]
     task: Option<String>,
+    #[arg(long, value_name = "N", requires = "task", conflicts_with = "rev")]
+    iter: Option<u32>,
+    #[arg(long, value_name = "path", requires = "artifact")]
+    file: Option<String>,
     #[arg(long, value_name = "N")]
     run: Option<u32>,
 }
@@ -36,6 +40,8 @@ pub(crate) async fn run(cwd: &Path, args: ShowArgs) -> Result<(), Failure> {
         artifact,
         revision: args.rev,
         item: args.task.as_deref(),
+        iteration: args.iter,
+        file: args.file.as_deref(),
         run: run_selector(args.run),
     };
     let shown = project.show(&args.feature, request).await?;
