@@ -220,6 +220,8 @@ $ surt status add-login
     D  ⏸ pending   waits for B
 ```
 
+`agent slots: N/M in use` and a queued Task's `waiting for agent slot (N/M in use)` count the whole project, not one Feature: `N` is the number of running agent Executions holding a slot across every run whose Driver is live, so with two Features driven at once a Task of one can wait for the other's agents. `M` is the current `max_concurrent_agents` in `.surt/config.toml`. The count is derived from SQLite; `status` never probes the slot lock files ([A](A-process-model.md#agent-concurrency-limit)), since a probe would briefly take a slot and could make a Driver skip a launch. `status --json`'s `agent_slots` carries the same numbers.
+
 While a Transient Failure pauses agent launches ([I](I-recovery.md#transient-failures-network-and-rate-limits)), the headline stays `RUNNING` and one line under it names the error code and the reset time the Execution recorded in `runtime_info.resets_at`, or `retrying with backoff` when it recorded none. Tasks waiting to launch read `queued … waiting for agent launches to resume`:
 
 ```
@@ -426,6 +428,8 @@ Each document serialises the read view the human output renders (`RunStatus`, `T
 
 Optional Feature fields: `ended_at`, `driver` (`pid`, `since`), `paused` while a Transient Failure pauses agent launches (`code`, plus `resets_at` when the Execution recorded a reset time), `cleanup` (`state` `done`, `pending` or `kept`; `left` lists items with `item` and `reason`; `kept` lists `moved_branch` with `branch`, or `unrecorded_edit` or `foreign_path` with `path`); per gate `edited` and `missing`; per Task `waits_for`, `conflict` (`kind` `merge` with `paths`, or `checks` with `failed`); per last error `resets_at`.
 
+`agent_slots` is the project-wide count of [`surt status`](#surt-status), the same in every Feature's document, whether or not that Feature has a live Driver.
+
 `surt inspect <feature> [<task>] --json` prints the timeline; each event keeps its `data` object as recorded ([D](D-database.md)):
 
 ```json
@@ -580,7 +584,7 @@ merge_into_base = "never"   # "never" | "ff-only"
 
 | Key | Default | When it applies | Decided in |
 |---|---|---|---|
-| `max_concurrent_agents` | `3` | read live by every Driver before each launch | [A](A-process-model.md#agent-concurrency-limit) |
+| `max_concurrent_agents` | `3` | read live by every Driver before each tick | [A](A-process-model.md#agent-concurrency-limit) |
 | `max_attempts` | `3` | frozen at root run creation | [G](G-state-machines.md#limits) |
 | `max_iterations` | `5` | frozen at root run creation | [G](G-state-machines.md#limits) |
 | `[git] merge_into_base` | `"never"` | frozen; `surt feature --merge`/`--no-merge` override it per run | [A. Git Integration](A-git-integration.md) |

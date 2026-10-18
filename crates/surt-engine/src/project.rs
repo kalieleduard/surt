@@ -44,8 +44,8 @@ pub use crate::workflow::{
 };
 pub use blocked::{BlockedStep, LastFailure};
 pub use cancelling::CancelImpact;
-pub(crate) use config::parse_timeout;
 pub use config::{Check, Config, GitConfig, GlobalConfig, MergeIntoBase};
+pub(crate) use config::{live_max_concurrent_agents, parse_timeout};
 pub use create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};
 pub use deleting::{BranchFate, DeleteImpact, DeletedRun, Deletion, Directory};
 pub use delivery::IntegrationBranch;

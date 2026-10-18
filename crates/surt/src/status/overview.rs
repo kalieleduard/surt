@@ -18,11 +18,12 @@ pub(super) fn render(statuses: &[RunStatus]) -> String {
     let mut rows = vec![HEADERS.map(str::to_owned)];
     rows.extend(statuses.iter().map(row));
     let mut text = table::render(&rows);
+    // Every status carries the same project-wide count: print it once.
     if let Some(first) = statuses.first() {
-        let in_use: u32 = statuses.iter().map(|status| status.slots.in_use).sum();
+        let slots = first.slots;
         text.push_str(&format!(
-            "agent slots: {in_use}/{} in use\n",
-            first.slots.total
+            "agent slots: {}/{} in use\n",
+            slots.in_use, slots.total
         ));
     }
     text

@@ -1,17 +1,21 @@
+use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader};
 use std::process::{Child, ChildStderr};
 use std::time::{Duration, Instant};
 
 use jiff::Timestamp;
+use serde_json::{Value, json};
 
 use crate::scripts::{tasks, wait_until_stopped};
 use crate::start::{feature_name, planned_with};
+use crate::status::hashes;
 use crate::support::Sandbox;
 
 const CEILING: Duration = Duration::from_secs(60);
 const POLL: Duration = Duration::from_millis(20);
 const ONE_AGENT: &str = "max_concurrent_agents = 1\n";
 const BUILD_STARTED: &str = "● task A build started\n";
+const SQLITE_SHARED_MEMORY: &str = "surt.db-shm";
 
 fn second_feature(sandbox: &Sandbox) -> String {
     let name = feature_name().replace("-add-login", "-fix-cache");
@@ -86,6 +90,79 @@ fn wait_until(sandbox: &Sandbox, what: &str, holds: impl Fn(&Sandbox) -> bool) {
         assert!(Instant::now() < deadline, "{what} never happened");
         std::thread::sleep(POLL);
     }
+}
+
+fn status(sandbox: &Sandbox, args: &[&str]) -> String {
+    let run = sandbox.surt(&sandbox.repo(), args);
+    assert_eq!(run.code, Some(0), "surt {args:?}: {}", run.stderr);
+    run.stdout
+}
+
+fn agent_slots(document: &str) -> Vec<Value> {
+    let document: Value = serde_json::from_str(document).expect("a JSON document");
+    match document.get("features") {
+        Some(Value::Array(features)) => features
+            .iter()
+            .map(|feature| feature["agent_slots"].clone())
+            .collect(),
+        _ => vec![document["agent_slots"].clone()],
+    }
+}
+
+fn readable_files(sandbox: &Sandbox) -> BTreeMap<String, String> {
+    let mut files = hashes(&sandbox.dot_surt());
+    // Readers of a WAL database record read marks in its shared memory.
+    files.remove(SQLITE_SHARED_MEMORY);
+    files
+}
+
+#[test]
+fn status_from_a_third_process_counts_the_agent_slots_of_both_driven_features() {
+    let first = feature_name();
+    let sandbox = planned_with(
+        &first,
+        &[tasks(1, &["A"]), wait_until_stopped("A/build")],
+        Some(ONE_AGENT),
+    );
+    let second = second_feature(&sandbox);
+    let _holder = Driver::building(&sandbox, &first);
+    let _waiter = Driver::start(&sandbox, &second);
+    let queued = "waiting for agent slot (1/1 in use)";
+    wait_until(&sandbox, "the second Feature's Task queuing", |sandbox| {
+        status(sandbox, &["status", &second]).contains(queued)
+    });
+
+    let before = readable_files(&sandbox);
+    let overview = status(&sandbox, &["status"]);
+    let overview_json = status(&sandbox, &["status", "--json"]);
+    let holder = status(&sandbox, &["status", &first]);
+    let waiter = status(&sandbox, &["status", &second]);
+    let waiter_json = status(&sandbox, &["status", &second, "--json"]);
+    let after = readable_files(&sandbox);
+
+    assert!(
+        overview.ends_with("agent slots: 1/1 in use\n"),
+        "{overview}"
+    );
+    let one_of_one = json!({ "in_use": 1, "total": 1 });
+    assert_eq!(
+        agent_slots(&overview_json),
+        [one_of_one.clone(), one_of_one.clone()]
+    );
+    assert_eq!(agent_slots(&waiter_json), [one_of_one]);
+    assert!(
+        holder
+            .lines()
+            .any(|line| line.starts_with("    A  ● build")),
+        "{holder}"
+    );
+    assert!(
+        waiter
+            .lines()
+            .any(|line| line.starts_with("    A  ") && line.ends_with(queued)),
+        "{waiter}"
+    );
+    assert_eq!(after, before, "a status read wrote to .surt");
 }
 
 #[test]

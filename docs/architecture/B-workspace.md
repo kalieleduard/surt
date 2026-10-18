@@ -229,6 +229,7 @@ pub enum Progress {
     StepStarted { .. }, StepFinished { .. }, AttemptRetry { .. }, Merged { key: ItemKey, sha: Sha },
     Salvaged { .. }, OrphanStopped { .. },
     Paused { until: i64, waiting: usize, backoff: Option<u64> }, Resumed { paused_seconds: u64 },
+    ConfigInvalid { path: PathBuf, line: Option<usize>, reason: String, limit: usize }, // live limit kept (A)
     Activity(ActivitySnapshot),       // running steps + start times, queued, slots: input for the footer
     Cleanup { .. },
 }

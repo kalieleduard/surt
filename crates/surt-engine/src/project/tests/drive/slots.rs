@@ -10,7 +10,8 @@ use super::super::fixtures::{ProjectDir, new_run};
 use super::fixtures::review_catalog;
 use super::items::limited;
 use crate::project::{
-    ActivitySnapshot, DriveOutcome, Error, NewRun, Progress, ProgressSink, Project, RunId,
+    ActivitySnapshot, AgentSlots, DriveOutcome, Error, NewRun, Progress, ProgressSink, Project,
+    RunId, RunSelector, StatusScope,
 };
 use crate::runtime::{
     AgentRuntime, Behavior, FakeRuntime, RuntimeCompletion, RuntimeError, RuntimeEventSink,
@@ -74,6 +75,72 @@ impl AgentRuntime for Counted {
     }
 }
 
+/// Two Features of one project, each with its own `Project` handle and a
+/// writer that waits until stopped, sharing a single Agent Slot.
+struct TwoFeatures {
+    agents: Arc<Agents>,
+    projects: Vec<Project>,
+    runs: Vec<RunId>,
+    runtimes: Vec<Counted>,
+    stops: [StopSignal; 2],
+}
+
+impl TwoFeatures {
+    async fn new(dir: &ProjectDir) -> TwoFeatures {
+        let agents = Arc::new(Agents::default());
+        let mut projects = Vec::new();
+        let mut runs = Vec::new();
+        let mut runtimes = Vec::new();
+        for (driver, subject) in SUBJECTS.into_iter().enumerate() {
+            let project = dir.project(review_catalog(), limited(1)).await;
+            let run = project
+                .create_run(NewRun {
+                    subject: subject.to_owned(),
+                    ..new_run("review")
+                })
+                .await
+                .expect("the run is created");
+            projects.push(project);
+            runs.push(run);
+            runtimes.push(Counted {
+                driver,
+                agents: Arc::clone(&agents),
+                fake: FakeRuntime::new(Script::new().on("write", 1, 1, Behavior::WaitUntilStopped)),
+            });
+        }
+        TwoFeatures {
+            agents,
+            projects,
+            runs,
+            runtimes,
+            stops: [StopSignal::new(), StopSignal::new()],
+        }
+    }
+
+    fn drive(&self) -> Driven<impl Future<Output = Result<DriveOutcome, Error>> + '_> {
+        let mut receivers = Vec::new();
+        let mut drivers = Vec::new();
+        for driver in 0..2 {
+            let (sink, events) = mpsc::unbounded_channel();
+            receivers.push(events);
+            drivers.push(Some(Box::pin(driving(
+                &self.projects[driver],
+                &self.runs[driver],
+                &self.runtimes[driver],
+                sink,
+                self.stops[driver].clone(),
+            ))));
+        }
+        Driven { drivers, receivers }
+    }
+}
+
+/// Both drivers, `None` once dropped, and the progress each reports.
+struct Driven<F> {
+    drivers: Vec<Option<Pin<Box<F>>>>,
+    receivers: Vec<mpsc::UnboundedReceiver<Progress>>,
+}
+
 fn driving<'a>(
     project: &'a Project,
     run: &'a RunId,
@@ -111,47 +178,17 @@ fn waiting_for_a_slot(snapshot: &ActivitySnapshot) -> bool {
         && snapshot.slots_limit == 1
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn two_drivers_of_one_project_share_its_agent_slots_and_a_dropped_driver_frees_its_slot() {
-    let dir = ProjectDir::new();
-    let agents = Arc::new(Agents::default());
-    let mut projects = Vec::new();
-    let mut runs = Vec::new();
-    let mut runtimes = Vec::new();
-    for (driver, subject) in SUBJECTS.into_iter().enumerate() {
-        let project = dir.project(review_catalog(), limited(1)).await;
-        let run = project
-            .create_run(NewRun {
-                subject: subject.to_owned(),
-                ..new_run("review")
-            })
-            .await
-            .expect("the run is created");
-        projects.push(project);
-        runs.push(run);
-        runtimes.push(Counted {
-            driver,
-            agents: Arc::clone(&agents),
-            fake: FakeRuntime::new(Script::new().on("write", 1, 1, Behavior::WaitUntilStopped)),
-        });
-    }
-    let stops = [StopSignal::new(), StopSignal::new()];
-    let mut receivers = Vec::new();
-    let mut drivers = Vec::new();
-    for driver in 0..2 {
-        let (sink, events) = mpsc::unbounded_channel();
-        receivers.push(events);
-        drivers.push(Some(Box::pin(driving(
-            &projects[driver],
-            &runs[driver],
-            &runtimes[driver],
-            sink,
-            stops[driver].clone(),
-        ))));
-    }
-
-    let waiter = until(&mut drivers, async {
-        let [first, second] = receivers.as_mut_slice() else {
+/// Waits until one driver reports a ready agent waiting for the slot the
+/// other holds, and returns the index of the waiting driver.
+async fn waiter<F>(
+    drivers: &mut [Option<Pin<Box<F>>>],
+    receivers: &mut [mpsc::UnboundedReceiver<Progress>],
+) -> usize
+where
+    F: Future<Output = Result<DriveOutcome, Error>>,
+{
+    until(drivers, async {
+        let [first, second] = receivers else {
             unreachable!("two drivers");
         };
         loop {
@@ -166,7 +203,20 @@ async fn two_drivers_of_one_project_share_its_agent_slots_and_a_dropped_driver_f
             }
         }
     })
-    .await;
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn two_drivers_of_one_project_share_its_agent_slots_and_a_dropped_driver_frees_its_slot() {
+    let dir = ProjectDir::new();
+    let features = TwoFeatures::new(&dir).await;
+    let agents = &features.agents;
+    let Driven {
+        mut drivers,
+        mut receivers,
+    } = features.drive();
+
+    let waiter = waiter(&mut drivers, &mut receivers).await;
     let holder = 1 - waiter;
     assert_eq!(agents.started(), [holder]);
 
@@ -176,7 +226,7 @@ async fn two_drivers_of_one_project_share_its_agent_slots_and_a_dropped_driver_f
         .await
         .map(drop)
         .expect("the started agents are watched");
-    stops[waiter].graceful();
+    features.stops[waiter].graceful();
     let outcome = drivers[waiter]
         .take()
         .expect("the waiting driver")
@@ -188,4 +238,50 @@ async fn two_drivers_of_one_project_share_its_agent_slots_and_a_dropped_driver_f
     assert_eq!(agents.peak(), 1);
     let slots: Vec<(Option<i64>,)> = dir.rows("SELECT slot FROM execution ORDER BY id").await;
     assert_eq!(slots, [(Some(0),), (Some(0),)]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_status_of_each_of_two_driven_features_counts_the_agent_slots_of_the_whole_project() {
+    let dir = ProjectDir::new();
+    let features = TwoFeatures::new(&dir).await;
+    let Driven {
+        mut drivers,
+        mut receivers,
+    } = features.drive();
+    waiter(&mut drivers, &mut receivers).await;
+
+    let reader = &features.projects[0];
+    let (each, overview) = until(&mut drivers, async {
+        let mut each = Vec::new();
+        for subject in SUBJECTS {
+            let statuses = reader
+                .status(StatusScope::Feature(subject, RunSelector::Current))
+                .await
+                .expect("the Feature's status reads");
+            each.extend(statuses.into_iter().map(|status| status.slots));
+        }
+        let overview: Vec<AgentSlots> = reader
+            .status(StatusScope::Active)
+            .await
+            .expect("the overview reads")
+            .into_iter()
+            .map(|status| status.slots)
+            .collect();
+        (each, overview)
+    })
+    .await;
+    for stop in &features.stops {
+        stop.graceful();
+    }
+    for driver in drivers.into_iter().flatten() {
+        let outcome = driver.await.expect("the driver returns");
+        assert_eq!(outcome, DriveOutcome::Interrupted);
+    }
+
+    let one_of_one = AgentSlots {
+        in_use: 1,
+        total: 1,
+    };
+    assert_eq!(each, [one_of_one, one_of_one]);
+    assert_eq!(overview, [one_of_one, one_of_one]);
 }

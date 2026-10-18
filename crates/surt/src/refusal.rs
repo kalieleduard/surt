@@ -292,13 +292,18 @@ fn managed_worktree(path: &Path, project: Option<&Path>) -> Message {
 }
 
 fn invalid_config(path: &Path, line: Option<usize>, reason: &str) -> Message {
-    let location = match line {
-        Some(line) => format!("{}:{line}", path.display()),
-        None => path.display().to_string(),
-    };
+    let location = config_location(path, line);
     Message::new(format!("invalid configuration in {location}"))
         .context(reason)
         .way("fix", format!("edit {location}"))
+}
+
+/// A configuration file, with the line at fault when known.
+pub(crate) fn config_location(path: &Path, line: Option<usize>) -> String {
+    match line {
+        Some(line) => format!("{}:{line}", path.display()),
+        None => path.display().to_string(),
+    }
 }
 
 #[cfg(test)]
