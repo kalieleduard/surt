@@ -40,14 +40,20 @@ pub(crate) use config::parse_timeout;
 pub use config::{Check, Config, GitConfig, MergeIntoBase};
 pub use create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};
 pub use delivery::IntegrationBranch;
-pub use error::{AwaitedRevision, Candidate, Error, InternalError, KnownRun, Refusal, RunState};
+pub use error::{
+    AwaitedRevision, Candidate, Error, ExecutionCandidate, InternalError, KnownRun, Refusal,
+    RunState,
+};
 pub use gate_status::GateStatus;
 pub use gates::{Decided, RevisionOrigin};
 pub use init::{FileState, InitFile, Initialized};
-pub use inspect::{InspectRequest, Timeline, TimelineEvent};
+pub use inspect::{
+    AgentProfile, ExecutionDetail, ExecutionFailure, ExecutionInput, InspectRequest, Performer,
+    RuntimeInfo, Timeline, TimelineEvent, Usage,
+};
 pub use naming::Slug;
 pub use repository::Commit;
-pub use resolving::{RunSelector, Subject};
+pub use resolving::{Reference, RunSelector, Subject};
 pub use show::{ArtifactSummary, ShowRequest, Shown};
 pub use status::{
     AgentSlots, CleanupState, Conflict, Driver, GateView, ItemState, ItemStatus,

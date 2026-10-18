@@ -38,6 +38,18 @@ pub struct KnownRun {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExecutionCandidate {
+    pub id: String,
+    pub subject: String,
+    pub run: u32,
+    pub item: Option<String>,
+    pub step: String,
+    pub iteration: Option<u32>,
+    pub attempt: u32,
+    pub state: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AwaitedRevision {
     pub artifact: String,
     pub revision: u32,
@@ -128,6 +140,18 @@ pub enum Refusal {
     AmbiguousSubject {
         reference: String,
         candidates: Vec<Candidate>,
+    },
+    UnknownExecution {
+        reference: String,
+    },
+    ExecutionPrefixTooShort {
+        reference: String,
+        minimum: usize,
+        candidates: Vec<ExecutionCandidate>,
+    },
+    AmbiguousExecution {
+        reference: String,
+        candidates: Vec<ExecutionCandidate>,
     },
     UnknownArtifact {
         subject: String,

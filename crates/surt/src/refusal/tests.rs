@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+mod executions;
 mod problems;
 
 use surt_engine::project::{

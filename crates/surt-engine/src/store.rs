@@ -19,6 +19,7 @@ mod control;
 mod details;
 mod drivers;
 mod events;
+mod execution_detail;
 mod executions;
 mod frozen;
 mod graph;
@@ -44,6 +45,7 @@ pub use checkpoints::Checkpoint;
 pub(crate) use checkpoints::Faults;
 pub(crate) use cleanup::{ChildBranch, CleanupRecord};
 pub(crate) use drivers::StaleExecution;
+pub(crate) use execution_detail::{ExecutionDetailRow, ExecutionInputRow, ExecutionScopeRow};
 pub(crate) use executions::{
     ExecutionEnd, ExecutionKind, ExecutionStart, InputRequest, StartedExecution,
 };

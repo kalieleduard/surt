@@ -124,3 +124,144 @@ fn inspect_of_an_unknown_task_or_run_refuses_and_lists_what_exists() {
     );
     assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
 }
+
+const TWIN: &str = "aaaaaaaa-0000-7000-8000-000000000000";
+const OTHER_TWIN: &str = "aaaaaaaa-1111-7000-8000-000000000000";
+
+fn crashed_build(sandbox: &Sandbox) -> String {
+    sandbox
+        .texts(
+            "SELECT x.id FROM execution x JOIN step_run s ON s.id = x.step_run_id \
+             JOIN workflow_run w ON w.id = s.workflow_run_id \
+             WHERE w.item_key = 'B' AND s.step_key = 'build' AND x.attempt = 1",
+        )
+        .remove(0)
+}
+
+fn copy_execution(sandbox: &Sandbox, from: &str, id: &str, attempt: u32) {
+    sandbox.execute(&format!(
+        "INSERT INTO execution (id, step_run_id, attempt, kind, agent_snapshot_sha256, \
+         state, started_at, finished_at) SELECT '{id}', step_run_id, {attempt}, kind, \
+         agent_snapshot_sha256, 'interrupted', started_at, finished_at \
+         FROM execution WHERE id = '{from}'"
+    ));
+}
+
+#[test]
+fn inspect_shows_one_execution_by_its_full_id_after_cleanup_without_logs() {
+    let name = feature_name();
+    let sandbox = delivered_after_a_rejected_review(&name);
+    let id = crashed_build(&sandbox);
+    fs::remove_dir_all(sandbox.dot_surt().join("logs")).expect("the logs are removed");
+    let salvage = format!("refs/surt/salvage/{id}");
+    sandbox.git(&sandbox.repo(), &["update-ref", &salvage, "HEAD"]);
+    let mut before = hashes(&sandbox.dot_surt());
+    before.retain(|path, _| !path.starts_with("surt.db-"));
+
+    let shown = ok(surt(&sandbox, &["inspect", &id]));
+
+    assert_unchanged(&sandbox.dot_surt(), before);
+    assert!(
+        !sandbox
+            .dot_surt()
+            .join("runtime/executions")
+            .join(&id)
+            .exists()
+    );
+    let lines: Vec<&str> = shown.lines().collect();
+    assert_eq!(lines[0], format!("execution {id}"));
+    assert_eq!(lines[1], format!("  feature   {name} · run 1 · task B"));
+    assert!(
+        lines[2].starts_with("  step      build iter 1 · attempt 1 · agent-"),
+        "{shown}"
+    );
+    assert_eq!(lines[3], "  role      builder");
+    assert!(
+        lines[4].starts_with("  state     failed (retryable) · exit_code — "),
+        "{shown}"
+    );
+    assert_eq!(
+        lines[5],
+        "  profile   claude-code · claude-sonnet-5-5 · effort high · dontAsk"
+    );
+    assert!(
+        lines[6].starts_with("  session   ") && lines[6].contains(" · model "),
+        "{shown}"
+    );
+    assert!(lines[7].starts_with("  process   exit "), "{shown}");
+    assert!(
+        lines.iter().any(|line| line.starts_with("  inputs    ")),
+        "{shown}"
+    );
+    assert!(!shown.contains("turns") && !shown.contains('$'), "{shown}");
+    let worktree = format!("{name}/B");
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.starts_with("  worktree  ") && line.ends_with(&worktree)),
+        "{shown}"
+    );
+    assert!(shown.ends_with(&format!(
+        "  salvage   {salvage}\n  logs      surt logs {id}\n"
+    )));
+}
+
+#[test]
+fn inspect_finds_an_execution_by_an_eight_character_prefix() {
+    let name = feature_name();
+    let sandbox = delivered_after_a_rejected_review(&name);
+    copy_execution(&sandbox, &crashed_build(&sandbox), TWIN, 101);
+
+    let shown = ok(surt(&sandbox, &["inspect", &TWIN[..8]]));
+
+    assert!(shown.starts_with(&format!("execution {TWIN}\n")), "{shown}");
+    assert!(shown.contains("  state     interrupted\n"), "{shown}");
+    assert!(
+        shown.ends_with(&format!("  logs      surt logs {TWIN}\n")),
+        "{shown}"
+    );
+}
+
+#[test]
+fn inspect_refuses_a_too_short_or_ambiguous_prefix_and_lists_the_candidates() {
+    let name = feature_name();
+    let sandbox = delivered_after_a_rejected_review(&name);
+    let crashed = crashed_build(&sandbox);
+    copy_execution(&sandbox, &crashed, TWIN, 101);
+    copy_execution(&sandbox, &crashed, OTHER_TWIN, 102);
+
+    let short = surt(&sandbox, &["inspect", "aaaa"]);
+    let ambiguous = surt(&sandbox, &["inspect", &TWIN[..8]]);
+    let unknown = surt(&sandbox, &["inspect", "bbbbbbbb"]);
+
+    for refused in [&short, &ambiguous, &unknown] {
+        assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
+        assert!(refused.stdout.is_empty(), "{}", refused.stdout);
+    }
+    let listed = |id: &str, attempt: u32| {
+        format!(
+            "    {id}  {name} · run 1 · task B · build iter 1 · attempt {attempt}  interrupted\n"
+        )
+    };
+    assert_eq!(
+        short.stderr,
+        format!(
+            "✖ \"aaaa\" is too short; an execution id prefix needs at least 8 characters\n{}{}  \
+             use the full id, as surt prints it\n",
+            listed(TWIN, 101),
+            listed(OTHER_TWIN, 102)
+        )
+    );
+    assert_eq!(
+        ambiguous.stderr,
+        format!(
+            "✖ \"aaaaaaaa\" matches 2 executions:\n{}{}  use the full id, as surt prints it\n",
+            listed(TWIN, 101),
+            listed(OTHER_TWIN, 102)
+        )
+    );
+    assert_eq!(
+        unknown.stderr,
+        "✖ no feature or execution matches \"bbbbbbbb\"\n  inspect: surt status\n"
+    );
+}

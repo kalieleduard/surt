@@ -11,8 +11,7 @@ mod steps;
 mod structure;
 
 pub(crate) use agent::{
-    AgentContract, Auth, ClaudeProfile, Effort, Format, ItemFileSpec, OutputSpec, PermissionMode,
-    Profile,
+    AgentContract, Auth, ClaudeProfile, Format, ItemFileSpec, OutputSpec, Profile,
 };
 pub use catalog::{AgentAssets, Catalog, DeliveryCheck};
 pub(crate) use definition::Definition;

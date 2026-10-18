@@ -1,8 +1,13 @@
+mod executions;
+
 use super::naming::without_date;
 use super::{
     AwaitedRevision, Candidate, Error, GateStatus, KnownRun, Project, Refusal, RunId, RunStatus,
 };
 use crate::store::{RootRunRow, Store, SubjectRow};
+
+pub use executions::Reference;
+pub(crate) use executions::resolve as resolve_execution_in;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum RunSelector {

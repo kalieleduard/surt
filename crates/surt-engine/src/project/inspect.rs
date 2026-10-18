@@ -1,8 +1,14 @@
+mod execution;
+
 use serde_json::{Map, Value};
 
 use super::show::item_run;
 use super::{Error, Project, RunSelector};
 use crate::store::{EventRow, Store};
+
+pub use execution::{
+    AgentProfile, ExecutionDetail, ExecutionFailure, ExecutionInput, Performer, RuntimeInfo, Usage,
+};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct InspectRequest<'a> {

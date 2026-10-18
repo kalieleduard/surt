@@ -60,7 +60,8 @@ $ surt approve add-login
 
 - **Run.** Commands that write always act on the Subject's active run. Read commands use the active run, or the latest one when none is active. `--run N` selects run `N` (`workflow_run.ordinal`). A run `N` the Subject doesn't have is refused (exit `3`), listing the Subject's runs with their derived states.
 - **Task.** By item key (`B`). A task argument selects that item's Child Workflow Run.
-- **Execution.** `inspect` and `logs` also accept an Execution id, or an unambiguous prefix of at least 8 characters, which is how ids appear in Salvage Refs and Execution directories.
+- **Execution.** `inspect` and `logs` also accept an Execution id, or an unambiguous prefix of at least 8 characters (case-insensitive), which is how ids appear in Salvage Refs and Execution directories. The argument is tried as a `<feature>` first; only when no Feature matches and it is made of hex digits and `-` is it resolved as an Execution, so `surt inspect <id>` takes no `<task>` or `--run`. A prefix shorter than 8 characters, or one several Executions share, refuses (exit `3`) and lists up to 10 candidates with their Feature, run, Task, step, Iteration, Attempt and state; one no Execution has refuses as `no feature or execution matches`.
+- **Surt prints Execution ids whole.** Execution ids are UUID v7: their leading characters are a millisecond clock, so the Executions of one run usually share their first 8 to 12 characters and a short prefix is ambiguous. Surt's output (timelines, the Execution detail, its `logs:` line), Execution directories, log directories and Salvage Refs therefore always carry the full id, which resolves no matter how many Executions exist. A prefix is only ever something a user types.
 - **Surt's own output** always prints full Feature names, so every suggested command can be copied as is.
 
 `surt feature` is the exception to rule 2 and 3, because its argument may also be a description (see [below](#surt-feature-create-resume-or-start-again)).
@@ -241,15 +242,25 @@ $ surt inspect add-login B          # one Task: steps, attempts, errors
 14:02:11  execution.started   build iter 2 · attempt 1 · agent-0 · claude-code · 0192f3a8-7b1c-…
 14:09:40  execution.failed    build iter 2 · attempt 1 · invalid_delivery — final JSON missing "outputs"
 
-$ surt inspect 0192f3a8             # one Execution
-execution 0192f3a8-…   builder · task B · build iter 2 · attempt 1   failed (invalid_delivery)
-  profile    claude-code · claude-sonnet-5-5 · effort high · dontAsk
-  session    7c1e…   pid 50122 · exit 0 · 7m29s
-  inputs     spec rev 2 sha256:3f9a… · item B (manifest rev 1) · task.md
-  worktree   ~/.surt/worktrees/surt-3fa91c/20261017-add-login/B
-  salvage    refs/surt/salvage/0192f3a8…
-  logs       surt logs 0192f3a8
+$ surt inspect 0192f3a8-7b1c-7000-8000-4a1f0c3e9b21     # one Execution (or a unique prefix)
+execution 0192f3a8-7b1c-7000-8000-4a1f0c3e9b21
+  feature   20261017-add-login · run 1 · task B
+  step      build iter 2 · attempt 1 · agent-0
+  role      builder
+  state     failed (retryable) · invalid_delivery — final JSON missing "outputs"
+  profile   claude-code · claude-sonnet-5-5 · effort high · dontAsk
+  session   7c1e9d2a-5b1e-4c3f-9a0e-2f6d8b7c1a40 · model claude-sonnet-5-5 · version 2.1.0
+  process   pid 50122 · exit 0 · 7m29s
+  usage     12 turns · 1200 input · 300 output · 9000 cache read · $0.42
+  denied    Write, Bash
+  inputs    item B (manifest rev 1) sha256:85fb633c285c…
+            spec rev 2 sha256:3f9a0c1d2e3f…
+  worktree  /Users/dev/.surt/worktrees/surt-3fa91c/20261017-add-login/B
+  salvage   refs/surt/salvage/0192f3a8-7b1c-7000-8000-4a1f0c3e9b21
+  logs      surt logs 0192f3a8-7b1c-7000-8000-4a1f0c3e9b21
 ```
+
+The Execution detail reads only SQLite (the Execution row, its `runtime_info`, its Inputs with their Revision numbers and identity SHA-256, the Task's `run_branch`) plus a read-only `git for-each-ref` for `refs/surt/salvage/<execution-id>`, so it works after cleanup and without log files. The profile is the frozen agent's: runtime, model, requested effort and, for Claude Code, permission mode. `session` and `usage` show what the runtime reported. A value the runtime did not report is left out, never printed as `0`, and a line with nothing to show is left out. An Operation's Execution shows `operation <id>` instead of a role and profile.
 
 Each line is the event's local time (with its date when it is from an earlier day than today), its kind and its details: the Task (run timeline only), the step and Iteration, the Attempt, then the kind's `event.data` fields ([D. Event data](D-database.md#event-data)). A field that is missing, as in a Milestone 1 event's `{}`, is left out, so such an event renders as its bare kind. The run timeline holds the root run's events plus each Task's `run.*` events; a Task's timeline holds every event of its Child Workflow Run. `--run N` picks the run, an unknown Task refuses and lists the run's Tasks. Execution ids are printed whole so they can be passed to `surt inspect <execution-id>` and `surt logs`.
 
