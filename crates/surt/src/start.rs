@@ -23,7 +23,7 @@ pub(crate) async fn run(cwd: &Path, args: StartArgs) -> Result<(), Failure> {
     }
     let run = active_run(&subject)?;
     TASKS.require_approved(&project, &subject.name, run).await?;
-    let runtime = runtime::select()?;
+    let runtime = runtime::select(&project)?;
     let driven = Driven {
         project: &project,
         subject: &subject.name,

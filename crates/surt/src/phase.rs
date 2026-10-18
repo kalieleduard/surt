@@ -136,7 +136,7 @@ impl Phase {
             .print_success();
             return Ok(());
         }
-        let runtime = runtime::select()?;
+        let runtime = runtime::select(project)?;
         self.drive(project, &subject.name, run, &runtime).await
     }
 
@@ -165,7 +165,7 @@ pub(crate) async fn finish_cleanup(
     let (None, Some(run)) = (&subject.active_run, &subject.pending_cleanup) else {
         return Ok(false);
     };
-    let runtime = runtime::select()?;
+    let runtime = runtime::select(project)?;
     let driven = Driven {
         project,
         subject: &subject.name,

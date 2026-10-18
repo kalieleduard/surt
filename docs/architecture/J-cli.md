@@ -580,6 +580,21 @@ On Windows the path is `%USERPROFILE%\.surt\config.toml`. `~/.surt/` also holds 
 stop_grace_period = "10s"   # graceful stop before a forced kill
 ```
 
+| Key | Default | When it applies | Decided in |
+|---|---|---|---|
+| `stop_grace_period` | `"10s"` | read by each process when it opens the project; never frozen into runs | [A. Process Model](A-process-model.md#supervising-agent-processes) |
+
+- **What it governs.** `stop_grace_period` is how long every graceful stop of an agent process tree waits before a forced kill: Ctrl-C, a closed terminal, `surt stop` and `surt cancel` with a live Driver (the Claude Code runtime's stop), and Recovery stopping the surviving agents of a dead Driver. `surt stop`'s wait has no timeout of its own; it is bounded by this grace period.
+- **Format.** The same duration format as a Check's `timeout`: a positive whole number with a unit `ms`, `s`, `m` or `h` (`"30s"`, `"2m"`). `"0s"`, `"ten"` and `"10"` are invalid.
+- **Optional.** With no home directory or no file, the defaults apply.
+- **Refusal.** The file is loaded with the project configuration by every command that opens the project (not by `init`). An unknown key, including a project key such as `max_concurrent_agents`, or a bad value refuses the command with exit `3`, naming the global file, the line and the reason:
+
+```
+✖ invalid configuration in /Users/me/.surt/config.toml:2
+  unknown field `max_concurrent_agents`, expected `stop_grace_period`
+  fix: edit /Users/me/.surt/config.toml:2
+```
+
 ## Decided elsewhere
 
 - Which command drives which phase, ownership refusals, Ctrl-C: [A. Process Model](A-process-model.md).

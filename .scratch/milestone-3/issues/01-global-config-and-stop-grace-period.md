@@ -8,12 +8,12 @@ Spec: [Milestone 3](../spec.md) (stories 40–46) · Plan: [J. Global configurat
 
 **Status:** ready-for-agent
 
-- [ ] `Project::open` loads the global configuration next to the project configuration, using the same home-directory lookup as the worktrees
-- [ ] `stop_grace_period` uses the Check `timeout` duration format (positive amount with a unit suffix); unknown keys are errors (`deny_unknown_fields`), including project keys such as `max_concurrent_agents`
-- [ ] A parse error is the existing `InvalidConfig` refusal with the global file's path, line and reason; the CLI exits `3` with J's message shape
-- [ ] The configured value reaches the Claude Code runtime's stop and reconciliation's stop of stale survivors; both hard-coded 10-second constants are gone
-- [ ] The global file is not frozen into runs
-- [ ] Config unit tests: defaults with no file, a valid duration, an unknown key, a project key in the global file, a zero or malformed duration
-- [ ] Binary test (with `HOME`/`USERPROFILE` pointing at the sandbox): an invalid global file makes a command exit `3` naming the file and line
-- [ ] Claude Code stub-process test: a stub that ignores the graceful stop is force-killed after the configured grace period, not after 10 s
-- [ ] J records the refusal behaviour; K's "Global `~/.surt/config.toml`" row says it is implemented
+- [x] `Project::open` loads the global configuration next to the project configuration, using the same home-directory lookup as the worktrees
+- [x] `stop_grace_period` uses the Check `timeout` duration format (positive amount with a unit suffix); unknown keys are errors (`deny_unknown_fields`), including project keys such as `max_concurrent_agents`
+- [x] A parse error is the existing `InvalidConfig` refusal with the global file's path, line and reason; the CLI exits `3` with J's message shape
+- [x] The configured value reaches the Claude Code runtime's stop and reconciliation's stop of stale survivors; both hard-coded 10-second constants are gone
+- [x] The global file is not frozen into runs
+- [x] Config unit tests: defaults with no file, a valid duration, an unknown key, a project key in the global file, a zero or malformed duration
+- [x] Binary test (with `HOME`/`USERPROFILE` pointing at the sandbox): an invalid global file makes a command exit `3` naming the file and line
+- [x] Claude Code stub-process test: a stub that ignores the graceful stop is force-killed after the configured grace period, not after 10 s
+- [x] J records the refusal behaviour; K's "Global `~/.surt/config.toml`" row says it is implemented

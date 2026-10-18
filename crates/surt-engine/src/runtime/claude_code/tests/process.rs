@@ -4,6 +4,7 @@ use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use super::executions::Execution;
+use crate::project::GlobalConfig;
 use crate::runtime::{
     AgentRuntime, ClaudeCodeRuntime, FailureClass, RuntimeCompletion, RuntimeError, RuntimeEvent,
     StopSignal,
@@ -52,6 +53,7 @@ async fn a_missing_executable_is_not_retryable() {
     let runtime = ClaudeCodeRuntime::new(
         execution.root().join("no-such-claude"),
         parent_environment(&[]),
+        GlobalConfig::default().stop_grace_period,
     );
 
     let run = run(&runtime, &execution, |_| {}).await;
@@ -69,6 +71,7 @@ async fn a_missing_working_directory_fails_before_launch() {
     let runtime = ClaudeCodeRuntime::new(
         execution.root().join("no-such-claude"),
         parent_environment(&[]),
+        GlobalConfig::default().stop_grace_period,
     );
 
     let run = run(&runtime, &execution, |_| {}).await;

@@ -8,8 +8,8 @@ use tempfile::TempDir;
 use crate::project::layout::Layout;
 use crate::project::{Access, SurtHome, open_store};
 use crate::project::{
-    AgentAssets, ArtifactFile, Catalog, Config, DefinitionFile, Error, InitialArtifact,
-    InvalidDefinition, NewRun, Problem, Project, Refusal,
+    AgentAssets, ArtifactFile, Catalog, Config, DefinitionFile, Error, GlobalConfig,
+    InitialArtifact, InvalidDefinition, NewRun, Problem, Project, Refusal,
 };
 #[cfg(feature = "test-support")]
 use crate::store::Faults;
@@ -202,6 +202,7 @@ impl ProjectDir {
             layout: self.layout(),
             id: "test-project".to_owned(),
             config,
+            global: GlobalConfig::default(),
             catalog,
             home: SurtHome::at(&self.home()),
             access: Access::ReadWrite,
