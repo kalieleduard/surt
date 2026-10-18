@@ -13,6 +13,7 @@ mod interrupt;
 mod json;
 mod kill;
 mod logs;
+mod merge;
 mod new_run;
 mod output;
 mod paused;
