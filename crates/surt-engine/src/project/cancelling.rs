@@ -28,6 +28,7 @@ impl Project {
             layout: &self.layout,
             root: run,
             actor: &actor,
+            stop_grace_period: self.stop_grace_period(),
         };
         let cancellation = cancel.run(&progress).await;
         store.close().await;

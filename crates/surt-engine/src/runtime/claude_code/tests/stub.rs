@@ -9,6 +9,7 @@ use serde_json::json;
 use super::executions::{CONTEXT, Execution, INSTRUCTIONS, NOTE};
 use super::process::{parent_environment, run};
 use super::streams::{Fixture, Stream};
+use crate::project::GlobalConfig;
 use crate::runtime::{ClaudeCodeRuntime, Exit, FailureClass, RuntimeEvent, StopSignal, Verdict};
 
 const SHORT_GRACE: Duration = Duration::from_millis(200);
@@ -78,7 +79,15 @@ impl Stub {
     }
 
     fn runtime(&self, extra: &[(&str, &str)]) -> ClaudeCodeRuntime {
-        ClaudeCodeRuntime::new(&self.executable, parent_environment(extra))
+        self.configured(&GlobalConfig::default(), extra)
+    }
+
+    fn configured(&self, global: &GlobalConfig, extra: &[(&str, &str)]) -> ClaudeCodeRuntime {
+        ClaudeCodeRuntime::new(
+            &self.executable,
+            parent_environment(extra),
+            global.stop_grace_period,
+        )
     }
 }
 
@@ -277,11 +286,14 @@ async fn a_graceful_stop_ends_the_whole_process_tree_and_interrupts() {
 }
 
 #[tokio::test]
-async fn a_tree_ignoring_the_graceful_stop_is_killed_after_the_grace_period() {
+async fn a_tree_ignoring_the_graceful_stop_is_killed_after_the_configured_grace_period() {
     let stream = Stream::captured(Fixture::Sigterm);
     let execution = Execution::new(stream.session_id());
     let stub = Stub::with_grandchild(&execution, &stream, "trap '' TERM");
-    let runtime = stub.runtime(&[]).with_stop_grace_period(SHORT_GRACE);
+    let global = GlobalConfig {
+        stop_grace_period: SHORT_GRACE,
+    };
+    let runtime = stub.configured(&global, &[]);
 
     let started = Instant::now();
     let run = run(&runtime, &execution, StopSignal::graceful).await;
@@ -289,7 +301,11 @@ async fn a_tree_ignoring_the_graceful_stop_is_killed_after_the_grace_period() {
     let completion = run.outcome.expect("a completion");
     assert_eq!(completion.exit, Exit::Stopped);
     assert!(started.elapsed() >= SHORT_GRACE, "{:?}", started.elapsed());
-    assert!(started.elapsed() < PROMPT_STOP, "{:?}", started.elapsed());
+    assert!(
+        started.elapsed() < PROMPT_STOP,
+        "killed after {:?}, not after the configured {SHORT_GRACE:?}",
+        started.elapsed()
+    );
     assert_ends(&stub.recorded("grandchild"));
 }
 

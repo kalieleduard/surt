@@ -16,6 +16,7 @@ use super::operate::Flight;
 use super::outcome::{ActivitySnapshot, DriveOutcome, Progress, ProgressSink};
 use super::pausing::{Pausing, unix_now};
 use super::recovered;
+use super::slots::FreeSlots;
 use crate::artifacts::working_copy::{WorkingCopy, finish_pending_writes};
 use crate::platform;
 use crate::project::{Error, Layout, Refusal};
@@ -36,6 +37,7 @@ pub(crate) struct Driving<'a> {
     pub(crate) worktrees: Option<PathBuf>,
     pub(crate) actor: &'a str,
     pub(crate) catalog: &'a Catalog,
+    pub(crate) stop_grace_period: Duration,
 }
 
 pub(super) struct Driver<'a, R> {
@@ -80,6 +82,7 @@ pub(crate) async fn drive<R: AgentRuntime>(
         store,
         repository: driving.layout.root(),
         root: root.as_str(),
+        stop_grace_period: driving.stop_grace_period,
     };
     recover(&driving, &reconcile, &progress).await?;
     let outcome = drive_recovered(driving, &reconcile, runtime, progress, stop).await?;
@@ -171,15 +174,16 @@ impl<R: AgentRuntime> Driver<'_, R> {
     }
 
     async fn run(&self) -> Result<DriveOutcome, Error> {
-        let mut flights = Flights::new(self.driving.max_agents);
+        let mut flights = Flights::new();
         loop {
             let level = self.stop.level();
             self.agents.raise(level);
             if level == StopLevel::Force {
                 return Ok(DriveOutcome::Interrupted);
             }
-            let free_slots = flights.free_slots();
-            let (tick, landed) = flights.alongside(self.tick(free_slots)).await;
+            let limit = self.driving.max_agents;
+            let mut free = FreeSlots::take(self.driving.layout, limit, &flights.held())?;
+            let (tick, landed) = flights.alongside(self.tick(free.indices(), limit)).await;
             let stale = !landed.is_empty();
             settle(landed)?;
             match tick? {
@@ -187,12 +191,19 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 Tick::Wait | Tick::Return(_) if stale => {}
                 Tick::Launched(launches) => {
                     for flight in launches {
-                        flights.push(flight.slot(), self.fly(flight));
+                        let slot = flight.slot().and_then(|index| free.claim(index));
+                        flights.push(slot, self.fly(flight));
                     }
                 }
                 Tick::Return(outcome) if flights.is_empty() => return Ok(outcome),
-                Tick::Return(_) | Tick::Wait => self.wait(&mut flights, level).await?,
-                Tick::Cancel => self.cancel(&mut flights).await?,
+                Tick::Return(_) | Tick::Wait => {
+                    drop(free);
+                    self.wait(&mut flights, level).await?;
+                }
+                Tick::Cancel => {
+                    drop(free);
+                    self.cancel(&mut flights).await?;
+                }
             }
         }
     }
@@ -222,7 +233,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         Ok(self.driving.store.cancel_run(self.driving.root).await?)
     }
 
-    async fn tick(&self, free_slots: Vec<usize>) -> Result<Tick, Error> {
+    async fn tick(&self, free_slots: Vec<usize>, limit: usize) -> Result<Tick, Error> {
         let rows = self.driving.store.run_rows(self.driving.root).await?;
         self.read_stop_request(rows.stop_requested);
         let lists = self.item_lists(&rows).await?;
@@ -259,7 +270,8 @@ impl<R: AgentRuntime> Driver<'_, R> {
                     ..
                 } => return Ok(Tick::Cancel),
                 Action::Wait => {
-                    self.observe(&loaded, decision.queued, ctx.free_slots.len());
+                    let in_use = limit.saturating_sub(ctx.free_slots.len());
+                    self.observe(&loaded, decision.queued, in_use, limit);
                     return Ok(Tick::Wait);
                 }
                 Action::Return(outcome) => {

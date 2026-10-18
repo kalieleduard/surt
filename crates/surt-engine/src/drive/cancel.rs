@@ -23,6 +23,7 @@ pub(crate) struct Cancel<'a> {
     pub(crate) layout: &'a Layout,
     pub(crate) root: &'a RunId,
     pub(crate) actor: &'a str,
+    pub(crate) stop_grace_period: Duration,
 }
 
 impl Cancel<'_> {
@@ -61,6 +62,7 @@ impl Cancel<'_> {
             store: self.store,
             repository: self.layout.root(),
             root: self.root.as_str(),
+            stop_grace_period: self.stop_grace_period,
         };
         for found in reconcile.settle().await? {
             let _ = progress.send(found);

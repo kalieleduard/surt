@@ -4,6 +4,7 @@ mod stale;
 pub(crate) mod worktree;
 
 use std::path::Path;
+use std::time::Duration;
 
 use crate::drive::Progress;
 use crate::project::Error;
@@ -15,6 +16,9 @@ pub(crate) struct Reconcile<'a> {
     pub(crate) store: &'a Store,
     pub(crate) repository: &'a Path,
     pub(crate) root: &'a str,
+    /// How long stopping a dead Driver's surviving agent waits before a
+    /// forced kill.
+    pub(crate) stop_grace_period: Duration,
 }
 
 impl Reconcile<'_> {

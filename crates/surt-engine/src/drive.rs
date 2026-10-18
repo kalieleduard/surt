@@ -24,6 +24,7 @@ mod pausing;
 mod public;
 mod record;
 mod recovered;
+mod slots;
 mod snapshot;
 mod worktrees;
 

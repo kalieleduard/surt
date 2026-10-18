@@ -1,3 +1,4 @@
+use surt_engine::project::Project;
 #[cfg(feature = "test-support")]
 use surt_engine::runtime::FakeRuntime;
 use surt_engine::runtime::{
@@ -30,7 +31,7 @@ impl AgentRuntime for Selected {
     }
 }
 
-pub(crate) fn select() -> Result<Selected, Failure> {
+pub(crate) fn select(project: &Project) -> Result<Selected, Failure> {
     #[cfg(feature = "test-support")]
     if let Some(script) = std::env::var_os(fake::VARIABLE) {
         return fake::load(std::path::Path::new(&script)).map(Selected::Fake);
@@ -38,6 +39,7 @@ pub(crate) fn select() -> Result<Selected, Failure> {
     Ok(Selected::Claude(ClaudeCodeRuntime::new(
         CLAUDE_CODE,
         std::env::vars_os(),
+        project.stop_grace_period(),
     )))
 }
 

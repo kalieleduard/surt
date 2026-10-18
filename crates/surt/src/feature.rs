@@ -74,7 +74,7 @@ async fn create(project: &Project, args: &FeatureArgs) -> Result<(), Failure> {
         carried: Vec::new(),
         actor: project.actor().await?,
     };
-    let runtime = runtime::select()?;
+    let runtime = runtime::select(project)?;
     let run = project.create_run(new_run).await?;
     created(&name, &base).print_success();
     SPEC.drive(project, &name.name, &run, &runtime).await

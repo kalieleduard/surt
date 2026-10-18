@@ -24,7 +24,7 @@ pub(super) async fn start(
         .await?
         .ok_or_else(|| Failure::Refused(no_base(&name, base)))?;
     let new_run = next_run(&name, &commit, project.actor().await?);
-    let runtime = runtime::select()?;
+    let runtime = runtime::select(project)?;
     let run = project.create_run(new_run).await?;
     let ordinal = current(project, &name)
         .await?

@@ -24,6 +24,7 @@ mod stopping;
 mod subjects;
 
 use std::path::Path;
+use std::time::Duration;
 
 pub use crate::artifacts::working_copy::restoring::{Change, FileChange};
 pub use crate::cleanup::{Cleanup, Kept, Left};
@@ -43,7 +44,7 @@ pub use crate::workflow::{
 pub use blocked::{BlockedStep, LastFailure};
 pub use cancelling::CancelImpact;
 pub(crate) use config::parse_timeout;
-pub use config::{Check, Config, GitConfig, MergeIntoBase};
+pub use config::{Check, Config, GitConfig, GlobalConfig, MergeIntoBase};
 pub use create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};
 pub use deleting::{BranchFate, DeleteImpact, DeletedRun, Deletion, Directory};
 pub use delivery::IntegrationBranch;
@@ -84,6 +85,7 @@ pub struct Project {
     layout: Layout,
     id: String,
     config: Config,
+    global: GlobalConfig,
     catalog: Catalog,
     home: SurtHome,
     access: Access,
@@ -122,6 +124,10 @@ impl Project {
     ) -> Result<Project, Error> {
         let layout = discovery::find_project(cwd, home).await?;
         let config = config::load(&layout.config())?;
+        let global = match home.config() {
+            Some(path) => config::global::load(path)?,
+            None => GlobalConfig::default(),
+        };
         let store = open(&layout, access).await?;
         let id = store.project_id().await;
         store.close().await;
@@ -129,6 +135,7 @@ impl Project {
             layout,
             id: id?,
             config,
+            global,
             catalog,
             home: home.clone(),
             access,
@@ -151,6 +158,12 @@ impl Project {
 
     pub fn config(&self) -> &Config {
         &self.config
+    }
+
+    /// How long every graceful stop of an agent process tree waits before a
+    /// forced kill, from the machine's global configuration.
+    pub fn stop_grace_period(&self) -> Duration {
+        self.global.stop_grace_period
     }
 
     #[cfg(feature = "test-support")]
