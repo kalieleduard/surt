@@ -20,6 +20,7 @@ mod subjects;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Duration;
 
 use sqlx::sqlite::SqliteConnectOptions;
 use tempfile::TempDir;
@@ -87,6 +88,14 @@ impl Sandbox {
 
     async fn open(&self, cwd: &Path) -> Result<Project, Error> {
         Project::open_in(cwd, &self.surt_home(), Catalog::new()).await
+    }
+
+    fn write_global_config(&self, contents: &str) -> PathBuf {
+        let dot_surt = self.home().join(".surt");
+        fs::create_dir_all(&dot_surt).expect("the global .surt directory");
+        let path = dot_surt.join("config.toml");
+        fs::write(&path, contents).expect("the global config");
+        path
     }
 }
 
@@ -301,5 +310,44 @@ async fn an_invalid_config_is_refused_before_the_database_is_touched() {
     assert!(matches!(
         refusal(sandbox.open(&sandbox.repo()).await),
         Refusal::InvalidConfig { path, line: Some(1), .. } if path == config
+    ));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn without_a_global_config_the_project_opens_with_a_ten_second_grace_period() {
+    let sandbox = Sandbox::with_repository();
+    sandbox.init(&sandbox.repo()).await.expect("init succeeds");
+
+    let project = sandbox
+        .open(&sandbox.repo())
+        .await
+        .expect("the project opens");
+
+    assert_eq!(project.stop_grace_period(), Duration::from_secs(10));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_global_config_in_the_home_directory_sets_the_grace_period() {
+    let sandbox = Sandbox::with_repository();
+    sandbox.init(&sandbox.repo()).await.expect("init succeeds");
+    sandbox.write_global_config("stop_grace_period = \"45s\"\n");
+
+    let project = sandbox
+        .open(&sandbox.repo())
+        .await
+        .expect("the project opens");
+
+    assert_eq!(project.stop_grace_period(), Duration::from_secs(45));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_invalid_global_config_refuses_to_open_the_project() {
+    let sandbox = Sandbox::with_repository();
+    sandbox.init(&sandbox.repo()).await.expect("init succeeds");
+    let global = sandbox.write_global_config("stop_grace_period = \"ten\"\n");
+
+    assert!(matches!(
+        refusal(sandbox.open(&sandbox.repo()).await),
+        Refusal::InvalidConfig { path, line: Some(1), .. } if path == global
     ));
 }
