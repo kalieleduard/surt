@@ -6,7 +6,7 @@ Spec: [Milestone 1](../spec.md) (story 15) · Slice: S2 Workflow · Plan: [E](..
 
 **Blocked by:** 02 (Store opens the schema)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The parser accepts the five `kind`s (`agent`, `approval`, `operation`, `loop`, `per_item`) with `deny_unknown_fields`, without expressions; conditions only compare Outcomes; `needs` is explicit
 - [x] Static validation checks every reference against the supplied agents and the Operations registry, and reports the offending step
@@ -14,3 +14,7 @@ Spec: [Milestone 1](../spec.md) (story 15) · Slice: S2 Workflow · Plan: [E](..
 - [x] Editing the config or definitions after `create_run` does not change the frozen snapshot of that run
 - [x] A second active root run for the same Subject is refused
 - [x] `Project` tests with valid and invalid synthetic definitions (unknown field, unknown kind, dangling reference, cycle in `needs`)
+
+## Comments
+
+- 2026-10-18 (orchestrator): Resolved. Merged into `integration/milestone-1` at 57482d7; code-review fixes at 931fc99.

@@ -6,7 +6,7 @@ Spec: [Milestone 1](../spec.md) (stories 71–74, 77–78) · Slice: S5 Recovery
 
 **Blocked by:** 15 (`surt start` delivers a Feature)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Process identity is pid + native start time + boot id, implemented in `platform` for the three OSes
 - [x] `queued`/`running` Executions of a dead Driver: survivors are stopped (never adopted) and marked `interrupted`; an Execution whose end was never recorded is discarded even if it left a valid delivery
@@ -15,3 +15,7 @@ Spec: [Milestone 1](../spec.md) (stories 71–74, 77–78) · Slice: S5 Recovery
 - [x] A driving command refuses while the Integration Branch was moved or is checked out, printing the exact `git` command to restore it; steps 3–4 still run and record what they find
 - [x] Recovery reports what it found as progress lines, as in I's mock
 - [x] `Project` tests for each recovery case, plus a binary test of the moved-branch refusal
+
+## Comments
+
+- 2026-10-18 (orchestrator): Resolved. Merged into `integration/milestone-1` at ec15cbd; code-review fixes at 931fc99.

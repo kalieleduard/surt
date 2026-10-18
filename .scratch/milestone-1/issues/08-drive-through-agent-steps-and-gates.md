@@ -6,7 +6,7 @@ Spec: [Milestone 1](../spec.md) (stories 16, 24–29, 45, 70, 101) · Slice: S3 
 
 **Blocked by:** 04 (Pure scheduler `decide()`), 07 (AgentRuntime trait, Fake Runtime and delivery validation)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] One Driver per root run via a file lock on the run; a second `drive` refuses with the live Driver's pid; dropping the process releases the lock
 - [x] Each tick reloads the `RunGraph`, so an Approval recorded by another process is seen without caching
@@ -15,3 +15,7 @@ Spec: [Milestone 1](../spec.md) (stories 16, 24–29, 45, 70, 101) · Slice: S3 
 - [x] Each Execution's stream and stderr go to the Feature's log directory under `.surt/logs/`, which survives cleanup
 - [x] The engine never prints: it emits typed `Progress` events; outcomes map to `DriveOutcome` and errors to `Refused`/`Internal`
 - [x] `Project` tests: agent → gate (`AtGate`), reject → Iteration 2 reads reason and rejected Revision → approve → next step; a second Driver refuses
+
+## Comments
+
+- 2026-10-18 (orchestrator): Resolved. Merged into `integration/milestone-1` at 66e71ba; code-review fixes at 931fc99.

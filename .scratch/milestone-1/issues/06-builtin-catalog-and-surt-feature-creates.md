@@ -6,7 +6,7 @@ Spec: [Milestone 1](../spec.md) (stories 10–14, 17–18, 21) · Slice: S2 Work
 
 **Blocked by:** 03 (`surt init` and project discovery), 05 (Workflow parse, validate, freeze and `create_run`)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The `Catalog` is an explicit `include_str!` table: `feature.toml` (no `merge` step, `[cleanup] on_success` only accepts `"clean"`), `task-cycle.toml`, and the five Agents with TOML, instructions and output schemas (`manifest`, `commit`, `feedback`, `delivery`); the engine embeds only the Operation schemas (`base`, `check-report`, `conflict`, `integration`)
 - [x] Every Agent uses the shared profile: `claude-code`, `claude-sonnet-5-5`, effort `high`, auth `subscription`, `dontAsk`, per-role tools as in F, no turn or cost limit
@@ -15,3 +15,7 @@ Spec: [Milestone 1](../spec.md) (stories 10–14, 17–18, 21) · Slice: S2 Work
 - [x] `--base <ref>` fixes the Base (default `HEAD`)
 - [x] Rerunning with a slug that has an active run refuses and says how to resume or create anew; `--new` skips the guard; after a cancel the same description creates a `-2` Feature
 - [x] Binary tests: create, collision suffix, `--name`, active-slug refusal, `--new`
+
+## Comments
+
+- 2026-10-18 (orchestrator): Resolved. Merged into `integration/milestone-1` at 918170a; code-review fixes at 931fc99.

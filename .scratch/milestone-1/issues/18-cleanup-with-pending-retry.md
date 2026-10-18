@@ -6,7 +6,7 @@ Spec: [Milestone 1](../spec.md) (stories 83–86) · Slice: S5 Recovery and endi
 
 **Blocked by:** 15 (`surt start` delivers a Feature)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] A `succeeded` run removes the Working Copy, execution directories, Task worktrees, Task Branches still at their recorded tip and Salvage Refs; it keeps the Integration Branch, the history and the logs
 - [x] A `cancelled` run salvages and removes the worktrees but keeps Task Branches and Salvage Refs
@@ -15,3 +15,7 @@ Spec: [Milestone 1](../spec.md) (stories 83–86) · Slice: S5 Recovery and endi
 - [x] A removal failure leaves `cleaned_at` NULL and the Feature's next `feature`/`plan`/`start`/`cancel` finishes it
 - [x] The E2E of 15 now ends with the cleanup line and asserts the final state: worktrees and Task Branches gone, Integration Branch and logs present, `cleaned_at` written
 - [x] `Project` tests: full cleanup, kept edited file, pending cleanup after an injected removal failure and its resumption
+
+## Comments
+
+- 2026-10-18 (orchestrator): Resolved. Merged into `integration/milestone-1` at f7d4465; code-review fixes at 931fc99.

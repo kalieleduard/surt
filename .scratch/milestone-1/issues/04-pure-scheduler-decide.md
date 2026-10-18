@@ -6,7 +6,7 @@ Spec: [Milestone 1](../spec.md) (stories 59–64, 69) · Slice: S3 Engine + Fake
 
 **Blocked by:** 01 (Workspace, toolchain and CI matrix)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `RunGraph`, `Action`, `Ctx` and the state enums import neither `sqlx` nor the `git` module (the DIP exception of [ADR 0012](../../../docs/adr/0012-agent-runtime-is-the-only-trait.md))
 - [x] Table tests: `max_attempts` failed Attempts → `blocked`; `max_iterations` Iterations without a gate → `blocked`; a Loop containing an Approval Gate has no Iteration limit
@@ -14,3 +14,7 @@ Spec: [Milestone 1](../spec.md) (stories 59–64, 69) · Slice: S3 Engine + Fake
 - [x] Table tests: unblocking renews the budget while keeping counter history; dependents of a blocked item wait while independent ones keep launching
 - [x] Table tests: a run only ends `succeeded` or `cancelled`; `Return` is emitted when nothing can run without a human (at a gate, blocked, or done)
 - [x] Independent items launch only up to the concurrency limit carried in `Ctx`
+
+## Comments
+
+- 2026-10-18 (orchestrator): Resolved. Merged into `integration/milestone-1` at c3dd0b5; code-review fixes at 931fc99.

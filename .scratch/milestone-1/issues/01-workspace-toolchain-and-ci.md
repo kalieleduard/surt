@@ -6,7 +6,7 @@ Spec: [Milestone 1](../spec.md) · Slice: S1 Skeleton · Plan: [B](../../../docs
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The workspace has exactly two crates; `surt-engine` cannot depend on `surt`, so the compiler rejects any import of the feature workflow from the engine
 - [x] `edition = "2024"`, `rust-version = "1.94"`, stable pinned in `rust-toolchain.toml`, multi-thread Tokio; only dependencies from the table in B are allowed, and none of the forbidden ones (`async-trait`, `git2`/`gix`, `chrono`/`time`, `indicatif`/`crossterm`, `include_dir`, `dirs`)
@@ -15,3 +15,7 @@ Spec: [Milestone 1](../spec.md) · Slice: S1 Skeleton · Plan: [B](../../../docs
 - [x] CI runs `cargo fmt --all -- --check`, `cargo clippy --all-targets --features test-support -- -D warnings` and `cargo test --features test-support` on macOS, Linux and Windows, with Git ≥ 2.38 pinned per runner
 - [x] CI measures project-wide line coverage (e.g. `cargo-llvm-cov`) with `--features test-support` and fails at or below 90%, per `rules/testing.md`; no production code is excluded to reach the threshold
 - [x] `surt` with an unknown command or flag exits `2` on all three OSes, verified through the binary
+
+## Comments
+
+- 2026-10-18 (orchestrator): Resolved. Merged into `integration/milestone-1` at 35f4fac; code-review fixes at 931fc99.

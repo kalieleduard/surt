@@ -6,7 +6,7 @@ Spec: [Milestone 1](../spec.md) (stories 41, 58, 65, 67) · Slice: S4 Git · Pla
 
 **Blocked by:** 09 (Spec and plan phases through the binary), 14 (Integration, conflicts and the Shipper)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `surt start` refuses unless the manifest is approved, then drives builders, checks, review, integration and the Shipper
 - [x] Progress events render as J's event lines (`✔ task A merged (…)`, `↻ task B build attempt 2`, `✔ shipper delivered — …`, `✔ run succeeded`)
@@ -15,3 +15,7 @@ Spec: [Milestone 1](../spec.md) (stories 41, 58, 65, 67) · Slice: S4 Git · Pla
 - [x] Ctrl-C, SIGHUP or closing the console triggers a graceful stop and exit `130`; a second signal forces the stop
 - [x] E2E through the binary with the Fake: `init` → `feature` → reject → spec rev 2 → approve → `plan` → approve → `start` with 2+ Tasks, one with a rejected review and a new Builder → integration → Shipper; final state verified by reading Git and SQLite directly; under 60 s per OS with no real sleeps
 - [x] Binary tests for exit `4` and exit `130`
+
+## Comments
+
+- 2026-10-18 (orchestrator): Resolved. Merged into `integration/milestone-1` at fc6ea3b; code-review fixes at 931fc99.

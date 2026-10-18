@@ -6,7 +6,7 @@ Spec: [Milestone 1](../spec.md) (stories 16–20, 24–28, 35–37, 40, 94, 104)
 
 **Blocked by:** 06 (Built-in Catalog and `surt feature` creates a Feature), 08 (`drive` through agent steps and Approval Gates)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] With `test-support`, `SURT_RUNTIME` selects the Fake with the path to a TOML script; release builds cannot select it
 - [x] `surt feature "<description>"` drives the Spec Agent and exits `0` at the spec gate; `surt feature <full-name>` resumes (regenerating after a rejection) and, on an approved spec, points at `surt plan` without changing anything
@@ -15,3 +15,7 @@ Spec: [Milestone 1](../spec.md) (stories 16–20, 24–28, 35–37, 40, 94, 104)
 - [x] A `<feature>` argument accepts the full name, a unique slug or a unique prefix; an ambiguous one refuses listing candidates
 - [x] Driving commands refuse with exit `3` when `.surt/agents/` exists
 - [x] Binary test of the full S3 "done" flow, plus refusals (plan before approval, ambiguous name, `--rev` mismatch)
+
+## Comments
+
+- 2026-10-18 (orchestrator): Resolved. Merged into `integration/milestone-1` at 96c8125; code-review fixes at 931fc99.

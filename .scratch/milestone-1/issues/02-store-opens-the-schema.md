@@ -6,7 +6,7 @@ Spec: [Milestone 1](../spec.md) · Slice: S1 Skeleton · Plan: [D](../../../docs
 
 **Blocked by:** 01 (Workspace, toolchain and CI matrix)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The migration is a byte-for-byte copy of the plan's `0001_initial.sql` (17 STRICT tables, UUIDv7 TEXT ids, INTEGER Unix-second timestamps written by Rust), immune to CRLF checkout on Windows
 - [x] Opening sets WAL and `synchronous=FULL`, and runs migrations under `db.lock` via `File::lock`; every OS `#[cfg]` lives in `platform`
@@ -14,3 +14,7 @@ Spec: [Milestone 1](../spec.md) · Slice: S1 Skeleton · Plan: [D](../../../docs
 - [x] All SQL lives in the single store module; writes go through `BEGIN IMMEDIATE` with retry on `SQLITE_BUSY`, and no transaction handle leaves the module
 - [x] Tests against a file-backed SQLite in a tempdir prove the invariants are enforced by the schema: at most one active root run per Subject and at most one live Execution per Step Run
 - [x] Tests cover a fresh open, a reopen, and the `SchemaTooNew` refusal
+
+## Comments
+
+- 2026-10-18 (orchestrator): Resolved. Merged into `integration/milestone-1` at e0eb7d3; code-review fixes at 931fc99.

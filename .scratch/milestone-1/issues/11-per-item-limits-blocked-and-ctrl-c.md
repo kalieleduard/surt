@@ -6,7 +6,7 @@ Spec: [Milestone 1](../spec.md) (stories 44, 59–64, 66–69) · Slice: S3 Engi
 
 **Blocked by:** 08 (`drive` through agent steps and Approval Gates)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Per-Item expansion commits the Child Workflow Runs and pins in one checkpoint; items start as their `needs` complete
 - [x] `max_concurrent_agents` is a per-Driver semaphore read before each launch; `execution.slot` is written
@@ -16,3 +16,7 @@ Spec: [Milestone 1](../spec.md) (stories 44, 59–64, 66–69) · Slice: S3 Engi
 - [x] `StopSignal::Graceful` stops agents, lets a running Operation finish and returns `Interrupted`; `Force` kills at once; interrupted Executions spend no Attempt
 - [x] A cancel request written to SQLite is read on the next tick and returns `Cancelled`
 - [ ] `Project` tests using the Fake's "waits until stopped" behaviour, with `tokio::time::pause()` and no real sleeps
+
+## Comments
+
+- 2026-10-18 (orchestrator): Resolved. The `tokio::time::pause()` box stays unticked by design: pausing the clock makes sqlx's pool acquire time out at once; tests use the Fake's wait-until-stopped behaviour and event wakeups instead. Recorded in `docs/architecture/B-workspace.md` "Rule exceptions". Merged into `integration/milestone-1` at 3573d05; code-review fixes at 931fc99.

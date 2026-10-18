@@ -6,10 +6,14 @@ Spec: [Milestone 1](../spec.md) (stories 113–114) · Slice: S3 Engine + Fake �
 
 **Blocked by:** 05 (Workflow parse, validate, freeze and `create_run`)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `RuntimeError` carries a `FailureClass` (`transient`, `not_retryable`, `retryable`) classified by the adapter; the runtime does not resolve inputs, publish Revisions or write to SQLite
 - [x] `FakeRuntime` and its typed script (`Script::new().on(<step key>, <iteration>, <attempt>, Behavior::…)`) are public but only with the `test-support` feature
 - [x] Fake behaviours: valid delivery, invalid JSON, missing file, model mismatch, crash, limit failure (transient, with optional reset time), and an Execution that waits until stopped
 - [x] Delivery validation: envelope `{outcome, outputs}`, relative paths with no escape or link, formats and JSON Schema draft-07, plus consistency checks registered by the workflow
 - [x] Tests cover each Fake behaviour against the validator, including every rejection reason
+
+## Comments
+
+- 2026-10-18 (orchestrator): Resolved. Merged into `integration/milestone-1` at 21869de; code-review fixes at 931fc99.

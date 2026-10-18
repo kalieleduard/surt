@@ -6,7 +6,7 @@ Spec: [Milestone 1](../spec.md) (stories 105–109) · Slice: S6 Claude Code (pa
 
 **Blocked by:** 07 (AgentRuntime trait, Fake Runtime and delivery validation)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The argv follows F: `-p`, a new `--session-id`, `--no-session-persistence`, `--output-format stream-json --verbose`, full model and effort, `--permission-mode dontAsk`, explicit per-role tools and rules, a generated `--json-schema`, `--append-system-prompt-file`, a generated `--settings`, strict empty MCP, `--disable-slash-commands`, `--safe-mode --setting-sources user`; never `--resume`/`--continue`; the context goes through stdin, which is then closed
 - [x] The child environment is built from an allowlist plus the variables that disable auto-update, memory and CLAUDE.md loading; variables like gateway URLs, model overrides and API keys never pass through
@@ -15,3 +15,7 @@ Spec: [Milestone 1](../spec.md) (stories 105–109) · Slice: S6 Claude Code (pa
 - [x] Acceptance requires exit 0, initialization matching session, model, version, permission mode and tools, a `success` result with `is_error = false` and structured output, and a valid envelope; `subtype = "success"` alone is not enough
 - [x] Classification reads `assistant.error` and `terminal_reason`: auth, missing or mismatched model and missing executable are `not_retryable`; rate limit, overload and network are `transient` with the reset time when reported; unknown is `retryable`
 - [x] Fixtures (success, auth failure, nonexistent model, SIGTERM 143 without `result`) are copied from branch `research/claude-code-cli-headless`; tests cover the parser, acceptance, classification, argv and environment assembly
+
+## Comments
+
+- 2026-10-18 (orchestrator): Resolved. Merged into `integration/milestone-1` at 74bd9bc; code-review fixes at 931fc99.
