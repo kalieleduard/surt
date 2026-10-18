@@ -16,7 +16,9 @@ mod cancelling;
 mod checkpoints;
 mod cleanup;
 mod control;
+mod details;
 mod drivers;
+mod events;
 mod executions;
 mod frozen;
 mod graph;
@@ -179,21 +181,31 @@ pub(super) async fn record_event(
     kind: &str,
     at: i64,
 ) -> Result<(), sqlx::Error> {
+    record_event_data(connection, about, kind, at, &serde_json::json!({})).await
+}
+
+pub(super) async fn record_event_data(
+    connection: &mut SqliteConnection,
+    about: About<'_>,
+    kind: &str,
+    at: i64,
+    data: &serde_json::Value,
+) -> Result<(), sqlx::Error> {
     let (sql, id) = match about {
         About::Run(id) => (
-            "INSERT INTO event (at, root_run_id, workflow_run_id, kind) \
-             SELECT ?1, w.root_run_id, w.id, ?2 FROM workflow_run w WHERE w.id = ?3",
+            "INSERT INTO event (at, root_run_id, workflow_run_id, kind, data) \
+             SELECT ?1, w.root_run_id, w.id, ?2, ?4 FROM workflow_run w WHERE w.id = ?3",
             id,
         ),
         About::Step(id) => (
-            "INSERT INTO event (at, root_run_id, workflow_run_id, step_run_id, kind) \
-             SELECT ?1, w.root_run_id, w.id, s.id, ?2 FROM step_run s \
+            "INSERT INTO event (at, root_run_id, workflow_run_id, step_run_id, kind, data) \
+             SELECT ?1, w.root_run_id, w.id, s.id, ?2, ?4 FROM step_run s \
              JOIN workflow_run w ON w.id = s.workflow_run_id WHERE s.id = ?3",
             id,
         ),
         About::Execution(id) => (
-            "INSERT INTO event (at, root_run_id, workflow_run_id, step_run_id, execution_id, kind) \
-             SELECT ?1, w.root_run_id, w.id, s.id, e.id, ?2 FROM execution e \
+            "INSERT INTO event (at, root_run_id, workflow_run_id, step_run_id, execution_id, kind, data) \
+             SELECT ?1, w.root_run_id, w.id, s.id, e.id, ?2, ?4 FROM execution e \
              JOIN step_run s ON s.id = e.step_run_id \
              JOIN workflow_run w ON w.id = s.workflow_run_id WHERE e.id = ?3",
             id,
@@ -203,6 +215,7 @@ pub(super) async fn record_event(
         .bind(at)
         .bind(kind)
         .bind(id)
+        .bind(data.to_string())
         .execute(connection)
         .await?;
     Ok(())

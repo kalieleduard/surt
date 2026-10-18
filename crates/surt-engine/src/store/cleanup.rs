@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use sqlx::FromRow;
 
-use super::{Store, StoreError, unix_now};
+use super::{About, Store, StoreError, record_event_data, unix_now};
 use crate::drive::RunEnd;
 use crate::drive::graph::RunId;
 
@@ -116,15 +116,7 @@ impl Store {
                 .execute(&mut *transaction)
                 .await?;
         }
-        sqlx::query(
-            "INSERT INTO event (at, root_run_id, workflow_run_id, kind, data) VALUES (?1, ?2, ?2, ?3, ?4)",
-        )
-        .bind(now)
-        .bind(root)
-        .bind(kind)
-        .bind(data.to_string())
-        .execute(&mut *transaction)
-        .await?;
+        record_event_data(&mut transaction, About::Run(root), kind, now, &data).await?;
         Ok(transaction.commit().await?)
     }
 }

@@ -336,6 +336,7 @@ async fn a_driver_records_its_own_identity_and_a_clean_resume_reports_no_recover
     let again = feature.drive(Script::new()).await;
 
     assert!(again.progress.is_empty(), "{:?}", again.progress);
+    assert!(feature.dir.event_data("driver.recovered").await.is_empty());
     let drivers: Vec<(Option<i64>, Option<i64>, Option<String>)> = feature
         .dir
         .rows(

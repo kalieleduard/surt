@@ -25,7 +25,12 @@ impl<R: AgentRuntime> Driver<'_, R> {
             .filter_map(|key| definition.step(key))
             .map(|step| (step.key.as_str(), step.spec.kind().as_str()))
             .collect();
-        Ok(self.driving.store.start_iteration(&row.id, &body).await?)
+        let until = spec.until.step.as_str();
+        Ok(self
+            .driving
+            .store
+            .start_iteration(&row.id, &body, until)
+            .await?)
     }
 
     pub(super) async fn item_lists(&self, rows: &RunRows) -> Result<ItemLists, Error> {

@@ -223,6 +223,15 @@ async fn an_intended_move_found_elsewhere_blocks_the_integration_and_the_drive_r
     assert_eq!(states, [("blocked".to_owned(),)]);
     assert_eq!(feature.sha(&integration_branch()), Some(feature.reviewed()));
     assert!(feature.pending_moves().await.is_empty());
+    assert_eq!(
+        feature.dir.event_data("intention.discarded").await,
+        [serde_json::json!({
+            "intention": "ref_move",
+            "ref": integration_branch(),
+            "old_sha": feature.base(),
+            "new_sha": merge,
+        })]
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

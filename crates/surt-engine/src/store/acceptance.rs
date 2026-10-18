@@ -1,7 +1,9 @@
+use serde_json::json;
 use sqlx::SqliteConnection;
 
+use super::ref_moves::{CONFIRMED, settle_ref_move};
 use super::revisions::{Origin, Published, artifact_id, publish};
-use super::{About, Checkpoint, Store, StoreError, record_event, unix_now};
+use super::{About, Checkpoint, Store, StoreError, record_event, record_event_data, unix_now};
 
 pub(crate) struct Acceptance<'a> {
     pub(crate) execution: &'a str,
@@ -54,7 +56,8 @@ impl Store {
                 stage_working_copy(&mut transaction, &revision).await?;
             }
             let about = About::Execution(acceptance.execution);
-            record_event(&mut transaction, about, "revision.published", now).await?;
+            let data = json!({ "artifact": output.name, "revision": revision.number, "origin": "execution" });
+            record_event_data(&mut transaction, about, "revision.published", now, &data).await?;
             published.push((output.name.clone(), revision));
         }
         if let Some(tip) = acceptance.tip {
@@ -67,10 +70,7 @@ impl Store {
         if let Some(integrated) = acceptance.integrated {
             record_integration(&mut transaction, &run, integrated).await?;
         }
-        sqlx::query("DELETE FROM ref_move WHERE step_run_id = ?")
-            .bind(&step)
-            .execute(&mut *transaction)
-            .await?;
+        settle_ref_move(&mut transaction, &step, CONFIRMED, now).await?;
         sqlx::query(
             "UPDATE step_run SET state = 'done', outcome = ?, finished_at = ?, blocked_reason = NULL WHERE id = ?",
         )
@@ -79,9 +79,18 @@ impl Store {
         .bind(&step)
         .execute(&mut *transaction)
         .await?;
+        let outcome = json!({ "outcome": acceptance.outcome });
         let about = About::Execution(acceptance.execution);
-        record_event(&mut transaction, about, "execution.succeeded", now).await?;
-        record_event(&mut transaction, About::Step(&step), "step.done", now).await?;
+        record_event_data(
+            &mut transaction,
+            about,
+            "execution.succeeded",
+            now,
+            &outcome,
+        )
+        .await?;
+        let about = About::Step(&step);
+        record_event_data(&mut transaction, about, "step.done", now, &outcome).await?;
         transaction.commit().await?;
         self.reached(Checkpoint::ExecutionAccepted)?;
         Ok(published)

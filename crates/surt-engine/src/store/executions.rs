@@ -3,7 +3,9 @@ use sqlx::SqliteConnection;
 use super::graph::failure_class_name;
 use super::revisions::number;
 use super::runs::new_id;
-use super::{About, Checkpoint, Store, StoreError, record_event, unix_now};
+use super::{
+    About, Checkpoint, Store, StoreError, details, record_event, record_event_data, unix_now,
+};
 use crate::runtime::FailureClass;
 
 const STEP_RUNNING: &str = "step.running";
@@ -15,8 +17,14 @@ pub(crate) struct ExecutionStart<'a> {
 }
 
 pub(crate) enum ExecutionKind<'a> {
-    Agent { snapshot: &'a str, slot: usize },
-    Operation { id: &'a str },
+    Agent {
+        snapshot: &'a str,
+        slot: usize,
+        runtime: &'a str,
+    },
+    Operation {
+        id: &'a str,
+    },
 }
 
 pub(crate) struct InputRequest {
@@ -70,7 +78,7 @@ impl Store {
         }
         let id = new_id();
         let (kind, snapshot, operation, slot) = match start.kind {
-            ExecutionKind::Agent { snapshot, slot } => (
+            ExecutionKind::Agent { snapshot, slot, .. } => (
                 "agent",
                 Some(snapshot),
                 None,
@@ -92,13 +100,9 @@ impl Store {
         .bind(now)
         .execute(&mut *transaction)
         .await?;
-        record_event(
-            &mut transaction,
-            About::Execution(&id),
-            "execution.started",
-            now,
-        )
-        .await?;
+        let data = details::execution_started(attempt, &start.kind);
+        let about = About::Execution(&id);
+        record_event_data(&mut transaction, about, "execution.started", now, &data).await?;
         let mut inputs = Vec::new();
         for request in &start.inputs {
             if let Some(revision) = fix_input(&mut transaction, &id, request, now).await? {
@@ -159,7 +163,12 @@ impl Store {
         .bind(execution)
         .execute(&mut *transaction)
         .await?;
-        record_event(&mut transaction, About::Execution(execution), event, now).await?;
+        let data = match code {
+            Some(code) => serde_json::json!({ "code": code, "message": message }),
+            None => serde_json::json!({}),
+        };
+        let about = About::Execution(execution);
+        record_event_data(&mut transaction, about, event, now, &data).await?;
         transaction.commit().await?;
         self.reached(Checkpoint::ExecutionEnded)
     }

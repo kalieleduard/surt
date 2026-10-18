@@ -2,7 +2,7 @@ use std::path::Path;
 
 use serde_json::json;
 
-use super::branches::{moved, run_stem};
+use super::branches::{CONFIRMED, DISCARDED, moved, run_stem};
 use super::driver::Driver;
 use super::failure::{Failure, OperationError};
 use super::graph::ExecutionState;
@@ -22,16 +22,26 @@ impl<R: AgentRuntime> Driver<'_, R> {
         &self,
         launch: &OperationLaunch,
     ) -> Result<&'static str, OperationError> {
-        let recorded = {
+        let (recorded, recovered) = {
             let _serialized = self.branches.lock().await;
             match self.driving.store.run_branch(&launch.row.run).await? {
-                Some(recorded) => recorded,
-                None => self.intend_child_branch(launch).await?,
+                Some(recorded) => (recorded, true),
+                None => (self.intend_child_branch(launch).await?, false),
             }
         };
-        self.prepare_worktree(&launch.row, &launch.started, &recorded)
+        if !recovered {
+            self.prepare_worktree(&launch.row, &launch.started, &recorded)
+                .await?;
+            return Ok(DONE);
+        }
+        let found = git::commit_sha(self.driving.layout.root(), &recorded.ref_name).await?;
+        let prepared = self
+            .prepare_worktree(&launch.row, &launch.started, &recorded)
+            .await;
+        let kind = prepared.as_ref().map_or(DISCARDED, |()| CONFIRMED);
+        self.settle_intention(&launch.started.id, kind, &recorded, found.as_deref())
             .await?;
-        Ok(DONE)
+        prepared.map(|()| DONE)
     }
 
     async fn intend_child_branch(
