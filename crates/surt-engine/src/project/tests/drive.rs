@@ -1,3 +1,4 @@
+mod activity;
 mod blocked;
 mod branches;
 mod cancelling;
