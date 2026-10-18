@@ -55,7 +55,7 @@ Every command and flag marked M2 above now exists: Milestone 2 implemented them 
 | `[cleanup] on_success = "keep"` | Only `"clean"` parses. A `succeeded` run always cleans. | [I. Cleanup](I-cleanup.md#what-each-ending-removes) | M4 | no |
 | Agent overrides in `.surt/agents/` | Only the built-in `Catalog`. Driving commands refuse with exit `3` when `.surt/agents/` exists, rather than ignoring it. `init` still lists `agents/` as versioned. | [F](F-agent-contract.md#built-in-defaults-and-local-overrides) | M4 | no |
 | Global `~/.surt/config.toml` | Not read. `stop_grace_period` is fixed at 10 s. | [J](J-cli.md#global-surtconfigtoml-optional) | M3 | no |
-| Agent slots across processes | `max_concurrent_agents` is a per-Driver semaphore. Two Features driven at once may use 3 + 3. `status` omits `agent slots`. `execution.slot` is still written. | [A. Process Model](A-process-model.md#agent-concurrency-limit) | M3 | no |
+| Agent slots across processes | `max_concurrent_agents` is a per-Driver semaphore. Two Features driven at once may use 3 + 3. `status` omits `agent slots`. `execution.slot` is still written. | [A. Process Model](A-process-model.md#agent-concurrency-limit) | M3 (implemented) | no |
 | TTY footer, 5-minute line without a TTY, ASCII symbols | Event lines only. | [J](J-cli.md#foreground-progress) | M2 (implemented) | no |
 
 **Kept in Milestone 1** although they could have been cut: the whole Recovery of [I](I-recovery.md#what-a-driving-command-does-when-it-takes-the-lock), Salvage Refs (worktree preparation is one code path for the normal flow and recovery, and salvage protects human work for a handful of Git commands), Checks, cleanup with its pending retry, and `cleaned_at`.
