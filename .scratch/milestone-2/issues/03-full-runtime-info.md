@@ -8,7 +8,7 @@ Spec: [Milestone 2](../spec.md) (stories 4, 82) · Slice: R1 History · Plan: [D
 
 **Status:** ready-for-agent
 
-- [ ] Claude Code: version, session id, reported model, requested effort, exit code, turns, usage, cost and permission denials, each only when reported
-- [ ] The Fake records the fields it simulates, so engine and binary tests can assert on them
-- [ ] Fixture tests over the existing captured streams (success, auth failure, nonexistent model, SIGTERM) check what is extracted and what is absent
-- [ ] An Execution that ended before a result event (killed, SIGTERM) still records what was known
+- [x] Claude Code: version, session id, reported model, requested effort, exit code, turns, usage, cost and permission denials, each only when reported
+- [x] The Fake records the fields it simulates, so engine and binary tests can assert on them
+- [x] Fixture tests over the existing captured streams (success, auth failure, nonexistent model, SIGTERM) check what is extracted and what is absent
+- [x] An Execution that ended before a result event (killed, SIGTERM) still records what was known

@@ -130,8 +130,11 @@ async fn a_replayed_success_is_followed_until_the_process_ends_and_accepted() {
         [
             RuntimeEvent::Identified { version },
             RuntimeEvent::Launched { pid: Some(_) },
-            RuntimeEvent::Initialized(_)
+            RuntimeEvent::Initialized(_),
+            RuntimeEvent::Reported(report)
         ] if version == SUPPORTED_VERSION
+            && report.exit_code == Some(0)
+            && report.turns == Some(3)
     ));
 }
 
@@ -229,6 +232,11 @@ async fn a_failure_reported_on_the_stream_is_classified_after_exit() {
     let error = run.outcome.expect_err("an auth failure");
     assert_eq!(error.class, FailureClass::NotRetryable);
     assert_eq!(error.code, "authentication_failed");
+    assert!(matches!(
+        run.events.last(),
+        Some(RuntimeEvent::Reported(report))
+            if report.exit_code == Some(1) && report.turns == Some(1)
+    ));
 }
 
 #[tokio::test]
@@ -242,6 +250,11 @@ async fn a_process_killed_by_a_signal_reports_the_shell_convention() {
     let completion = run.outcome.expect("a completion");
     assert_eq!(completion.exit, Fixture::Sigterm.exit());
     assert!(completion.result.is_none());
+    assert!(matches!(
+        run.events.last(),
+        Some(RuntimeEvent::Reported(report))
+            if report.exit_code == Some(143) && report.turns.is_none()
+    ));
 }
 
 #[tokio::test]
