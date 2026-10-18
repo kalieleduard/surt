@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use super::outcome::Progress;
 use crate::project::live_max_concurrent_agents;
 
-/// `max_concurrent_agents` as the developer last saved it, reread before each tick.
 pub(super) struct LiveLimit {
     path: PathBuf,
     limit: usize,
@@ -11,7 +10,6 @@ pub(super) struct LiveLimit {
 }
 
 impl LiveLimit {
-    /// Starts from the limit the project opened with.
     pub(super) fn new(path: PathBuf, limit: usize) -> LiveLimit {
         LiveLimit {
             path,
@@ -20,9 +18,6 @@ impl LiveLimit {
         }
     }
 
-    /// Rereads the project configuration and returns the limit for this tick.
-    /// A missing file keeps the limit in force. A file that does not parse
-    /// keeps the last valid limit and is reported once, until it parses again.
     pub(super) fn reread(&mut self, report: impl FnOnce(Progress)) -> usize {
         match live_max_concurrent_agents(&self.path) {
             Ok(limit) => {

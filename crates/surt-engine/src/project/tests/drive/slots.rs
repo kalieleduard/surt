@@ -75,8 +75,6 @@ impl AgentRuntime for Counted {
     }
 }
 
-/// Two Features of one project, each with its own `Project` handle and a
-/// writer that waits until stopped, sharing a single Agent Slot.
 struct TwoFeatures {
     agents: Arc<Agents>,
     projects: Vec<Project>,
@@ -135,7 +133,6 @@ impl TwoFeatures {
     }
 }
 
-/// Both drivers, `None` once dropped, and the progress each reports.
 struct Driven<F> {
     drivers: Vec<Option<Pin<Box<F>>>>,
     receivers: Vec<mpsc::UnboundedReceiver<Progress>>,
@@ -178,8 +175,6 @@ fn waiting_for_a_slot(snapshot: &ActivitySnapshot) -> bool {
         && snapshot.slots_limit == 1
 }
 
-/// Waits until one driver reports a ready agent waiting for the slot the
-/// other holds, and returns the index of the waiting driver.
 async fn waiter<F>(
     drivers: &mut [Option<Pin<Box<F>>>],
     receivers: &mut [mpsc::UnboundedReceiver<Progress>],

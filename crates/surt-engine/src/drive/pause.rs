@@ -1,42 +1,36 @@
-//! The pause on Transient Failure: when agent launches may start again.
-//!
-//! A pure schedule of `now` (B. Clock): the Driver feeds it every agent
-//! Execution that ends and asks it, before each tick, until when launches
-//! wait.
+const BACKOFF_MINUTES: [i64; 5] = [1, 2, 4, 8, 15];
+const SECONDS_PER_MINUTE: i64 = 60;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) struct Pause {
+pub(crate) struct PauseSchedule {
     until: Option<i64>,
     backoff_step: Option<u32>,
     steps_taken: u32,
 }
 
-impl Pause {
+impl PauseSchedule {
     pub(crate) fn until(&self, now: i64) -> Option<i64> {
         self.until.filter(|until| now < *until)
     }
 
-    /// An agent Execution failed `transient` at `now`, reporting `resets_at`
-    /// when the stream knew it.
-    ///
-    /// A reset time later than `now` ends the pause then, unless the pause
-    /// already ends later (the latest reset wins). Without one, a failure
-    /// while launches are paused comes from an agent that was already
-    /// running, so it changes nothing; a failure once launches resumed takes
-    /// the next backoff step.
-    pub(crate) fn failed(self, resets_at: Option<i64>, now: i64) -> Pause {
+    pub(crate) fn failed(
+        self,
+        launched_at: i64,
+        resets_at: Option<i64>,
+        now: i64,
+    ) -> PauseSchedule {
         let paused = self.until(now);
         match (resets_at.filter(|reset| now < *reset), paused) {
             (Some(reset), Some(until)) if reset <= until => self,
-            (Some(reset), _) => Pause {
+            (Some(reset), _) => PauseSchedule {
                 until: Some(reset),
                 backoff_step: None,
                 ..self
             },
-            (None, Some(_)) => self,
-            (None, None) => {
+            (None, _) if !self.resumed(launched_at) => self,
+            (None, _) => {
                 let step = self.steps_taken + 1;
-                Pause {
+                PauseSchedule {
                     until: Some(now + backoff(step)),
                     backoff_step: Some(step),
                     steps_taken: step,
@@ -45,9 +39,12 @@ impl Pause {
         }
     }
 
-    /// An agent Execution ended any other way: the backoff starts over.
-    pub(crate) fn ended(self) -> Pause {
-        Pause {
+    fn resumed(&self, launched_at: i64) -> bool {
+        self.until.is_none_or(|until| until <= launched_at)
+    }
+
+    pub(crate) fn ended(self) -> PauseSchedule {
+        PauseSchedule {
             steps_taken: 0,
             ..self
         }
@@ -58,12 +55,10 @@ impl Pause {
     }
 }
 
-/// Seconds the pause lasts at backoff `step` (1-based): 1, 2, 4, 8, then 15
-/// minutes, with no ceiling on the number of steps.
 pub(crate) fn backoff(step: u32) -> i64 {
-    const MINUTES: [i64; 5] = [1, 2, 4, 8, 15];
-    let index = usize::try_from(step.saturating_sub(1)).unwrap_or(usize::MAX);
-    MINUTES.get(index).copied().unwrap_or(15) * 60
+    let last = BACKOFF_MINUTES.len() - 1;
+    let index = usize::try_from(step.saturating_sub(1)).map_or(last, |index| index.min(last));
+    BACKOFF_MINUTES[index] * SECONDS_PER_MINUTE
 }
 
 #[cfg(test)]

@@ -237,7 +237,7 @@ The engine never prints. It reports typed events, and the CLI renders lines, the
 pub enum Progress {
     StepStarted { .. }, StepFinished { .. }, AttemptRetry { .. }, Merged { key: ItemKey, sha: Sha },
     Salvaged { .. }, OrphanStopped { .. },
-    Paused { until: i64, waiting: usize, backoff: Option<u64> }, Resumed { paused_seconds: u64 },
+    Paused { pause: ActivityPause, waiting: usize }, Resumed { paused_seconds: i64 }, // ActivityPause { until: i64, backoff: Option<i64> }
     ConfigInvalid { path: PathBuf, line: Option<usize>, reason: String, limit: usize }, // live limit kept (A)
     Activity(ActivitySnapshot),       // running steps + start times, queued, project-wide slots, the pause: input for the footer
     Cleanup { .. },

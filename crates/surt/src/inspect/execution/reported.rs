@@ -1,9 +1,8 @@
 use surt_engine::project::{AgentProfile, ExecutionDetail, ExecutionState, RuntimeInfo};
 
+use crate::duration::exact;
 use crate::symbols::SEPARATOR;
 
-const MINUTE: i64 = 60;
-const HOUR: i64 = 60 * MINUTE;
 const LIST_SEPARATOR: &str = ", ";
 
 pub(super) fn profile(profile: &AgentProfile) -> String {
@@ -32,9 +31,9 @@ pub(super) fn session(reported: &RuntimeInfo) -> Option<String> {
 
 pub(super) fn process(detail: &ExecutionDetail, now: i64) -> Option<String> {
     let elapsed = match (detail.started_at, detail.finished_at) {
-        (Some(started), Some(finished)) => Some(duration(finished - started)),
+        (Some(started), Some(finished)) => Some(exact(finished - started)),
         (Some(started), None) if detail.state == ExecutionState::Running => {
-            Some(format!("running for {}", duration(now - started)))
+            Some(format!("running for {}", exact(now - started)))
         }
         _ => None,
     };
@@ -68,18 +67,6 @@ pub(super) fn denied(reported: &RuntimeInfo) -> Option<String> {
         .map(|denial| denial["tool_name"].as_str().unwrap_or("?"))
         .collect();
     (!tools.is_empty()).then(|| tools.join(LIST_SEPARATOR))
-}
-
-pub(in crate::inspect) fn duration(seconds: i64) -> String {
-    let seconds = seconds.max(0);
-    let (hours, minutes, rest) = (seconds / HOUR, seconds % HOUR / MINUTE, seconds % MINUTE);
-    if hours > 0 {
-        format!("{hours}h{minutes:02}m{rest:02}s")
-    } else if minutes > 0 {
-        format!("{minutes}m{rest:02}s")
-    } else {
-        format!("{rest}s")
-    }
 }
 
 fn joined<const N: usize>(parts: [Option<String>; N]) -> Option<String> {

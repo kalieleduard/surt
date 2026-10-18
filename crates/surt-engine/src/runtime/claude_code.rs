@@ -33,9 +33,6 @@ pub struct ClaudeCodeRuntime {
 }
 
 impl ClaudeCodeRuntime {
-    /// `stop_grace_period` is how long a graceful stop waits for the process
-    /// tree to exit before killing it: the project's
-    /// [`stop_grace_period`](crate::project::Project::stop_grace_period).
     pub fn new(
         executable: impl Into<PathBuf>,
         environment: impl IntoIterator<Item = (OsString, OsString)>,

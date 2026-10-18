@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use surt_engine::project::{Progress, StepLabel};
+use surt_engine::project::{ActivityPause, Progress, StepLabel};
 
 use super::message;
 use crate::driving::blocked::local_time;
@@ -158,14 +158,18 @@ fn launches_pause_until_the_reset_time_or_for_the_backoff_delay_then_resume() {
     let at = local_time(RESET).expect("a local time");
     let lines: String = [
         Progress::Paused {
-            until: RESET,
+            pause: ActivityPause {
+                until: RESET,
+                backoff: None,
+            },
             waiting: 2,
-            backoff: None,
         },
         Progress::Paused {
-            until: RESET,
+            pause: ActivityPause {
+                until: RESET,
+                backoff: Some(120),
+            },
             waiting: 1,
-            backoff: Some(120),
         },
         Progress::Resumed {
             paused_seconds: 2 * 3600 + 5 * 60,

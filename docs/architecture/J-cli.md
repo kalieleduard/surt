@@ -222,7 +222,7 @@ $ surt status add-login
 
 `agent slots: N/M in use` and a queued Task's `waiting for agent slot (N/M in use)` count the whole project, not one Feature: `N` is the number of running agent Executions holding a slot across every run whose Driver is live, so with two Features driven at once a Task of one can wait for the other's agents. `M` is the current `max_concurrent_agents` in `.surt/config.toml`. The count is derived from SQLite; `status` never probes the slot lock files ([A](A-process-model.md#agent-concurrency-limit)), since a probe would briefly take a slot and could make a Driver skip a launch. `status --json`'s `agent_slots` carries the same numbers.
 
-While a Transient Failure pauses agent launches ([I](I-recovery.md#transient-failures-network-and-rate-limits)), the headline stays `RUNNING` and one line under it names the error code and the reset time the Execution recorded in `runtime_info.resets_at`, or `retrying with backoff` when it recorded none. Tasks waiting to launch read `queued … waiting for agent launches to resume`:
+While a Transient Failure pauses agent launches ([I](I-recovery.md#transient-failures-network-and-rate-limits)), the headline stays `RUNNING` and one line under it names the error code and the reset time the Execution recorded in `runtime_info.resets_at`, or `retrying with backoff` when it recorded none. Tasks waiting to launch read `queued … waiting for agent launches to resume` in place of `waiting for agent slot (N/M in use)`. Such a Task names the agent step it waits to launch: one not started yet, or the one whose Attempt failed `transient` (with that Attempt's number, since a Transient Failure spends none). A queued Task whose next launch is not an agent step names no step:
 
 ```
 $ surt status add-login
@@ -232,7 +232,7 @@ $ surt status add-login
   branch   surt/20261017-add-login @ 3c1aa20 · merge into base: never
   implement
     A  ✔ merged    iter 1 · as 3c1aa20
-    B  ⏳ queued    build iter 1 · attempt 2 · waiting for agent launches to resume
+    B  ⏳ queued    build iter 1 · attempt 1 · waiting for agent launches to resume
 ```
 
 The pause lives only in the Driver's memory, so `status` derives it on every read and nothing stores it: a run is paused when its Driver is live, its latest ended agent Execution failed `transient`, and no agent Execution started after it. A reset time no later than that failure counts as none, as it does for the Driver.
@@ -348,6 +348,7 @@ A driving command prints one line per relevant state change: a Step Run starting
   ── 2 running (B build 6m, C review 1m) · 1 queued · slots 3/3 · 32m ──
   ```
 - The footer is drawn with `\r` plus ANSI erase-line, erased before each event line and redrawn after it, and erased before the final summary, so the scrollback holds only event lines. A footer wider than the terminal is cut to one line ending in `…`, since erase-line clears only the physical line the cursor is on; the width comes from the console (falling back to `COLUMNS`, then 80). Durations read `42s`, `6m`, `2h05m`.
+- `slots N/M` agrees with `surt status`: N counts every slot in use in the project, including this Driver's agents still running above a lowered `max_concurrent_agents` (`slots 3/1`), and M is the limit read for this tick.
 - While agent launches are paused, the footer says until when and how many agents wait instead of the queue: `── 1 running (C review 1m) · ⏸ paused until 03:00 · 2 waiting · slots 1/3 · 32m ──`, or `paused until 13:01 (backoff 1m)` without a reset time.
 - **Without a TTY** there is no footer. After 5 minutes without an event it prints a line so CI does not assume a hang: `… still running: B build (15m), C review (3m)`. A pause adds itself, and a pause with nothing running still prints: `… agent launches paused until 03:00 — 2 waiting`.
 - It ends with a summary and the next command, as in the mocks of sections A, G and I.

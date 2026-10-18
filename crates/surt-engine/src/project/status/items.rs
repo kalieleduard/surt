@@ -12,6 +12,7 @@ use crate::workflow::StepSpec;
 const CONFLICT_ARTIFACT: &str = "conflict";
 const AGENT: &str = "agent";
 const PENDING: &str = "pending";
+const RUNNING: &str = "running";
 const PASSED: &str = "passed";
 
 #[derive(Clone, Copy)]
@@ -22,7 +23,6 @@ pub(super) struct Readiness {
 }
 
 impl Readiness {
-    /// A ready agent of a live Driver waits for a slot or for the pause.
     fn waits_to_launch(self) -> bool {
         self.driven && (self.slots_full || self.paused)
     }
@@ -52,18 +52,15 @@ pub(super) async fn statuses(
     let mut statuses = Vec::new();
     for row in &rows {
         let waits_for = unmet(&rows, needs.get(&row.key));
-        let state = state(row, &waits_for, readiness);
+        let (state, step) = standing(row, &waits_for, readiness);
         let conflict = match state {
             ItemState::Succeeded | ItemState::Cancelled => None,
             _ => conflict(store, &row.run).await?,
         };
-        let shows_step = state != ItemState::Queued
-            || readiness.paused
-            || row.step_state.as_deref() == Some(PENDING);
         statuses.push(ItemStatus {
             key: row.key.clone(),
             state,
-            step: row.step_key.clone().filter(|_| shows_step),
+            step: step.map(str::to_owned),
             iteration: row.iteration.and_then(|value| u32::try_from(value).ok()),
             attempt: row.attempt.and_then(|value| u32::try_from(value).ok()),
             since: row.started_at,
@@ -108,6 +105,18 @@ fn unmet(rows: &[ItemRunRow], needs: Option<&Vec<String>>) -> Vec<String> {
         .collect()
 }
 
+fn standing<'a>(
+    row: &'a ItemRunRow,
+    waits_for: &[String],
+    readiness: Readiness,
+) -> (ItemState, Option<&'a str>) {
+    let state = state(row, waits_for, readiness);
+    let shows_step = state != ItemState::Queued
+        || row.step_state.as_deref() == Some(PENDING)
+        || (readiness.paused && relaunches_agent(row));
+    (state, row.step_key.as_deref().filter(|_| shows_step))
+}
+
 fn state(row: &ItemRunRow, waits_for: &[String], readiness: Readiness) -> ItemState {
     if let Some(ended) = state_of_run(row) {
         return ended;
@@ -129,6 +138,10 @@ fn state_of_run(row: &ItemRunRow) -> Option<ItemState> {
         "cancelled" => Some(ItemState::Cancelled),
         _ => None,
     }
+}
+
+fn relaunches_agent(row: &ItemRunRow) -> bool {
+    row.step_kind.as_deref() == Some(AGENT) && row.step_state.as_deref() == Some(RUNNING)
 }
 
 fn next_is_agent(row: &ItemRunRow) -> bool {
@@ -155,3 +168,6 @@ async fn conflict(store: &Store, run: &str) -> Result<Option<Conflict>, Error> {
             },
         }))
 }
+
+#[cfg(test)]
+mod tests;

@@ -1,7 +1,5 @@
 mod reported;
 
-pub(super) use reported::duration;
-
 use surt_engine::project::{ExecutionDetail, ExecutionInput, Performer};
 
 use super::scope;

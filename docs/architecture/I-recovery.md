@@ -212,7 +212,7 @@ Observed in the real streams of [Capture a real Claude Code stream as a fixture]
 - Until the reset time when the stream reports one (`rate_limit_event`; it also arrives on normal runs with `rate_limit_info.status = "allowed"`, which is not a limit), otherwise with backoff: 1, 2, 4, 8 and then 15 minutes between tries.
 - When several failures report reset times, the pause ends at the latest one. A reset time that is not later than `now` counts as no reset time, so a skewed clock never makes Surt retry in a tight loop.
 - Executions already running go on. If they hit the limit, they fail `transient` too. Their failures extend the pause only to a later reset time; they never advance the backoff.
-- The backoff step advances once per resume that fails: the first Transient Failure while launches are allowed takes the next step, failures while launches are paused take none.
+- The backoff step advances once per resume that fails, not once per failure: only an agent launched after the latest pause ended (a resumed launch), or before any pause, takes the next step when it fails. Failures from agents that were already running when the pause began extend nothing beyond the latest reset; they do not advance the step, even when they end after the pause is over.
 - While paused, the Driver takes no new agent slot. Operations keep running: a Check or an integration does not need the API.
 - The backoff resets when an agent Execution ends in any other way (succeeded, `retryable`, `not_retryable`, interrupted).
 - No probe launch: when the pause ends, launches resume up to the free slots. A rate-limited resume costs no Attempt, so a single probe would add a state and save nothing.

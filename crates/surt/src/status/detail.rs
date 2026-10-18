@@ -104,8 +104,6 @@ fn headline(status: &RunStatus) -> String {
     )
 }
 
-/// The pause on Transient Failure (I): until the reset time the stream
-/// reported, or with backoff when it reported none.
 fn paused(pause: &LaunchPause) -> String {
     let until = match pause.resets_at.and_then(local_time) {
         Some(time) => format!("resets {time}"),

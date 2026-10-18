@@ -45,15 +45,13 @@ agent = "reviewer"
 needs = ["check"]
 "#;
 
-/// Fails the first attempt of `limited` with the Fake's `limit_failure`,
-/// its reset time `delay` seconds after the failure, and holds the first
-/// attempt of `held` until it is released; everything else goes to `inner`.
 struct RateLimited<R> {
     inner: R,
     limited: &'static str,
     delay: i64,
     resets_at: Mutex<Option<i64>>,
     held: Option<&'static str>,
+    held_started: watch::Sender<bool>,
     released: watch::Sender<bool>,
 }
 
@@ -65,6 +63,7 @@ impl<R> RateLimited<R> {
             delay,
             resets_at: Mutex::new(None),
             held: None,
+            held_started: watch::Sender::new(false),
             released: watch::Sender::new(false),
         }
     }
@@ -97,6 +96,10 @@ impl<R: AgentRuntime> AgentRuntime for RateLimited<R> {
     ) -> Result<RuntimeCompletion, RuntimeError> {
         let step = request.step.step.clone();
         if request.step.attempt == 1 && step == self.limited {
+            if self.held.is_some() {
+                let mut held_started = self.held_started.subscribe();
+                let _ = held_started.wait_for(|started| *started).await;
+            }
             let resets_at = now() + self.delay;
             *self.resets_at.lock().expect("the reset time") = Some(resets_at);
             let script = Script::new().on(&step, 1, 1, limited(resets_at));
@@ -105,6 +108,7 @@ impl<R: AgentRuntime> AgentRuntime for RateLimited<R> {
                 .await;
         }
         if request.step.attempt == 1 && Some(step.as_str()) == self.held {
+            self.held_started.send_replace(true);
             let mut released = self.released.subscribe();
             let _ = released.wait_for(|released| *released).await;
         }
@@ -131,7 +135,6 @@ async fn two_checked_tasks() -> Feature {
     feature
 }
 
-/// Drives the run, calling `on_pause` when launches pause.
 async fn drive_through_pause(
     feature: &Feature,
     runtime: &impl AgentRuntime,
@@ -247,9 +250,11 @@ async fn a_transient_failure_pauses_agent_launches_until_the_reset_and_spends_no
             pause.as_slice(),
             [
                 Progress::Paused {
-                    until,
+                    pause: ActivityPause {
+                        until,
+                        backoff: None,
+                    },
                     waiting: 1,
-                    backoff: None,
                 },
                 Progress::Resumed { .. },
                 Progress::StepStarted { attempt: 2, .. },
@@ -265,7 +270,6 @@ struct StoppedOncePaused {
     snapshots: Vec<ActivitySnapshot>,
 }
 
-/// Drives the run, reading its status once launches pause, then stops it.
 async fn stopped_once_paused(
     feature: &Feature,
     runtime: &impl AgentRuntime,

@@ -32,6 +32,17 @@ pub(crate) fn parse_timeout(text: &str) -> Option<Duration> {
     })
 }
 
+pub(super) fn duration_setting<E: serde::de::Error>(
+    setting: &str,
+    text: &str,
+) -> Result<Duration, E> {
+    parse_timeout(text).ok_or_else(|| {
+        E::custom(format!(
+            "{setting} {text:?} must be a positive whole number with a unit: ms, s, m or h"
+        ))
+    })
+}
+
 fn identifier<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
     let name = String::deserialize(deserializer)?;
     let mut characters = name.chars();
@@ -59,10 +70,6 @@ fn argv<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<String>, D::Er
 
 fn timeout<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
     let text = String::deserialize(deserializer)?;
-    if parse_timeout(&text).is_none() {
-        return Err(D::Error::custom(format!(
-            "check timeout {text:?} must be a positive whole number with a unit: ms, s, m or h"
-        )));
-    }
+    duration_setting::<D::Error>("check timeout", &text)?;
     Ok(Some(text))
 }

@@ -67,38 +67,28 @@ pub(crate) fn load(path: &Path) -> Result<Config, Error> {
     Ok(config)
 }
 
-/// Rereads `max_concurrent_agents` from the project configuration while a
-/// Driver runs; `None` when the file does not exist. Only this key is read
-/// live, so a file that parses is enough, whatever its other keys say.
 pub(crate) fn live_max_concurrent_agents(path: &Path) -> Result<Option<NonZeroU32>, Unreadable> {
-    let text = match std::fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => {
-            return Err(Unreadable {
-                line: None,
-                reason: error.to_string(),
-            });
-        }
+    let present = read_if_present(path).map_err(|error| Unreadable {
+        line: None,
+        reason: error.to_string(),
+    })?;
+    let Some(text) = present else {
+        return Ok(None);
     };
     let config: Config = parse(&text)?;
     Ok(Some(config.max_concurrent_agents))
 }
 
-/// Why a configuration file gave no values: the line at fault, when known, and the reason.
 #[derive(Debug)]
 pub(crate) struct Unreadable {
     pub(crate) line: Option<usize>,
     pub(crate) reason: String,
 }
 
-/// Reads a configuration file, or its defaults when it does not exist.
-/// A file that does not parse is refused with its path, line and reason.
-fn read<T: DeserializeOwned + Default>(path: &Path) -> Result<T, Error> {
-    let text = match std::fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(T::default()),
-        Err(error) => return Err(Error::io("read", path, error)),
+pub(super) fn read<T: DeserializeOwned + Default>(path: &Path) -> Result<T, Error> {
+    let present = read_if_present(path).map_err(|error| Error::io("read", path, error))?;
+    let Some(text) = present else {
+        return Ok(T::default());
     };
     parse(&text).map_err(|unreadable| {
         Refusal::InvalidConfig {
@@ -108,6 +98,14 @@ fn read<T: DeserializeOwned + Default>(path: &Path) -> Result<T, Error> {
         }
         .into()
     })
+}
+
+fn read_if_present(path: &Path) -> io::Result<Option<String>> {
+    match std::fs::read_to_string(path) {
+        Ok(text) => Ok(Some(text)),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error),
+    }
 }
 
 fn parse<T: DeserializeOwned>(text: &str) -> Result<T, Unreadable> {

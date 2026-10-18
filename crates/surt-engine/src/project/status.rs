@@ -14,11 +14,11 @@ use crate::cleanup::{Kept, Left};
 use crate::drive::{Frozen, StepLabel};
 use crate::git;
 use crate::platform;
+use crate::runtime::FailureClass;
 use crate::store::{LastAgentEnd, RootRunRow, Store};
 
 const SUCCEEDED: &str = "succeeded";
 const CANCELLED: &str = "cancelled";
-const TRANSIENT: &str = "transient";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StatusScope<'a> {
@@ -54,8 +54,6 @@ pub struct AgentSlots {
     pub total: u32,
 }
 
-/// Agent launches of a live Driver wait out a Transient Failure: derived on
-/// every read from the latest agent Execution that ended, nothing stored.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LaunchPause {
     pub code: String,
@@ -245,10 +243,8 @@ impl Project {
     }
 }
 
-/// A Transient Failure no agent launch followed. A reset time no later than
-/// the failure is no reset time: the Driver backs off instead.
 fn pause(end: LastAgentEnd) -> Option<LaunchPause> {
-    if end.failure_class.as_deref() != Some(TRANSIENT) || end.started_after {
+    if end.failure_class() != Some(FailureClass::Transient) || end.started_after {
         return None;
     }
     Some(LaunchPause {
@@ -257,9 +253,6 @@ fn pause(end: LastAgentEnd) -> Option<LaunchPause> {
     })
 }
 
-/// The Agent Slots in use across the whole project: running agent
-/// Executions holding a slot in every run whose Driver is live. Counted from
-/// SQLite, never by probing the slot lock files, so reading takes no slot.
 async fn slots_in_use(store: &Store) -> Result<u32, Error> {
     Ok(store
         .slot_holders()

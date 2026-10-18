@@ -39,8 +39,6 @@ pub fn hashes(root: &Path) -> BTreeMap<String, String> {
     found
 }
 
-/// The SHA-256 of a file, or its length and modification time when a live
-/// Driver holds a lock on it (Windows refuses to read a locked range).
 fn fingerprint(path: &Path) -> String {
     match fs::read(path) {
         Ok(bytes) => Sha256::digest(&bytes)

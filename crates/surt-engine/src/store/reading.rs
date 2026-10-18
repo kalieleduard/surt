@@ -152,8 +152,6 @@ impl Store {
         .await?)
     }
 
-    /// The running agent Executions holding a slot, per root run of the
-    /// project, with the Driver each run recorded.
     pub(crate) async fn slot_holders(&self) -> Result<Vec<SlotHoldersRow>, StoreError> {
         Ok(sqlx::query_as(
             "SELECT r.driver_pid, r.driver_start_time, r.driver_boot_id, count(*) AS agents \

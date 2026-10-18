@@ -182,9 +182,9 @@ pub(super) fn execution_state(state: &str, failure_class: Option<&str>) -> Execu
         ("queued", _) => ExecutionState::Queued,
         ("running", _) => ExecutionState::Running,
         ("succeeded", _) => ExecutionState::Succeeded,
-        ("failed", Some("transient")) => ExecutionState::Failed(FailureClass::Transient),
-        ("failed", Some("not_retryable")) => ExecutionState::Failed(FailureClass::NotRetryable),
-        ("failed", _) => ExecutionState::Failed(FailureClass::Retryable),
+        ("failed", class) => {
+            ExecutionState::Failed(class.map_or(FailureClass::Retryable, parse_failure_class))
+        }
         ("cancelled", _) => ExecutionState::Cancelled,
         _ => ExecutionState::Interrupted,
     }
@@ -217,6 +217,14 @@ pub(super) fn block_reason_name(reason: BlockReason) -> &'static str {
         BlockReason::AttemptsExhausted => "attempts_exhausted",
         BlockReason::NotRetryable => "not_retryable",
         BlockReason::IterationsExhausted => "iterations_exhausted",
+    }
+}
+
+pub(super) fn parse_failure_class(name: &str) -> FailureClass {
+    match name {
+        "transient" => FailureClass::Transient,
+        "not_retryable" => FailureClass::NotRetryable,
+        _ => FailureClass::Retryable,
     }
 }
 

@@ -1,11 +1,10 @@
 use surt_engine::project::{ActivityPause, ActivitySnapshot, RunningStep};
 
 use crate::driving::local_time;
+use crate::duration::rounded;
 use crate::symbols::{DASH, ELLIPSIS, HORIZONTAL, PAUSED, SEPARATOR};
 
 const QUIET_LIMIT: i64 = 5 * 60;
-const SECONDS_PER_MINUTE: i64 = 60;
-const SECONDS_PER_HOUR: i64 = 3600;
 const FIRST: u32 = 1;
 const RULE_WIDTH: usize = 2;
 const LAST_COLUMN: usize = 1;
@@ -46,7 +45,7 @@ fn footer(snapshot: &ActivitySnapshot, started: i64, now: i64) -> String {
         let running: Vec<String> = snapshot
             .running
             .iter()
-            .map(|step| format!("{} {}", name(step), duration(now - step.started_at)))
+            .map(|step| format!("{} {}", name(step), rounded(now - step.started_at)))
             .collect();
         parts[0].push_str(&format!(" ({})", running.join(", ")));
     }
@@ -62,7 +61,7 @@ fn footer(snapshot: &ActivitySnapshot, started: i64, now: i64) -> String {
         "slots {}/{}",
         snapshot.slots_in_use, snapshot.slots_limit
     ));
-    parts.push(duration(now - started));
+    parts.push(rounded(now - started));
     let rule = HORIZONTAL.repeat(RULE_WIDTH);
     format!("{rule} {} {rule}", parts.join(SEPARATOR))
 }
@@ -88,7 +87,7 @@ fn still_running(snapshot: &ActivitySnapshot, last_line: i64, now: i64) -> Optio
         let running: Vec<String> = snapshot
             .running
             .iter()
-            .map(|step| format!("{} ({})", name(step), duration(now - step.started_at)))
+            .map(|step| format!("{} ({})", name(step), rounded(now - step.started_at)))
             .collect();
         parts.push(format!("still running: {}", running.join(", ")));
     }
@@ -105,16 +104,11 @@ fn still_running(snapshot: &ActivitySnapshot, last_line: i64, now: i64) -> Optio
     Some(format!("{ELLIPSIS} {}", parts.join(SEPARATOR)))
 }
 
-/// `paused until 03:00`, with the backoff delay when no reset time was
-/// reported.
 pub(super) fn paused_until(pause: ActivityPause) -> String {
     let at = local_time(pause.until).unwrap_or_else(|| pause.until.to_string());
     let delay = pause
         .backoff
-        .map(|seconds| {
-            let seconds = i64::try_from(seconds).unwrap_or(i64::MAX);
-            format!(" (backoff {})", duration(seconds))
-        })
+        .map(|seconds| format!(" (backoff {})", rounded(seconds)))
         .unwrap_or_default();
     format!("paused until {at}{delay}")
 }
@@ -129,21 +123,6 @@ fn name(running: &RunningStep) -> String {
         text.push_str(&format!(" iter {iteration}"));
     }
     text
-}
-
-pub(super) fn duration(seconds: i64) -> String {
-    let seconds = seconds.max(0);
-    if seconds < SECONDS_PER_MINUTE {
-        format!("{seconds}s")
-    } else if seconds < SECONDS_PER_HOUR {
-        format!("{}m", seconds / SECONDS_PER_MINUTE)
-    } else {
-        format!(
-            "{}h{:02}m",
-            seconds / SECONDS_PER_HOUR,
-            seconds % SECONDS_PER_HOUR / SECONDS_PER_MINUTE
-        )
-    }
 }
 
 #[cfg(test)]
