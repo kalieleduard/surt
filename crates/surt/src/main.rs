@@ -5,6 +5,7 @@ mod decide;
 mod delete;
 mod diagnostics;
 mod driving;
+mod duration;
 mod failure;
 mod feature;
 mod init;

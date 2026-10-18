@@ -1,8 +1,9 @@
 use surt_engine::project::{ActivityPause, Progress, StepLabel};
 
 use super::super::cleanup::summary;
-use super::activity::{duration, paused_until};
+use super::activity::paused_until;
 use super::{FIRST, label, short};
+use crate::duration::rounded;
 use crate::message::{Mark, Message};
 use crate::refusal::config_location;
 use crate::symbols::{DASH, ELLIPSIS, SEPARATOR};
@@ -156,7 +157,7 @@ pub(super) fn message(progress: &Progress) -> (Mark, Message) {
             Mark::Retry,
             Message::new(format!(
                 "agent launches resumed after {}",
-                duration(i64::try_from(*paused_seconds).unwrap_or(i64::MAX))
+                rounded(i64::try_from(*paused_seconds).unwrap_or(i64::MAX))
             )),
         ),
         Progress::CleanedUp(cleanup) => (Mark::Retry, Message::new(summary(cleanup))),

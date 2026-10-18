@@ -4,8 +4,8 @@ use jiff::Timestamp;
 use jiff::tz::TimeZone;
 use surt_engine::project::TimelineEvent;
 
-use super::execution::duration;
 use super::fields::{Fields, joined};
+use crate::duration::exact;
 use crate::symbols::{ARROW, DASH};
 
 const LIST_SEPARATOR: &str = ", ";
@@ -83,7 +83,7 @@ fn agents(kind: &str, fields: Fields<'_>, at: i64, zone: &TimeZone) -> Vec<Optio
         "agents.resumed" => vec![
             fields
                 .number("paused_seconds")
-                .map(|seconds| format!("after {}", duration(seconds))),
+                .map(|seconds| format!("after {}", exact(seconds))),
         ],
         _ => Vec::new(),
     }
