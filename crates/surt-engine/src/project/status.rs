@@ -237,7 +237,11 @@ async fn slots_in_use(store: &Store) -> Result<u32, Error> {
         .slot_holders()
         .await?
         .iter()
-        .filter(|holders| holders.driver().is_some_and(|driver| platform::is_alive(&driver)))
+        .filter(|holders| {
+            holders
+                .driver()
+                .is_some_and(|driver| platform::is_alive(&driver))
+        })
         .map(|holders| holders.agents())
         .sum())
 }

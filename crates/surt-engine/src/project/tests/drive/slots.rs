@@ -117,12 +117,7 @@ impl TwoFeatures {
         }
     }
 
-    fn drive(
-        &self,
-    ) -> (
-        Vec<Option<Pin<Box<impl Future<Output = Result<DriveOutcome, Error>> + '_>>>>,
-        Vec<mpsc::UnboundedReceiver<Progress>>,
-    ) {
+    fn drive(&self) -> Driven<impl Future<Output = Result<DriveOutcome, Error>> + '_> {
         let mut receivers = Vec::new();
         let mut drivers = Vec::new();
         for driver in 0..2 {
@@ -136,8 +131,14 @@ impl TwoFeatures {
                 self.stops[driver].clone(),
             ))));
         }
-        (drivers, receivers)
+        Driven { drivers, receivers }
     }
+}
+
+/// Both drivers, `None` once dropped, and the progress each reports.
+struct Driven<F> {
+    drivers: Vec<Option<Pin<Box<F>>>>,
+    receivers: Vec<mpsc::UnboundedReceiver<Progress>>,
 }
 
 fn driving<'a>(
@@ -210,7 +211,10 @@ async fn two_drivers_of_one_project_share_its_agent_slots_and_a_dropped_driver_f
     let dir = ProjectDir::new();
     let features = TwoFeatures::new(&dir).await;
     let agents = &features.agents;
-    let (mut drivers, mut receivers) = features.drive();
+    let Driven {
+        mut drivers,
+        mut receivers,
+    } = features.drive();
 
     let waiter = waiter(&mut drivers, &mut receivers).await;
     let holder = 1 - waiter;
@@ -240,7 +244,10 @@ async fn two_drivers_of_one_project_share_its_agent_slots_and_a_dropped_driver_f
 async fn the_status_of_each_of_two_driven_features_counts_the_agent_slots_of_the_whole_project() {
     let dir = ProjectDir::new();
     let features = TwoFeatures::new(&dir).await;
-    let (mut drivers, mut receivers) = features.drive();
+    let Driven {
+        mut drivers,
+        mut receivers,
+    } = features.drive();
     waiter(&mut drivers, &mut receivers).await;
 
     let reader = &features.projects[0];

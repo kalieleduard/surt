@@ -140,12 +140,20 @@ fn status_from_a_third_process_counts_the_agent_slots_of_both_driven_features() 
     let waiter_json = status(&sandbox, &["status", &second, "--json"]);
     let after = readable_files(&sandbox);
 
-    assert!(overview.ends_with("agent slots: 1/1 in use\n"), "{overview}");
+    assert!(
+        overview.ends_with("agent slots: 1/1 in use\n"),
+        "{overview}"
+    );
     let one_of_one = json!({ "in_use": 1, "total": 1 });
-    assert_eq!(agent_slots(&overview_json), [one_of_one.clone(), one_of_one.clone()]);
+    assert_eq!(
+        agent_slots(&overview_json),
+        [one_of_one.clone(), one_of_one.clone()]
+    );
     assert_eq!(agent_slots(&waiter_json), [one_of_one]);
     assert!(
-        holder.lines().any(|line| line.starts_with("    A  ● build")),
+        holder
+            .lines()
+            .any(|line| line.starts_with("    A  ● build")),
         "{holder}"
     );
     assert!(
