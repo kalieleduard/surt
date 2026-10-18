@@ -106,15 +106,11 @@ impl Project {
     }
 
     pub async fn open(cwd: &Path, catalog: Catalog) -> Result<Project, Error> {
-        Self::open_in(cwd, &SurtHome::from_env(), catalog).await
+        Self::open_with(cwd, &SurtHome::from_env(), catalog, Access::ReadWrite).await
     }
 
     pub async fn open_read_only(cwd: &Path) -> Result<Project, Error> {
         Self::open_with(cwd, &SurtHome::from_env(), Catalog::new(), Access::ReadOnly).await
-    }
-
-    async fn open_in(cwd: &Path, home: &SurtHome, catalog: Catalog) -> Result<Project, Error> {
-        Self::open_with(cwd, home, catalog, Access::ReadWrite).await
     }
 
     async fn open_with(
@@ -125,10 +121,9 @@ impl Project {
     ) -> Result<Project, Error> {
         let layout = discovery::find_project(cwd, home).await?;
         let config = config::load(&layout.config())?;
-        let global = match home.config() {
-            Some(path) => config::global::load(path)?,
-            None => GlobalConfig::default(),
-        };
+        let global = home
+            .config()
+            .map_or_else(|| Ok(GlobalConfig::default()), config::read)?;
         let store = open(&layout, access).await?;
         let id = store.project_id().await;
         store.close().await;
@@ -180,14 +175,6 @@ impl Project {
         #[cfg(feature = "test-support")]
         let store = store.with_faults(self.faults.clone());
         Ok(store)
-    }
-
-    fn refuse_agent_overrides(&self) -> Result<(), Error> {
-        let agents = self.layout.agents();
-        if agents.exists() {
-            return Err(Refusal::AgentOverrides { path: agents }.into());
-        }
-        Ok(())
     }
 }
 

@@ -26,7 +26,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use tempfile::TempDir;
 
 use super::discovery::SurtHome;
-use super::{Catalog, Config, Error, FileState, InitFile, Project, Refusal, init};
+use super::{Access, Catalog, Config, Error, FileState, InitFile, Project, Refusal, init};
 
 struct Sandbox {
     dir: TempDir,
@@ -87,7 +87,7 @@ impl Sandbox {
     }
 
     async fn open(&self, cwd: &Path) -> Result<Project, Error> {
-        Project::open_in(cwd, &self.surt_home(), Catalog::new()).await
+        Project::open_with(cwd, &self.surt_home(), Catalog::new(), Access::ReadWrite).await
     }
 
     fn write_global_config(&self, contents: &str) -> PathBuf {

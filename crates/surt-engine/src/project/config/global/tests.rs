@@ -4,7 +4,8 @@ use std::time::Duration;
 
 use tempfile::TempDir;
 
-use super::{GlobalConfig, load};
+use super::GlobalConfig;
+use crate::project::config::read;
 use crate::project::{Error, Refusal};
 
 struct GlobalFile {
@@ -29,7 +30,7 @@ impl GlobalFile {
     }
 
     fn load(&self) -> Result<GlobalConfig, Error> {
-        load(&self.path())
+        read(&self.path())
     }
 
     fn refusal(&self) -> Refusal {

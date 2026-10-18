@@ -1,5 +1,5 @@
 use super::init::supported_git;
-use super::{Error, Project, RunId};
+use super::{Error, Project, Refusal, RunId};
 use crate::drive::{self, DriveOutcome, Driving, ProgressSink};
 use crate::runtime::{AgentRuntime, StopSignal};
 
@@ -32,5 +32,13 @@ impl Project {
         let outcome = drive::drive(driving, runtime, progress, stop).await;
         store.close().await;
         outcome
+    }
+
+    pub(super) fn refuse_agent_overrides(&self) -> Result<(), Error> {
+        let agents = self.layout.agents();
+        if agents.exists() {
+            return Err(Refusal::AgentOverrides { path: agents }.into());
+        }
+        Ok(())
     }
 }
