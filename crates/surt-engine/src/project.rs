@@ -1,7 +1,9 @@
 mod config;
 mod create_run;
 mod discovery;
+mod driving;
 mod error;
+mod gates;
 mod init;
 mod layout;
 mod naming;
@@ -10,6 +12,7 @@ mod subjects;
 
 use std::path::Path;
 
+pub use crate::drive::{DriveOutcome, Gate, Progress, ProgressSink, StepLabel};
 pub use crate::git::GitVersion;
 pub use crate::workflow::{
     AgentAssets, Catalog, DefinitionFile, InvalidDefinition, Problem, StepField,
@@ -17,6 +20,7 @@ pub use crate::workflow::{
 pub use config::{Check, Config, GitConfig, MergeIntoBase};
 pub use create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};
 pub use error::{Error, InternalError, Refusal};
+pub use gates::{Decided, RevisionOrigin};
 pub use init::{FileState, InitFile, Initialized};
 pub use naming::Slug;
 pub use repository::Commit;
@@ -24,7 +28,7 @@ pub use subjects::FreeName;
 
 use crate::store::Store;
 use discovery::SurtHome;
-use layout::Layout;
+pub(crate) use layout::Layout;
 
 pub struct Project {
     layout: Layout,

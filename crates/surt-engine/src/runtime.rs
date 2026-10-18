@@ -1,10 +1,3 @@
-#[cfg_attr(
-    not(all(test, feature = "test-support")),
-    expect(
-        dead_code,
-        reason = "drive accepts or rejects every Execution from ticket 08 on"
-    )
-)]
 mod acceptance;
 mod claude_code;
 mod error;
@@ -16,13 +9,6 @@ mod stop;
 
 use std::future::Future;
 
-#[cfg_attr(
-    not(all(test, feature = "test-support")),
-    expect(
-        unused_imports,
-        reason = "drive accepts or rejects every Execution from ticket 08 on"
-    )
-)]
 pub(crate) use acceptance::{Rejection, Verdict, accept};
 pub use claude_code::ClaudeCodeRuntime;
 pub use error::{FailureClass, RuntimeError};

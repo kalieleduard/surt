@@ -78,6 +78,25 @@ fn every_refusal() -> Vec<Refusal> {
             step: None,
             problem: Problem::MissingClaudeProfile,
         })),
+        Refusal::DriverLive {
+            subject: "20261017-add-login".to_owned(),
+            pid: Some(48213),
+            since: Some(1_792_000_000),
+        },
+        Refusal::DriverLive {
+            subject: "20261017-add-login".to_owned(),
+            pid: None,
+            since: None,
+        },
+        Refusal::NoGateWaiting {
+            subject: "20261017-add-login".to_owned(),
+        },
+        Refusal::StaleRevision {
+            subject: "20261017-add-login".to_owned(),
+            artifact: "spec".to_owned(),
+            expected: 1,
+            latest: 2,
+        },
         Refusal::ActiveRunExists {
             subject: "20261017-add-login".to_owned(),
         },
@@ -170,6 +189,26 @@ fn an_invalid_definition_says_in_words_what_is_wrong() {
     assert_eq!(
         text(&refusal),
         "✖ invalid built-in definition: workflow task-cycle [steps.cycle]\n  expects outcome \"merge\" of \"integrate\", which declares: merged, conflict\n  fix: reinstall surt\n"
+    );
+}
+
+#[test]
+fn a_live_driver_is_named_by_its_pid() {
+    let refusal = &every_refusal()[14];
+
+    assert_eq!(
+        text(refusal),
+        "✖ 20261017-add-login is being driven by pid 48213\n  fix: stop it with Ctrl-C in its terminal, then rerun\n"
+    );
+}
+
+#[test]
+fn a_stale_revision_names_the_latest_and_how_to_read_it() {
+    let refusal = &every_refusal()[17];
+
+    assert_eq!(
+        text(refusal),
+        "✖ spec rev 2 is the latest, not rev 1\n  review rev 2 before deciding\n  run: surt show 20261017-add-login spec --rev 2\n"
     );
 }
 

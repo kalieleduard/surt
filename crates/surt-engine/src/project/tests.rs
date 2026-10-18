@@ -2,6 +2,8 @@ mod active;
 mod agents;
 mod checked;
 mod created;
+#[cfg(feature = "test-support")]
+mod drive;
 mod edits;
 mod fixtures;
 mod flows;

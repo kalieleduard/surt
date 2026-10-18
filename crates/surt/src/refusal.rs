@@ -57,7 +57,34 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
                 .way("resume", format!("surt feature {subject}"))
         }
         Refusal::InvalidDefinition(invalid) => invalid_definition(invalid),
+        Refusal::DriverLive { subject, pid, .. } => driver_live(subject, *pid),
+        Refusal::NoGateWaiting { subject } => {
+            Message::new(format!("{subject} has no approval gate waiting"))
+                .way("run", format!("surt status {subject}"))
+        }
+        Refusal::StaleRevision {
+            subject,
+            artifact,
+            expected,
+            latest,
+        } => Message::new(format!(
+            "{artifact} rev {latest} is the latest, not rev {expected}"
+        ))
+        .context(format!("review rev {latest} before deciding"))
+        .way(
+            "run",
+            format!("surt show {subject} {artifact} --rev {latest}"),
+        ),
     }
+}
+
+fn driver_live(subject: &str, pid: Option<u32>) -> Message {
+    let driver = match pid {
+        Some(pid) => format!("pid {pid}"),
+        None => "another surt process".to_owned(),
+    };
+    Message::new(format!("{subject} is being driven by {driver}"))
+        .way("fix", "stop it with Ctrl-C in its terminal, then rerun")
 }
 
 fn invalid_definition(invalid: &InvalidDefinition) -> Message {

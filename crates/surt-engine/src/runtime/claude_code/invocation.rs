@@ -56,7 +56,7 @@ impl Invocation {
             environment: environment::child_environment(parent_environment, claude)?,
             files,
             working_dir: launch.working_dir.clone(),
-            stdin: launch.context.clone(),
+            stdin: request.context.clone(),
             expectation: Expectation::new(request, claude),
         })
     }

@@ -25,6 +25,13 @@ pub(crate) struct AcceptedDelivery {
 #[derive(Debug)]
 pub(crate) struct ValidatedOutput {
     pub(crate) files: Vec<DeliveredFile>,
+    #[cfg_attr(
+        not(all(test, feature = "test-support")),
+        expect(
+            dead_code,
+            reason = "consistency checks read validated JSON from ticket 13 on"
+        )
+    )]
     pub(crate) json: Option<Value>,
 }
 

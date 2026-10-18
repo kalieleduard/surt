@@ -28,10 +28,31 @@ impl Layout {
     }
 
     pub(crate) fn database_lock(&self) -> PathBuf {
-        self.dot_surt()
-            .join("runtime")
-            .join("locks")
-            .join("db.lock")
+        self.locks().join("db.lock")
+    }
+
+    pub(crate) fn run_lock(&self, run: &str) -> PathBuf {
+        self.locks().join(format!("{run}.lock"))
+    }
+
+    pub(crate) fn execution(&self, execution: &str) -> PathBuf {
+        self.runtime().join("executions").join(execution)
+    }
+
+    pub(crate) fn execution_logs(&self, subject: &str, execution: &str) -> PathBuf {
+        self.dot_surt().join("logs").join(subject).join(execution)
+    }
+
+    pub(crate) fn working_copy(&self, subject: &str) -> PathBuf {
+        self.dot_surt().join("features").join(subject)
+    }
+
+    fn runtime(&self) -> PathBuf {
+        self.dot_surt().join("runtime")
+    }
+
+    fn locks(&self) -> PathBuf {
+        self.runtime().join("locks")
     }
 
     pub(crate) fn config(&self) -> PathBuf {

@@ -18,6 +18,8 @@ pub struct RuntimeRequest {
     pub(crate) session_id: Uuid,
     pub(crate) model: String,
     pub(crate) delivery_dir: PathBuf,
+    pub(crate) log_dir: PathBuf,
+    pub(crate) context: String,
     pub(crate) launch: AgentLaunch,
 }
 

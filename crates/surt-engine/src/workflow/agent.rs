@@ -140,6 +140,14 @@ impl AgentContract {
         Ok(contract)
     }
 
+    pub(crate) fn frozen(text: &str) -> Result<AgentContract, toml::de::Error> {
+        toml::from_str(text)
+    }
+
+    pub(crate) fn model(&self) -> &str {
+        &self.profile.model
+    }
+
     pub(crate) fn outcomes(&self) -> Vec<String> {
         self.outcomes
             .clone()

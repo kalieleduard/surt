@@ -64,18 +64,14 @@ impl Execution {
         let agent = AgentContract::parse("noter", &assets).expect("a valid agent contract");
         let contract =
             DeliveryContract::new(&agent, |path| assets.schema(path)).expect("compilable schemas");
-        let launch = AgentLaunch::new(
-            &agent,
-            INSTRUCTIONS,
-            CONTEXT,
-            working_dir,
-            root.join("launch"),
-        );
+        let launch = AgentLaunch::new(&agent, INSTRUCTIONS, working_dir, root.join("launch"));
         let request = RuntimeRequest {
             step: StepAttempt::new("note", 1, 1),
             session_id,
             model: agent.profile.model.clone(),
             delivery_dir,
+            log_dir: root.join("logs"),
+            context: CONTEXT.to_owned(),
             launch,
         };
         Execution {

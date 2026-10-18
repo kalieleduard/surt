@@ -122,6 +122,23 @@ async fn a_replayed_success_is_followed_until_the_process_ends_and_accepted() {
 }
 
 #[tokio::test]
+async fn the_stream_and_stderr_are_appended_to_the_execution_logs() {
+    let stream = delivered_note();
+    let execution = Execution::new(stream.session_id());
+    let logs = execution.root().join("logs");
+    fs::create_dir(&logs).expect("the log directory");
+    fs::write(logs.join("stream.jsonl"), "earlier\n").expect("an earlier stream");
+    let stub = Stub::new(&execution, &stream, "echo 'a diagnostic' >&2");
+
+    run(&stub.runtime(&[]), &execution, |_| {}).await;
+
+    let logged = fs::read_to_string(logs.join("stream.jsonl")).expect("the stream log");
+    assert_eq!(logged, format!("earlier\n{}\n", stream.lines().join("\n")));
+    let stderr = fs::read_to_string(logs.join("stderr.log")).expect("the stderr log");
+    assert_eq!(stderr, "a diagnostic\n");
+}
+
+#[tokio::test]
 async fn the_context_goes_through_stdin_with_the_assembled_launch() {
     let stream = delivered_note();
     let execution = Execution::new(stream.session_id());
