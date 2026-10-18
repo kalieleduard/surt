@@ -17,6 +17,7 @@ use std::path::Path;
 pub use crate::checks::REPORT_SCHEMA as CHECK_REPORT_SCHEMA;
 pub use crate::drive::{DriveOutcome, Gate, Progress, ProgressSink, StepLabel};
 pub use crate::git::GitVersion;
+pub use crate::operations::{BASE_SCHEMA, CONFLICT_SCHEMA, INTEGRATION_SCHEMA};
 pub use crate::workflow::{
     AgentAssets, Catalog, DefinitionFile, DeliveryCheck, InvalidDefinition, Problem, StepField,
 };

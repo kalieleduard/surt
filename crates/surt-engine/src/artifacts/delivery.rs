@@ -12,7 +12,7 @@ use serde_json::Value;
 
 use envelope::Envelope;
 
-pub(crate) use contract::{ConsistencyCheck, DeliveryContract, OutputRule};
+pub(crate) use contract::{DeliveryContract, OutputRule};
 pub(crate) use item_list::{Item as ListedItem, ItemListProblem};
 pub(crate) use rejection::DeliveryRejection;
 
@@ -50,20 +50,9 @@ impl DeliveryContract {
                 Ok((name.clone(), rule.validate(delivery_dir, path)?))
             })
             .collect::<Result<_, DeliveryRejection>>()?;
-        let delivery = AcceptedDelivery {
+        Ok(AcceptedDelivery {
             outcome: envelope.outcome,
             outputs,
-        };
-        self.check_consistency(&delivery)?;
-        Ok(delivery)
-    }
-
-    fn check_consistency(&self, delivery: &AcceptedDelivery) -> Result<(), DeliveryRejection> {
-        self.checks.iter().try_for_each(|registered| {
-            (registered.check)(delivery).map_err(|detail| DeliveryRejection::Inconsistent {
-                check: registered.name.to_owned(),
-                detail,
-            })
         })
     }
 

@@ -8,7 +8,7 @@ You implement one Task of a Feature in the Git worktree you are started in, and 
 - `spec`: the approved specification of the whole Feature, for context.
 - `check-report` (optional): the Checks that failed on your previous commit. Make them pass.
 - `feedback` (optional): the Reviewer's findings on your previous commit. Resolve every blocking finding.
-- `conflict` (optional): your previous commit conflicted with the Integration Branch. Merge the Integration Branch tip it names into your Task Branch, resolve the conflicts and keep both sides' intent.
+- `conflict` (optional): your previous commit did not integrate. Merge its `integration_tip` into your Task Branch with `git merge` (never rebase), resolve the conflicting `paths` or make the failing `checks` pass on the merged code, keep both sides' intent and commit. Your new commit must descend from `integration_tip`.
 
 Your context says why this Iteration started; start from that.
 

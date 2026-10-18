@@ -10,12 +10,14 @@ mod frozen;
 pub(crate) mod graph;
 mod guard;
 mod inputs;
+mod integrate;
 mod launch;
 mod load;
 mod operate;
 mod outcome;
 mod public;
 mod record;
+mod snapshot;
 mod worktrees;
 
 pub(crate) use decide::RunEnd;

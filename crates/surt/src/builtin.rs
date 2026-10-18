@@ -1,4 +1,7 @@
-use surt_engine::project::{AgentAssets, CHECK_REPORT_SCHEMA, Catalog, DeliveryCheck};
+use surt_engine::project::{
+    AgentAssets, BASE_SCHEMA, CHECK_REPORT_SCHEMA, CONFLICT_SCHEMA, Catalog, DeliveryCheck,
+    INTEGRATION_SCHEMA,
+};
 
 pub(crate) const FEATURE_WORKFLOW: &str = "feature";
 pub(crate) const REQUEST_ARTIFACT: &str = "request";
@@ -7,6 +10,9 @@ pub(crate) const BASE_ARTIFACT: &str = "base";
 const TASK_CYCLE_WORKFLOW: &str = "task-cycle";
 const BUILDER: &str = "builder";
 const COMMIT_OUTPUT: &str = "commit";
+const REVIEWER: &str = "reviewer";
+const FEEDBACK_OUTPUT: &str = "feedback";
+const APPROVED: &str = "approved";
 
 const MANIFEST_SCHEMA: (&str, &str) = (
     "schemas/manifest.schema.json",
@@ -47,15 +53,25 @@ const AGENTS: [(&str, AgentAssets); 5] = [
         AgentAssets {
             toml: include_str!("../assets/agents/builder/agent.toml"),
             instructions: include_str!("../assets/agents/builder/instructions.md"),
-            schemas: &[COMMIT_SCHEMA, FEEDBACK_SCHEMA, CHECK_REPORT_SCHEMA],
+            schemas: &[
+                COMMIT_SCHEMA,
+                FEEDBACK_SCHEMA,
+                CHECK_REPORT_SCHEMA,
+                CONFLICT_SCHEMA,
+            ],
         },
     ),
     (
-        "reviewer",
+        REVIEWER,
         AgentAssets {
             toml: include_str!("../assets/agents/reviewer/agent.toml"),
             instructions: include_str!("../assets/agents/reviewer/instructions.md"),
-            schemas: &[FEEDBACK_SCHEMA, COMMIT_SCHEMA, CHECK_REPORT_SCHEMA],
+            schemas: &[
+                FEEDBACK_SCHEMA,
+                COMMIT_SCHEMA,
+                CHECK_REPORT_SCHEMA,
+                CONFLICT_SCHEMA,
+            ],
         },
     ),
     (
@@ -63,7 +79,12 @@ const AGENTS: [(&str, AgentAssets); 5] = [
         AgentAssets {
             toml: include_str!("../assets/agents/shipper/agent.toml"),
             instructions: include_str!("../assets/agents/shipper/instructions.md"),
-            schemas: &[DELIVERY_SCHEMA, MANIFEST_SCHEMA],
+            schemas: &[
+                DELIVERY_SCHEMA,
+                MANIFEST_SCHEMA,
+                INTEGRATION_SCHEMA,
+                BASE_SCHEMA,
+            ],
         },
     ),
 ];
@@ -78,7 +99,13 @@ pub(crate) fn catalog() -> Catalog {
             TASK_CYCLE_WORKFLOW,
             include_str!("../assets/workflows/task-cycle.toml"),
         )
-        .delivery_check(BUILDER, COMMIT_OUTPUT, DeliveryCheck::CommitEvidence);
+        .delivery_check(BUILDER, COMMIT_OUTPUT, DeliveryCheck::CommitEvidence)
+        .delivery_check(REVIEWER, FEEDBACK_OUTPUT, DeliveryCheck::ReviewedCommit)
+        .delivery_check(
+            REVIEWER,
+            FEEDBACK_OUTPUT,
+            DeliveryCheck::NoBlockingFinding { outcome: APPROVED },
+        );
     AGENTS
         .into_iter()
         .fold(workflows, |catalog, (id, assets)| catalog.agent(id, assets))

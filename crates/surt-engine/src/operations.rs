@@ -7,6 +7,21 @@ pub(crate) enum Operation {
     SnapshotRunBranch,
 }
 
+pub const BASE_SCHEMA: (&str, &str) = (
+    "schemas/base.schema.json",
+    include_str!("../assets/schemas/base.schema.json"),
+);
+
+pub const CONFLICT_SCHEMA: (&str, &str) = (
+    "schemas/conflict.schema.json",
+    include_str!("../assets/schemas/conflict.schema.json"),
+);
+
+pub const INTEGRATION_SCHEMA: (&str, &str) = (
+    "schemas/integration.schema.json",
+    include_str!("../assets/schemas/integration.schema.json"),
+);
+
 const REGISTRY: [Operation; 5] = [
     Operation::CreateRunBranch,
     Operation::CreateChildWorktree,
@@ -18,13 +33,6 @@ const REGISTRY: [Operation; 5] = [
 impl Operation {
     pub(crate) fn find(id: &str) -> Option<Operation> {
         REGISTRY.into_iter().find(|operation| operation.id() == id)
-    }
-
-    pub(crate) fn is_supported(self) -> bool {
-        matches!(
-            self,
-            Operation::CreateRunBranch | Operation::CreateChildWorktree | Operation::RunChecks
-        )
     }
 
     pub(crate) fn id(self) -> &'static str {

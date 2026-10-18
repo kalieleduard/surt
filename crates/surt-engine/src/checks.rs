@@ -33,7 +33,7 @@ pub(crate) struct CheckReport {
 }
 
 #[derive(Debug, Serialize)]
-struct CheckResult {
+pub(crate) struct CheckResult {
     name: String,
     status: Status,
     exit_code: Option<i32>,
@@ -57,6 +57,10 @@ enum Ended {
 }
 
 impl CheckReport {
+    pub(crate) fn checks(&self) -> &[CheckResult] {
+        &self.checks
+    }
+
     pub(crate) fn passed(&self) -> bool {
         self.checks
             .iter()

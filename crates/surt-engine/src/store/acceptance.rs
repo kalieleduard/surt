@@ -8,6 +8,13 @@ pub(crate) struct Acceptance<'a> {
     pub(crate) outcome: &'a str,
     pub(crate) outputs: &'a [PublishedOutput],
     pub(crate) tip: Option<&'a str>,
+    pub(crate) integrated: Option<Integrated<'a>>,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct Integrated<'a> {
+    pub(crate) into: &'a str,
+    pub(crate) merge: &'a str,
 }
 
 pub(crate) struct PublishedOutput {
@@ -57,6 +64,13 @@ impl Store {
                 .execute(&mut *transaction)
                 .await?;
         }
+        if let Some(integrated) = acceptance.integrated {
+            record_integration(&mut transaction, &run, integrated).await?;
+        }
+        sqlx::query("DELETE FROM ref_move WHERE step_run_id = ?")
+            .bind(&step)
+            .execute(&mut *transaction)
+            .await?;
         sqlx::query(
             "UPDATE step_run SET state = 'done', outcome = ?, finished_at = ? WHERE id = ?",
         )
@@ -136,5 +150,23 @@ async fn stage_working_copy(
         .execute(&mut *connection)
         .await?;
     }
+    Ok(())
+}
+
+async fn record_integration(
+    connection: &mut SqliteConnection,
+    run: &str,
+    integrated: Integrated<'_>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("UPDATE run_branch SET tip_sha = ? WHERE workflow_run_id = ?")
+        .bind(integrated.merge)
+        .bind(integrated.into)
+        .execute(&mut *connection)
+        .await?;
+    sqlx::query("UPDATE run_branch SET merged_as_sha = ? WHERE workflow_run_id = ?")
+        .bind(integrated.merge)
+        .bind(run)
+        .execute(&mut *connection)
+        .await?;
     Ok(())
 }

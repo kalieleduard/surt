@@ -75,6 +75,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             outcome: &delivery.outcome,
             outputs: &outputs,
             tip: tip.as_deref(),
+            integrated: None,
         };
         let published = self.driving.store.accept_execution(acceptance).await?;
         for (output, (name, revision)) in outputs.iter().zip(published) {

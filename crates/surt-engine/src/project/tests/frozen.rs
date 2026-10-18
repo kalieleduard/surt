@@ -1,4 +1,5 @@
 use super::fixtures::{ProjectDir, default_config, draft_catalog, new_run};
+use crate::project::{AgentAssets, Catalog};
 
 const INSTRUCTIONS_SHA256: &str =
     "8de2b45eaca7a1890d5d70979c1e1a085fa699d309cb1442f7f0db4e7b2fd9c1";
@@ -43,6 +44,82 @@ async fn create_run_freezes_the_workflow_its_agents_and_the_config_as_snapshots(
         .rows("SELECT definition_sha256 = (SELECT sha256 FROM snapshot WHERE kind = 'workflow'), config_sha256 = (SELECT sha256 FROM snapshot WHERE kind = 'config') FROM workflow_run")
         .await;
     assert_eq!(pointers, [(true, true)]);
+}
+
+const READER_WORKFLOW: &str = r#"
+schema = 1
+name = "read"
+
+[steps.read]
+kind = "agent"
+agent = "reader"
+"#;
+
+const READER: &str = r#"
+schema = 1
+id = "reader"
+
+[inputs.base]
+format = "json"
+json_schema = "schemas/snapshot.schema.json"
+
+[outputs.notes]
+format = "text"
+
+[profile]
+runtime = "fake"
+model = "fake-model"
+effort = "high"
+"#;
+
+const READER_SCHEMAS: &[(&str, &str)] = &[
+    (
+        "schemas/snapshot.schema.json",
+        r##"{"properties": {"base": {"$ref": "base.schema.json"}, "tip": {"$ref": "#/definitions/sha"}}}"##,
+    ),
+    (
+        "schemas/base.schema.json",
+        r##"{"properties": {"sha": {"$ref": "common/sha.schema.json#/definitions/sha"}}}"##,
+    ),
+    (
+        "schemas/common/sha.schema.json",
+        r#"{"definitions": {"sha": {"type": "string"}}}"#,
+    ),
+    ("schemas/unused.schema.json", r#"{"type": "object"}"#),
+];
+
+#[tokio::test(flavor = "multi_thread")]
+async fn schemas_referenced_from_a_frozen_schema_are_frozen_with_it() {
+    let dir = ProjectDir::new();
+    let catalog = Catalog::new().workflow("read", READER_WORKFLOW).agent(
+        "reader",
+        AgentAssets {
+            toml: READER,
+            instructions: "Read.\n",
+            schemas: READER_SCHEMAS,
+        },
+    );
+
+    dir.project(catalog, default_config())
+        .await
+        .create_run(new_run("read"))
+        .await
+        .expect("the run is created");
+
+    let frozen: Vec<(String,)> = dir
+        .rows("SELECT f.rel_path FROM snapshot s JOIN snapshot_file f ON f.snapshot_sha256 = s.sha256 WHERE s.kind = 'agent' ORDER BY f.rel_path")
+        .await;
+    let paths: Vec<&str> = frozen.iter().map(|(path,)| path.as_str()).collect();
+    assert_eq!(
+        paths,
+        [
+            "agent.toml",
+            "instructions.md",
+            "schemas/base.schema.json",
+            "schemas/common/sha.schema.json",
+            "schemas/snapshot.schema.json",
+        ]
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use super::driver::{Driver, known};
 use super::failure::OperationError;
+use super::frozen::CorruptSnapshot;
 use super::graph::{OperationId, StepRunId};
 use super::launch::Launch;
 use super::load::{Loaded, label};
@@ -12,7 +13,8 @@ use crate::platform::{self, ExclusiveLock};
 use crate::project::Error;
 use crate::runtime::AgentRuntime;
 use crate::store::{
-    Acceptance, ExecutionKind, ExecutionStart, PublishedOutput, StartedExecution, StepRow,
+    Acceptance, ExecutionKind, ExecutionStart, Integrated, PublishedOutput, StartedExecution,
+    StepRow,
 };
 
 const GIT_LOCK_POLL: Duration = Duration::from_millis(10);
@@ -34,12 +36,7 @@ pub(super) struct OperationLaunch {
 pub(super) struct Finished {
     pub(super) outcome: &'static str,
     pub(super) outputs: Vec<PublishedOutput>,
-}
-
-#[derive(Debug, thiserror::Error)]
-#[error("step {step} needs a capability this surt does not have yet")]
-struct Unsupported {
-    step: String,
+    pub(super) merged: Option<String>,
 }
 
 impl From<&'static str> for Finished {
@@ -47,6 +44,7 @@ impl From<&'static str> for Finished {
         Finished {
             outcome,
             outputs: Vec::new(),
+            merged: None,
         }
     }
 }
@@ -76,12 +74,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
     ) -> Result<OperationLaunch, Error> {
         let row = known(loaded, step)?;
         let operation = Operation::find(&op.0)
-            .filter(|operation| operation.is_supported())
-            .ok_or_else(|| {
-                Error::internal(Unsupported {
-                    step: row.key.clone(),
-                })
-            })?;
+            .ok_or_else(|| CorruptSnapshot::new(&row.key, "names an unknown operation"))?;
         let start = ExecutionStart {
             step: &row.id,
             kind: ExecutionKind::Operation { id: operation.id() },
@@ -107,6 +100,10 @@ impl<R: AgentRuntime> Driver<'_, R> {
     }
 
     async fn operate(&self, launch: OperationLaunch) -> Result<(), Error> {
+        let _serialized = match launch.operation {
+            Operation::Integrate => Some(self.branches.lock().await),
+            _ => None,
+        };
         let result = match launch.operation {
             Operation::CreateRunBranch => self.create_run_branch(&launch).await.map(Finished::from),
             Operation::CreateChildWorktree => self
@@ -114,11 +111,8 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 .await
                 .map(Finished::from),
             Operation::RunChecks => self.run_checks(&launch).await,
-            Operation::Integrate | Operation::SnapshotRunBranch => {
-                Err(OperationError::Fatal(Error::internal(Unsupported {
-                    step: launch.row.key.clone(),
-                })))
-            }
+            Operation::Integrate => self.integrate(&launch).await,
+            Operation::SnapshotRunBranch => self.snapshot_run_branch(&launch).await,
         };
         match result {
             Ok(finished) => self.finish_operation(&launch, finished).await,
@@ -140,6 +134,10 @@ impl<R: AgentRuntime> Driver<'_, R> {
             outcome: finished.outcome,
             outputs: &finished.outputs,
             tip: None,
+            integrated: finished.merged.as_deref().map(|merge| Integrated {
+                into: &launch.root,
+                merge,
+            }),
         };
         let published = self.driving.store.accept_execution(acceptance).await?;
         for (artifact, revision) in published {

@@ -8,6 +8,7 @@ pub(crate) struct Claim<'a> {
     pub(crate) branch: &'a str,
     pub(crate) start: &'a str,
     pub(crate) previous: &'a str,
+    pub(crate) integration_tip: Option<&'a str>,
     pub(crate) sha: &'a str,
 }
 
@@ -19,6 +20,8 @@ pub(crate) enum Unproven {
     NotCheckedOut { sha: String, branch: String },
     #[error("{sha} does not descend from the task's start {start}")]
     NotFromStart { sha: String, start: String },
+    #[error("{sha} does not descend from the conflict's integration tip {tip}")]
+    NotFromIntegrationTip { sha: String, tip: String },
     #[error("{sha} is not a new commit")]
     NotNew { sha: String },
     #[error("the worktree has uncommitted changes")]
@@ -50,6 +53,12 @@ pub(crate) async fn prove(claim: &Claim<'_>) -> Result<(), EvidenceError> {
     if !git::is_ancestor(worktree, claim.start, claim.sha).await? {
         let start = claim.start.to_owned();
         return Err(Unproven::NotFromStart { sha, start }.into());
+    }
+    if let Some(tip) = claim.integration_tip
+        && !git::is_ancestor(worktree, tip, claim.sha).await?
+    {
+        let tip = tip.to_owned();
+        return Err(Unproven::NotFromIntegrationTip { sha, tip }.into());
     }
     if claim.sha == claim.previous {
         return Err(Unproven::NotNew { sha }.into());
