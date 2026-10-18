@@ -366,7 +366,7 @@ fn a_managed_worktree_points_back_at_the_project_when_it_is_known() {
 
 #[test]
 fn an_invalid_definition_names_the_file_and_the_step() {
-    let refusal = &every_refusal()[12];
+    let refusal = &every_refusal()[11];
 
     assert!(
         text(refusal).starts_with("✖ invalid built-in definition: workflow feature [steps.ship]\n"),
@@ -395,7 +395,7 @@ fn an_invalid_definition_says_in_words_what_is_wrong() {
 
 #[test]
 fn a_live_driver_is_named_by_its_pid() {
-    let refusal = &every_refusal()[14];
+    let refusal = &every_refusal()[13];
 
     assert_eq!(
         text(refusal),
@@ -405,7 +405,7 @@ fn a_live_driver_is_named_by_its_pid() {
 
 #[test]
 fn a_stale_revision_names_the_latest_and_how_to_read_it() {
-    let refusal = &every_refusal()[17];
+    let refusal = &every_refusal()[16];
 
     assert_eq!(
         text(refusal),
@@ -445,7 +445,7 @@ fn unrecorded_edits_left_by_the_previous_run_are_listed_before_a_new_run() {
 
 #[test]
 fn an_unapproved_edit_points_at_approving_it() {
-    let refusal = &every_refusal()[20];
+    let refusal = &every_refusal()[19];
 
     assert_eq!(
         text(refusal),
@@ -455,7 +455,7 @@ fn an_unapproved_edit_points_at_approving_it() {
 
 #[test]
 fn an_edit_to_a_pinned_revision_says_how_to_undo_it() {
-    let refusal = &every_refusal()[21];
+    let refusal = &every_refusal()[20];
 
     assert_eq!(
         text(refusal),
@@ -465,7 +465,7 @@ fn an_edit_to_a_pinned_revision_says_how_to_undo_it() {
 
 #[test]
 fn an_invalid_edit_says_what_is_wrong_and_how_to_undo_it() {
-    let refusal = &every_refusal()[22];
+    let refusal = &every_refusal()[21];
 
     assert_eq!(
         text(refusal),
@@ -475,7 +475,7 @@ fn an_invalid_edit_says_what_is_wrong_and_how_to_undo_it() {
 
 #[test]
 fn an_unknown_feature_points_at_the_list_of_features() {
-    let refusal = &every_refusal()[18];
+    let refusal = &every_refusal()[17];
 
     assert_eq!(
         text(refusal),
