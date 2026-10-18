@@ -12,6 +12,7 @@ mod acceptance;
 mod approvals;
 mod blocked;
 mod branches;
+mod cancelling;
 mod checkpoints;
 mod cleanup;
 mod control;

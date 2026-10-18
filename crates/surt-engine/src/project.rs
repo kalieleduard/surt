@@ -1,4 +1,5 @@
 mod blocked;
+mod cancelling;
 mod config;
 mod create_run;
 mod delivery;
@@ -16,6 +17,7 @@ mod subjects;
 
 use std::path::Path;
 
+pub use crate::cancel::Cancellation;
 pub use crate::checks::REPORT_SCHEMA as CHECK_REPORT_SCHEMA;
 pub use crate::cleanup::{Cleanup, Kept, Left};
 pub use crate::drive::graph::BlockReason;
@@ -26,6 +28,7 @@ pub use crate::workflow::{
     AgentAssets, Catalog, DefinitionFile, DeliveryCheck, InvalidDefinition, Problem, StepField,
 };
 pub use blocked::{BlockedStep, LastFailure};
+pub use cancelling::CancelImpact;
 pub(crate) use config::parse_timeout;
 pub use config::{Check, Config, GitConfig, MergeIntoBase};
 pub use create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};

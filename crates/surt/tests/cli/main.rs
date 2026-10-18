@@ -1,3 +1,4 @@
+mod cancel;
 #[cfg(unix)]
 mod claude;
 mod discovery;
