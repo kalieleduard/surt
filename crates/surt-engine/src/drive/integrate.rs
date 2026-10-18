@@ -204,6 +204,7 @@ fn merged(merge: String) -> Finished {
         outcome: MERGED,
         outputs: Vec::new(),
         merged: Some(merge),
+        recorded: None,
     }
 }
 
@@ -217,5 +218,6 @@ fn conflicted(conflict: &Value) -> Result<Finished, OperationError> {
             working_copy: false,
         }],
         merged: None,
+        recorded: None,
     })
 }

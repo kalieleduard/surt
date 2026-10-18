@@ -1,3 +1,4 @@
+mod base_merge;
 mod blocked;
 mod cleanup;
 mod interruption;
@@ -80,6 +81,12 @@ impl Driven<'_> {
                 short(&branch.tip)
             ))
             .print_success();
+            let report = self.project.base_merge(self.run).await?;
+            if let Some((mark, line)) =
+                report.and_then(|report| base_merge::line(&report, &branch.name))
+            {
+                line.print(mark);
+            }
         }
         Message::new("run succeeded").print_success();
         Ok(())

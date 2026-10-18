@@ -434,7 +434,14 @@ async fn planned(
     items: &[(&str, &[&str])],
     config: Config,
 ) -> Feature {
-    let feature = Feature::on_repository(catalog, workflow, config).await;
+    approved(
+        Feature::on_repository(catalog, workflow, config).await,
+        items,
+    )
+    .await
+}
+
+pub(super) async fn approved(feature: Feature, items: &[(&str, &[&str])]) -> Feature {
     let planned = feature
         .drive(Script::new().on("plan", 1, 1, plan(items)))
         .await

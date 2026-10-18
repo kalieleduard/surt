@@ -86,9 +86,6 @@ pub enum Refusal {
         line: Option<usize>,
         reason: String,
     },
-    MergeIntoBaseUnsupported {
-        path: PathBuf,
-    },
     ActiveRunBlocksDelete {
         subject: String,
     },

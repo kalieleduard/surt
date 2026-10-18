@@ -52,14 +52,6 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
         ))
         .way("fix", "upgrade surt"),
         Refusal::InvalidConfig { path, line, reason } => invalid_config(path, *line, reason),
-        Refusal::MergeIntoBaseUnsupported { path } => {
-            Message::new("merge_into_base = \"ff-only\" is not supported yet")
-                .context("this surt never merges into the base branch")
-                .way(
-                    "fix",
-                    format!("set merge_into_base = \"never\" in {}", path.display()),
-                )
-        }
         Refusal::ActiveRunBlocksDelete { subject } => Message::new(format!(
             "{subject} has an active run; delete never stops agents"
         ))

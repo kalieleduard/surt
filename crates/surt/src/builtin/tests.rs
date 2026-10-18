@@ -42,6 +42,18 @@ fn the_built_in_feature_workflow_and_its_agents_pass_static_validation() {
 }
 
 #[test]
+fn the_feature_workflow_ends_with_the_fast_forward_into_the_base_after_the_shipper() {
+    let feature: Table = include_str!("../../assets/workflows/feature.toml")
+        .parse()
+        .expect("the workflow TOML parses");
+    let merge = &feature["steps"]["merge"];
+
+    assert_eq!(merge["kind"].as_str(), Some("operation"));
+    assert_eq!(merge["run"].as_str(), Some("git.merge_into_base"));
+    assert_eq!(strings(&merge["needs"]), ["ship"]);
+}
+
+#[test]
 fn the_catalog_holds_exactly_the_five_built_in_agents() {
     let ids: BTreeSet<&str> = AGENTS.iter().map(|(id, _)| *id).collect();
 

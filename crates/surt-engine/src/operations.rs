@@ -7,6 +7,7 @@ pub(crate) enum Operation {
     RunChecks,
     Integrate,
     SnapshotRunBranch,
+    MergeIntoBase,
 }
 
 pub const BASE_SCHEMA: (&str, &str) = (
@@ -24,12 +25,13 @@ pub const INTEGRATION_SCHEMA: (&str, &str) = (
     include_str!("../assets/schemas/integration.schema.json"),
 );
 
-const REGISTRY: [Operation; 5] = [
+const REGISTRY: [Operation; 6] = [
     Operation::CreateRunBranch,
     Operation::CreateChildWorktree,
     Operation::RunChecks,
     Operation::Integrate,
     Operation::SnapshotRunBranch,
+    Operation::MergeIntoBase,
 ];
 
 impl Operation {
@@ -44,6 +46,7 @@ impl Operation {
             Operation::RunChecks => "checks.run",
             Operation::Integrate => "git.integrate",
             Operation::SnapshotRunBranch => "git.snapshot_run_branch",
+            Operation::MergeIntoBase => "git.merge_into_base",
         }
     }
 
@@ -53,6 +56,7 @@ impl Operation {
             Operation::CreateChildWorktree => &["item"],
             Operation::RunChecks => &["commit"],
             Operation::Integrate => &["commit", "feedback"],
+            Operation::MergeIntoBase => &["base", "integration"],
         }
     }
 
@@ -63,12 +67,15 @@ impl Operation {
             | Operation::SnapshotRunBranch => &["done"],
             Operation::RunChecks => &["passed", "failed"],
             Operation::Integrate => &["merged", "conflict"],
+            Operation::MergeIntoBase => &["merged", "skipped"],
         }
     }
 
     pub(crate) fn produces(self) -> &'static [&'static str] {
         match self {
-            Operation::CreateRunBranch | Operation::CreateChildWorktree => &[],
+            Operation::CreateRunBranch
+            | Operation::CreateChildWorktree
+            | Operation::MergeIntoBase => &[],
             Operation::RunChecks => &["check-report"],
             Operation::Integrate => &["conflict"],
             Operation::SnapshotRunBranch => &["integration"],

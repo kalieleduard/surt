@@ -48,6 +48,7 @@ pub(crate) struct RefMove {
 pub(crate) struct PendingRefMove {
     pub(crate) step_run: String,
     pub(crate) step: StepLabel,
+    pub(crate) operation: Option<String>,
     pub(crate) intended: RefMove,
 }
 
@@ -57,6 +58,7 @@ struct PendingRow {
     step_key: String,
     item_key: Option<String>,
     iteration: Option<i64>,
+    operation_id: Option<String>,
     ref_name: String,
     old_sha: String,
     new_sha: String,
@@ -68,7 +70,9 @@ impl Store {
         root: &str,
     ) -> Result<Vec<PendingRefMove>, StoreError> {
         let rows: Vec<PendingRow> = sqlx::query_as(
-            "SELECT m.step_run_id, s.step_key, w.item_key, s.iteration, m.ref_name, m.old_sha, m.new_sha \
+            "SELECT m.step_run_id, s.step_key, w.item_key, s.iteration, \
+             (SELECT e.operation_id FROM execution e WHERE e.step_run_id = m.step_run_id \
+              ORDER BY e.attempt DESC LIMIT 1) AS operation_id, m.ref_name, m.old_sha, m.new_sha \
              FROM ref_move m JOIN step_run s ON s.id = m.step_run_id \
              JOIN workflow_run w ON w.id = s.workflow_run_id \
              WHERE w.root_run_id = ? ORDER BY m.created_at, m.step_run_id",
@@ -85,6 +89,7 @@ impl Store {
                     item: row.item_key,
                     iteration: row.iteration.map(number),
                 },
+                operation: row.operation_id,
                 intended: RefMove {
                     ref_name: row.ref_name,
                     old_sha: row.old_sha,

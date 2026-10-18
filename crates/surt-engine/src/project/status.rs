@@ -2,6 +2,7 @@ mod facts;
 mod gates;
 mod items;
 
+pub(in crate::project) use facts::base as recorded_base;
 pub(super) use gates::origin;
 
 use std::path::PathBuf;

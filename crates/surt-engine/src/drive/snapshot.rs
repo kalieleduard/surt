@@ -62,6 +62,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 working_copy: false,
             }],
             merged: None,
+            recorded: None,
         })
     }
 

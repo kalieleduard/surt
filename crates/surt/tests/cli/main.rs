@@ -14,6 +14,7 @@ mod json;
 mod kept;
 mod kill;
 mod logs;
+mod merge;
 mod new_run;
 mod output;
 mod overrides;

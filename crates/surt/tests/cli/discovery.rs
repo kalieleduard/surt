@@ -145,20 +145,3 @@ fn a_valid_global_config_leaves_commands_working() {
 
     assert_eq!(run.code, Some(0), "{}", run.stderr);
 }
-
-#[test]
-fn merge_into_base_fast_forward_only_is_refused() {
-    let sandbox = Sandbox::with_repository();
-    sandbox.init();
-    sandbox.write_config("[git]\nmerge_into_base = \"ff-only\"\n");
-
-    let run = sandbox.surt(&sandbox.repo(), &["status"]);
-
-    assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
-    assert!(
-        run.stderr
-            .starts_with("✖ merge_into_base = \"ff-only\" is not supported yet"),
-        "{}",
-        run.stderr
-    );
-}

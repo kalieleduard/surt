@@ -1,4 +1,4 @@
-use serde_json::json;
+use serde_json::{Value, json};
 use sqlx::SqliteConnection;
 
 use super::ref_moves::{CONFIRMED, settle_ref_move};
@@ -11,6 +11,7 @@ pub(crate) struct Acceptance<'a> {
     pub(crate) outputs: &'a [PublishedOutput],
     pub(crate) tip: Option<&'a str>,
     pub(crate) integrated: Option<Integrated<'a>>,
+    pub(crate) recorded: Option<&'a Value>,
 }
 
 #[derive(Clone, Copy)]
@@ -90,7 +91,8 @@ impl Store {
         )
         .await?;
         let about = About::Step(&step);
-        record_event_data(&mut transaction, about, "step.done", now, &outcome).await?;
+        let done = acceptance.recorded.unwrap_or(&outcome);
+        record_event_data(&mut transaction, about, "step.done", now, done).await?;
         transaction.commit().await?;
         self.reached(Checkpoint::ExecutionAccepted)?;
         Ok(published)

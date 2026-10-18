@@ -30,6 +30,7 @@ mod log_sources;
 mod paused;
 mod purge;
 mod reading;
+mod recorded;
 mod ref_moves;
 mod restoring;
 mod revision_approval;

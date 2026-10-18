@@ -1,3 +1,4 @@
+mod base_merge;
 mod blocked;
 mod cancelling;
 mod config;
@@ -31,8 +32,8 @@ pub use crate::cleanup::{Cleanup, Kept, Left};
 pub use crate::drive::cancel::Cancellation;
 pub use crate::drive::graph::BlockReason;
 pub use crate::drive::{
-    ActivityPause, ActivitySnapshot, DriveOutcome, Gate, Progress, ProgressSink, RunningStep,
-    StepLabel,
+    ActivityPause, ActivitySnapshot, BaseMerge, DriveOutcome, Gate, NotMerged, Progress,
+    ProgressSink, RunningStep, StepLabel,
 };
 pub use crate::git::GitVersion;
 pub use crate::operations::checks::REPORT_SCHEMA as CHECK_REPORT_SCHEMA;
@@ -43,6 +44,7 @@ pub use crate::workflow::{
     AgentAssets, Catalog, DefinitionFile, DeliveryCheck, InvalidDefinition, InvalidOverride,
     OnSuccess, Problem, StepField,
 };
+pub use base_merge::BaseMergeReport;
 pub use blocked::{BlockedStep, LastFailure};
 pub use cancelling::CancelImpact;
 pub use config::{Check, CleanupConfig, Config, GitConfig, GlobalConfig, MergeIntoBase};
