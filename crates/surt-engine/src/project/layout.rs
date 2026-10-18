@@ -31,6 +31,10 @@ impl Layout {
         self.locks().join("db.lock")
     }
 
+    pub(crate) fn git_lock(&self) -> PathBuf {
+        self.locks().join("git.lock")
+    }
+
     pub(crate) fn run_lock(&self, run: &str) -> PathBuf {
         self.locks().join(format!("{run}.lock"))
     }

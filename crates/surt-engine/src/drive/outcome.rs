@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::project::Refusal;
@@ -48,6 +50,14 @@ pub enum Progress {
     RevisionPublished {
         artifact: String,
         revision: u32,
+    },
+    Salvaged {
+        step: StepLabel,
+        reference: String,
+    },
+    WorktreeRepaired {
+        step: StepLabel,
+        path: PathBuf,
     },
     EditRecorded {
         artifact: String,

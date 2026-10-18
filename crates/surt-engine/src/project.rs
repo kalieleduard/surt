@@ -31,7 +31,7 @@ pub use resolving::Subject;
 pub use subjects::FreeName;
 
 use crate::store::Store;
-use discovery::SurtHome;
+pub(crate) use discovery::SurtHome;
 pub(crate) use layout::Layout;
 
 pub struct Project {
@@ -39,6 +39,7 @@ pub struct Project {
     id: String,
     config: Config,
     catalog: Catalog,
+    home: SurtHome,
 }
 
 impl Project {
@@ -61,6 +62,7 @@ impl Project {
             id,
             config,
             catalog,
+            home: home.clone(),
         })
     }
 

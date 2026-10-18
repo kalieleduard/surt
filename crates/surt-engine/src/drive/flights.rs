@@ -4,7 +4,7 @@ use std::task::{Context, Poll};
 
 pub(super) struct Flights<F> {
     slots: usize,
-    flying: Vec<(usize, Pin<Box<F>>)>,
+    flying: Vec<(Option<usize>, Pin<Box<F>>)>,
 }
 
 impl<F: Future> Flights<F> {
@@ -17,7 +17,7 @@ impl<F: Future> Flights<F> {
 
     pub(super) fn free_slots(&self) -> Vec<usize> {
         (0..self.slots)
-            .filter(|slot| self.flying.iter().all(|(taken, _)| taken != slot))
+            .filter(|slot| self.flying.iter().all(|(taken, _)| *taken != Some(*slot)))
             .collect()
     }
 
@@ -25,7 +25,7 @@ impl<F: Future> Flights<F> {
         self.flying.is_empty()
     }
 
-    pub(super) fn push(&mut self, slot: usize, flight: F) {
+    pub(super) fn push(&mut self, slot: Option<usize>, flight: F) {
         self.flying.push((slot, Box::pin(flight)));
     }
 

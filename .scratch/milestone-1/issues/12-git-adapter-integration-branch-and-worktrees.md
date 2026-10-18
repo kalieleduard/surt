@@ -8,10 +8,10 @@ Spec: [Milestone 1](../spec.md) (stories 42–43, 75–76) · Slice: S4 Git · P
 
 **Status:** ready-for-agent
 
-- [ ] The `git` CLI runs via argv with `LC_ALL=C`, enforces the minimum version, and backs off on third-party `git.lock`s
-- [ ] Operations are a closed enum; `git.create_run_branch` and `git.create_child_worktree` follow "read state → compare with SQLite → act", so a repeated Attempt is its own reconciliation
-- [ ] `git.create_child_worktree` (and later `git.integrate`) is serialized per root run
-- [ ] Worktrees live under `~/.surt/worktrees/<project-id>/<feature>/<key>`, created with `worktree add --lock`; on Windows, Builders get `core.longpaths=true` via `GIT_CONFIG_*`
-- [ ] Preparation: locate → remove Surt's own locks → save leftovers to `refs/surt/salvage/<execution-id>` with a temporary index → clear in-progress operations → `checkout --force -B` + `clean -fd` → verify, with a warning naming the Salvage Ref
-- [ ] A missing, half-created or orphaned worktree is repaired; a path Surt didn't create blocks instead of being deleted
-- [ ] `Project` tests against a real temporary repository: fresh worktree, leftovers salvaged, half-created worktree repaired, foreign path blocks
+- [x] The `git` CLI runs via argv with `LC_ALL=C`, enforces the minimum version, and backs off on third-party `git.lock`s
+- [x] Operations are a closed enum; `git.create_run_branch` and `git.create_child_worktree` follow "read state → compare with SQLite → act", so a repeated Attempt is its own reconciliation
+- [x] `git.create_child_worktree` (and later `git.integrate`) is serialized per root run
+- [x] Worktrees live under `~/.surt/worktrees/<project-id>/<feature>/<key>`, created with `worktree add --lock`; on Windows, Builders get `core.longpaths=true` via `GIT_CONFIG_*`
+- [x] Preparation: locate → remove Surt's own locks → save leftovers to `refs/surt/salvage/<execution-id>` with a temporary index → clear in-progress operations → `checkout --force -B` + `clean -fd` → verify, with a warning naming the Salvage Ref
+- [x] A missing, half-created or orphaned worktree is repaired; a path Surt didn't create blocks instead of being deleted
+- [x] `Project` tests against a real temporary repository: fresh worktree, leftovers salvaged, half-created worktree repaired, foreign path blocks

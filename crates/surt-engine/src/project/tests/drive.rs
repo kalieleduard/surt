@@ -1,4 +1,5 @@
 mod blocked;
+mod branches;
 mod drivers;
 mod fixtures;
 mod gates;
@@ -11,5 +12,7 @@ mod phases;
 mod pinning;
 mod planned;
 mod recovery;
+mod repository;
 mod stopping;
 mod working_copy;
+mod worktrees;

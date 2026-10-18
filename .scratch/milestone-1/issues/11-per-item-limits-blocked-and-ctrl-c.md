@@ -13,6 +13,6 @@ Spec: [Milestone 1](../spec.md) (stories 44, 59–64, 66–69) · Slice: S3 Engi
 - [x] Technical failures retry immediately up to `max_attempts`, then `blocked`; `max_iterations` without completion → `blocked`; `not_retryable` blocks on the first one; a transient failure blocks at once without spending an Attempt and keeps the reset time when given
 - [x] A blocked item holds back only its dependents; independent items keep running; the run never "fails"
 - [x] Rerunning `drive` unblocks every blocked step with a fresh budget while counters keep their history
-- [ ] `StopSignal::Graceful` stops agents, lets a running Operation finish and returns `Interrupted`; `Force` kills at once; interrupted Executions spend no Attempt
+- [x] `StopSignal::Graceful` stops agents, lets a running Operation finish and returns `Interrupted`; `Force` kills at once; interrupted Executions spend no Attempt
 - [x] A cancel request written to SQLite is read on the next tick and returns `Cancelled`
 - [ ] `Project` tests using the Fake's "waits until stopped" behaviour, with `tokio::time::pause()` and no real sleeps

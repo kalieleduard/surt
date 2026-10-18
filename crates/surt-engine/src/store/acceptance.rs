@@ -7,6 +7,7 @@ pub(crate) struct Acceptance<'a> {
     pub(crate) execution: &'a str,
     pub(crate) outcome: &'a str,
     pub(crate) outputs: &'a [PublishedOutput],
+    pub(crate) tip: Option<&'a str>,
 }
 
 pub(crate) struct PublishedOutput {
@@ -48,6 +49,13 @@ impl Store {
             let about = About::Execution(acceptance.execution);
             record_event(&mut transaction, about, "revision.published", now).await?;
             published.push((output.name.clone(), revision));
+        }
+        if let Some(tip) = acceptance.tip {
+            sqlx::query("UPDATE run_branch SET tip_sha = ? WHERE workflow_run_id = ?")
+                .bind(tip)
+                .bind(&run)
+                .execute(&mut *transaction)
+                .await?;
         }
         sqlx::query(
             "UPDATE step_run SET state = 'done', outcome = ?, finished_at = ? WHERE id = ?",

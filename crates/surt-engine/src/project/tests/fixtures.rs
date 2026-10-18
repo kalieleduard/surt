@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::PathBuf;
 
 use sqlx::sqlite::SqliteConnectOptions;
@@ -5,11 +6,11 @@ use sqlx::{FromRow, Sqlite, SqlitePool};
 use tempfile::TempDir;
 
 use crate::project::layout::Layout;
-use crate::project::open_store;
 use crate::project::{
     AgentAssets, ArtifactFile, Catalog, Config, DefinitionFile, Error, InitialArtifact,
     InvalidDefinition, NewRun, Problem, Project, Refusal,
 };
+use crate::project::{SurtHome, open_store};
 
 pub(super) const DRAFT_WORKFLOW: &str = r#"
 schema = 1
@@ -155,23 +156,33 @@ pub(super) fn in_step(step: &str, problem: Problem) -> InvalidDefinition {
 }
 
 pub(super) struct ProjectDir {
-    root: TempDir,
+    dir: TempDir,
 }
 
 impl ProjectDir {
     pub(super) fn new() -> Self {
-        Self {
-            root: TempDir::new().expect("a temporary directory"),
-        }
+        let project = ProjectDir {
+            dir: TempDir::new().expect("a temporary directory"),
+        };
+        fs::create_dir_all(project.path()).expect("the project directory");
+        fs::create_dir_all(project.home()).expect("the home directory");
+        project
     }
 
-    #[cfg(feature = "test-support")]
     pub(super) fn path(&self) -> PathBuf {
-        self.root.path().to_path_buf()
+        dunce::canonicalize(self.dir.path())
+            .expect("a canonical temporary directory")
+            .join("project")
+    }
+
+    pub(super) fn home(&self) -> PathBuf {
+        dunce::canonicalize(self.dir.path())
+            .expect("a canonical temporary directory")
+            .join("home")
     }
 
     fn layout(&self) -> Layout {
-        Layout::new(self.root.path().to_path_buf())
+        Layout::new(self.path())
     }
 
     fn database(&self) -> PathBuf {
@@ -189,6 +200,7 @@ impl ProjectDir {
             id: "test-project".to_owned(),
             config,
             catalog,
+            home: SurtHome::at(&self.home()),
         }
     }
 

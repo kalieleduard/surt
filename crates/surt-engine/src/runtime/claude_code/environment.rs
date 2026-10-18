@@ -5,6 +5,14 @@ use crate::workflow::{Auth, ClaudeProfile};
 
 const API_KEY: &str = "ANTHROPIC_API_KEY";
 const ENABLED: &str = "1";
+const GIT_CONFIG_COUNT: &str = "GIT_CONFIG_COUNT";
+const GIT_CONFIG_KEY: &str = "GIT_CONFIG_KEY_";
+const GIT_CONFIG_VALUE: &str = "GIT_CONFIG_VALUE_";
+const AGENT_GIT_CONFIG: &[(&str, &str)] = if cfg!(windows) {
+    &[("core.longpaths", "true")]
+} else {
+    &[]
+};
 
 const INHERITED: &[&str] = &[
     "HOME",
@@ -58,7 +66,46 @@ pub(super) fn child_environment(
         .iter()
         .map(|name| (OsString::from(name), OsString::from(ENABLED)));
     let api_key = api_key(parent, claude)?.map(|key| (OsString::from(API_KEY), key));
-    Ok(inherited.chain(isolation).chain(api_key).collect())
+    Ok(inherited
+        .chain(isolation)
+        .chain(api_key)
+        .chain(git_config(parent, AGENT_GIT_CONFIG))
+        .collect())
+}
+
+pub(super) fn git_config(
+    parent: &[(OsString, OsString)],
+    appended: &[(&str, &str)],
+) -> Vec<(OsString, OsString)> {
+    let variable = |name: &str| {
+        parent
+            .iter()
+            .find(|(key, _)| key == name)
+            .map(|(_, value)| value)
+    };
+    let inherited = variable(GIT_CONFIG_COUNT)
+        .and_then(|count| count.to_str()?.parse::<usize>().ok())
+        .unwrap_or_default();
+    if inherited == 0 && appended.is_empty() {
+        return Vec::new();
+    }
+    let mut settings = Vec::new();
+    for index in 0..inherited {
+        for prefix in [GIT_CONFIG_KEY, GIT_CONFIG_VALUE] {
+            let name = format!("{prefix}{index}");
+            if let Some(value) = variable(&name) {
+                settings.push((OsString::from(name), value.clone()));
+            }
+        }
+    }
+    for (offset, (key, value)) in appended.iter().enumerate() {
+        let index = inherited + offset;
+        settings.push((format!("{GIT_CONFIG_KEY}{index}").into(), (*key).into()));
+        settings.push((format!("{GIT_CONFIG_VALUE}{index}").into(), (*value).into()));
+    }
+    let count = inherited + appended.len();
+    settings.push((GIT_CONFIG_COUNT.into(), count.to_string().into()));
+    settings
 }
 
 fn api_key(

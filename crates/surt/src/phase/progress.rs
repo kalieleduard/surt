@@ -7,8 +7,8 @@ const FIRST: u32 = 1;
 
 pub(super) async fn print(mut events: UnboundedReceiver<Progress>) {
     while let Some(event) = events.recv().await {
-        let (mark, line) = line(&event);
-        Message::new(line).print(mark);
+        let (mark, message) = message(&event);
+        message.print(mark);
     }
 }
 
@@ -23,17 +23,20 @@ pub(super) fn label(step: &StepLabel) -> String {
     text
 }
 
-fn line(progress: &Progress) -> (Mark, String) {
+fn message(progress: &Progress) -> (Mark, Message) {
     match progress {
-        Progress::StepStarted { step, attempt } if *attempt == FIRST => {
-            (Mark::Started, format!("{} started", label(step)))
-        }
-        Progress::StepStarted { step, attempt } => {
-            (Mark::Retry, format!("{} attempt {attempt}", label(step)))
-        }
-        Progress::StepFinished { step, outcome } => {
-            (Mark::Success, format!("{} {outcome}", label(step)))
-        }
+        Progress::StepStarted { step, attempt } if *attempt == FIRST => (
+            Mark::Started,
+            Message::new(format!("{} started", label(step))),
+        ),
+        Progress::StepStarted { step, attempt } => (
+            Mark::Retry,
+            Message::new(format!("{} attempt {attempt}", label(step))),
+        ),
+        Progress::StepFinished { step, outcome } => (
+            Mark::Success,
+            Message::new(format!("{} {outcome}", label(step))),
+        ),
         Progress::AttemptFailed {
             step,
             attempt,
@@ -41,28 +44,46 @@ fn line(progress: &Progress) -> (Mark, String) {
             message,
         } => (
             Mark::Warning,
-            format!(
+            Message::new(format!(
                 "{} attempt {attempt} failed ({code}): {message}",
                 label(step)
-            ),
+            )),
         ),
         Progress::AttemptInterrupted { step, attempt } => (
             Mark::Stopped,
-            format!("{} attempt {attempt} interrupted", label(step)),
+            Message::new(format!("{} attempt {attempt} interrupted", label(step))),
         ),
         Progress::RevisionPublished { artifact, revision } => (
             Mark::Success,
-            format!("{artifact} rev {revision} published"),
+            Message::new(format!("{artifact} rev {revision} published")),
+        ),
+        Progress::Salvaged { step, reference } => (
+            Mark::Warning,
+            Message::new(format!(
+                "{} worktree had leftovers — saved to {reference}",
+                label(step)
+            ))
+            .way("inspect", format!("git log -p {reference}")),
+        ),
+        Progress::WorktreeRepaired { step, path } => (
+            Mark::Warning,
+            Message::new(format!(
+                "worktree for {} was missing — recreated at {}",
+                label(step),
+                path.display()
+            )),
         ),
         Progress::EditRecorded { artifact, revision } => (
             Mark::Success,
-            format!("your edit to {artifact} was recorded as rev {revision}"),
+            Message::new(format!(
+                "your edit to {artifact} was recorded as rev {revision}"
+            )),
         ),
         Progress::EditSuperseded { artifact, edit, by } => (
             Mark::Warning,
-            format!(
+            Message::new(format!(
                 "your edit to {artifact} was saved as rev {edit} and superseded by the agent's rev {by}"
-            ),
+            )),
         ),
         Progress::FileRestored {
             artifact,
@@ -70,7 +91,9 @@ fn line(progress: &Progress) -> (Mark, String) {
             revision,
         } => (
             Mark::Warning,
-            format!("{path} was missing; recreated from {artifact} rev {revision}"),
+            Message::new(format!(
+                "{path} was missing; recreated from {artifact} rev {revision}"
+            )),
         ),
     }
 }

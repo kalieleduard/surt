@@ -1,13 +1,16 @@
 use std::future::Future;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
+
+use tokio::sync::Mutex;
 
 use super::decide::{self, Action, Ctx, RunEnd};
 use super::flights::Flights;
 use super::frozen::{CorruptSnapshot, Frozen};
 use super::graph::StepRunId;
-use super::launch::Launch;
 use super::load::Loaded;
+use super::operate::Flight;
 use super::outcome::{DriveOutcome, Progress, ProgressSink};
 use crate::platform;
 use crate::project::{Error, Layout, Refusal};
@@ -24,6 +27,7 @@ pub(crate) struct Driving<'a> {
     pub(crate) layout: &'a Layout,
     pub(crate) root: &'a str,
     pub(crate) max_agents: usize,
+    pub(crate) worktrees: Option<PathBuf>,
     pub(crate) actor: &'a str,
 }
 
@@ -36,20 +40,15 @@ pub(super) struct Driver<'a, R> {
     stop: StopSignal,
     pub(super) agents: StopSignal,
     pub(super) cancelling: AtomicBool,
+    pub(super) branches: Mutex<()>,
 }
 
 enum Tick {
     Again,
-    Launched(Vec<Launch>),
+    Launched(Vec<Flight>),
     Wait,
     Cancel,
     Return(DriveOutcome),
-}
-
-#[derive(Debug, thiserror::Error)]
-#[error("step {step} needs a capability this surt does not have yet")]
-struct Unsupported {
-    step: String,
 }
 
 pub(crate) async fn drive<R: AgentRuntime>(
@@ -81,6 +80,7 @@ pub(crate) async fn drive<R: AgentRuntime>(
         stop,
         agents: StopSignal::new(),
         cancelling: AtomicBool::new(false),
+        branches: Mutex::new(()),
     };
     if let Some(refusal) = driver.guard().await? {
         return Ok(DriveOutcome::Halted(refusal));
@@ -119,8 +119,8 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 Tick::Again => {}
                 Tick::Wait | Tick::Return(_) if stale => {}
                 Tick::Launched(launches) => {
-                    for launch in launches {
-                        flights.push(launch.slot, self.carry(launch));
+                    for flight in launches {
+                        flights.push(flight.slot(), self.fly(flight));
                     }
                 }
                 Tick::Return(outcome) if flights.is_empty() => return Ok(outcome),
@@ -173,7 +173,14 @@ impl<R: AgentRuntime> Driver<'_, R> {
             match action {
                 Action::Launch { step } => {
                     let slot = slots.next().unwrap_or_default();
-                    launches.push(self.launch(&loaded, &step, slot).await?);
+                    launches.push(Flight::Agent(Box::new(
+                        self.launch(&loaded, &step, slot).await?,
+                    )));
+                }
+                Action::RunOperation { step, op } => {
+                    launches.push(Flight::Operation(Box::new(
+                        self.start_operation(&loaded, &step, &op).await?,
+                    )));
                 }
                 Action::FinishRun {
                     end: RunEnd::Cancelled,
@@ -203,12 +210,10 @@ impl<R: AgentRuntime> Driver<'_, R> {
             Action::Block { step, reason } => store.block_step(&step.0, reason).await?,
             Action::FinishStep { step } => store.finish_step(&step.0, DONE).await?,
             Action::FinishRun { run, end } => store.finish_run(&run.0, end).await?,
-            Action::RunOperation { step, .. } => {
-                return Err(Error::internal(Unsupported {
-                    step: known(loaded, &step)?.key.clone(),
-                }));
-            }
-            Action::Launch { .. } | Action::Wait | Action::Return(_) => {}
+            Action::Launch { .. }
+            | Action::RunOperation { .. }
+            | Action::Wait
+            | Action::Return(_) => {}
         }
         Ok(())
     }

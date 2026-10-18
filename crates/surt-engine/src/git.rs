@@ -1,9 +1,16 @@
+use std::ffi::OsStr;
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
+use std::time::Duration;
 
 use tokio::process::Command;
+
+mod refs;
+pub(crate) mod worktrees;
+
+pub(crate) use refs::{absolute_git_dir, common_dir, create_ref, is_valid_branch_name, set_ref};
 
 pub(crate) const MIN_VERSION: GitVersion = GitVersion {
     major: 2,
@@ -14,7 +21,22 @@ pub(crate) const MIN_VERSION: GitVersion = GitVersion {
 const PORCELAIN_WORKTREE_PREFIX: &str = "worktree ";
 const PORCELAIN_BARE: &str = "bare";
 const PEEL_TO_COMMIT: &str = "^{commit}";
-const BRANCH_NAMESPACE: &str = "refs/heads/";
+pub(crate) const BRANCH_NAMESPACE: &str = "refs/heads/";
+const LOCK_FAILURE_PREFIX: &str = "Unable to create '";
+const LOCK_FAILURE_SUFFIX: &str = "': File exists";
+const LOCK_BACKOFF: [Duration; 6] = [
+    Duration::from_millis(20),
+    Duration::from_millis(40),
+    Duration::from_millis(80),
+    Duration::from_millis(160),
+    Duration::from_millis(320),
+    Duration::from_millis(640),
+];
+const PLATFORM_CONFIG: &[&str] = if cfg!(windows) {
+    &["-c", "core.longpaths=true"]
+} else {
+    &[]
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct GitVersion {
@@ -58,6 +80,8 @@ pub(crate) enum GitError {
         status: ExitStatus,
         stderr: String,
     },
+    #[error("git lock held: {}", lock.display())]
+    LockHeld { lock: PathBuf },
     #[error("unexpected output from git {args}: {output:?}")]
     Unexpected { args: String, output: String },
 }
@@ -139,12 +163,46 @@ fn unexpected(args: &[&str], output: String) -> GitError {
     }
 }
 
-async fn run(cwd: &Path, args: &[&str]) -> Result<String, GitError> {
+pub(crate) async fn run(cwd: &Path, args: &[&str]) -> Result<String, GitError> {
+    run_with(cwd, args, &[]).await
+}
+
+pub(crate) async fn run_with(
+    cwd: &Path,
+    args: &[&str],
+    env: &[(&str, &OsStr)],
+) -> Result<String, GitError> {
+    let mut delays = LOCK_BACKOFF.iter();
+    loop {
+        let result = invoke(cwd, args, env).await;
+        let Some(lock) = held_lock(&result) else {
+            return result;
+        };
+        let Some(delay) = delays.next() else {
+            return Err(GitError::LockHeld { lock });
+        };
+        tracing::debug!(lock = %lock.display(), ?delay, "git lock held, backing off");
+        tokio::time::sleep(*delay).await;
+    }
+}
+
+fn held_lock(result: &Result<String, GitError>) -> Option<PathBuf> {
+    let Err(GitError::Failed { stderr, .. }) = result else {
+        return None;
+    };
+    let (_, after) = stderr.split_once(LOCK_FAILURE_PREFIX)?;
+    let (lock, _) = after.split_once(LOCK_FAILURE_SUFFIX)?;
+    Some(PathBuf::from(lock))
+}
+
+async fn invoke(cwd: &Path, args: &[&str], env: &[(&str, &OsStr)]) -> Result<String, GitError> {
     tracing::debug!(cwd = %cwd.display(), ?args, "running git");
     let output = Command::new("git")
+        .args(PLATFORM_CONFIG)
         .args(args)
         .current_dir(cwd)
         .env("LC_ALL", "C")
+        .envs(env.iter().copied())
         .kill_on_drop(true)
         .output()
         .await

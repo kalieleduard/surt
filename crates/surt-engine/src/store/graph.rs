@@ -10,6 +10,7 @@ use crate::drive::graph::{
 pub(crate) struct RunRows {
     pub(crate) id: String,
     pub(crate) subject: String,
+    pub(crate) ordinal: u32,
     pub(crate) definition: String,
     pub(crate) state: RunState,
     pub(crate) cancel_requested: bool,
@@ -50,6 +51,7 @@ pub(crate) struct ExecutionRow {
 struct RootRow {
     id: String,
     subject: String,
+    ordinal: i64,
     definition_sha256: String,
     state: String,
     cancel_requested: bool,
@@ -80,7 +82,7 @@ impl Store {
     pub(crate) async fn run_rows(&self, root: &str) -> Result<RunRows, StoreError> {
         let mut snapshot = self.pool.begin().await?;
         let run: RootRow = sqlx::query_as(
-            "SELECT w.id, s.name AS subject, w.definition_sha256, w.state, \
+            "SELECT w.id, s.name AS subject, w.ordinal, w.definition_sha256, w.state, \
              w.cancel_requested_at IS NOT NULL AS cancel_requested \
              FROM workflow_run w JOIN subject s ON s.id = w.subject_id WHERE w.id = ?",
         )
@@ -115,6 +117,7 @@ impl Store {
         Ok(RunRows {
             id: run.id,
             subject: run.subject,
+            ordinal: number(run.ordinal),
             definition: run.definition_sha256,
             state: run_state(&run.state),
             cancel_requested: run.cancel_requested,
@@ -159,20 +162,23 @@ impl From<RawStep> for StepRow {
 
 impl From<RawExecution> for ExecutionRow {
     fn from(raw: RawExecution) -> ExecutionRow {
-        let state = match (raw.state.as_str(), raw.failure_class.as_deref()) {
-            ("queued", _) => ExecutionState::Queued,
-            ("running", _) => ExecutionState::Running,
-            ("succeeded", _) => ExecutionState::Succeeded,
-            ("failed", Some("transient")) => ExecutionState::Failed(FailureClass::Transient),
-            ("failed", Some("not_retryable")) => ExecutionState::Failed(FailureClass::NotRetryable),
-            ("failed", _) => ExecutionState::Failed(FailureClass::Retryable),
-            ("cancelled", _) => ExecutionState::Cancelled,
-            _ => ExecutionState::Interrupted,
-        };
         ExecutionRow {
+            state: execution_state(&raw.state, raw.failure_class.as_deref()),
             step: raw.step_run_id,
-            state,
         }
+    }
+}
+
+pub(super) fn execution_state(state: &str, failure_class: Option<&str>) -> ExecutionState {
+    match (state, failure_class) {
+        ("queued", _) => ExecutionState::Queued,
+        ("running", _) => ExecutionState::Running,
+        ("succeeded", _) => ExecutionState::Succeeded,
+        ("failed", Some("transient")) => ExecutionState::Failed(FailureClass::Transient),
+        ("failed", Some("not_retryable")) => ExecutionState::Failed(FailureClass::NotRetryable),
+        ("failed", _) => ExecutionState::Failed(FailureClass::Retryable),
+        ("cancelled", _) => ExecutionState::Cancelled,
+        _ => ExecutionState::Interrupted,
     }
 }
 
