@@ -49,6 +49,7 @@ async fn a_rejection_records_the_decision_on_the_reviewed_revision_without_drivi
             origin: RevisionOrigin::Agent,
             actor: ACTOR.to_owned(),
             files: vec!["draft.md".to_owned()],
+            restored: Vec::new(),
         }
     );
     assert_eq!(

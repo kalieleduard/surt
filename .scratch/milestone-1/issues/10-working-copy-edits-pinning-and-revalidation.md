@@ -8,11 +8,11 @@ Spec: [Milestone 1](../spec.md) (stories 22–23, 30–34, 38–39) · Slice: S3
 
 **Status:** ready-for-agent
 
-- [ ] A Working Copy exists only for artifacts with an Approval Gate; edits are detected by full SHA-256 against the baseline, never mtime
-- [ ] An edit becomes a human-origin Revision when `approve`, `reject` or a driving command runs; the Approval targets exactly that Revision
-- [ ] A deleted Working Copy file is recreated from the latest Revision by the next command that acts
-- [ ] Editing an approved but not yet consumed Revision records an unapproved Revision and every driving command refuses until it is approved
-- [ ] Editing a Pinned Revision is refused, not recorded: the Driver lets running work finish, launches nothing new and exits `3` (`Halted`); refusals say `fix: rm <file>, then rerun`
-- [ ] An agent Revision arriving over an unrecorded edit first saves the edit as its own Revision and warns
-- [ ] The manifest JSON and every Task file are one Revision; an edit is validated like an agent delivery (schema, unique keys, valid `needs`, no cycles, every referenced file present, no unreferenced file, safe paths) and an invalid edit creates no Revision and refuses
-- [ ] `Project` tests for each case above, plus a binary test of the `fix: rm` refusal
+- [x] A Working Copy exists only for artifacts with an Approval Gate; edits are detected by full SHA-256 against the baseline, never mtime
+- [x] An edit becomes a human-origin Revision when `approve`, `reject` or a driving command runs; the Approval targets exactly that Revision
+- [x] A deleted Working Copy file is recreated from the latest Revision by the next command that acts
+- [x] Editing an approved but not yet consumed Revision records an unapproved Revision and every driving command refuses until it is approved
+- [x] Editing a Pinned Revision is refused, not recorded: the Driver lets running work finish, launches nothing new and exits `3` (`Halted`); refusals say `fix: rm <file>, then rerun`
+- [x] An agent Revision arriving over an unrecorded edit first saves the edit as its own Revision and warns
+- [x] The manifest JSON and every Task file are one Revision; an edit is validated like an agent delivery (schema, unique keys, valid `needs`, no cycles, every referenced file present, no unreferenced file, safe paths) and an invalid edit creates no Revision and refuses
+- [x] `Project` tests for each case above, plus a binary test of the `fix: rm` refusal

@@ -1,4 +1,5 @@
 mod definition;
+mod edits;
 
 use std::path::Path;
 
@@ -90,6 +91,23 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             "run",
             format!("surt show {subject} {artifact} --rev {latest}"),
         ),
+        Refusal::UnapprovedRevision {
+            subject,
+            artifact,
+            revision,
+        } => edits::unapproved(subject, artifact, *revision),
+        Refusal::PinnedEdit {
+            subject,
+            artifact,
+            revision,
+            files,
+        } => edits::pinned(subject, artifact, *revision, files),
+        Refusal::InvalidEdit {
+            subject,
+            artifact,
+            problem,
+            files,
+        } => edits::invalid(subject, artifact, problem, files),
     }
 }
 

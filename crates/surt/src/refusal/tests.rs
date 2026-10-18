@@ -8,7 +8,7 @@ use super::message;
 
 const MAX_CONTEXT_LINES: usize = 2;
 const MAX_WAYS_OUT: usize = 3;
-const LABELS: [&str; 8] = [
+const LABELS: [&str; 9] = [
     "fix:",
     "next:",
     "resume:",
@@ -17,6 +17,7 @@ const LABELS: [&str; 8] = [
     "inspect:",
     "or:",
     "run:",
+    "review it, then:",
 ];
 
 fn text(refusal: &Refusal) -> String {
@@ -102,6 +103,23 @@ fn every_refusal() -> Vec<Refusal> {
         },
         Refusal::AgentOverrides {
             path: path.join(".surt/agents"),
+        },
+        Refusal::UnapprovedRevision {
+            subject: "20261017-add-login".to_owned(),
+            artifact: "spec".to_owned(),
+            revision: 2,
+        },
+        Refusal::PinnedEdit {
+            subject: "20261017-add-login".to_owned(),
+            artifact: "manifest".to_owned(),
+            revision: 1,
+            files: vec!["tasks/B.md".to_owned(), "tasks/C.md".to_owned()],
+        },
+        Refusal::InvalidEdit {
+            subject: "20261017-add-login".to_owned(),
+            artifact: "manifest".to_owned(),
+            problem: "manifest.json: tasks/C.md is not referenced by any item".to_owned(),
+            files: vec!["tasks/C.md".to_owned()],
         },
         Refusal::ActiveRunExists {
             subject: "20261017-add-login".to_owned(),
@@ -225,6 +243,36 @@ fn an_active_run_points_at_resuming_the_feature() {
     assert_eq!(
         text(&refusal),
         "✖ 20261017-add-login already has an active run\n  resume: surt feature 20261017-add-login\n"
+    );
+}
+
+#[test]
+fn an_unapproved_edit_points_at_approving_it() {
+    let refusal = &every_refusal()[20];
+
+    assert_eq!(
+        text(refusal),
+        "✖ spec changed after approval (rev 2 not approved)\n  review it, then: surt approve 20261017-add-login\n"
+    );
+}
+
+#[test]
+fn an_edit_to_a_pinned_revision_says_which_files_to_remove() {
+    let refusal = &every_refusal()[21];
+
+    assert_eq!(
+        text(refusal),
+        "✖ tasks/B.md, tasks/C.md changed, but manifest rev 1 is pinned (a later step already read it)\n  the edit was not recorded\n  fix: rm .surt/features/20261017-add-login/tasks/B.md .surt/features/20261017-add-login/tasks/C.md, then rerun\n"
+    );
+}
+
+#[test]
+fn an_invalid_edit_says_what_is_wrong_and_which_files_to_remove() {
+    let refusal = &every_refusal()[22];
+
+    assert_eq!(
+        text(refusal),
+        "✖ manifest edit is invalid, no revision recorded:\n    manifest.json: tasks/C.md is not referenced by any item\n  fix: rm .surt/features/20261017-add-login/tasks/C.md, then rerun\n"
     );
 }
 

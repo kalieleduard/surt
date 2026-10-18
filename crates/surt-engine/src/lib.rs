@@ -11,4 +11,5 @@ mod platform;
 mod reconcile;
 mod store;
 mod workflow;
+mod working_copy;
 mod worktree;

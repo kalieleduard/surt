@@ -59,6 +59,20 @@ pub enum Progress {
         step: StepLabel,
         path: PathBuf,
     },
+    EditRecorded {
+        artifact: String,
+        revision: u32,
+    },
+    EditSuperseded {
+        artifact: String,
+        edit: u32,
+        by: u32,
+    },
+    FileRestored {
+        artifact: String,
+        path: String,
+        revision: u32,
+    },
 }
 
 pub type ProgressSink = UnboundedSender<Progress>;

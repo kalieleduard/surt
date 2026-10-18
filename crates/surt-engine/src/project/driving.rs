@@ -13,6 +13,7 @@ impl Project {
     ) -> Result<DriveOutcome, Error> {
         self.refuse_agent_overrides()?;
         supported_git().await?;
+        let actor = self.actor().await?;
         let store = open_store(&self.layout).await?;
         let driving = Driving {
             store: &store,
@@ -24,6 +25,7 @@ impl Project {
                 .home
                 .worktrees()
                 .map(|worktrees| worktrees.join(&self.id)),
+            actor: &actor,
         };
         let outcome = drive::drive(driving, runtime, progress, stop).await;
         store.close().await;

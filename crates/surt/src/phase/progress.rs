@@ -73,5 +73,27 @@ fn message(progress: &Progress) -> (Mark, Message) {
                 path.display()
             )),
         ),
+        Progress::EditRecorded { artifact, revision } => (
+            Mark::Success,
+            Message::new(format!(
+                "your edit to {artifact} was recorded as rev {revision}"
+            )),
+        ),
+        Progress::EditSuperseded { artifact, edit, by } => (
+            Mark::Warning,
+            Message::new(format!(
+                "your edit to {artifact} was saved as rev {edit} and superseded by the agent's rev {by}"
+            )),
+        ),
+        Progress::FileRestored {
+            artifact,
+            path,
+            revision,
+        } => (
+            Mark::Warning,
+            Message::new(format!(
+                "{path} was missing; recreated from {artifact} rev {revision}"
+            )),
+        ),
     }
 }
