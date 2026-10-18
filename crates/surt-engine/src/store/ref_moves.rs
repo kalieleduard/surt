@@ -1,8 +1,41 @@
-use sqlx::FromRow;
+use serde_json::json;
+use sqlx::{FromRow, SqliteConnection};
 
 use super::revisions::number;
-use super::{About, Checkpoint, Store, StoreError, record_event, unix_now};
+use super::{About, Checkpoint, Store, StoreError, record_event_data, unix_now};
 use crate::drive::StepLabel;
+
+pub(super) const CONFIRMED: &str = "intention.confirmed";
+const DISCARDED: &str = "intention.discarded";
+const INTENDED: &str = "ref_move.intended";
+
+pub(super) async fn settle_ref_move(
+    connection: &mut SqliteConnection,
+    step: &str,
+    kind: &str,
+    now: i64,
+) -> Result<(), sqlx::Error> {
+    let settled: Option<RefMove> = sqlx::query_as(
+        "DELETE FROM ref_move WHERE step_run_id = ? RETURNING ref_name, old_sha, new_sha",
+    )
+    .bind(step)
+    .fetch_optional(&mut *connection)
+    .await?;
+    let Some(settled) = settled else {
+        return Ok(());
+    };
+    let data = details(&settled);
+    record_event_data(connection, About::Step(step), kind, now, &data).await
+}
+
+fn details(intended: &RefMove) -> serde_json::Value {
+    json!({
+        "intention": "ref_move",
+        "ref": intended.ref_name,
+        "old_sha": intended.old_sha,
+        "new_sha": intended.new_sha,
+    })
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, FromRow)]
 pub(crate) struct RefMove {
@@ -88,23 +121,15 @@ impl Store {
         .bind(now)
         .execute(&mut *transaction)
         .await?;
-        record_event(
-            &mut transaction,
-            About::Step(step),
-            "ref_move.intended",
-            now,
-        )
-        .await?;
+        let data = details(intended);
+        record_event_data(&mut transaction, About::Step(step), INTENDED, now, &data).await?;
         transaction.commit().await?;
         self.reached(Checkpoint::Intention)
     }
 
     pub(crate) async fn forget_ref_move(&self, step: &str) -> Result<(), StoreError> {
         let mut transaction = self.begin_write().await?;
-        sqlx::query("DELETE FROM ref_move WHERE step_run_id = ?")
-            .bind(step)
-            .execute(&mut *transaction)
-            .await?;
+        settle_ref_move(&mut transaction, step, DISCARDED, unix_now()).await?;
         Ok(transaction.commit().await?)
     }
 

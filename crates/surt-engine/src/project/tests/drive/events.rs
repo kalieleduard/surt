@@ -21,7 +21,7 @@ async fn a_driver_records_its_pid_when_it_starts_and_when_it_stops() {
     let pid = json!({ "pid": std::process::id() });
     assert_eq!(
         feature.dir.event_data("driver.started").await,
-        [pid.clone()]
+        std::slice::from_ref(&pid)
     );
     assert_eq!(feature.dir.event_data("driver.stopped").await, [pid]);
 }
@@ -39,6 +39,10 @@ async fn an_agent_execution_records_its_attempt_slot_and_runtime_and_what_it_pub
     assert_eq!(
         feature.dir.event_data("revision.published").await,
         [json!({ "artifact": "draft", "revision": 1, "origin": "execution" })]
+    );
+    assert_eq!(
+        feature.dir.event_data("execution.succeeded").await,
+        [json!({ "outcome": "done" })]
     );
 }
 
@@ -108,6 +112,24 @@ async fn failures_block_with_their_reason_and_a_rerun_unblocks_with_the_new_budg
     assert_eq!(
         feature.dir.event_data("step.unblocked").await,
         [json!({ "budget_base": 3 })]
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_recorded_human_edit_names_its_artifact_revision_and_actor() {
+    let feature = Feature::review().await;
+    feature.drive(written()).await;
+    feature.edit("draft.md", "# Draft, edited by hand\n");
+
+    feature
+        .project
+        .approve(&feature.run, None, ACTOR)
+        .await
+        .expect("the edit is approved");
+
+    assert_eq!(
+        feature.dir.event_data("working_copy.edit_detected").await,
+        [json!({ "artifact": "draft", "revision": 2, "origin": "human", "actor": ACTOR })]
     );
 }
 

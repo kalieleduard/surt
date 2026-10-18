@@ -3,7 +3,7 @@ use sqlx::{FromRow, SqliteConnection};
 use super::details::{self, ApprovalDetails};
 use super::revisions::{Origin, artifact_id, number, publish};
 use super::runs::new_id;
-use super::{About, Store, StoreError, record_event, record_event_data, unix_now};
+use super::{About, Store, StoreError, record_event_data, unix_now};
 
 const REJECTION_REASON: &str = "rejection_reason";
 const RECORDED: &str = "approval.recorded";
@@ -198,7 +198,15 @@ impl Store {
         .await?;
         let data = details::decision_recorded(&new, number(latest.number));
         record_event_data(&mut transaction, About::Step(gate), RECORDED, now, &data).await?;
-        record_event(&mut transaction, About::Step(gate), "step.done", now).await?;
+        let outcome = serde_json::json!({ "outcome": new.decision.outcome() });
+        record_event_data(
+            &mut transaction,
+            About::Step(gate),
+            "step.done",
+            now,
+            &outcome,
+        )
+        .await?;
         transaction.commit().await?;
         Ok(latest.recorded())
     }
