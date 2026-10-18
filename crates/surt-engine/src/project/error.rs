@@ -89,6 +89,10 @@ pub enum Refusal {
         pid: Option<u32>,
         since: Option<i64>,
     },
+    NoLiveDriver {
+        subject: String,
+        states: Vec<RunState>,
+    },
     NoGateWaiting {
         subject: String,
     },

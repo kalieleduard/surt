@@ -49,7 +49,7 @@ impl Store {
         let mut transaction = self.begin_write().await?;
         sqlx::query(
             "UPDATE workflow_run SET driver_pid = ?, driver_since = ?, driver_start_time = ?, \
-             driver_boot_id = ? WHERE id = ?",
+             driver_boot_id = ?, stop_requested_at = NULL, stop_requested_by = NULL WHERE id = ?",
         )
         .bind(i64::from(pid))
         .bind(now)
