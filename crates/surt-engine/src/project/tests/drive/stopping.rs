@@ -41,7 +41,9 @@ impl<'a> Interfering<'a> {
             .await;
         let mut progress = Vec::new();
         while let Ok(event) = events.try_recv() {
-            progress.push(event);
+            if !matches!(event, Progress::Activity(_)) {
+                progress.push(event);
+            }
         }
         Driven { outcome, progress }
     }
