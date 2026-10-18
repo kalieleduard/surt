@@ -1,3 +1,5 @@
+mod cleanup;
+
 use serde_json::Value;
 use surt_engine::project::{
     BlockReason, BlockedStep, Conflict, GateStatus, GateView, ItemStatus, LastFailure, RunStatus,
@@ -40,6 +42,7 @@ pub(super) fn feature(status: &RunStatus) -> Fields {
             }),
         );
     work(repository(fields, status), status, &resume)
+        .maybe("cleanup", status.cleanup.as_ref().map(cleanup::cleanup))
 }
 
 fn repository(fields: Fields, status: &RunStatus) -> Fields {
@@ -173,6 +176,7 @@ fn reason(reason: BlockReason) -> &'static str {
 
 fn last_error(failure: &LastFailure) -> Fields {
     Fields::new()
+        .with("execution", failure.execution.as_str())
         .with("attempt", failure.attempt)
         .with("code", failure.code.as_str())
         .with("message", failure.message.as_str())

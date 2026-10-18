@@ -397,18 +397,18 @@ Each document serialises the read view the human output renders (`RunStatus`, `T
      "since": "2026-10-17T14:05:02Z", "merged_sha": "3c1aa2…(40 hex)"},
     {"key": "B", "state": "blocked", "step": "build", "iteration": 1, "attempt": 3,
      "since": "2026-10-17T14:09:40Z", "blocked_reason": "attempts_exhausted",
-     "last_error": {"attempt": 3, "code": "exit_code", "message": "the agent exited with code 1"},
+     "last_error": {"execution": "01a14f9b-c44f-7608-80bd-fe56114a4306", "attempt": 3, "code": "exit_code", "message": "the agent exited with code 1"},
      "resume": "surt start 20261017-add-login"}
   ],
   "blocked": [
     {"step": "build", "task": "B", "iteration": 1, "reason": "attempts_exhausted",
-     "last_error": {"attempt": 3, "code": "exit_code", "message": "the agent exited with code 1"}}
+     "last_error": {"execution": "01a14f9b-c44f-7608-80bd-fe56114a4306", "attempt": 3, "code": "exit_code", "message": "the agent exited with code 1"}}
   ],
   "resume": "surt start 20261017-add-login"
 }
 ```
 
-Optional Feature fields: `ended_at`, `driver` (`pid`, `since`); per gate `edited` and `missing`; per Task `waits_for`, `conflict` (`kind` `merge` with `paths`, or `checks` with `failed`); per last error `resets_at`.
+Optional Feature fields: `ended_at`, `driver` (`pid`, `since`), `cleanup` (`state` `done`, `pending` or `kept`; `left` lists items with `item` and `reason`; `kept` lists `moved_branch` with `branch`, or `unrecorded_edit` or `foreign_path` with `path`); per gate `edited` and `missing`; per Task `waits_for`, `conflict` (`kind` `merge` with `paths`, or `checks` with `failed`); per last error `resets_at`.
 
 `surt inspect <feature> [<task>] --json` prints the timeline; each event keeps its `data` object as recorded ([D](D-database.md)):
 
