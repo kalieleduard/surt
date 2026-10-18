@@ -51,6 +51,7 @@ struct RateLimited<R> {
     delay: i64,
     resets_at: Mutex<Option<i64>>,
     held: Option<&'static str>,
+    held_started: watch::Sender<bool>,
     released: watch::Sender<bool>,
 }
 
@@ -62,6 +63,7 @@ impl<R> RateLimited<R> {
             delay,
             resets_at: Mutex::new(None),
             held: None,
+            held_started: watch::Sender::new(false),
             released: watch::Sender::new(false),
         }
     }
@@ -94,6 +96,10 @@ impl<R: AgentRuntime> AgentRuntime for RateLimited<R> {
     ) -> Result<RuntimeCompletion, RuntimeError> {
         let step = request.step.step.clone();
         if request.step.attempt == 1 && step == self.limited {
+            if self.held.is_some() {
+                let mut held_started = self.held_started.subscribe();
+                let _ = held_started.wait_for(|started| *started).await;
+            }
             let resets_at = now() + self.delay;
             *self.resets_at.lock().expect("the reset time") = Some(resets_at);
             let script = Script::new().on(&step, 1, 1, limited(resets_at));
@@ -102,6 +108,7 @@ impl<R: AgentRuntime> AgentRuntime for RateLimited<R> {
                 .await;
         }
         if request.step.attempt == 1 && Some(step.as_str()) == self.held {
+            self.held_started.send_replace(true);
             let mut released = self.released.subscribe();
             let _ = released.wait_for(|released| *released).await;
         }
