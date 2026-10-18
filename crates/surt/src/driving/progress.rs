@@ -15,17 +15,24 @@ const FIRST: u32 = 1;
 const SHORT_SHA_CHARS: usize = 7;
 const REDRAW: Duration = Duration::from_secs(1);
 
-pub(crate) async fn print(mut events: UnboundedReceiver<Progress>) -> Option<Cleanup> {
+#[derive(Default)]
+pub(crate) struct Printed {
+    pub(crate) cleaned: Option<Cleanup>,
+    pub(crate) stop_requested: bool,
+}
+
+pub(crate) async fn print(mut events: UnboundedReceiver<Progress>) -> Printed {
     let mut screen = Screen::new(now());
     let mut redraw = tokio::time::interval(REDRAW);
-    let mut cleaned = None;
+    let mut printed = Printed::default();
     loop {
         tokio::select! {
             event = events.recv() => match event {
                 None => break,
-                Some(Progress::CleanedUp(cleanup)) => cleaned = Some(cleanup),
+                Some(Progress::CleanedUp(cleanup)) => printed.cleaned = Some(cleanup),
                 Some(Progress::Activity(snapshot)) => screen.snapshot(snapshot, now()),
                 Some(event) => {
+                    printed.stop_requested |= event == Progress::StopRequested;
                     let (mark, message) = message(&event);
                     screen.line(mark, &message, now());
                 }
@@ -34,7 +41,7 @@ pub(crate) async fn print(mut events: UnboundedReceiver<Progress>) -> Option<Cle
         }
     }
     screen.finish();
-    cleaned
+    printed
 }
 
 pub(crate) fn label(step: &StepLabel) -> String {
@@ -170,6 +177,12 @@ fn message(progress: &Progress) -> (Mark, Message) {
             )),
         ),
         Progress::CancelRequested { driver } => (Mark::Waiting, cancel_requested(*driver)),
+        Progress::StopRequested => (
+            Mark::Waiting,
+            Message::new(format!(
+                "stop requested from another terminal; stopping{ELLIPSIS}"
+            )),
+        ),
         Progress::CleanedUp(cleanup) => (Mark::Retry, Message::new(summary(cleanup))),
         Progress::Activity(snapshot) => (
             Mark::Waiting,

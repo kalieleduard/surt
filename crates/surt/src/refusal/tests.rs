@@ -168,6 +168,10 @@ fn every_refusal() -> Vec<Refusal> {
             item: "A".to_owned(),
             known: Vec::new(),
         },
+        Refusal::NoLiveDriver {
+            subject: "20261017-add-login".to_owned(),
+            states: vec![RunState::AwaitingApproval, RunState::Blocked],
+        },
         Refusal::UnrecordedEditsBlockNewRun {
             subject: "20261017-add-login".to_owned(),
             run: 1,
@@ -344,7 +348,7 @@ fn a_live_driver_is_named_by_its_pid() {
 
     assert_eq!(
         text(refusal),
-        "✖ 20261017-add-login is being driven by pid 48213\n  fix: stop it with Ctrl-C in its terminal, then rerun\n"
+        "✖ 20261017-add-login is being driven by pid 48213\n  fix: surt stop 20261017-add-login, or Ctrl-C in its terminal, then rerun\n"
     );
 }
 

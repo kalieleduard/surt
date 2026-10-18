@@ -16,6 +16,7 @@ mod repository;
 mod resolving;
 mod show;
 mod status;
+mod stopping;
 mod subjects;
 
 use std::path::Path;
@@ -52,6 +53,7 @@ pub use status::{
     AgentSlots, CleanupState, Conflict, Driver, GateView, ItemState, ItemStatus,
     PendingIntegration, RevisionSummary, RunStatus, StatusScope, Unattended,
 };
+pub use stopping::StopRequest;
 pub use subjects::FreeName;
 
 #[cfg(feature = "test-support")]

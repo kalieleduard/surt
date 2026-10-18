@@ -15,5 +15,6 @@ mod scripts;
 mod show;
 mod start;
 mod status;
+mod stop;
 mod support;
 mod usage;

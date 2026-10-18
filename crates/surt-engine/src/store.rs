@@ -30,6 +30,7 @@ mod revisions;
 mod runs;
 mod runtime_info;
 mod steps;
+mod stopping;
 mod subjects;
 mod timeline;
 mod working_copy;
