@@ -6,6 +6,7 @@ pub(crate) use purge::{RefKind, Targets, size};
 pub(crate) use repository::lock_git;
 
 use std::fmt::Display;
+use std::io;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -83,6 +84,28 @@ pub(crate) async fn is_kept(store: &Store, run: &RunId) -> Result<bool, Error> {
     }
 }
 
+pub(crate) async fn clear_kept_working_copy(
+    store: &Store,
+    layout: &Layout,
+    run: &RunId,
+) -> Result<(), Error> {
+    let Some(ending) = store.ending(run).await? else {
+        return Ok(());
+    };
+    if !kept(store, run, ending).await? {
+        return Ok(());
+    }
+    let mut sweep = Sweep::new(store, layout, run, ending.end);
+    sweep.working_copy().await?;
+    match sweep.report.left.into_iter().next() {
+        None => Ok(()),
+        Some(left) => Err(Error::internal(io::Error::other(format!(
+            "{}: {}",
+            left.item, left.reason
+        )))),
+    }
+}
+
 async fn kept(store: &Store, run: &RunId, ending: Ending) -> Result<bool, Error> {
     if ending.cleaned || ending.end != RunEnd::Succeeded {
         return Ok(false);
@@ -97,23 +120,26 @@ async fn clean_up(
     run: &RunId,
     end: RunEnd,
 ) -> Result<Cleanup, Error> {
-    let root = run.as_str();
-    let mut sweep = Sweep {
-        store,
-        layout,
-        root,
-        end,
-        report: Cleanup::default(),
-    };
+    let mut sweep = Sweep::new(store, layout, run, end);
     sweep.working_copy().await?;
     sweep.executions().await?;
     sweep.repository().await?;
     let report = sweep.report;
-    store.record_cleanup(root, record(&report)).await?;
+    store.record_cleanup(run.as_str(), record(&report)).await?;
     Ok(report)
 }
 
-impl Sweep<'_> {
+impl<'a> Sweep<'a> {
+    fn new(store: &'a Store, layout: &'a Layout, run: &'a RunId, end: RunEnd) -> Sweep<'a> {
+        Sweep {
+            store,
+            layout,
+            root: run.as_str(),
+            end,
+            report: Cleanup::default(),
+        }
+    }
+
     fn leave(&mut self, item: impl Display, reason: impl Display) {
         self.report.left.push(Left {
             item: item.to_string(),
