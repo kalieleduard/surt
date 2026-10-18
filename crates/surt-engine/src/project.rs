@@ -67,7 +67,7 @@ pub use resolving::{Reference, RunSelector, Subject};
 pub use restoring::RestoreImpact;
 pub use show::{ArtifactSummary, RevisionApproval, ShowRequest, Shown, ShownFile};
 pub use status::{
-    AgentSlots, CleanupState, Conflict, Driver, GateView, ItemState, ItemStatus,
+    AgentSlots, CleanupState, Conflict, Driver, GateView, ItemState, ItemStatus, LaunchPause,
     PendingIntegration, RevisionSummary, RunStatus, StatusScope, Unattended,
 };
 pub use stopping::StopRequest;

@@ -79,6 +79,14 @@ fn work(fields: Fields, status: &RunStatus, resume: &str) -> Fields {
                 .with("in_use", status.slots.in_use)
                 .with("total", status.slots.total),
         )
+        .maybe(
+            "paused",
+            status.paused.as_ref().map(|pause| {
+                Fields::new()
+                    .with("code", pause.code.as_str())
+                    .time("resets_at", pause.resets_at)
+            }),
+        )
         .with("gates", status.gates.iter().map(gate).collect::<Vec<_>>())
         .with("tasks", tasks)
         .list("blocked", status.blocked.iter().map(blocked).collect())

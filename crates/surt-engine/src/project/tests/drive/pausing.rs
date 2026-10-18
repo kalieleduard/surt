@@ -4,10 +4,14 @@ use std::sync::Mutex;
 use serde_json::json;
 use tokio::sync::{mpsc, watch};
 
+use super::super::fixtures::SUBJECT;
 use super::evidence::{Committing, change, committed_catalog};
 use super::fixtures::{ACTOR, Feature};
 use super::planned::{TASK_WORKFLOW, approved, plan, review, work};
-use crate::project::{Config, DriveOutcome, Progress};
+use crate::project::{
+    Config, DriveOutcome, ItemState, LaunchPause, Progress, RunSelector, RunState, RunStatus,
+    StatusScope,
+};
 use crate::runtime::{
     AgentRuntime, Behavior, FakeRuntime, RuntimeCompletion, RuntimeError, RuntimeEventSink,
     RuntimeRequest, Script, StopSignal,
@@ -169,6 +173,15 @@ fn now() -> i64 {
     jiff::Timestamp::now().as_second()
 }
 
+async fn status(feature: &Feature) -> RunStatus {
+    let mut statuses = feature
+        .project
+        .status(StatusScope::Feature(SUBJECT, RunSelector::Current))
+        .await
+        .expect("the status");
+    statuses.remove(0)
+}
+
 fn limited(resets_at: i64) -> Behavior {
     Behavior::LimitFailure {
         resets_at: Some(resets_at),
@@ -244,6 +257,59 @@ async fn a_transient_failure_pauses_agent_launches_until_the_reset_and_spends_no
         ),
         "{pause:?}"
     );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn status_shows_the_pause_while_the_driver_waits_and_not_once_an_agent_started_after_it() {
+    let feature = approved(TASK_WORKFLOW, &[("A", &[])]).await;
+    let stop = StopSignal::new();
+    let runtime = RateLimited::new(
+        FakeRuntime::new(Script::new()),
+        "A/build",
+        DISTANT_RESET_SECONDS,
+    );
+    let (sink, mut events) = mpsc::unbounded_channel();
+    let drive = feature
+        .project
+        .drive(&feature.run, &runtime, sink, stop.clone());
+    let watch = async {
+        let mut shown = None;
+        while let Some(event) = events.recv().await {
+            if matches!(event, Progress::Paused { .. }) && shown.is_none() {
+                shown = Some(status(&feature).await);
+                stop.graceful();
+            }
+        }
+        shown
+    };
+    let driven = tokio::time::timeout(CEILING, async { tokio::join!(drive, watch) });
+    let (outcome, shown) = driven.await.expect("the drive ends within the ceiling");
+
+    assert_eq!(outcome.expect("drive returns"), DriveOutcome::Interrupted);
+    let shown = shown.expect("launches paused");
+    assert_eq!(shown.states, [RunState::Running]);
+    assert_eq!(
+        shown.paused,
+        Some(LaunchPause {
+            code: "rate_limit".to_owned(),
+            resets_at: Some(runtime.resets_at()),
+        })
+    );
+    let tasks: Vec<_> = shown
+        .items
+        .iter()
+        .map(|task| (task.key.as_str(), task.state))
+        .collect();
+    assert_eq!(tasks, [("A", ItemState::Queued)]);
+
+    let resumed = feature
+        .drive(Script::new().on("A/build", 1, 2, work("a")))
+        .await;
+    assert_eq!(
+        resumed.outcome.expect("drive returns"),
+        DriveOutcome::Succeeded
+    );
+    assert_eq!(status(&feature).await.paused, None);
 }
 
 #[tokio::test(flavor = "multi_thread")]
