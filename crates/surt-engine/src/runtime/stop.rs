@@ -44,7 +44,12 @@ impl StopSignal {
             .map_or(StopLevel::Force, |level| *level)
     }
 
-    fn raise(&self, level: StopLevel) {
+    pub(crate) async fn raised_above(&self, level: StopLevel) {
+        let mut receiver = self.0.subscribe();
+        let _ = receiver.wait_for(|current| *current > level).await;
+    }
+
+    pub(crate) fn raise(&self, level: StopLevel) {
         self.0.send_if_modified(|current| {
             let raised = level > *current;
             if raised {

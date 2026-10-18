@@ -4,7 +4,7 @@ use tokio::sync::mpsc;
 
 use super::super::fixtures::{ProjectDir, default_config, new_run};
 use crate::project::{
-    AgentAssets, Catalog, DriveOutcome, Error, Progress, Project, RunId, StepLabel,
+    AgentAssets, Catalog, Config, DriveOutcome, Error, Progress, Project, RunId, StepLabel,
 };
 use crate::runtime::{
     AgentRuntime, Behavior, Delivery, FakeRuntime, RuntimeCompletion, RuntimeError,
@@ -122,8 +122,12 @@ pub(super) struct Feature {
 
 impl Feature {
     pub(super) async fn new(catalog: Catalog, workflow: &str) -> Feature {
+        Feature::with_config(catalog, workflow, default_config()).await
+    }
+
+    pub(super) async fn with_config(catalog: Catalog, workflow: &str, config: Config) -> Feature {
         let dir = ProjectDir::new();
-        let project = dir.project(catalog, default_config()).await;
+        let project = dir.project(catalog, config).await;
         let run = project
             .create_run(new_run(workflow))
             .await

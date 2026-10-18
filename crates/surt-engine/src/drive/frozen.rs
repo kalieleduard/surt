@@ -100,6 +100,17 @@ impl Frozen {
             .ok_or_else(|| CorruptSnapshot::new(snapshot, "no such workflow"))
     }
 
+    pub(crate) fn definition_named(
+        &self,
+        name: &str,
+    ) -> Result<(&str, &Definition), CorruptSnapshot> {
+        self.definitions
+            .iter()
+            .find(|(_, definition)| definition.name == name)
+            .map(|(snapshot, definition)| (snapshot.as_str(), definition))
+            .ok_or_else(|| CorruptSnapshot::new(name, "no such workflow"))
+    }
+
     pub(crate) fn agent(&self, name: &str) -> Result<&FrozenAgent, CorruptSnapshot> {
         self.agents
             .get(name)
