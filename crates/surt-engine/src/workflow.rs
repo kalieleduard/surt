@@ -8,6 +8,7 @@ mod freeze;
 mod outcomes;
 mod overrides;
 mod references;
+mod sources;
 mod steps;
 mod structure;
 

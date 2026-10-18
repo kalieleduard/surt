@@ -74,3 +74,23 @@ async fn every_execution_of_a_run_keeps_the_override_it_froze_after_the_file_cha
         .collect();
     assert_eq!(profiles, [frozen.clone(), frozen.clone(), frozen]);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_runtime_receives_the_local_instructions_in_place_of_the_built_in_text() {
+    let local = "Follow the project's style guide.\n";
+    let feature = Feature::review_with_local("writer", "instructions.md", local).await;
+    let recording = Recording::new(Script::new().on("write", 1, 1, draft("# Draft\n")));
+
+    feature
+        .drive_with(&recording)
+        .await
+        .outcome
+        .expect("the draft reaches the gate");
+
+    let instructions: Vec<String> = recording
+        .requests()
+        .iter()
+        .map(|request| request.launch.instructions.clone())
+        .collect();
+    assert_eq!(instructions, [local]);
+}

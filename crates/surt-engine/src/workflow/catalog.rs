@@ -3,12 +3,14 @@ use std::collections::BTreeMap;
 use super::closure;
 use super::error::InvalidDefinition;
 use super::flow::Available;
+use super::sources::{AgentSources, LocalAssets};
 
 #[derive(Clone, Debug, Default)]
 pub struct Catalog {
     workflows: BTreeMap<String, &'static str>,
     agents: BTreeMap<String, AgentAssets>,
     effective_tomls: BTreeMap<String, String>,
+    local_assets: BTreeMap<String, LocalAssets>,
     checks: BTreeMap<String, Vec<(String, DeliveryCheck)>>,
 }
 
@@ -73,6 +75,13 @@ impl Catalog {
         self.agents.get(id)
     }
 
+    pub(crate) fn agent_sources(&self, id: &str) -> Option<AgentSources<'_>> {
+        self.agents.get(id).map(|assets| AgentSources {
+            assets,
+            local: self.local_assets.get(id),
+        })
+    }
+
     pub(crate) fn agent_ids(&self) -> impl Iterator<Item = &str> {
         self.agents.keys().map(String::as_str)
     }
@@ -86,6 +95,11 @@ impl Catalog {
 
     pub(super) fn with_effective_toml(mut self, id: &str, toml: String) -> Catalog {
         self.effective_tomls.insert(id.to_owned(), toml);
+        self
+    }
+
+    pub(super) fn with_local_assets(mut self, id: &str, local: LocalAssets) -> Catalog {
+        self.local_assets.insert(id.to_owned(), local);
         self
     }
 }

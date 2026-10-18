@@ -1,14 +1,18 @@
 mod fields;
 
+use std::collections::BTreeMap;
+
 use toml::Table;
 
 use super::agent::AgentContract;
 use super::catalog::Catalog;
 use super::error::Problem;
+use super::sources::LocalAssets;
 
 pub(crate) struct LocalAgent {
     pub(crate) id: String,
     pub(crate) toml: Option<LocalFile>,
+    pub(crate) instructions: Option<LocalFile>,
 }
 
 pub(crate) struct LocalFile {
@@ -40,6 +44,7 @@ impl Catalog {
     ) -> Result<Catalog, Box<InvalidOverride>> {
         let mut effective = self.clone();
         for local in locals {
+            effective = effective.with_local_assets(&local.id, local.assets());
             let Some(file) = &local.toml else {
                 continue;
             };
@@ -60,6 +65,15 @@ impl Catalog {
             effective = effective.with_effective_toml(&local.id, merged);
         }
         Ok(effective)
+    }
+}
+
+impl LocalAgent {
+    fn assets(&self) -> LocalAssets {
+        LocalAssets {
+            instructions: self.instructions.as_ref().map(|file| file.text.clone()),
+            schemas: BTreeMap::new(),
+        }
     }
 }
 
