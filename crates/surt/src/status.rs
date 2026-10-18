@@ -1,4 +1,5 @@
 mod detail;
+mod json;
 mod overview;
 
 use std::path::Path;
@@ -16,15 +17,22 @@ pub(crate) struct StatusArgs {
     all: bool,
     #[arg(long, value_name = "N", requires = "feature")]
     run: Option<u32>,
+    #[arg(long)]
+    json: bool,
 }
 
 pub(crate) async fn run(cwd: &Path, args: StatusArgs) -> Result<(), Failure> {
     let project = Project::open_read_only(cwd).await?;
     if let Some(feature) = &args.feature {
-        for status in project
+        let statuses = project
             .status(StatusScope::Feature(feature, run_selector(args.run)))
-            .await?
-        {
+            .await?;
+        if args.json {
+            return statuses
+                .first()
+                .map_or(Ok(()), |status| crate::json::print(json::feature(status)));
+        }
+        for status in statuses {
             anstream::print!("{}", printable(&detail::render(&status)));
         }
         return Ok(());
@@ -35,6 +43,9 @@ pub(crate) async fn run(cwd: &Path, args: StatusArgs) -> Result<(), Failure> {
         StatusScope::Active
     };
     let statuses = project.status(scope).await?;
+    if args.json {
+        return crate::json::print(json::features(&statuses));
+    }
     if statuses.is_empty() {
         anstream::eprintln!("no feature has an active run (surt status --all lists finished ones)");
         return Ok(());

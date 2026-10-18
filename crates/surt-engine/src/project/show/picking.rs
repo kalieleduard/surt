@@ -96,12 +96,12 @@ pub(super) fn content(
     request: ShowRequest<'_>,
     revision: u32,
     mut files: Vec<(String, Vec<u8>)>,
-) -> Result<Vec<u8>, Refusal> {
+) -> Result<Vec<(String, Vec<u8>)>, Refusal> {
     let Some(path) = request.file else {
-        return Ok(primary(files));
+        return Ok(files);
     };
     match files.iter().position(|(name, _)| name == path) {
-        Some(index) => Ok(files.swap_remove(index).1),
+        Some(index) => Ok(vec![files.swap_remove(index)]),
         None => Err(Refusal::UnknownFile {
             subject: subject.to_owned(),
             artifact: request.artifact.to_owned(),
@@ -112,13 +112,13 @@ pub(super) fn content(
     }
 }
 
-fn primary(mut files: Vec<(String, Vec<u8>)>) -> Vec<u8> {
-    if files.is_empty() {
-        return Vec::new();
-    }
+pub(super) fn primary(files: &[(String, Vec<u8>)]) -> Vec<u8> {
     let index = files
         .iter()
         .position(|(_, bytes)| matches!(serde_json::from_slice(bytes), Ok(Value::Array(_))))
         .unwrap_or_default();
-    files.swap_remove(index).1
+    files
+        .get(index)
+        .map(|(_, bytes)| bytes.clone())
+        .unwrap_or_default()
 }

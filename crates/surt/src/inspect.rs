@@ -1,6 +1,7 @@
 mod details;
 mod execution;
 mod fields;
+mod json;
 
 use std::path::Path;
 
@@ -21,6 +22,8 @@ pub(crate) struct InspectArgs {
     task: Option<String>,
     #[arg(long, value_name = "N")]
     run: Option<u32>,
+    #[arg(long)]
+    json: bool,
 }
 
 pub(crate) async fn run(cwd: &Path, args: InspectArgs) -> Result<(), Failure> {
@@ -29,6 +32,9 @@ pub(crate) async fn run(cwd: &Path, args: InspectArgs) -> Result<(), Failure> {
         && let Reference::Execution(id) = project.reference(&args.feature).await?
     {
         let detail = project.inspect_execution(&id).await?;
+        if args.json {
+            return crate::json::print(json::execution(&detail));
+        }
         let now = Timestamp::now().as_second();
         anstream::print!("{}", printable(&execution::render(&detail, now)));
         return Ok(());
@@ -38,6 +44,9 @@ pub(crate) async fn run(cwd: &Path, args: InspectArgs) -> Result<(), Failure> {
         run: run_selector(args.run),
     };
     let timeline = project.inspect(&args.feature, request).await?;
+    if args.json {
+        return crate::json::print(json::timeline(&timeline));
+    }
     anstream::print!("{}", printable(&render(&timeline, &Zoned::now())));
     Ok(())
 }

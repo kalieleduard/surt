@@ -1,3 +1,5 @@
+mod json;
+
 use std::io::Write;
 use std::path::Path;
 
@@ -25,6 +27,8 @@ pub(crate) struct ShowArgs {
     file: Option<String>,
     #[arg(long, value_name = "N")]
     run: Option<u32>,
+    #[arg(long)]
+    json: bool,
 }
 
 pub(crate) async fn run(cwd: &Path, args: ShowArgs) -> Result<(), Failure> {
@@ -33,6 +37,9 @@ pub(crate) async fn run(cwd: &Path, args: ShowArgs) -> Result<(), Failure> {
         let artifacts = project
             .artifacts(&args.feature, run_selector(args.run))
             .await?;
+        if args.json {
+            return crate::json::print(json::index(&artifacts));
+        }
         anstream::print!("{}", printable(&index(&artifacts)));
         return Ok(());
     };
@@ -52,6 +59,9 @@ pub(crate) async fn run(cwd: &Path, args: ShowArgs) -> Result<(), Failure> {
                 shown.artifact, shown.revision
             ))
             .print(Mark::Warning);
+    }
+    if args.json {
+        return crate::json::print(json::revision(&shown));
     }
     let mut stdout = std::io::stdout().lock();
     stdout.write_all(&shown.content)?;

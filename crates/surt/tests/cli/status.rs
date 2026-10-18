@@ -44,7 +44,7 @@ pub fn hashes(root: &Path) -> BTreeMap<String, String> {
     found
 }
 
-fn at_the_manifest_gate(name: &str) -> Sandbox {
+pub fn at_the_manifest_gate(name: &str) -> Sandbox {
     let sandbox = project(&[spec(1, "# Spec 1\n"), tasks(1, &["A", "B"])]);
     ok(sandbox.feature(&["add login"]));
     ok(surt(&sandbox, &["approve", name]));
@@ -103,7 +103,7 @@ fn short(sha: &str) -> &str {
     &sha[..SHORT_SHA_CHARS]
 }
 
-fn with_a_blocked_task(name: &str) -> Sandbox {
+pub fn with_a_blocked_task(name: &str) -> Sandbox {
     let sandbox = planned(
         name,
         &[
@@ -182,7 +182,7 @@ fn status_of_a_blocked_feature_shows_each_task_and_how_to_resume_each_blocked_st
     );
 }
 
-fn delivered(name: &str) -> Sandbox {
+pub fn delivered(name: &str) -> Sandbox {
     let sandbox = planned(
         name,
         &[
@@ -293,9 +293,22 @@ fn status_and_show_write_nothing_to_the_database_or_the_working_copy() {
     let working_copy = sandbox.dot_surt().join("features").join(&name);
     fs::write(working_copy.join("tasks/A.md"), "# Task A, edited\n").expect("an edit");
     fs::remove_file(working_copy.join("tasks/B.md")).expect("a removed file");
-    let before = hashes(&sandbox.dot_surt());
+    let execution = sandbox
+        .texts("SELECT id FROM execution ORDER BY id LIMIT 1")
+        .concat();
+    let mut before = hashes(&sandbox.dot_surt());
+    before.retain(|path, _| !path.starts_with("surt.db-"));
 
     for args in [
+        vec!["status", "--json"],
+        vec!["status", "--all", "--json"],
+        vec!["status", &name, "--json"],
+        vec!["status", &name, "--run", "1", "--json"],
+        vec!["show", &name, "--json"],
+        vec!["show", &name, "manifest", "--json"],
+        vec!["show", &name, "manifest", "--file", "tasks/A.md", "--json"],
+        vec!["inspect", &name, "--json"],
+        vec!["inspect", &execution, "--json"],
         vec!["status"],
         vec!["status", "--all"],
         vec!["status", &name],

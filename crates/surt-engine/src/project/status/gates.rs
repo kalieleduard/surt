@@ -84,6 +84,7 @@ async fn summary(
     Ok(Some(RevisionSummary {
         number,
         origin: origin(&revision.producer),
+        sha256: revision.sha256,
         files: revision.files.into_iter().map(|(path, _)| path).collect(),
     }))
 }
