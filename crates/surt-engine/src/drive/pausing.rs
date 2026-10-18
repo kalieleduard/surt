@@ -7,6 +7,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde_json::{Map, Value, json};
 
+use super::decide::{Ctx, StopLevel};
 use super::driver::Driver;
 use super::outcome::Progress;
 use super::pause::{Pause, backoff};
@@ -33,44 +34,60 @@ pub(super) enum AgentEnd<'a> {
     Other,
 }
 
+impl Pausing {
+    fn learn(&mut self, end: &AgentEnd<'_>, now: i64) {
+        match *end {
+            AgentEnd::Transient { code, resets_at } => {
+                let before = self.schedule.until(now);
+                self.schedule = self.schedule.failed(resets_at, now);
+                if self.schedule.until(now) != before {
+                    code.clone_into(&mut self.code);
+                }
+            }
+            AgentEnd::Other => self.schedule = self.schedule.ended(),
+        }
+    }
+
+    /// The end of the pause at `now`, and how long it lasted once it is
+    /// over after it was announced.
+    fn check(&mut self, now: i64) -> (Option<i64>, Option<u64>) {
+        let until = self.schedule.until(now);
+        if until.is_some() {
+            return (until, None);
+        }
+        self.announced = None;
+        let lasted = self.since.take().map(|since| now - since);
+        (
+            None,
+            lasted.map(|seconds| u64::try_from(seconds).unwrap_or_default()),
+        )
+    }
+
+    /// The code and backoff step to announce, unless the pause already was
+    /// announced with this end.
+    fn announce(&mut self, until: i64, now: i64) -> Option<(String, Option<u32>)> {
+        if self.announced == Some(until) {
+            return None;
+        }
+        self.announced = Some(until);
+        self.since.get_or_insert(now);
+        Some((self.code.clone(), self.schedule.backoff_step()))
+    }
+}
+
 impl<R: AgentRuntime> Driver<'_, R> {
     /// Called with every agent Execution that ends, before it is recorded,
     /// so the next tick already sees the pause.
     pub(super) fn learn(&self, end: &AgentEnd<'_>) {
-        let now = unix_now();
-        let Ok(mut pausing) = self.pausing.lock() else {
-            return;
-        };
-        match *end {
-            AgentEnd::Transient { code, resets_at } => {
-                let before = pausing.schedule.until(now);
-                pausing.schedule = pausing.schedule.failed(resets_at, now);
-                if pausing.schedule.until(now) != before {
-                    code.clone_into(&mut pausing.code);
-                }
-            }
-            AgentEnd::Other => pausing.schedule = pausing.schedule.ended(),
-        }
+        self.with_pausing(|pausing| pausing.learn(end, unix_now()));
     }
 
     /// The end of the pause for this tick, reporting the resume once it is
     /// over.
     pub(super) async fn paused_until(&self, now: i64) -> Result<Option<i64>, Error> {
-        let (until, resumed) = {
-            let Ok(mut pausing) = self.pausing.lock() else {
-                return Ok(None);
-            };
-            let until = pausing.schedule.until(now);
-            let resumed = match (until, pausing.since) {
-                (None, Some(since)) => {
-                    pausing.since = None;
-                    pausing.announced = None;
-                    Some(u64::try_from(now - since).unwrap_or_default())
-                }
-                _ => None,
-            };
-            (until, resumed)
-        };
+        let (until, resumed) = self
+            .with_pausing(|pausing| pausing.check(now))
+            .unwrap_or_default();
         if let Some(paused_seconds) = resumed {
             let data = json!({ "paused_seconds": paused_seconds });
             self.record_agents_event(AGENTS_RESUMED, &data).await?;
@@ -79,28 +96,18 @@ impl<R: AgentRuntime> Driver<'_, R> {
         Ok(until)
     }
 
-    /// Reports the pause when it starts and whenever its end moves later.
-    pub(super) async fn announce(&self, until: i64, now: i64, waiting: usize) -> Result<(), Error> {
-        let (code, step) = {
-            let Ok(mut pausing) = self.pausing.lock() else {
-                return Ok(());
-            };
-            if pausing.announced == Some(until) {
-                return Ok(());
-            }
-            pausing.announced = Some(until);
-            pausing.since.get_or_insert(now);
-            (pausing.code.clone(), pausing.schedule.backoff_step())
+    /// Reports the pause, once agents wait for it, when it starts and
+    /// whenever its end moves later.
+    pub(super) async fn announce(&self, ctx: &Ctx, waiting: usize) -> Result<(), Error> {
+        let (Some(until), StopLevel::None, 1..) = (ctx.paused_until, ctx.stop, waiting) else {
+            return Ok(());
         };
-        let mut data = Map::new();
-        data.insert("until".to_owned(), json!(until));
-        data.insert("code".to_owned(), json!(code));
-        if let Some(step) = step {
-            data.insert("backoff_step".to_owned(), json!(step));
-        }
-        data.insert("waiting".to_owned(), json!(waiting));
-        self.record_agents_event(AGENTS_PAUSED, &Value::Object(data))
-            .await?;
+        let announced = self.with_pausing(|pausing| pausing.announce(until, ctx.now));
+        let Some((code, step)) = announced.flatten() else {
+            return Ok(());
+        };
+        let data = paused(until, &code, step, waiting);
+        self.record_agents_event(AGENTS_PAUSED, &data).await?;
         self.report(Progress::Paused {
             until,
             waiting,
@@ -111,21 +118,34 @@ impl<R: AgentRuntime> Driver<'_, R> {
 
     /// How long until the pause ends, if launches are paused.
     pub(super) fn pause_left(&self) -> Option<Duration> {
-        let until = self.pausing.lock().ok()?.schedule.until(unix_now())?;
+        let until = self.with_pausing(|pausing| pausing.schedule.until(unix_now()))??;
         let end = UNIX_EPOCH + Duration::from_secs(u64::try_from(until).ok()?);
         Some(end.duration_since(SystemTime::now()).unwrap_or_default())
     }
 
+    fn with_pausing<T>(&self, change: impl FnOnce(&mut Pausing) -> T) -> Option<T> {
+        let mut pausing = self.pausing.lock().ok()?;
+        Some(change(&mut pausing))
+    }
+
     async fn record_agents_event(&self, kind: &str, data: &Value) -> Result<(), Error> {
-        let root = self.driving.root.as_str();
-        Ok(self
-            .driving
-            .store
-            .record_run_event(root, kind, data)
-            .await?)
+        let (store, root) = (self.driving.store, self.driving.root.as_str());
+        Ok(store.record_run_event(root, kind, data).await?)
     }
 }
 
+/// D's `agents.paused` data: `backoff_step` only when no reset time was
+/// reported.
+fn paused(until: i64, code: &str, step: Option<u32>, waiting: usize) -> Value {
+    let mut data = Map::new();
+    data.insert("until".to_owned(), json!(until));
+    data.insert("code".to_owned(), json!(code));
+    if let Some(step) = step {
+        data.insert("backoff_step".to_owned(), json!(step));
+    }
+    data.insert("waiting".to_owned(), json!(waiting));
+    Value::Object(data)
+}
 pub(super) fn unix_now() -> i64 {
     jiff::Timestamp::now().as_second()
 }

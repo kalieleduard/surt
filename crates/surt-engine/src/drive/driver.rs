@@ -237,10 +237,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         };
         let mut launches = Vec::new();
         let decision = decide::decision(&loaded.graph, &ctx);
-        let waiting = decision.queued;
-        if let (Some(until), decide::StopLevel::None, 1..) = (ctx.paused_until, ctx.stop, waiting) {
-            self.announce(until, now, waiting).await?;
-        }
+        self.announce(&ctx, decision.queued).await?;
         let actions = decision.actions;
         if let Some(refusal) = self.guard_readers(&actions).await? {
             return Ok(Tick::Return(DriveOutcome::Halted(refusal)));
