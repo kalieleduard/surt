@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use surt_engine::project::{Progress, StepLabel};
 
 use super::message;
@@ -94,6 +96,31 @@ fn recovery_and_cancel_lines_print_only_ascii_in_ascii_mode() {
         "[warn] previous driver (pid 48213) is gone - recovering\n\
          [error] task C build attempt 1 exited but was never recorded - discarded\n\
          [waiting] cancel requested; waiting for the driver to stop...\n"
+    );
+}
+
+#[test]
+fn an_invalid_configuration_mid_run_says_which_limit_the_driver_keeps() {
+    let warning = Progress::ConfigInvalid {
+        path: PathBuf::from("/work/shop/.surt/config.toml"),
+        line: Some(4),
+        reason: "string values must be quoted".to_owned(),
+        limit: 2,
+    };
+
+    let printed = line(&warning);
+
+    assert_eq!(
+        printed,
+        "⚠ invalid configuration in /work/shop/.surt/config.toml:4 — keeping max_concurrent_agents = 2\n\
+         \x20 string values must be quoted\n\
+         \x20 fix: edit /work/shop/.surt/config.toml:4\n"
+    );
+    assert_eq!(
+        Symbols::Ascii.render(&printed),
+        "[warn] invalid configuration in /work/shop/.surt/config.toml:4 - keeping max_concurrent_agents = 2\n\
+         \x20 string values must be quoted\n\
+         \x20 fix: edit /work/shop/.surt/config.toml:4\n"
     );
 }
 

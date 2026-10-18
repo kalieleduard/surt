@@ -67,6 +67,31 @@ pub(crate) fn load(path: &Path) -> Result<Config, Error> {
     Ok(config)
 }
 
+/// Rereads `max_concurrent_agents` from the project configuration while a
+/// Driver runs; `None` when the file does not exist. Only this key is read
+/// live, so a file that parses is enough, whatever its other keys say.
+pub(crate) fn live_max_concurrent_agents(path: &Path) -> Result<Option<NonZeroU32>, Unreadable> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(Unreadable {
+                line: None,
+                reason: error.to_string(),
+            });
+        }
+    };
+    let config: Config = parse(&text)?;
+    Ok(Some(config.max_concurrent_agents))
+}
+
+/// Why a configuration file gave no values: the line at fault, when known, and the reason.
+#[derive(Debug)]
+pub(crate) struct Unreadable {
+    pub(crate) line: Option<usize>,
+    pub(crate) reason: String,
+}
+
 /// Reads a configuration file, or its defaults when it does not exist.
 /// A file that does not parse is refused with its path, line and reason.
 fn read<T: DeserializeOwned + Default>(path: &Path) -> Result<T, Error> {
@@ -75,13 +100,20 @@ fn read<T: DeserializeOwned + Default>(path: &Path) -> Result<T, Error> {
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(T::default()),
         Err(error) => return Err(Error::io("read", path, error)),
     };
-    toml::from_str(&text).map_err(|error: toml::de::Error| {
+    parse(&text).map_err(|unreadable| {
         Refusal::InvalidConfig {
             path: path.to_path_buf(),
-            line: error.span().map(|span| line_of(&text, span.start)),
-            reason: error.message().to_owned(),
+            line: unreadable.line,
+            reason: unreadable.reason,
         }
         .into()
+    })
+}
+
+fn parse<T: DeserializeOwned>(text: &str) -> Result<T, Unreadable> {
+    toml::from_str(text).map_err(|error: toml::de::Error| Unreadable {
+        line: error.span().map(|span| line_of(text, span.start)),
+        reason: error.message().to_owned(),
     })
 }
 

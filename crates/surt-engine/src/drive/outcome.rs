@@ -104,6 +104,14 @@ pub enum Progress {
         driver: Option<u32>,
     },
     StopRequested,
+    /// The project configuration stopped parsing while the Driver ran; it keeps
+    /// running with `limit`, its last valid `max_concurrent_agents`.
+    ConfigInvalid {
+        path: PathBuf,
+        line: Option<usize>,
+        reason: String,
+        limit: usize,
+    },
     CleanedUp(Cleanup),
     Activity(ActivitySnapshot),
 }

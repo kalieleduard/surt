@@ -3,6 +3,7 @@ use surt_engine::project::{Progress, StepLabel};
 use super::super::cleanup::summary;
 use super::{FIRST, label, short};
 use crate::message::{Mark, Message};
+use crate::refusal::config_location;
 use crate::symbols::{DASH, ELLIPSIS};
 
 fn subject(step: &StepLabel) -> String {
@@ -129,6 +130,22 @@ pub(super) fn message(progress: &Progress) -> (Mark, Message) {
                 "stop requested from another terminal; stopping{ELLIPSIS}"
             )),
         ),
+        Progress::ConfigInvalid {
+            path,
+            line,
+            reason,
+            limit,
+        } => {
+            let location = config_location(path, *line);
+            (
+                Mark::Warning,
+                Message::new(format!(
+                    "invalid configuration in {location} {DASH} keeping max_concurrent_agents = {limit}"
+                ))
+                .context(reason)
+                .way("fix", format!("edit {location}")),
+            )
+        }
         Progress::CleanedUp(cleanup) => (Mark::Retry, Message::new(summary(cleanup))),
         Progress::Activity(snapshot) => (
             Mark::Waiting,
