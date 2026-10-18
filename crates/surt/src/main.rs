@@ -10,6 +10,7 @@ mod feature;
 mod init;
 mod inspect;
 mod json;
+mod logs;
 mod message;
 mod phase;
 mod plan;
@@ -51,6 +52,7 @@ enum Command {
     Stop(stop::StopArgs),
     Show(show::ShowArgs),
     Inspect(inspect::InspectArgs),
+    Logs(logs::LogsArgs),
 }
 
 #[tokio::main]
@@ -79,5 +81,6 @@ async fn run(command: Command) -> Result<(), Failure> {
         Command::Stop(args) => stop::run(&cwd, args).await,
         Command::Show(args) => show::run(&cwd, args).await,
         Command::Inspect(args) => inspect::run(&cwd, args).await,
+        Command::Logs(args) => logs::run(&cwd, args).await,
     }
 }

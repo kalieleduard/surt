@@ -234,7 +234,7 @@ $ surt status fix-cache
   approve: surt approve 20261016-fix-cache    reject: surt reject 20261016-fix-cache -m "…"
 ```
 
-Blocked Tasks show the blocked step, its last error and the command to resume ([G](G-state-machines.md#workflow-run)). Integration shows the merged SHA or the Conflict reason (`merge: src/auth.rs`, `checks: test`). Recovery-related lines (`⟳ integrating … (pending)`, an agent running unattended) are in [I](I-recovery.md). Terminal runs show `cleanup pending` or `kept` ([I. Cleanup](I-cleanup.md#in-surt-status)).
+Blocked Tasks show the blocked step, its last error and the command to resume, plus `inspect: surt inspect <execution>` and `logs: surt logs <execution>` for the last failed Execution ([G](G-state-machines.md#workflow-run)). Integration shows the merged SHA or the Conflict reason (`merge: src/auth.rs`, `checks: test`). Recovery-related lines (`⟳ integrating … (pending)`, an agent running unattended) are in [I](I-recovery.md). Terminal runs show `cleanup pending` or `kept` ([I. Cleanup](I-cleanup.md#in-surt-status)).
 
 ### `surt inspect`
 
@@ -313,10 +313,11 @@ B build#2 │ "Added the OAuth callback; the expiry test is still missing…"
 C build#1 │ ✔ delivered (commit 9e04b7d)
 ```
 
-- **Rendered** by default: one line per tool call, the first line of each assistant message, no tool results. `--raw` prints the original `stream.jsonl` lines.
-- **Without `-f`**: the latest Execution of each Task, or of the given Task.
+- **Rendered** by default: one line per tool call (`<Tool> <main argument>`, a path relative to the agent's working directory, an edit's `(+added −removed)` lines), the first line of each assistant message in quotes (`…` when more follows), `✔ delivered` for the runtime's accepted structured output (with a non-default outcome and the commit), no tool results. Unknown event types, unknown fields and lines that are not JSON render nothing. `stderr.log` and an Operation's `output.log` (one `=== <check>: <command>` header per Check) pass through after the stream.
+- **`--raw`** prints the original `stream.jsonl` lines untouched and nothing else, without prefix, so the output pipes to `jq`.
+- **Without `-f`**: the latest Execution of the run's own steps and of each Task, or of the given Task, or the given Execution. An Operation that ran no process has no log and is skipped when picking the latest. Sources print one after another, run first, then Tasks by key.
 - **`-f`** follows until the run's Driver stops, picking up new Executions (the next Attempt, the next Task) as they start.
-- The `B build#2 │` prefix appears only when there is more than one source.
+- The `B build#2 │` prefix (Task, step, `#`Attempt; the run's own steps have no Task) appears only when more than one source is printed, padded to align.
 
 ## Foreground progress
 

@@ -190,7 +190,7 @@ impl Project {
             .blocked_steps(root)
             .await?
             .into_iter()
-            .map(|row| self.blocked_step(&run.subject, row))
+            .map(BlockedStep::from)
             .collect::<Vec<_>>();
         let waiting = !store.waiting_gates(root).await?.is_empty();
         let frozen = Frozen::from_files(store.frozen_files(root).await?)?;

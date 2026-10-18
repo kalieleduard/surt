@@ -26,11 +26,10 @@ fn message(blocked: &BlockedStep) -> Message {
     let Some(failure) = &blocked.last_failure else {
         return Message::new(headline);
     };
-    let message = Message::new(headline).context(last_error(failure));
-    match &failure.log {
-        Some(log) => message.way("inspect", log.display().to_string()),
-        None => message,
-    }
+    Message::new(headline)
+        .context(last_error(failure))
+        .way("inspect", format!("surt inspect {}", failure.execution))
+        .way("logs", format!("surt logs {}", failure.execution))
 }
 
 pub(crate) fn reason(reason: BlockReason) -> &'static str {

@@ -93,7 +93,7 @@ impl Feature {
     }
 }
 
-fn independent_tasks() -> Team {
+pub(super) fn independent_tasks() -> Team {
     Team::new()
         .on("A/build", 1, 1, builds(login))
         .on("A/review", 1, 1, reviews("approved"))

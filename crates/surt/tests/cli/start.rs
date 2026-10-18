@@ -256,10 +256,12 @@ fn blocked_tasks_stop_start_with_exit_4_naming_each_last_error_and_log() {
         run.stderr.ends_with(&format!(
             "⛔ task B build blocked: attempts exhausted\n  \
              attempt 3 failed (exit_code): {b_message}\n  \
-             inspect: .surt/logs/{name}/{b_execution}/stream.jsonl\n\
+             inspect: surt inspect {b_execution}\n  \
+             logs: surt logs {b_execution}\n\
              ⛔ task C build blocked: cannot be retried\n  \
              attempt 1 failed (rate_limit): {c_message} — resets {resets}\n  \
-             inspect: .surt/logs/{name}/{c_execution}/stream.jsonl\n  \
+             inspect: surt inspect {c_execution}\n  \
+             logs: surt logs {c_execution}\n  \
              resume: surt start {name}\n"
         )),
         "{}",

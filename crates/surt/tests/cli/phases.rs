@@ -338,7 +338,7 @@ fn an_agent_that_keeps_failing_blocks_the_phase_with_exit_4() {
     assert!(
         run.stderr.ends_with(&format!(
             "⛔ spec blocked: attempts exhausted\n  attempt 3 failed (exit_code): the agent exited with code 1\n  \
-             inspect: .surt/logs/{name}/{execution}/stream.jsonl\n  resume: surt feature {name}\n"
+             inspect: surt inspect {execution}\n  logs: surt logs {execution}\n  resume: surt feature {name}\n"
         )),
         "{}",
         run.stderr
