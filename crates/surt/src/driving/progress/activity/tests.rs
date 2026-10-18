@@ -5,6 +5,7 @@ use crate::symbols::Symbols;
 
 const STARTED: i64 = 1_000_000;
 const MINUTE: i64 = 60;
+const WIDE: Terminal = Terminal::Tty { width: 200 };
 
 fn running(item: Option<&str>, key: &str, iteration: Option<u32>, started_at: i64) -> RunningStep {
     RunningStep {
@@ -41,7 +42,7 @@ fn activity(snapshot: ActivitySnapshot, last_line: i64) -> Activity {
 fn the_footer_shows_what_runs_for_how_long_the_queue_the_slots_and_the_elapsed_time() {
     let now = STARTED + 32 * MINUTE + 10;
 
-    let footer = on_tick(&activity(busy(), STARTED), now, Terminal::Tty);
+    let footer = on_tick(&activity(busy(), STARTED), now, WIDE);
 
     assert_eq!(
         footer,
@@ -61,7 +62,7 @@ fn the_footer_names_root_steps_and_later_iterations_and_counts_seconds_then_hour
     };
     let now = STARTED + 2 * 3600 + 42;
 
-    let footer = on_tick(&activity(snapshot, STARTED), now, Terminal::Tty);
+    let footer = on_tick(&activity(snapshot, STARTED), now, WIDE);
 
     assert_eq!(
         footer,
@@ -79,7 +80,7 @@ fn there_is_no_footer_before_the_first_snapshot() {
         last_line: STARTED,
     };
 
-    assert_eq!(on_tick(&none, STARTED + 10 * MINUTE, Terminal::Tty), None);
+    assert_eq!(on_tick(&none, STARTED + 10 * MINUTE, WIDE), None);
 }
 
 #[test]
@@ -128,7 +129,7 @@ fn ascii(output: Option<Output>) -> String {
 fn the_footer_and_the_heartbeat_line_print_only_ascii_in_ascii_mode() {
     let now = STARTED + 32 * MINUTE + 10;
 
-    let footer = ascii(on_tick(&activity(busy(), STARTED), now, Terminal::Tty));
+    let footer = ascii(on_tick(&activity(busy(), STARTED), now, WIDE));
     let heartbeat = ascii(on_tick(&activity(busy(), STARTED), now, Terminal::Plain));
 
     assert_eq!(
@@ -136,4 +137,21 @@ fn the_footer_and_the_heartbeat_line_print_only_ascii_in_ascii_mode() {
         "-- 2 running (B build 6m, C review 1m) | 1 queued | slots 3/3 | 32m --"
     );
     assert_eq!(heartbeat, "... still running: B build (6m), C review (1m)");
+}
+
+#[test]
+fn a_footer_wider_than_the_terminal_is_cut_to_stay_on_one_line() {
+    let now = STARTED + 32 * MINUTE + 10;
+    let footer = |width| on_tick(&activity(busy(), STARTED), now, Terminal::Tty { width });
+
+    assert_eq!(
+        footer(30),
+        Some(Output::Footer("── 2 running (B build 6m,…".to_owned()))
+    );
+    assert_eq!(
+        footer(80),
+        Some(Output::Footer(
+            "── 2 running (B build 6m, C review 1m) · 1 queued · slots 3/3 · 32m ──".to_owned()
+        ))
+    );
 }

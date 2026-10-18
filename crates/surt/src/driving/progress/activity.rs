@@ -7,10 +7,12 @@ const SECONDS_PER_MINUTE: i64 = 60;
 const SECONDS_PER_HOUR: i64 = 3600;
 const FIRST: u32 = 1;
 const RULE_WIDTH: usize = 2;
+const LAST_COLUMN: usize = 1;
+const ELLIPSIS_ROOM: usize = 3;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Terminal {
-    Tty,
+    Tty { width: usize },
     Plain,
 }
 
@@ -29,7 +31,10 @@ pub(super) struct Activity {
 pub(super) fn on_tick(activity: &Activity, now: i64, terminal: Terminal) -> Option<Output> {
     let snapshot = activity.snapshot.as_ref()?;
     match terminal {
-        Terminal::Tty => Some(Output::Footer(footer(snapshot, activity.started, now))),
+        Terminal::Tty { width } => Some(Output::Footer(fit(
+            &footer(snapshot, activity.started, now),
+            width,
+        ))),
         Terminal::Plain => still_running(snapshot, activity.last_line, now).map(Output::Line),
     }
 }
@@ -54,6 +59,18 @@ fn footer(snapshot: &ActivitySnapshot, started: i64, now: i64) -> String {
     parts.push(duration(now - started));
     let rule = HORIZONTAL.repeat(RULE_WIDTH);
     format!("{rule} {} {rule}", parts.join(SEPARATOR))
+}
+
+fn fit(text: &str, width: usize) -> String {
+    let limit = width.saturating_sub(LAST_COLUMN);
+    if text.chars().count() <= limit {
+        return text.to_owned();
+    }
+    let kept: String = text
+        .chars()
+        .take(limit.saturating_sub(ELLIPSIS_ROOM))
+        .collect();
+    format!("{}{ELLIPSIS}", kept.trim_end())
 }
 
 fn still_running(snapshot: &ActivitySnapshot, last_line: i64, now: i64) -> Option<String> {

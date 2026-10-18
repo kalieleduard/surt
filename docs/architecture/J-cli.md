@@ -330,7 +330,7 @@ A driving command prints one line per relevant state change: a Step Run starting
   ↻ task B build attempt 2
   ── 2 running (B build 6m, C review 1m) · 1 queued · slots 3/3 · 32m ──
   ```
-- The footer is drawn with `\r` plus ANSI erase-line, erased before each event line and redrawn after it, and erased before the final summary, so the scrollback holds only event lines. Durations read `42s`, `6m`, `2h05m`.
+- The footer is drawn with `\r` plus ANSI erase-line, erased before each event line and redrawn after it, and erased before the final summary, so the scrollback holds only event lines. A footer wider than the terminal is cut to one line ending in `…`, since erase-line clears only the physical line the cursor is on; the width comes from the console (falling back to `COLUMNS`, then 80). Durations read `42s`, `6m`, `2h05m`.
 - **Without a TTY** there is no footer. After 5 minutes without an event it prints a line so CI does not assume a hang: `… still running: B build (15m), C review (3m)`.
 - It ends with a summary and the next command, as in the mocks of sections A, G and I.
 
