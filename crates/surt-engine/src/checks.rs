@@ -6,14 +6,12 @@ use std::path::Path;
 use std::process::{ExitStatus, Stdio};
 use std::time::Duration;
 
-#[cfg(windows)]
-use process_wrap::tokio::JobObject;
-#[cfg(unix)]
-use process_wrap::tokio::ProcessGroup;
-use process_wrap::tokio::{ChildWrapper, CommandWrap, KillOnDrop};
+use process_wrap::tokio::{ChildWrapper, CommandWrap};
 use serde::Serialize;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::Instant;
+
+use crate::platform;
 
 pub const REPORT_SCHEMA: (&str, &str) = (
     "schemas/check-report.schema.json",
@@ -142,11 +140,7 @@ fn spawn(check: &CheckSpec, worktree: &Path, output: &File) -> io::Result<Box<dy
             .stdout(stdout)
             .stderr(stderr);
     });
-    #[cfg(unix)]
-    command.wrap(ProcessGroup::leader());
-    #[cfg(windows)]
-    command.wrap(JobObject);
-    command.wrap(KillOnDrop);
+    platform::contain(&mut command);
     command.spawn()
 }
 

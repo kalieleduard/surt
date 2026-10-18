@@ -1,5 +1,6 @@
 use std::ffi::{OsStr, OsString};
 
+use crate::platform;
 use crate::runtime::{FailureClass, RuntimeError};
 use crate::workflow::{Auth, ClaudeProfile};
 
@@ -8,11 +9,6 @@ const ENABLED: &str = "1";
 const GIT_CONFIG_COUNT: &str = "GIT_CONFIG_COUNT";
 const GIT_CONFIG_KEY: &str = "GIT_CONFIG_KEY_";
 const GIT_CONFIG_VALUE: &str = "GIT_CONFIG_VALUE_";
-const AGENT_GIT_CONFIG: &[(&str, &str)] = if cfg!(windows) {
-    &[("core.longpaths", "true")]
-} else {
-    &[]
-};
 
 const INHERITED: &[&str] = &[
     "HOME",
@@ -69,7 +65,7 @@ pub(super) fn child_environment(
     Ok(inherited
         .chain(isolation)
         .chain(api_key)
-        .chain(git_config(parent, AGENT_GIT_CONFIG))
+        .chain(git_config(parent, platform::GIT_SETTINGS))
         .collect())
 }
 

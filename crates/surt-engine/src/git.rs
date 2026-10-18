@@ -8,6 +8,8 @@ use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
+use crate::platform;
+
 mod merge;
 mod refs;
 pub(crate) mod worktrees;
@@ -38,11 +40,7 @@ const LOCK_BACKOFF: [Duration; 6] = [
     Duration::from_millis(320),
     Duration::from_millis(640),
 ];
-const PLATFORM_CONFIG: &[&str] = if cfg!(windows) {
-    &["-c", "core.longpaths=true"]
-} else {
-    &[]
-};
+const CONFIG_FLAG: &str = "-c";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct GitVersion {
@@ -246,8 +244,10 @@ async fn run_with_stdin(cwd: &Path, args: &[&str], input: &str) -> Result<String
 fn command(cwd: &Path, args: &[&str]) -> Command {
     tracing::debug!(cwd = %cwd.display(), ?args, "running git");
     let mut command = Command::new("git");
+    for (key, value) in platform::GIT_SETTINGS {
+        command.arg(CONFIG_FLAG).arg(format!("{key}={value}"));
+    }
     command
-        .args(PLATFORM_CONFIG)
         .args(args)
         .current_dir(cwd)
         .env("LC_ALL", "C")

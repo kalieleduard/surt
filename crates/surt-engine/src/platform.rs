@@ -2,11 +2,19 @@ use std::fs::{self, File, Metadata, OpenOptions, TryLockError};
 use std::io;
 use std::path::Path;
 
+mod children;
 mod executable;
 mod process;
 
+pub(crate) use children::{contain, exit_code, interrupt};
 pub(crate) use executable::find_executable;
 pub(crate) use process::{ProcessIdentity, identify, is_alive, stop};
+
+pub(crate) const GIT_SETTINGS: &[(&str, &str)] = if cfg!(windows) {
+    &[("core.longpaths", "true")]
+} else {
+    &[]
+};
 
 pub(crate) struct ExclusiveLock {
     _file: File,
