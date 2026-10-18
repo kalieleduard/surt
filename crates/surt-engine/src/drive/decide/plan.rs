@@ -9,7 +9,7 @@ use crate::drive::graph::{
 
 pub(super) struct Plan<'a> {
     ctx: &'a Ctx,
-    free_slots: usize,
+    free_slots: std::slice::Iter<'a, usize>,
     actions: Vec<Action>,
     live: bool,
     gates: Vec<StepRunId>,
@@ -20,7 +20,7 @@ impl<'a> Plan<'a> {
     pub(super) fn new(ctx: &'a Ctx) -> Self {
         Plan {
             ctx,
-            free_slots: ctx.free_slots,
+            free_slots: ctx.free_slots.iter(),
             actions: Vec::new(),
             live: false,
             gates: Vec::new(),
@@ -124,10 +124,11 @@ impl<'a> Plan<'a> {
     fn work_on(&mut self, step: &Step) {
         let id = step.id.clone();
         let action = match &step.work {
-            Work::Agent(_) if self.free_slots == 0 => return,
             Work::Agent(_) => {
-                self.free_slots -= 1;
-                Action::Launch { step: id }
+                let Some(&slot) = self.free_slots.next() else {
+                    return;
+                };
+                Action::Launch { step: id, slot }
             }
             Work::Operation(op, _) => Action::RunOperation {
                 step: id,

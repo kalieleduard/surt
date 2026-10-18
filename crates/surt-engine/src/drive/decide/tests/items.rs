@@ -1,5 +1,5 @@
 use super::super::{Action, Ctx, DriveOutcome, RunEnd, decide};
-use super::fixtures::{agent, ctx, id, item, launch, operation, per_item, root};
+use super::fixtures::{agent, ctx, id, item, launch, launch_in, operation, per_item, root};
 use crate::drive::graph::{
     BlockReason, ExecutionState, Item, OperationId, RunId, RunState, Step, StepRunState,
 };
@@ -99,12 +99,19 @@ fn a_per_item_step_finishes_once_every_child_succeeded() {
 }
 
 #[test]
-fn independent_items_launch_only_up_to_the_free_agent_slots() {
+fn independent_items_launch_only_up_to_the_free_agent_slots_each_in_its_own_slot() {
     let table = [
-        (2, vec![launch("A/build"), launch("B/build")]),
         (
-            4,
-            vec![launch("A/build"), launch("B/build"), launch("C/build")],
+            vec![1, 3],
+            vec![launch_in("A/build", 1), launch_in("B/build", 3)],
+        ),
+        (
+            vec![0, 1, 2, 3],
+            vec![
+                launch_in("A/build", 0),
+                launch_in("B/build", 1),
+                launch_in("C/build", 2),
+            ],
         ),
     ];
 
@@ -137,7 +144,7 @@ fn with_no_free_slot_agents_wait_while_operations_still_run() {
 
     for (steps, expected) in table {
         let ctx = Ctx {
-            free_slots: 0,
+            free_slots: Vec::new(),
             ..ctx()
         };
 

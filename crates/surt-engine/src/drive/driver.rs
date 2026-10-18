@@ -197,10 +197,9 @@ impl<R: AgentRuntime> Driver<'_, R> {
         let loaded = Loaded::new(&self.frozen, rows, &lists)?;
         let ctx = Ctx {
             limits: self.frozen.limits,
-            free_slots: free_slots.len(),
+            free_slots,
             stop: stop_level(self.stop.level()),
         };
-        let mut slots = free_slots.into_iter();
         let mut launches = Vec::new();
         let actions = decide::decide(&loaded.graph, &ctx);
         if let Some(refusal) = self.guard_readers(&actions).await? {
@@ -208,8 +207,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         }
         for action in actions {
             match action {
-                Action::Launch { step } => {
-                    let slot = slots.next().unwrap_or_default();
+                Action::Launch { step, slot } => {
                     launches.push(Flight::Agent(Box::new(
                         self.launch(&loaded, &step, slot).await?,
                     )));
