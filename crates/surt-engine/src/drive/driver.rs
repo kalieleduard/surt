@@ -227,6 +227,8 @@ impl<R: AgentRuntime> Driver<'_, R> {
             limits: self.frozen.limits,
             free_slots,
             stop: stop_level(self.stop.level()),
+            paused_until: None,
+            now: jiff::Timestamp::now().as_second(),
         };
         let mut launches = Vec::new();
         let decision = decide::decision(&loaded.graph, &ctx);
