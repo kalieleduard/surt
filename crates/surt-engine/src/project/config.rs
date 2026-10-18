@@ -2,14 +2,17 @@ use std::io;
 use std::num::NonZeroU32;
 use std::path::Path;
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use super::error::{Error, Refusal};
 
 mod check;
+pub(crate) mod global;
 
 pub use check::Check;
 pub(crate) use check::parse_timeout;
+pub use global::GlobalConfig;
 
 pub(crate) const TEMPLATE: &str = include_str!("../../assets/config.toml");
 
@@ -54,16 +57,7 @@ impl Default for Config {
 }
 
 pub(crate) fn load(path: &Path) -> Result<Config, Error> {
-    let text = match std::fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Config::default()),
-        Err(error) => return Err(Error::io("read", path, error)),
-    };
-    let config = parse(&text).map_err(|error| Refusal::InvalidConfig {
-        path: path.to_path_buf(),
-        line: error.span().map(|span| line_of(&text, span.start)),
-        reason: error.message().to_owned(),
-    })?;
+    let config: Config = read(path)?;
     if config.git.merge_into_base == MergeIntoBase::FfOnly {
         return Err(Refusal::MergeIntoBaseUnsupported {
             path: path.to_path_buf(),
@@ -73,8 +67,22 @@ pub(crate) fn load(path: &Path) -> Result<Config, Error> {
     Ok(config)
 }
 
-fn parse(text: &str) -> Result<Config, toml::de::Error> {
-    toml::from_str(text)
+/// Reads a configuration file, or its defaults when it does not exist.
+/// A file that does not parse is refused with its path, line and reason.
+fn read<T: DeserializeOwned + Default>(path: &Path) -> Result<T, Error> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(T::default()),
+        Err(error) => return Err(Error::io("read", path, error)),
+    };
+    toml::from_str(&text).map_err(|error: toml::de::Error| {
+        Refusal::InvalidConfig {
+            path: path.to_path_buf(),
+            line: error.span().map(|span| line_of(&text, span.start)),
+            reason: error.message().to_owned(),
+        }
+        .into()
+    })
 }
 
 fn line_of(text: &str, offset: usize) -> usize {
