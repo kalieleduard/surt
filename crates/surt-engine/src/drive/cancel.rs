@@ -2,6 +2,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use crate::cleanup;
+use crate::drive::graph::RunId;
 use crate::drive::{Progress, ProgressSink, RunEnd};
 use crate::platform::{self, ExclusiveLock};
 use crate::project::{Error, Layout};
@@ -20,13 +21,13 @@ pub enum Cancellation {
 pub(crate) struct Cancel<'a> {
     pub(crate) store: &'a Store,
     pub(crate) layout: &'a Layout,
-    pub(crate) root: &'a str,
+    pub(crate) root: &'a RunId,
     pub(crate) actor: &'a str,
 }
 
 impl Cancel<'_> {
     pub(crate) async fn run(&self, progress: &ProgressSink) -> Result<Cancellation, Error> {
-        let path = self.layout.run_lock(self.root);
+        let path = self.layout.run_lock(self.root.as_str());
         let (_lock, requested) = match try_lock(&path)? {
             Some(lock) => (lock, false),
             None => (self.request(&path, progress).await?, true),
@@ -46,7 +47,9 @@ impl Cancel<'_> {
     }
 
     async fn request(&self, path: &Path, progress: &ProgressSink) -> Result<ExclusiveLock, Error> {
-        self.store.request_cancel(self.root, self.actor).await?;
+        self.store
+            .request_cancel(self.root.as_str(), self.actor)
+            .await?;
         let driver = self.store.driver(self.root).await?.pid;
         let driver = driver.and_then(|pid| u32::try_from(pid).ok());
         let _ = progress.send(Progress::CancelRequested { driver });
@@ -62,7 +65,7 @@ impl Cancel<'_> {
         let reconcile = Reconcile {
             store: self.store,
             repository: self.layout.root(),
-            root: self.root,
+            root: self.root.as_str(),
         };
         for found in reconcile.settle().await? {
             let _ = progress.send(found);

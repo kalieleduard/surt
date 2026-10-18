@@ -4,6 +4,7 @@ use sqlx::FromRow;
 
 use super::{Store, StoreError, unix_now};
 use crate::drive::RunEnd;
+use crate::drive::graph::RunId;
 
 const FINISHED: &str = "cleanup.finished";
 const INCOMPLETE: &str = "cleanup.incomplete";
@@ -44,7 +45,8 @@ pub(crate) enum CleanupRecord {
 }
 
 impl Store {
-    pub(crate) async fn ending(&self, root: &str) -> Result<Option<Ending>, StoreError> {
+    pub(crate) async fn ending(&self, root: &RunId) -> Result<Option<Ending>, StoreError> {
+        let root = root.as_str();
         let row: Option<EndingRow> = sqlx::query_as(
             "SELECT state, cleaned_at IS NOT NULL AS cleaned FROM workflow_run \
              WHERE id = ? AND state <> 'active'",

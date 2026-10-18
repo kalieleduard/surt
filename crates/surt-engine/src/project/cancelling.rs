@@ -26,7 +26,7 @@ impl Project {
         let cancel = Cancel {
             store: &store,
             layout: &self.layout,
-            root: run.as_str(),
+            root: run,
             actor: &actor,
         };
         let cancellation = cancel.run(&progress).await;

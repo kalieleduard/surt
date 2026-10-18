@@ -9,7 +9,7 @@ use super::decide::{self, Action, Ctx, RunEnd};
 use super::ending;
 use super::flights::Flights;
 use super::frozen::{CorruptSnapshot, Frozen};
-use super::graph::StepRunId;
+use super::graph::{RunId, StepRunId};
 use super::load::Loaded;
 use super::operate::Flight;
 use super::outcome::{DriveOutcome, Progress, ProgressSink};
@@ -27,7 +27,7 @@ const DONE: &str = "done";
 pub(crate) struct Driving<'a> {
     pub(crate) store: &'a Store,
     pub(crate) layout: &'a Layout,
-    pub(crate) root: &'a str,
+    pub(crate) root: &'a RunId,
     pub(crate) max_agents: usize,
     pub(crate) worktrees: Option<PathBuf>,
     pub(crate) actor: &'a str,
@@ -60,7 +60,7 @@ pub(crate) async fn drive<R: AgentRuntime>(
     progress: ProgressSink,
     stop: StopSignal,
 ) -> Result<DriveOutcome, Error> {
-    let path = driving.layout.run_lock(driving.root);
+    let path = driving.layout.run_lock(driving.root.as_str());
     let lock =
         platform::try_lock_exclusive(&path).map_err(|error| Error::io("lock", &path, error))?;
     let Some(_lock) = lock else {
@@ -73,11 +73,12 @@ pub(crate) async fn drive<R: AgentRuntime>(
     let reconcile = Reconcile {
         store,
         repository: driving.layout.root(),
-        root: driving.root,
+        root: driving.root.as_str(),
     };
     recover(&driving, &reconcile, &progress).await?;
-    let frozen = Frozen::from_files(store.frozen_files(driving.root).await?)?;
-    let working_copy = WorkingCopy::load(store, driving.layout, driving.root, &frozen).await?;
+    let frozen = Frozen::from_files(store.frozen_files(driving.root.as_str()).await?)?;
+    let working_copy =
+        WorkingCopy::load(store, driving.layout, driving.root.as_str(), &frozen).await?;
     let driver = Driver {
         driving,
         frozen,
@@ -120,9 +121,9 @@ async fn recover(
             let _ = progress.send(recovered);
         }
     }
-    let subject = store.subject_of_run(driving.root).await?;
+    let subject = store.subject_of_run(driving.root.as_str()).await?;
     let working_copy = driving.layout.working_copy(&subject);
-    finish_pending_writes(store, &working_copy, driving.root).await
+    finish_pending_writes(store, &working_copy, driving.root.as_str()).await
 }
 
 async fn driver_live(driving: &Driving<'_>) -> Result<Error, Error> {

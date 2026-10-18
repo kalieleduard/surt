@@ -18,7 +18,7 @@ impl Project {
         let driving = Driving {
             store: &store,
             layout: &self.layout,
-            root: run.as_str(),
+            root: run,
             max_agents: usize::try_from(self.config.max_concurrent_agents.get())
                 .unwrap_or(usize::MAX),
             worktrees: self
