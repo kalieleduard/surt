@@ -1,7 +1,8 @@
 use super::{Error, Project, Refusal, RunId, open_store};
 use crate::drive::{CorruptSnapshot, Frozen};
-use crate::store::{Decision, DecisionOutcome, NewDecision, Store};
+use crate::store::{Decision, DecisionOutcome, NewDecision, Store, WaitingGate};
 use crate::workflow::StepSpec;
+use crate::working_copy::WorkingCopy;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Decided {
@@ -12,6 +13,7 @@ pub struct Decided {
     pub origin: RevisionOrigin,
     pub actor: String,
     pub files: Vec<String>,
+    pub restored: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -61,17 +63,41 @@ impl Project {
 
     async fn decide_gate(&self, request: Request<'_>) -> Result<Decided, Error> {
         let store = open_store(&self.layout).await?;
-        let decided = record(&store, &request).await;
+        let decided = self.scan_and_record(&store, &request).await;
         store.close().await;
         decided
     }
+
+    async fn scan_and_record(
+        &self,
+        store: &Store,
+        request: &Request<'_>,
+    ) -> Result<Decided, Error> {
+        let frozen = Frozen::from_files(store.frozen_files(request.root).await?)?;
+        let working_copy = WorkingCopy::load(store, &self.layout, request.root, &frozen).await?;
+        let scanned = working_copy.record(store, request.actor).await?;
+        let gates = store.waiting_gates(request.root).await?;
+        let decision = match gates.first() {
+            Some(gate) => decide_waiting(store, request, gate).await?,
+            None => approve_after_gate(store, request, &working_copy).await?,
+        };
+        let mut decided = decided(store, request, decision).await?;
+        decided.restored = scanned.restored.into_iter().map(|file| file.path).collect();
+        Ok(decided)
+    }
 }
 
-async fn record(store: &Store, request: &Request<'_>) -> Result<Decided, Error> {
-    let gates = store.waiting_gates(request.root).await?;
-    let Some(gate) = gates.first() else {
-        return Err(no_gate(store, request.root).await?);
-    };
+struct Recorded {
+    gate: String,
+    artifact: String,
+    outcome: DecisionOutcome,
+}
+
+async fn decide_waiting(
+    store: &Store,
+    request: &Request<'_>,
+    gate: &WaitingGate,
+) -> Result<Recorded, Error> {
     let spec = approval_step(store, request.root, &gate.definition, &gate.key).await?;
     let decision = match request.reason {
         None => Decision::Approve,
@@ -89,15 +115,54 @@ async fn record(store: &Store, request: &Request<'_>) -> Result<Decided, Error> 
             actor: request.actor,
         })
         .await?;
-    match outcome {
+    Ok(Recorded {
+        gate: gate.key.clone(),
+        artifact: spec.artifact,
+        outcome,
+    })
+}
+
+async fn approve_after_gate(
+    store: &Store,
+    request: &Request<'_>,
+    working_copy: &WorkingCopy,
+) -> Result<Recorded, Error> {
+    let unapproved = match request.reason {
+        None => working_copy.unapproved(store).await?,
+        Some(_) => None,
+    };
+    let Some(unapproved) = unapproved else {
+        return Err(no_gate(store, request.root).await?);
+    };
+    let outcome = store
+        .approve_latest(
+            request.root,
+            &unapproved.artifact,
+            request.expected,
+            request.actor,
+        )
+        .await?;
+    Ok(Recorded {
+        gate: unapproved.gate,
+        artifact: unapproved.artifact,
+        outcome,
+    })
+}
+
+async fn decided(
+    store: &Store,
+    request: &Request<'_>,
+    recorded: Recorded,
+) -> Result<Decided, Error> {
+    match recorded.outcome {
         DecisionOutcome::Recorded {
             revision_id,
             number,
             identity,
             from_execution,
         } => Ok(Decided {
-            gate: gate.key.clone(),
-            artifact: spec.artifact.clone(),
+            gate: recorded.gate,
+            artifact: recorded.artifact,
             revision: number,
             sha256: identity,
             origin: if from_execution {
@@ -107,10 +172,11 @@ async fn record(store: &Store, request: &Request<'_>) -> Result<Decided, Error> 
             },
             actor: request.actor.to_owned(),
             files: store.revision_paths(&revision_id).await?,
+            restored: Vec::new(),
         }),
         DecisionOutcome::Stale { expected, latest } => Err(Refusal::StaleRevision {
             subject: store.subject_of_run(request.root).await?,
-            artifact: spec.artifact.clone(),
+            artifact: recorded.artifact,
             expected,
             latest,
         }

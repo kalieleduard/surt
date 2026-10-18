@@ -353,6 +353,82 @@ fn an_invalid_runtime_script_is_an_internal_error_before_anything_is_created() {
 }
 
 #[test]
+fn an_edited_spec_is_recorded_by_resuming_and_approved_as_a_human_edit() {
+    let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n")]);
+    let name = feature_name();
+    let spec_file = sandbox
+        .dot_surt()
+        .join("features")
+        .join(&name)
+        .join("spec.md");
+    fs::write(&spec_file, "# Spec 1, edited\n").expect("the edit is written");
+
+    let resumed = ok(sandbox.feature(&[&name]));
+    fs::remove_file(&spec_file).expect("the spec is deleted");
+    let restored = ok(sandbox.feature(&[&name]));
+    let approved = ok(surt(&sandbox, &["approve", &name]));
+
+    assert_eq!(
+        resumed,
+        format!(
+            "✔ your edit to spec was recorded as rev 2\n{}",
+            awaiting("spec", 2)
+        )
+    );
+    assert_eq!(
+        restored,
+        format!(
+            "⚠ spec.md was missing; recreated from spec rev 2\n{}",
+            awaiting("spec", 2)
+        )
+    );
+    assert!(
+        approved.starts_with("✔ approved spec rev 2 (human edit) sha256:"),
+        "{approved}"
+    );
+    assert_eq!(working_copy(&sandbox, "spec.md"), "# Spec 1, edited\n");
+}
+
+#[test]
+fn an_edit_to_a_pinned_spec_is_refused_until_the_edited_file_is_removed() {
+    let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n"), tasks(1, &["A"])]);
+    let name = feature_name();
+    ok(surt(&sandbox, &["approve", &name]));
+    ok(surt(&sandbox, &["plan", &name]));
+    let spec_file = sandbox
+        .dot_surt()
+        .join("features")
+        .join(&name)
+        .join("spec.md");
+    fs::write(&spec_file, "# Spec 1, edited after planning\n").expect("the edit is written");
+
+    let approve = refused(surt(&sandbox, &["approve", &name]));
+    let plan = refused(surt(&sandbox, &["plan", &name]));
+    fs::remove_file(&spec_file).expect("the edited spec is removed");
+    let approved = ok(surt(&sandbox, &["approve", &name]));
+
+    let refusal = format!(
+        "✖ spec.md changed, but spec rev 1 is pinned (a later step already read it)\n  the edit was not recorded\n  fix: rm .surt/features/{name}/spec.md, then rerun\n"
+    );
+    assert_eq!(approve, refusal);
+    assert_eq!(plan, refusal);
+    assert!(
+        approved.starts_with(&format!(
+            "⚠ .surt/features/{name}/spec.md was missing; recreated from the latest revision\n✔ approved manifest rev 1 (agent)"
+        )),
+        "{approved}"
+    );
+    assert_eq!(working_copy(&sandbox, "spec.md"), "# Spec 1\n");
+    assert_eq!(
+        count(
+            &sandbox,
+            "artifact_revision WHERE origin = 'human' AND human_action = 'edit'"
+        ),
+        "0"
+    );
+}
+
+#[test]
 fn a_missing_runtime_script_is_an_internal_error_before_anything_is_created() {
     let sandbox = project();
 

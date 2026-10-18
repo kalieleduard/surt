@@ -77,6 +77,13 @@ impl Store {
         .bind(revision)
         .execute(&mut *transaction)
         .await?;
+        sqlx::query(
+            "DELETE FROM working_copy_file WHERE revision_id <> ?1 AND pending_revision_id IS NULL \
+             AND artifact_id = (SELECT artifact_id FROM artifact_revision WHERE id = ?1)",
+        )
+        .bind(revision)
+        .execute(&mut *transaction)
+        .await?;
         record_event(
             &mut transaction,
             About::Run(run),
@@ -85,6 +92,22 @@ impl Store {
         )
         .await?;
         Ok(transaction.commit().await?)
+    }
+
+    pub(crate) async fn superseded_working_copy_files(
+        &self,
+        revision: &str,
+    ) -> Result<Vec<String>, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT w.rel_path FROM working_copy_file w \
+             JOIN artifact_revision r ON r.artifact_id = w.artifact_id \
+             WHERE r.id = ?1 AND w.pending_revision_id IS NULL \
+             AND w.rel_path NOT IN (SELECT rel_path FROM revision_file WHERE revision_id = ?1) \
+             ORDER BY w.rel_path",
+        )
+        .bind(revision)
+        .fetch_all(&self.pool)
+        .await?)
     }
 }
 

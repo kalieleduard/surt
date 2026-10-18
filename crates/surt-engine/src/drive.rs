@@ -4,6 +4,7 @@ mod expand;
 mod flights;
 mod frozen;
 pub(crate) mod graph;
+mod guard;
 mod inputs;
 mod launch;
 mod load;

@@ -64,6 +64,23 @@ pub enum Refusal {
         expected: u32,
         latest: u32,
     },
+    UnapprovedRevision {
+        subject: String,
+        artifact: String,
+        revision: u32,
+    },
+    PinnedEdit {
+        subject: String,
+        artifact: String,
+        revision: u32,
+        files: Vec<String>,
+    },
+    InvalidEdit {
+        subject: String,
+        artifact: String,
+        problem: String,
+        files: Vec<String>,
+    },
     AgentOverrides {
         path: PathBuf,
     },

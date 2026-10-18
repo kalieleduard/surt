@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use super::driver::Driver;
 use super::frozen::gate_artifacts;
+use super::guard::refused;
 use super::launch::Launch;
 use super::load::{Loaded, label};
 use super::outcome::Progress;
@@ -12,6 +13,7 @@ use crate::project::Error;
 use crate::runtime::AgentRuntime;
 use crate::store::{Acceptance, ExecutionEnd, PublishedOutput, StartedExecution, StepRow};
 use crate::workflow::Definition;
+use crate::working_copy::RecordedEdit;
 
 pub(super) struct WorkingCopy {
     dir: PathBuf,
@@ -58,6 +60,11 @@ impl<R: AgentRuntime> Driver<'_, R> {
                     .collect(),
             })
             .collect();
+        let Ok(saved) = refused(self.save_edits(&outputs).await)? else {
+            return self
+                .end(&launch.row, &launch.started, ExecutionEnd::Interrupted)
+                .await;
+        };
         let acceptance = Acceptance {
             execution: &launch.started.id,
             outcome: &delivery.outcome,
@@ -66,12 +73,15 @@ impl<R: AgentRuntime> Driver<'_, R> {
         let published = self.driving.store.accept_execution(acceptance).await?;
         for (output, (name, revision)) in outputs.iter().zip(published) {
             if let Some(copy) = launch.working_copy.as_ref().filter(|_| output.working_copy) {
-                write_files(&copy.dir, &output.files)
-                    .map_err(|error| Error::io("write", &copy.dir, error))?;
-                self.driving
-                    .store
-                    .promote_working_copy(&launch.row.run, &revision.revision_id)
+                self.materialize(&copy.dir, &launch.row.run, output, &revision.revision_id)
                     .await?;
+            }
+            if let Some(edit) = saved.iter().find(|edit| edit.artifact == name) {
+                self.report(Progress::EditSuperseded {
+                    artifact: name.clone(),
+                    edit: edit.revision,
+                    by: revision.number,
+                });
             }
             self.report(Progress::RevisionPublished {
                 artifact: name,
@@ -83,6 +93,34 @@ impl<R: AgentRuntime> Driver<'_, R> {
             outcome: delivery.outcome,
         });
         Ok(())
+    }
+
+    async fn materialize(
+        &self,
+        working_copy: &Path,
+        run: &str,
+        output: &PublishedOutput,
+        revision: &str,
+    ) -> Result<(), Error> {
+        let store = self.driving.store;
+        let superseded = store.superseded_working_copy_files(revision).await?;
+        remove_files(working_copy, &superseded)
+            .and_then(|()| write_files(working_copy, &output.files))
+            .map_err(|error| Error::io("write", working_copy, error))?;
+        Ok(store.promote_working_copy(run, revision).await?)
+    }
+
+    async fn save_edits(&self, outputs: &[PublishedOutput]) -> Result<Vec<RecordedEdit>, Error> {
+        let artifacts: Vec<&str> = outputs
+            .iter()
+            .filter(|output| output.working_copy)
+            .map(|output| output.name.as_str())
+            .collect();
+        let scanned = self
+            .working_copy
+            .record_artifacts(self.driving.store, self.driving.actor, &artifacts)
+            .await?;
+        Ok(scanned.recorded)
     }
 
     pub(super) async fn end(
@@ -105,6 +143,16 @@ impl<R: AgentRuntime> Driver<'_, R> {
         });
         Ok(())
     }
+}
+
+fn remove_files(root: &Path, rel_paths: &[String]) -> std::io::Result<()> {
+    for rel_path in rel_paths {
+        match fs::remove_file(root.join(rel_path)) {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => return Err(error),
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 fn write_files(root: &Path, files: &[(String, Vec<u8>)]) -> std::io::Result<()> {

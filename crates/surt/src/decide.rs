@@ -5,7 +5,7 @@ use surt_engine::project::{Decided, Project, RevisionOrigin};
 
 use crate::builtin;
 use crate::failure::Failure;
-use crate::message::Message;
+use crate::message::{Mark, Message};
 use crate::phase::{Phase, active_run};
 
 const SHORT_SHA_CHARS: usize = 6;
@@ -34,6 +34,7 @@ pub(crate) async fn approve(cwd: &Path, args: ApproveArgs) -> Result<(), Failure
     let decided = project
         .approve(run, args.rev, &project.actor().await?)
         .await?;
+    warn_restored(&subject.name, &decided);
     approved(&subject.name, &decided).print_success();
     Ok(())
 }
@@ -45,8 +46,18 @@ pub(crate) async fn reject(cwd: &Path, args: RejectArgs) -> Result<(), Failure> 
     let decided = project
         .reject(run, args.rev, &args.reason, &project.actor().await?)
         .await?;
+    warn_restored(&subject.name, &decided);
     rejected(&subject.name, &decided).print_success();
     Ok(())
+}
+
+fn warn_restored(subject: &str, decided: &Decided) {
+    for path in &decided.restored {
+        Message::new(format!(
+            ".surt/features/{subject}/{path} was missing; recreated from the latest revision"
+        ))
+        .print(Mark::Warning);
+    }
 }
 
 fn approved(subject: &str, decided: &Decided) -> Message {

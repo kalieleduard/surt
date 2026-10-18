@@ -1,4 +1,4 @@
-use sqlx::FromRow;
+use sqlx::{FromRow, SqliteConnection};
 
 use super::revisions::{Origin, artifact_id, number, publish};
 use super::runs::new_id;
@@ -141,25 +141,11 @@ impl Store {
         let now = unix_now();
         let gate = &new.gate.id;
         let mut transaction = self.begin_write().await?;
-        let latest: Option<Latest> = sqlx::query_as(
-            "SELECT r.id, r.number, r.identity_sha256, r.origin FROM artifact a \
-             JOIN artifact_revision r ON r.artifact_id = a.id \
-             WHERE a.workflow_run_id = ? AND a.name = ? ORDER BY r.number DESC LIMIT 1",
-        )
-        .bind(&new.gate.run)
-        .bind(new.artifact)
-        .fetch_optional(&mut *transaction)
-        .await?;
-        let Some(latest) = latest else {
-            return Ok(DecisionOutcome::NoRevision);
-        };
-        let latest_number = number(latest.number);
-        if let Some(expected) = new.expected.filter(|expected| *expected != latest_number) {
-            return Ok(DecisionOutcome::Stale {
-                expected,
-                latest: latest_number,
-            });
-        }
+        let latest =
+            match latest(&mut transaction, &new.gate.run, new.artifact, new.expected).await? {
+                Ok(latest) => latest,
+                Err(outcome) => return Ok(outcome),
+            };
         let closed = sqlx::query(
             "UPDATE step_run SET state = 'done', outcome = ?, finished_at = ? WHERE id = ? AND state = 'running'",
         )
@@ -217,11 +203,101 @@ impl Store {
         .await?;
         record_event(&mut transaction, About::Step(gate), "step.done", now).await?;
         transaction.commit().await?;
-        Ok(DecisionOutcome::Recorded {
-            revision_id: latest.id,
-            number: latest_number,
-            identity: latest.identity_sha256,
-            from_execution: latest.origin == "execution",
-        })
+        Ok(latest.recorded())
     }
+
+    pub(crate) async fn approve_latest(
+        &self,
+        run: &str,
+        artifact: &str,
+        expected: Option<u32>,
+        actor: &str,
+    ) -> Result<DecisionOutcome, StoreError> {
+        let now = unix_now();
+        let mut transaction = self.begin_write().await?;
+        let latest = match latest(&mut transaction, run, artifact, expected).await? {
+            Ok(latest) => latest,
+            Err(outcome) => return Ok(outcome),
+        };
+        let inserted = sqlx::query(
+            "INSERT INTO approval (id, revision_id, identity_sha256, decision, actor, decided_at) \
+             VALUES (?, ?, ?, 'approve', ?, ?) ON CONFLICT (revision_id) DO NOTHING",
+        )
+        .bind(new_id())
+        .bind(&latest.id)
+        .bind(&latest.identity_sha256)
+        .bind(actor)
+        .bind(now)
+        .execute(&mut *transaction)
+        .await?;
+        if inserted.rows_affected() == 0 {
+            return Ok(DecisionOutcome::NoRevision);
+        }
+        record_event(&mut transaction, About::Run(run), "approval.recorded", now).await?;
+        transaction.commit().await?;
+        Ok(latest.recorded())
+    }
+
+    pub(crate) async fn unapproved_after_approval(
+        &self,
+        root: &str,
+    ) -> Result<Vec<(String, u32)>, StoreError> {
+        let rows: Vec<(String, i64)> = sqlx::query_as(
+            "SELECT a.name, r.number FROM artifact a JOIN artifact_revision r ON r.artifact_id = a.id \
+             WHERE a.workflow_run_id = ? \
+             AND r.number = (SELECT max(number) FROM artifact_revision WHERE artifact_id = a.id) \
+             AND NOT EXISTS (SELECT 1 FROM approval p WHERE p.revision_id = r.id) \
+             AND EXISTS (SELECT 1 FROM approval p JOIN artifact_revision o ON o.id = p.revision_id \
+                         WHERE o.artifact_id = a.id AND p.decision = 'approve') \
+             ORDER BY a.name",
+        )
+        .bind(root)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|(name, revision)| (name, number(revision)))
+            .collect())
+    }
+}
+
+impl Latest {
+    fn recorded(self) -> DecisionOutcome {
+        DecisionOutcome::Recorded {
+            number: number(self.number),
+            from_execution: self.origin == "execution",
+            revision_id: self.id,
+            identity: self.identity_sha256,
+        }
+    }
+}
+
+async fn latest(
+    connection: &mut SqliteConnection,
+    run: &str,
+    artifact: &str,
+    expected: Option<u32>,
+) -> Result<Result<Latest, DecisionOutcome>, sqlx::Error> {
+    let latest: Option<Latest> = sqlx::query_as(
+        "SELECT r.id, r.number, r.identity_sha256, r.origin FROM artifact a \
+         JOIN artifact_revision r ON r.artifact_id = a.id \
+         WHERE a.workflow_run_id = ? AND a.name = ? ORDER BY r.number DESC LIMIT 1",
+    )
+    .bind(run)
+    .bind(artifact)
+    .fetch_optional(connection)
+    .await?;
+    let Some(latest) = latest else {
+        return Ok(Err(DecisionOutcome::NoRevision));
+    };
+    let latest_number = number(latest.number);
+    Ok(
+        match expected.filter(|expected| *expected != latest_number) {
+            Some(expected) => Err(DecisionOutcome::Stale {
+                expected,
+                latest: latest_number,
+            }),
+            None => Ok(latest),
+        },
+    )
 }

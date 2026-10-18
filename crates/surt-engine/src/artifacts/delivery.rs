@@ -12,7 +12,7 @@ use serde_json::Value;
 
 use envelope::Envelope;
 
-pub(crate) use contract::{ConsistencyCheck, DeliveryContract};
+pub(crate) use contract::{ConsistencyCheck, DeliveryContract, OutputRule};
 pub(crate) use item_list::{Item as ListedItem, ItemListProblem};
 pub(crate) use rejection::DeliveryRejection;
 

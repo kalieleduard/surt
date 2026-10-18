@@ -88,8 +88,9 @@ fn a_human_edit_of_an_item_list_is_validated_with_the_same_rules() {
     fs::create_dir(working_copy.path().join("tasks")).expect("the tasks folder");
     fs::write(working_copy.path().join("tasks/A.md"), "# A\n").expect("task A");
     fs::write(working_copy.path().join("tasks/B.md"), "# B\n").expect("task B");
-    let contract = planner_contract();
-    let rule = contract.output("manifest").expect("the manifest output");
+    let rule = planner_contract()
+        .into_output("manifest")
+        .expect("the manifest output");
     let cyclic = list(&[
         item("A", &["B"], "tasks/A.md"),
         item("B", &["A"], "tasks/B.md"),
