@@ -6,6 +6,7 @@ use std::time::Duration;
 use serde_json::json;
 use tokio::sync::Mutex;
 
+use super::activity::Slots;
 use super::decide::{self, Action, Ctx, RunEnd};
 use super::ending;
 use super::flights::Flights;
@@ -270,8 +271,12 @@ impl<R: AgentRuntime> Driver<'_, R> {
                     ..
                 } => return Ok(Tick::Cancel),
                 Action::Wait => {
-                    let in_use = limit.saturating_sub(ctx.free_slots.len());
-                    self.observe(&loaded, decision.queued, in_use, limit);
+                    let slots = Slots {
+                        in_use: limit.saturating_sub(ctx.free_slots.len()),
+                        limit,
+                    };
+                    let paused = self.activity_pause(ctx.paused_until);
+                    self.observe(&loaded, decision.queued, slots, paused);
                     return Ok(Tick::Wait);
                 }
                 Action::Return(outcome) => {

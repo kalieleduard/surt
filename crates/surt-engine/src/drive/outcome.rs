@@ -125,6 +125,15 @@ pub struct ActivitySnapshot {
     pub queued: usize,
     pub slots_in_use: usize,
     pub slots_limit: usize,
+    pub paused: Option<ActivityPause>,
+}
+
+/// Agent launches wait until until (Unix seconds); ackoff is the delay
+/// in seconds when no reset time was reported.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ActivityPause {
+    pub until: i64,
+    pub backoff: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

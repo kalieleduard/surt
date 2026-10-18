@@ -31,7 +31,8 @@ pub use crate::cleanup::{Cleanup, Kept, Left};
 pub use crate::drive::cancel::Cancellation;
 pub use crate::drive::graph::BlockReason;
 pub use crate::drive::{
-    ActivitySnapshot, DriveOutcome, Gate, Progress, ProgressSink, RunningStep, StepLabel,
+    ActivityPause, ActivitySnapshot, DriveOutcome, Gate, Progress, ProgressSink, RunningStep,
+    StepLabel,
 };
 pub use crate::git::GitVersion;
 pub use crate::operations::checks::REPORT_SCHEMA as CHECK_REPORT_SCHEMA;

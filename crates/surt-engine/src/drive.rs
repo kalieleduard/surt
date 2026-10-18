@@ -32,5 +32,6 @@ pub(crate) use decide::RunEnd;
 pub(crate) use driver::{Driving, drive};
 pub(crate) use frozen::{CorruptSnapshot, Frozen};
 pub use outcome::{
-    ActivitySnapshot, DriveOutcome, Gate, Progress, ProgressSink, RunningStep, StepLabel,
+    ActivityPause, ActivitySnapshot, DriveOutcome, Gate, Progress, ProgressSink, RunningStep,
+    StepLabel,
 };

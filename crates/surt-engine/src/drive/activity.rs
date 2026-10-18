@@ -1,16 +1,30 @@
 use super::driver::Driver;
 use super::graph::ExecutionState;
 use super::load::{Loaded, label};
-use super::outcome::{ActivitySnapshot, Progress, RunningStep};
+use super::outcome::{ActivityPause, ActivitySnapshot, Progress, RunningStep};
 use crate::runtime::AgentRuntime;
 
+/// The agent slots of the project as this Driver sees them.
+#[derive(Clone, Copy)]
+pub(super) struct Slots {
+    pub(super) in_use: usize,
+    pub(super) limit: usize,
+}
+
 impl<R: AgentRuntime> Driver<'_, R> {
-    pub(super) fn observe(&self, loaded: &Loaded, queued: usize, in_use: usize, limit: usize) {
+    pub(super) fn observe(
+        &self,
+        loaded: &Loaded,
+        queued: usize,
+        slots: Slots,
+        paused: Option<ActivityPause>,
+    ) {
         let snapshot = ActivitySnapshot {
             running: running(loaded),
             queued,
-            slots_in_use: in_use,
-            slots_limit: limit,
+            slots_in_use: slots.in_use,
+            slots_limit: slots.limit,
+            paused,
         };
         let Ok(mut last) = self.activity.lock() else {
             return;
