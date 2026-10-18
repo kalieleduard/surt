@@ -104,6 +104,14 @@ pub enum Progress {
         driver: Option<u32>,
     },
     StopRequested,
+    /// The project configuration stopped parsing while the Driver ran; it keeps
+    /// running with `limit`, its last valid `max_concurrent_agents`.
+    ConfigInvalid {
+        path: PathBuf,
+        line: Option<usize>,
+        reason: String,
+        limit: usize,
+    },
     /// Agent launches wait until `until` (Unix seconds) after a Transient
     /// Failure; `backoff` is the delay in seconds when no reset time was
     /// reported, and `waiting` counts the agent Step Runs ready to launch.

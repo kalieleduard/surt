@@ -11,6 +11,7 @@ use super::ending;
 use super::flights::Flights;
 use super::frozen::{CorruptSnapshot, Frozen};
 use super::graph::{RunId, StepRunId};
+use super::limit::LiveLimit;
 use super::load::Loaded;
 use super::operate::Flight;
 use super::outcome::{ActivitySnapshot, DriveOutcome, Progress, ProgressSink};
@@ -175,13 +176,15 @@ impl<R: AgentRuntime> Driver<'_, R> {
 
     async fn run(&self) -> Result<DriveOutcome, Error> {
         let mut flights = Flights::new();
+        let config = self.driving.layout.config();
+        let mut live = LiveLimit::new(config, self.driving.max_agents);
         loop {
             let level = self.stop.level();
             self.agents.raise(level);
             if level == StopLevel::Force {
                 return Ok(DriveOutcome::Interrupted);
             }
-            let limit = self.driving.max_agents;
+            let limit = live.reread(|warning| self.report(warning));
             let mut free = FreeSlots::take(self.driving.layout, limit, &flights.held())?;
             let (tick, landed) = flights.alongside(self.tick(free.indices(), limit)).await;
             let stale = !landed.is_empty();

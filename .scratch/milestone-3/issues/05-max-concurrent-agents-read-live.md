@@ -8,9 +8,9 @@ Spec: [Milestone 3](../spec.md) (stories 29–32) · Plan: [A. Agent concurrency
 
 **Status:** ready-for-agent
 
-- [ ] The Driver rereads the project configuration before each tick; only `max_concurrent_agents` is applied live, and the frozen keys of the `config` snapshot stay frozen
-- [ ] Lowering the limit never stops a running agent; raising it offers the new slot indices on the next tick
-- [ ] A parse failure mid-run keeps the last valid limit and emits one warning progress event, which repeats only after the file has parsed again and then broken again
-- [ ] The CLI prints the warning through the symbol table
-- [ ] `Project::drive` tests: lowering the limit from 2 to 1 mid-run lets the running agents finish and then launches one at a time; raising it from 1 to 2 launches a second agent without restarting; an invalid file mid-run keeps the limit and warns once
-- [ ] A records the live-limit warning
+- [x] The Driver rereads the project configuration before each tick; only `max_concurrent_agents` is applied live, and the frozen keys of the `config` snapshot stay frozen
+- [x] Lowering the limit never stops a running agent; raising it offers the new slot indices on the next tick
+- [x] A parse failure mid-run keeps the last valid limit and emits one warning progress event, which repeats only after the file has parsed again and then broken again
+- [x] The CLI prints the warning through the symbol table
+- [x] `Project::drive` tests: lowering the limit from 2 to 1 mid-run lets the running agents finish and then launches one at a time; raising it from 1 to 2 launches a second agent without restarting; an invalid file mid-run keeps the limit and warns once
+- [x] A records the live-limit warning

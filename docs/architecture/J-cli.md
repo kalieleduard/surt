@@ -568,7 +568,7 @@ merge_into_base = "never"   # "never" | "ff-only"
 
 | Key | Default | When it applies | Decided in |
 |---|---|---|---|
-| `max_concurrent_agents` | `3` | read live by every Driver before each launch | [A](A-process-model.md#agent-concurrency-limit) |
+| `max_concurrent_agents` | `3` | read live by every Driver before each tick | [A](A-process-model.md#agent-concurrency-limit) |
 | `max_attempts` | `3` | frozen at root run creation | [G](G-state-machines.md#limits) |
 | `max_iterations` | `5` | frozen at root run creation | [G](G-state-machines.md#limits) |
 | `[git] merge_into_base` | `"never"` | frozen; `surt feature --merge`/`--no-merge` override it per run | [A. Git Integration](A-git-integration.md) |
