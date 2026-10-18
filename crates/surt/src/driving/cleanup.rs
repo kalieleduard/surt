@@ -43,7 +43,7 @@ pub(super) fn summary(cleanup: &Cleanup) -> String {
     format!("cleanup {}", parts.join(SEPARATOR))
 }
 
-fn kept_line(kept: &Kept) -> String {
+pub(crate) fn kept_line(kept: &Kept) -> String {
     match kept {
         Kept::UnrecordedEdit { path } => format!("kept {} — unrecorded edit", path.display()),
         Kept::MovedBranch { branch } => format!("kept {branch} — moved outside surt"),

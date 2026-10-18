@@ -5,7 +5,10 @@ use super::fixtures::{Feature, label};
 use super::integration::{integration_branch, login, task_branch_of};
 use super::repository::git;
 use super::team::{INTEGRATED_TASK, Team, builds, built, failures, reviews};
-use crate::project::{Cancellation, Config, DriveOutcome, Progress, Refusal, StepLabel};
+use crate::project::{
+    Cancellation, Config, DriveOutcome, PendingIntegration, Progress, Refusal, RunState,
+    StatusScope, StepLabel,
+};
 
 fn moving_the_integration_branch(worktree: &Path) -> String {
     let sha = login(worktree);
@@ -160,6 +163,37 @@ async fn an_intended_move_found_undone_is_redone_from_the_start() {
     assert_eq!(feature.sha(&integration_branch()), Some(merge.sha.clone()));
     assert_eq!(feature.recorded_tips().await[1].2, Some(merge.sha));
     assert!(feature.pending_moves().await.is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn status_shows_an_intended_move_as_a_pending_integration_without_settling_it() {
+    let feature = blocked_by_a_moved_branch().await;
+    let merge = feature.hand_made_merge();
+    feature.intend_move(&feature.base(), &merge).await;
+    feature
+        .dir
+        .execute("UPDATE workflow_run SET driver_pid = NULL")
+        .await;
+
+    let statuses = feature
+        .project
+        .status(StatusScope::Feature(SUBJECT))
+        .await
+        .expect("status reads");
+
+    assert_eq!(statuses.len(), 1);
+    assert_eq!(statuses[0].states, [RunState::Blocked]);
+    assert_eq!(statuses[0].driver, None);
+    assert_eq!(
+        statuses[0].integrating,
+        [PendingIntegration {
+            step: integrate_of_a(),
+            branch: format!("surt/{SUBJECT}"),
+            from: feature.base(),
+            to: merge.clone(),
+        }]
+    );
+    assert_eq!(feature.pending_moves().await, [(merge,)]);
 }
 
 #[tokio::test(flavor = "multi_thread")]

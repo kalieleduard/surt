@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::{Notify, mpsc};
 
 use super::fixtures::{Feature, draft, label};
-use crate::project::{Cancellation, DriveOutcome, Progress};
+use crate::project::{Cancellation, DriveOutcome, Progress, RunState, StatusScope, Unattended};
 use crate::runtime::{
     AgentRuntime, Behavior, FakeRuntime, RuntimeCompletion, RuntimeError, RuntimeEvent,
     RuntimeEventSink, RuntimeRequest, Script, StopSignal,
@@ -268,6 +268,35 @@ async fn an_agent_left_running_by_a_dead_driver_is_stopped_never_adopted_and_ret
         .rows("SELECT kind FROM event WHERE kind = 'execution.orphan_stopped'")
         .await;
     assert_eq!(stopped.len(), 1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn status_warns_about_an_agent_still_running_with_no_driver_and_leaves_it_alone() {
+    let feature = Feature::review().await;
+    let mut orphan = feature.orphaned().await;
+    feature
+        .dir
+        .execute("UPDATE workflow_run SET driver_pid = NULL")
+        .await;
+
+    let statuses = feature
+        .project
+        .status(StatusScope::Active)
+        .await
+        .expect("status reads");
+
+    assert!(orphan.try_wait().expect("inspectable").is_none());
+    assert_eq!(statuses[0].states, [RunState::Interrupted]);
+    assert_eq!(
+        statuses[0].unattended,
+        [Unattended {
+            step: label("write", Some(1)),
+            pid: orphan.id(),
+        }]
+    );
+    assert_eq!(feature.attempts().await, [(1, "running".to_owned())]);
+    orphan.kill().expect("the orphan is killed");
+    assert!(exited(&mut orphan));
 }
 
 #[tokio::test(flavor = "multi_thread")]

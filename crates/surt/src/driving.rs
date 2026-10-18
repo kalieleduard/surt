@@ -13,7 +13,10 @@ use crate::refusal;
 pub(crate) use cleanup::report as report_cleanup;
 use interruption::Interruptions;
 pub(crate) use progress::print as print_progress;
-use progress::short;
+
+pub(crate) use blocked::{last_error, local_time, reason};
+pub(crate) use cleanup::kept_line;
+pub(crate) use progress::{label, short};
 
 pub(crate) struct Driven<'a> {
     pub(crate) project: &'a Project,

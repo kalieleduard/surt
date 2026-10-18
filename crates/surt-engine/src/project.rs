@@ -13,6 +13,8 @@ mod layout;
 mod naming;
 mod repository;
 mod resolving;
+mod show;
+mod status;
 mod subjects;
 
 use std::path::Path;
@@ -40,6 +42,11 @@ pub use init::{FileState, InitFile, Initialized};
 pub use naming::Slug;
 pub use repository::Commit;
 pub use resolving::Subject;
+pub use show::{ArtifactSummary, ShowRequest, Shown};
+pub use status::{
+    CleanupState, Driver, GateView, PendingIntegration, RevisionSummary, RunState, RunStatus,
+    StatusScope, TaskState, TaskStatus, Unattended,
+};
 pub use subjects::FreeName;
 
 #[cfg(feature = "test-support")]
@@ -56,8 +63,15 @@ pub struct Project {
     config: Config,
     catalog: Catalog,
     home: SurtHome,
+    access: Access,
     #[cfg(feature = "test-support")]
     faults: Faults,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Access {
+    ReadWrite,
+    ReadOnly,
 }
 
 impl Project {
@@ -69,21 +83,39 @@ impl Project {
         Self::open_in(cwd, &SurtHome::from_env(), catalog).await
     }
 
+    pub async fn open_read_only(cwd: &Path) -> Result<Project, Error> {
+        Self::open_with(cwd, &SurtHome::from_env(), Catalog::new(), Access::ReadOnly).await
+    }
+
     async fn open_in(cwd: &Path, home: &SurtHome, catalog: Catalog) -> Result<Project, Error> {
+        Self::open_with(cwd, home, catalog, Access::ReadWrite).await
+    }
+
+    async fn open_with(
+        cwd: &Path,
+        home: &SurtHome,
+        catalog: Catalog,
+        access: Access,
+    ) -> Result<Project, Error> {
         let layout = discovery::find_project(cwd, home).await?;
         let config = config::load(&layout.config())?;
-        let store = open_store(&layout).await?;
-        let id = store.project_id().await?;
+        let store = open(&layout, access).await?;
+        let id = store.project_id().await;
         store.close().await;
         Ok(Project {
             layout,
-            id,
+            id: id?,
             config,
             catalog,
             home: home.clone(),
+            access,
             #[cfg(feature = "test-support")]
             faults: Faults::default(),
         })
+    }
+
+    async fn reader(&self) -> Result<Store, Error> {
+        open(&self.layout, self.access).await
     }
 
     pub fn root(&self) -> &Path {
@@ -116,6 +148,13 @@ impl Project {
             return Err(Refusal::AgentOverrides { path: agents }.into());
         }
         Ok(())
+    }
+}
+
+async fn open(layout: &Layout, access: Access) -> Result<Store, Error> {
+    match access {
+        Access::ReadWrite => open_store(layout).await,
+        Access::ReadOnly => Ok(Store::open_read_only(&layout.database()).await?),
     }
 }
 

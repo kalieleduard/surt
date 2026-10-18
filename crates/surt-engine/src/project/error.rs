@@ -91,6 +91,22 @@ pub enum Refusal {
         reference: String,
         candidates: Vec<String>,
     },
+    UnknownArtifact {
+        subject: String,
+        artifact: String,
+        known: Vec<String>,
+    },
+    UnknownRevision {
+        subject: String,
+        artifact: String,
+        revision: u32,
+        latest: u32,
+    },
+    UnknownTask {
+        subject: String,
+        task: String,
+        known: Vec<String>,
+    },
     InvalidDefinition(Box<InvalidDefinition>),
     IntegrationBranchMoved {
         subject: String,

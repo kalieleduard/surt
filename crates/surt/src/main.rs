@@ -11,8 +11,10 @@ mod phase;
 mod plan;
 mod refusal;
 mod runtime;
+mod show;
 mod start;
 mod status;
+mod table;
 
 use std::process::ExitCode;
 
@@ -36,7 +38,8 @@ enum Command {
     Approve(decide::ApproveArgs),
     Reject(decide::RejectArgs),
     Cancel(cancel::CancelArgs),
-    Status,
+    Status(status::StatusArgs),
+    Show(show::ShowArgs),
 }
 
 #[tokio::main]
@@ -59,6 +62,7 @@ async fn run(command: Command) -> Result<(), Failure> {
         Command::Approve(args) => decide::approve(&cwd, args).await,
         Command::Reject(args) => decide::reject(&cwd, args).await,
         Command::Cancel(args) => cancel::run(&cwd, args).await,
-        Command::Status => status::run(&cwd).await,
+        Command::Status(args) => status::run(&cwd, args).await,
+        Command::Show(args) => show::run(&cwd, args).await,
     }
 }

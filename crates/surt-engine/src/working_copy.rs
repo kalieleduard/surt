@@ -20,6 +20,19 @@ pub(crate) fn unrecorded_edits(dir: &Path, files: &[BaselineFile]) -> io::Result
     Ok(disk::inspect(dir, files)?.edited())
 }
 
+pub(crate) struct Comparison {
+    pub(crate) edited: Vec<String>,
+    pub(crate) missing: Vec<String>,
+}
+
+pub(crate) fn compare(dir: &Path, files: &[BaselineFile]) -> io::Result<Comparison> {
+    let inspection = disk::inspect(dir, files)?;
+    Ok(Comparison {
+        edited: inspection.edited(),
+        missing: inspection.missing,
+    })
+}
+
 pub(crate) struct WorkingCopy {
     dir: PathBuf,
     root: String,

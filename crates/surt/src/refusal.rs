@@ -1,5 +1,6 @@
 mod definition;
 mod edits;
+mod reading;
 
 use std::path::Path;
 
@@ -128,6 +129,22 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
         } => Message::new(format!("{branch} is checked out in {}", path.display()))
             .way("fix", format!("git -C {} switch --detach", path.display()))
             .way("resume", format!("surt start {subject}")),
+        Refusal::UnknownArtifact {
+            subject,
+            artifact,
+            known,
+        } => reading::unknown_artifact(subject, artifact, known),
+        Refusal::UnknownRevision {
+            subject,
+            artifact,
+            revision,
+            latest,
+        } => reading::unknown_revision(subject, artifact, *revision, *latest),
+        Refusal::UnknownTask {
+            subject,
+            task,
+            known,
+        } => reading::unknown_task(subject, task, known),
     }
 }
 

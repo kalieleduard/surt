@@ -20,7 +20,7 @@ pub(crate) async fn print(mut events: UnboundedReceiver<Progress>) -> Option<Cle
     cleaned
 }
 
-pub(super) fn label(step: &StepLabel) -> String {
+pub(crate) fn label(step: &StepLabel) -> String {
     let mut text = match &step.item {
         Some(item) => format!("task {item} {}", step.key),
         None => step.key.clone(),
@@ -31,7 +31,7 @@ pub(super) fn label(step: &StepLabel) -> String {
     text
 }
 
-pub(super) fn short(sha: &str) -> &str {
+pub(crate) fn short(sha: &str) -> &str {
     sha.get(..SHORT_SHA_CHARS).unwrap_or(sha)
 }
 

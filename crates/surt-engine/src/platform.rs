@@ -4,7 +4,7 @@ use std::path::Path;
 
 mod process;
 
-pub(crate) use process::{ProcessIdentity, identify, stop};
+pub(crate) use process::{ProcessIdentity, identify, is_alive, stop};
 
 pub(crate) struct ExclusiveLock {
     _file: File,

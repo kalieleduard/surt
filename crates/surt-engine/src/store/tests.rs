@@ -372,15 +372,18 @@ async fn a_database_migrated_by_a_newer_binary_is_refused() {
     let refusal = Store::open(&dir.database(), &dir.lock(), PROJECT_NAME)
         .await
         .err();
+    let reading = Store::open_read_only(&dir.database()).await.err();
 
-    assert!(
-        matches!(
-            refusal,
-            Some(StoreError::SchemaTooNew {
-                db: 7,
-                supported: 1
-            })
-        ),
-        "{refusal:?}"
-    );
+    for refused in [refusal, reading] {
+        assert!(
+            matches!(
+                refused,
+                Some(StoreError::SchemaTooNew {
+                    db: 7,
+                    supported: 1
+                })
+            ),
+            "{refused:?}"
+        );
+    }
 }

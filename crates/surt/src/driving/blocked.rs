@@ -32,7 +32,7 @@ fn message(blocked: &BlockedStep) -> Message {
     }
 }
 
-fn reason(reason: BlockReason) -> &'static str {
+pub(crate) fn reason(reason: BlockReason) -> &'static str {
     match reason {
         BlockReason::AttemptsExhausted => "attempts exhausted",
         BlockReason::NotRetryable => "cannot be retried",
@@ -40,7 +40,7 @@ fn reason(reason: BlockReason) -> &'static str {
     }
 }
 
-fn last_error(failure: &LastFailure) -> String {
+pub(crate) fn last_error(failure: &LastFailure) -> String {
     let mut line = format!(
         "attempt {} failed ({}): {}",
         failure.attempt, failure.code, failure.message
@@ -51,7 +51,7 @@ fn last_error(failure: &LastFailure) -> String {
     line
 }
 
-fn local_time(seconds: i64) -> Option<String> {
+pub(crate) fn local_time(seconds: i64) -> Option<String> {
     let timestamp = Timestamp::from_second(seconds).ok()?;
     Some(
         timestamp

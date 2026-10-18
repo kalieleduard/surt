@@ -120,3 +120,42 @@ fn a_second_ctrl_c_forces_the_stop_without_waiting_for_a_running_check() {
     assert!(!stderr.contains("task A check passed"), "{stderr}");
     assert!(clock.elapsed() < FORCE_CEILING, "{:?}", clock.elapsed());
 }
+
+#[test]
+fn status_shows_a_driven_feature_as_running_with_its_driver_and_running_task() {
+    let name = feature_name();
+    let sandbox = waiting_builder(&name);
+    let mut driving = Driving::start(&sandbox, &name);
+    driving.wait_for("● task A build started\n");
+    let pid = driving.child.id();
+
+    let overview = sandbox.surt(&sandbox.repo(), &["status"]);
+    let detail = sandbox.surt(&sandbox.repo(), &["status", &name]);
+    driving.signal("INT");
+    let (code, stderr) = driving.finish();
+
+    assert_eq!(code, Some(INTERRUPTED_EXIT_CODE), "{stderr}");
+    assert_eq!(
+        overview.stdout,
+        format!(
+            "FEATURE             RUN  STATE    DRIVER     PROGRESS\n\
+             {name}  1    RUNNING  pid {pid}  0/1 merged · 1 running\n"
+        ),
+        "{}",
+        overview.stderr
+    );
+    assert!(
+        detail.stdout.starts_with(&format!(
+            "{name} · run 1   RUNNING   driver pid {pid} since "
+        )),
+        "{}",
+        detail.stdout
+    );
+    assert!(
+        detail
+            .stdout
+            .contains("\n  tasks\n    A  ● build     iter 1 · attempt 1 · since "),
+        "{}",
+        detail.stdout
+    );
+}

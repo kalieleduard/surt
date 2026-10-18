@@ -21,6 +21,7 @@ mod executions;
 mod frozen;
 mod graph;
 mod items;
+mod reading;
 mod ref_moves;
 mod revisions;
 mod runs;
@@ -44,6 +45,7 @@ pub(crate) use executions::{
 pub(crate) use frozen::FrozenFile;
 pub(crate) use graph::{RunRows, StepRow};
 pub(crate) use items::{Expansion, ListRevision, NewChild};
+pub(crate) use reading::{GateViewRow, RootRunRow, TaskRow};
 pub(crate) use ref_moves::{PendingRefMove, RefMove};
 pub(crate) use revisions::{Producer, StoredRevision};
 pub(crate) use runs::{NewInitialArtifact, NewRunRows, RunCreation};
@@ -105,6 +107,26 @@ impl Store {
         };
         store.record_project(project_name).await?;
         Ok(store)
+    }
+
+    pub(crate) async fn open_read_only(database: &Path) -> Result<Store, StoreError> {
+        tracing::debug!(database = %database.display(), "opening the database read-only");
+        let options = SqliteConnectOptions::new()
+            .filename(database)
+            .read_only(true)
+            .busy_timeout(BUSY_TIMEOUT);
+        let pool = SqlitePool::connect_with(options).await?;
+        let db = applied_version(&pool).await?;
+        let supported = supported_version();
+        if db > supported {
+            pool.close().await;
+            return Err(StoreError::SchemaTooNew { db, supported });
+        }
+        Ok(Store {
+            pool,
+            #[cfg(feature = "test-support")]
+            faults: Faults::default(),
+        })
     }
 
     pub(crate) async fn close(self) {

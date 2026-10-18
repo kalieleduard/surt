@@ -138,10 +138,68 @@ fn every_refusal() -> Vec<Refusal> {
             branch: "surt/20261017-add-login".to_owned(),
             path: path.clone(),
         },
+        Refusal::UnknownArtifact {
+            subject: "20261017-add-login".to_owned(),
+            artifact: "specs".to_owned(),
+            known: vec!["request".to_owned(), "spec".to_owned()],
+        },
+        Refusal::UnknownArtifact {
+            subject: "20261017-add-login".to_owned(),
+            artifact: "spec".to_owned(),
+            known: Vec::new(),
+        },
+        Refusal::UnknownRevision {
+            subject: "20261017-add-login".to_owned(),
+            artifact: "spec".to_owned(),
+            revision: 3,
+            latest: 2,
+        },
+        Refusal::UnknownTask {
+            subject: "20261017-add-login".to_owned(),
+            task: "Z".to_owned(),
+            known: vec!["A".to_owned(), "B".to_owned()],
+        },
+        Refusal::UnknownTask {
+            subject: "20261017-add-login".to_owned(),
+            task: "A".to_owned(),
+            known: Vec::new(),
+        },
         Refusal::ActiveRunExists {
             subject: "20261017-add-login".to_owned(),
         },
     ]
+}
+
+#[test]
+fn reading_refusals_list_what_exists_and_how_to_look_it_up() {
+    let reading = named(|refusal| {
+        matches!(
+            refusal,
+            Refusal::UnknownArtifact { .. }
+                | Refusal::UnknownRevision { .. }
+                | Refusal::UnknownTask { .. }
+        )
+    });
+
+    assert_eq!(
+        reading,
+        [
+            "✖ 20261017-add-login has no artifact \"specs\"\n  \
+             artifacts: request, spec\n  \
+             inspect: surt show 20261017-add-login\n",
+            "✖ 20261017-add-login has no artifact \"spec\"\n  \
+             it has no artifacts yet\n  \
+             inspect: surt show 20261017-add-login\n",
+            "✖ spec has no rev 3; the latest is rev 2\n  \
+             inspect: surt show 20261017-add-login spec --rev 2\n",
+            "✖ 20261017-add-login has no task \"Z\"\n  \
+             tasks: A, B\n  \
+             inspect: surt status 20261017-add-login\n",
+            "✖ 20261017-add-login has no task \"A\"\n  \
+             it has no tasks yet\n  \
+             inspect: surt status 20261017-add-login\n",
+        ]
+    );
 }
 
 fn named(predicate: fn(&Refusal) -> bool) -> Vec<String> {

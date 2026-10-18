@@ -6,11 +6,11 @@ use sqlx::{FromRow, Sqlite, SqlitePool};
 use tempfile::TempDir;
 
 use crate::project::layout::Layout;
+use crate::project::{Access, SurtHome, open_store};
 use crate::project::{
     AgentAssets, ArtifactFile, Catalog, Config, DefinitionFile, Error, InitialArtifact,
     InvalidDefinition, NewRun, Problem, Project, Refusal,
 };
-use crate::project::{SurtHome, open_store};
 #[cfg(feature = "test-support")]
 use crate::store::Faults;
 
@@ -203,6 +203,7 @@ impl ProjectDir {
             config,
             catalog,
             home: SurtHome::at(&self.home()),
+            access: Access::ReadWrite,
             #[cfg(feature = "test-support")]
             faults: Faults::default(),
         }
