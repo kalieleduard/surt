@@ -115,6 +115,31 @@ limit_failure = { resets_at = 1792000000 }
 }
 
 #[tokio::test]
+async fn a_limit_failure_can_reset_some_seconds_after_it_happens() {
+    let script = parsed(
+        r#"
+[[on]]
+step = "write"
+limit_failure = { resets_in = 30 }
+"#,
+    );
+    let before = jiff::Timestamp::now().as_second();
+
+    let error = Execution::new()
+        .complete_script(script, StopSignal::new())
+        .await
+        .expect_err("a limit failure");
+
+    let after = jiff::Timestamp::now().as_second();
+    assert_eq!(error.class, FailureClass::Transient);
+    let resets_at = error.resets_at.expect("a reset time");
+    assert!(
+        (before + 30..=after + 30).contains(&resets_at),
+        "{resets_at}"
+    );
+}
+
+#[tokio::test]
 async fn a_final_json_text_replaces_the_envelope() {
     let script = parsed(
         r#"

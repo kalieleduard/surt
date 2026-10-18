@@ -97,7 +97,7 @@ fn name(running: &RunningStep) -> String {
     text
 }
 
-fn duration(seconds: i64) -> String {
+pub(super) fn duration(seconds: i64) -> String {
     let seconds = seconds.max(0);
     if seconds < SECONDS_PER_MINUTE {
         format!("{seconds}s")

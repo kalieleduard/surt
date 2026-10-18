@@ -131,7 +131,10 @@ impl<'a> Plan<'a> {
         let id = step.id.clone();
         let action = match &step.work {
             Work::Agent(_) => {
-                let Some(&slot) = self.free_slots.next() else {
+                let slot = (!self.ctx.paused())
+                    .then(|| self.free_slots.next())
+                    .flatten();
+                let Some(&slot) = slot else {
                     self.queued += 1;
                     return;
                 };
@@ -163,7 +166,8 @@ impl<'a> Plan<'a> {
 
     fn finish(self) -> Vec<Action> {
         let stopping = self.ctx.stop != StopLevel::None;
-        let waiting_for_slot = self.queued > 0 && !stopping;
+        // Queued agents wait for a free slot or for the end of the pause.
+        let waiting = self.queued > 0 && !stopping;
         let outcome = if stopping {
             DriveOutcome::Interrupted
         } else if !self.actions.is_empty() {
@@ -175,7 +179,7 @@ impl<'a> Plan<'a> {
         } else {
             DriveOutcome::AtGate { gates: self.gates }
         };
-        if self.live || waiting_for_slot {
+        if self.live || waiting {
             return vec![Action::Wait];
         }
         vec![Action::Return(outcome)]

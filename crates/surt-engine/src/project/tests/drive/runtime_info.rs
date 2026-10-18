@@ -5,7 +5,7 @@ use super::stopping::{Interference, Interfering};
 use crate::runtime::{Behavior, Script, StopLevel};
 
 const CRASH_EXIT_CODE: i32 = 9;
-const RESETS_AT: i64 = 1_900_000_000;
+const RESET_DELAY_SECONDS: i64 = 2;
 const MODEL: &str = "fake-model";
 
 async fn runtime_infos(feature: &Feature) -> Vec<Value> {
@@ -55,17 +55,23 @@ async fn each_execution_records_what_its_runtime_reported() {
 #[tokio::test(flavor = "multi_thread")]
 async fn a_failed_execution_keeps_its_report_beside_the_reset_time() {
     let feature = Feature::review().await;
+    let resets_at = jiff::Timestamp::now().as_second() + RESET_DELAY_SECONDS;
     let limited = Behavior::LimitFailure {
-        resets_at: Some(RESETS_AT),
+        resets_at: Some(resets_at),
     };
-    let runtime = Recording::new(Script::new().on("write", 1, 1, limited));
+    let runtime = Recording::new(Script::new().on("write", 1, 1, limited).on(
+        "write",
+        1,
+        2,
+        draft("first draft"),
+    ));
 
     feature.drive_with(&runtime).await;
 
     let session = runtime.requests()[0].session_id.to_string();
     assert_eq!(
-        runtime_infos(&feature).await,
-        [json!({ "session_id": session, "model": MODEL, "resets_at": RESETS_AT })]
+        runtime_infos(&feature).await[0],
+        json!({ "session_id": session, "model": MODEL, "resets_at": resets_at })
     );
 }
 

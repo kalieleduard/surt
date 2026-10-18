@@ -2,7 +2,7 @@ use super::fixtures::{Feature, draft, label};
 use crate::project::DriveOutcome;
 use crate::runtime::{Behavior, Delivery, Script};
 
-const RESETS_AT: i64 = 1_900_000_000;
+const RESET_DELAY_SECONDS: i64 = 2;
 
 fn crashes(script: Script, attempts: std::ops::RangeInclusive<u32>) -> Script {
     attempts.fold(script, |script, attempt| {
@@ -99,33 +99,77 @@ async fn a_failure_retrying_cannot_fix_blocks_on_the_first_attempt() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_transient_failure_blocks_at_once_and_keeps_the_reset_time() {
+async fn a_transient_failure_spends_no_attempt_blocks_nothing_and_keeps_the_reset_time() {
     let feature = Feature::review().await;
+    let resets_at = jiff::Timestamp::now().as_second() + RESET_DELAY_SECONDS;
     let limited = Behavior::LimitFailure {
-        resets_at: Some(RESETS_AT),
+        resets_at: Some(resets_at),
     };
+    let script = Script::new()
+        .on("write", 1, 1, limited)
+        .on("write", 1, 2, draft("# Draft\n"));
 
-    let driven = feature
-        .drive(Script::new().on("write", 1, 1, limited))
-        .await;
+    let driven = feature.drive(script).await;
 
-    assert_eq!(driven.outcome.expect("drive returns"), blocked_write());
-    assert_eq!(
-        step_state(&feature).await,
-        [("blocked".to_owned(), Some("not_retryable".to_owned()), 0)]
+    assert!(
+        matches!(
+            driven.outcome.expect("drive returns"),
+            DriveOutcome::AtGate { .. }
+        ),
+        "the second attempt delivers"
     );
+    assert_eq!(step_state(&feature).await, [("done".to_owned(), None, 0)]);
     let attempts: Vec<(String, Option<String>, Option<i64>)> = feature
         .dir
         .rows(
-            "SELECT state, failure_class, json_extract(runtime_info, '$.resets_at') FROM execution",
+            "SELECT state, failure_class, json_extract(runtime_info, '$.resets_at') \
+             FROM execution ORDER BY attempt",
         )
         .await;
     assert_eq!(
         attempts,
-        [(
-            "failed".to_owned(),
-            Some("transient".to_owned()),
-            Some(RESETS_AT)
-        )]
+        [
+            (
+                "failed".to_owned(),
+                Some("transient".to_owned()),
+                Some(resets_at)
+            ),
+            ("succeeded".to_owned(), None, None),
+        ]
     );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_step_an_older_binary_blocked_on_a_transient_failure_resumes_with_a_fresh_budget() {
+    let feature = Feature::review().await;
+    let mismatch = Behavior::ModelMismatch {
+        reported: "other-model".to_owned(),
+        delivery: Delivery::new("done").output("draft", "draft.md", "# Draft\n"),
+    };
+    let blocked = feature
+        .drive(Script::new().on("write", 1, 1, mismatch))
+        .await;
+    assert_eq!(blocked.outcome.expect("drive returns"), blocked_write());
+    feature
+        .dir
+        .execute(
+            "UPDATE execution SET failure_class = 'transient', error_code = 'rate_limit', \
+             runtime_info = json_set(coalesce(runtime_info, '{}'), '$.resets_at', 1900000000)",
+        )
+        .await;
+
+    let resumed = feature
+        .drive(Script::new().on("write", 1, 2, draft("# Draft\n")))
+        .await;
+
+    assert!(
+        matches!(
+            resumed.outcome.expect("drive returns"),
+            DriveOutcome::AtGate { .. }
+        ),
+        "the next attempt launches at once and delivers"
+    );
+    assert_eq!(step_state(&feature).await, [("done".to_owned(), None, 1)]);
+    assert_eq!(feature.dir.event_data("step.unblocked").await.len(), 1);
+    assert_eq!(feature.dir.event_data("agents.paused").await.len(), 0);
 }

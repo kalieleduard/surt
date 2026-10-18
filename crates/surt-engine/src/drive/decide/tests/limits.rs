@@ -53,7 +53,7 @@ fn failed_attempts_retry_until_max_attempts_then_block() {
 
 #[test]
 fn interrupted_and_transient_executions_spend_no_attempt() {
-    let table: [(&str, &[ExecutionState], Action); 4] = [
+    let table: [(&str, &[ExecutionState], Action); 5] = [
         (
             "five interruptions",
             &[
@@ -78,7 +78,12 @@ fn interrupted_and_transient_executions_spend_no_attempt() {
         (
             "a transient failure just happened",
             &[TRANSIENT],
-            block("build", BlockReason::NotRetryable),
+            launch("build"),
+        ),
+        (
+            "three transient failures in a row",
+            &[TRANSIENT, TRANSIENT, TRANSIENT],
+            launch("build"),
         ),
     ];
 
