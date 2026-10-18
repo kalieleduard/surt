@@ -66,7 +66,7 @@ One rule for every `ref_move` row, applied by the next Attempt of the Step Run t
 |---|---|---|
 | `new_sha` | the move happened | confirm: record the Operation's result (`git.integrate`: `tip_sha` = M, the child's `merged_as_sha` = M, Outcome `merged`), delete the row |
 | `old_sha` | the move did not happen | delete the row and redo the Operation from its start; a move with `worktree_path` whose worktree is not clean instead **keeps** its row and blocks ([below](#an-interrupted-fast-forward-into-the-base)) |
-| anything else | someone else moved it | delete the row; `git.integrate` → `blocked` (`not_retryable`, `integration_branch_moved`); `git.merge_into_base` → its normal `skipped` (base moved) |
+| anything else | someone else moved it | delete the row; `git.integrate` → `blocked` (`not_retryable`, `integration_branch_moved`); `git.merge_into_base` → its normal `skipped` ([`base_moved`](A-git-integration.md#merging-into-the-base-opt-in)) |
 
 A `ref_move` row exists only while its Step Run is `running`, or `blocked` on an interrupted fast-forward. Before it moves the ref, `git.integrate` still re-checks the merge result when the tip moved ([A. Git Integration](A-git-integration.md#integration)). A ref equal to `new_sha` therefore always passed the Checks, and confirmation never runs them again. The merge commit's dates still come from `step_run.started_at`, so a redone integration recomputes the same `M`. That is a second guarantee, not something recovery relies on.
 

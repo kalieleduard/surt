@@ -245,7 +245,18 @@ The value belongs to the Operation, not to the Shipper or the `ship` step, and i
 ⚠ not merged: main moved since base (a11c9d0 → b22e310); merge surt/20261016-add-login yourself
 ```
 
-It never creates a merge commit on the Base branch: a combination with commits that arrived later would be unreviewed and unchecked. `skipped` is a successful Outcome; the feature is shipped either way. Rationale: [ADR 0006](../adr/0006-merge-into-base-is-opt-in-fast-forward.md).
+It never creates a merge commit on the Base branch: a combination with commits that arrived later would be unreviewed and unchecked. `skipped` is a successful Outcome; the feature is shipped either way, and the run still ends `succeeded` (exit `0`). Rationale: [ADR 0006](../adr/0006-merge-into-base-is-opt-in-fast-forward.md).
+
+The rows are checked in the order of the table. Each `skipped` records one reason with the step's `step.done` event ([D](D-database.md#event-data)):
+
+| Reason | Row | Line printed after `✔ shipper delivered` |
+|---|---|---|
+| `disabled` | `never` | none: the default output is unchanged |
+| `no_base_branch` | `base.ref` is `null` | `⚠ not merged: the base a11c9d0 is not a branch; merge surt/<subject> yourself` |
+| `base_moved` | the branch is not at `base.sha`, or the compare-and-swap of `update-ref` failed; `found` is where it is (`null` when it no longer exists) | `⚠ not merged: main moved since base (a11c9d0 → b22e310); merge surt/<subject> yourself` |
+| `worktree_not_clean` | the branch is checked out in a worktree that is not clean | `⚠ not merged: main is checked out in a worktree that is not clean; merge surt/<subject> yourself` |
+
+`merged` records `from` (`base.sha`) and `to` (the delivered tip) and prints `✔ merged into main (fast-forward a11c9d0 → 4e1b2c0)`. The `update-ref` writes the reflog message `surt: fast-forward <base.ref> to surt/<subject>`, so `git reflog main` names the run that moved it. Before it moves the ref the Operation commits a `ref_move` Intention (`refs/heads/<base.ref>`, `base.sha` → tip), settled by recovery's [ref move rule](I-recovery.md#ref-moves). Surt never pushes.
 
 ## Git configuration Surt applies
 
