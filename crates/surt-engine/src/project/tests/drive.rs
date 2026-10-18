@@ -1,7 +1,10 @@
 mod drivers;
 mod fixtures;
 mod gates;
+mod item_lists;
 mod iterations;
 mod overrides;
 mod phases;
+mod pinning;
 mod recovery;
+mod working_copy;

@@ -10,6 +10,7 @@ use crate::project::{Error, Layout, Refusal};
 use crate::runtime::{AgentRuntime, StopLevel, StopSignal};
 use crate::store::{StepRow, Store};
 use crate::workflow::{Definition, StepSpec};
+use crate::working_copy::WorkingCopy;
 
 const TICK: Duration = Duration::from_secs(1);
 const DONE: &str = "done";
@@ -19,11 +20,13 @@ pub(crate) struct Driving<'a> {
     pub(crate) layout: &'a Layout,
     pub(crate) root: &'a str,
     pub(crate) max_agents: usize,
+    pub(crate) actor: &'a str,
 }
 
 pub(super) struct Driver<'a, R> {
     pub(super) driving: Driving<'a>,
     pub(super) frozen: Frozen,
+    pub(super) working_copy: WorkingCopy,
     pub(super) runtime: &'a R,
     progress: ProgressSink,
     pub(super) stop: StopSignal,
@@ -53,13 +56,19 @@ pub(crate) async fn drive<R: AgentRuntime>(
         .await?;
     driving.store.interrupt_stale(driving.root).await?;
     let frozen = Frozen::from_files(driving.store.frozen_files(driving.root).await?)?;
+    let working_copy =
+        WorkingCopy::load(driving.store, driving.layout, driving.root, &frozen).await?;
     let driver = Driver {
         driving,
         frozen,
+        working_copy,
         runtime,
         progress,
         stop,
     };
+    if let Some(refusal) = driver.guard().await? {
+        return Ok(DriveOutcome::Halted(refusal));
+    }
     loop {
         if let Some(outcome) = driver.tick().await? {
             return Ok(outcome);
@@ -110,7 +119,11 @@ impl<R: AgentRuntime> Driver<'_, R> {
             Action::StartIteration { loop_ } => {
                 self.start_iteration(loaded, definition, &loop_).await?;
             }
-            Action::Launch { step } => self.launch(loaded, definition, &step).await?,
+            Action::Launch { step } => {
+                if let Some(refusal) = self.launch(loaded, definition, &step).await? {
+                    return Ok(Some(DriveOutcome::Halted(refusal)));
+                }
+            }
             Action::OpenGate { step } => store.open_step(&step.0).await?,
             Action::Skip { step } => store.skip_step(&step.0).await?,
             Action::Block { step, reason } => store.block_step(&step.0, reason).await?,

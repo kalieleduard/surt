@@ -2,6 +2,7 @@ mod decide;
 mod driver;
 mod frozen;
 pub(crate) mod graph;
+mod guard;
 mod launch;
 mod load;
 mod outcome;

@@ -11,7 +11,7 @@ use super::load::{Loaded, label};
 use super::outcome::Progress;
 use crate::artifacts::{AcceptedDelivery, DeliveryContract};
 use crate::context::{Assembly, ContextInput, PreviousIteration};
-use crate::project::Error;
+use crate::project::{Error, Refusal};
 use crate::runtime::{
     AgentRuntime, Rejection, RuntimeRequest, StepAttempt, StopLevel, Verdict, accept,
 };
@@ -35,7 +35,10 @@ impl<R: AgentRuntime> Driver<'_, R> {
         loaded: &Loaded,
         definition: &Definition,
         step: &StepRunId,
-    ) -> Result<(), Error> {
+    ) -> Result<Option<Refusal>, Error> {
+        if let Some(refusal) = self.guard().await? {
+            return Ok(Some(refusal));
+        }
         let row = known(loaded, step)?;
         let Some(StepSpec::Agent(spec)) = definition.step(&row.key).map(|step| &step.spec) else {
             return Err(CorruptSnapshot::new(&row.key, "not an agent step").into());
@@ -67,7 +70,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 self.publish(loaded, definition, row, &started, delivery)
                     .await
             }
-            Ending::Ended(end) => self.end(row, &started, end).await,
+            Ending::Ended(end) => self.end(row, &started, end).await.map(|()| None),
         }
     }
 

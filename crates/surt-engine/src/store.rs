@@ -18,15 +18,17 @@ mod revisions;
 mod runs;
 mod steps;
 mod subjects;
+mod working_copy;
 
 pub(crate) use acceptance::{Acceptance, PublishedOutput};
-pub(crate) use approvals::{Decision, DecisionOutcome, GateRow, NewDecision};
+pub(crate) use approvals::{Decision, DecisionOutcome, GateRow, NewDecision, WaitingGate};
 pub(crate) use executions::{ExecutionEnd, ExecutionStart, InputRequest, StartedExecution};
 pub(crate) use frozen::FrozenFile;
 pub(crate) use graph::{RunRows, StepRow};
 pub(crate) use revisions::{Producer, StoredRevision};
 pub(crate) use runs::{NewInitialArtifact, NewRunRows, RunCreation};
 pub(crate) use subjects::SubjectRow;
+pub(crate) use working_copy::{BaselineFile, EditRecord, WorkingCopyArtifact};
 
 static MIGRATOR: Migrator = sqlx::migrate!();
 

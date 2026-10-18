@@ -67,15 +67,8 @@ impl DeliveryContract {
         self
     }
 
-    #[cfg_attr(
-        not(all(test, feature = "test-support")),
-        expect(
-            dead_code,
-            reason = "human Item List edits are validated from ticket 10 on"
-        )
-    )]
-    pub(crate) fn output(&self, name: &str) -> Option<&OutputRule> {
-        self.outputs.get(name)
+    pub(crate) fn into_output(mut self, name: &str) -> Option<OutputRule> {
+        self.outputs.remove(name)
     }
 }
 

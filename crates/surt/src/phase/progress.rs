@@ -54,5 +54,23 @@ fn line(progress: &Progress) -> (Mark, String) {
             Mark::Success,
             format!("{artifact} rev {revision} published"),
         ),
+        Progress::EditRecorded { artifact, revision } => (
+            Mark::Success,
+            format!("your edit to {artifact} was recorded as rev {revision}"),
+        ),
+        Progress::EditSuperseded { artifact, edit, by } => (
+            Mark::Warning,
+            format!(
+                "your edit to {artifact} was saved as rev {edit} and superseded by the agent's rev {by}"
+            ),
+        ),
+        Progress::FileRestored {
+            artifact,
+            path,
+            revision,
+        } => (
+            Mark::Warning,
+            format!("{path} was missing; recreated from {artifact} rev {revision}"),
+        ),
     }
 }

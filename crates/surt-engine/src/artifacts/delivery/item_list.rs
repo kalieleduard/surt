@@ -11,18 +11,30 @@ use super::files::read;
 use super::portable::{is_device_name, is_item_key};
 use super::{DeliveredFile, DeliveryRejection, ValidatedOutput};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub(crate) enum ItemListProblem {
+    #[error("the index is not a list of items")]
     NotAList,
+    #[error("item {} has no key, needs or files of the right shape", index + 1)]
     MalformedItem { index: usize },
+    #[error("key {key} is not a portable item key")]
     InvalidKey { key: String },
+    #[error("key {key} is a reserved device name")]
     ReservedKey { key: String },
+    #[error("key {key} is used by more than one item")]
     DuplicateKey { key: String },
+    #[error("item {key} needs {need}, which is not an item")]
     UnknownNeed { key: String, need: String },
+    #[error("needs form a cycle: {}", path.join(" → "))]
     Cycle { path: Vec<String> },
+    #[error("item {key} has no {name} file")]
     MissingItemFile { key: String, name: String },
+    #[error("item {key} names an undeclared {name} file")]
     UndeclaredItemFile { key: String, name: String },
+    #[error("{path} is named by more than one item")]
     DuplicatePath { path: String },
+    #[error("{path} is not referenced by any item")]
+    UnreferencedFile { path: String },
 }
 
 #[derive(Deserialize)]

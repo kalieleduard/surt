@@ -4,15 +4,18 @@ use std::fmt::Write;
 
 use sha2::{Digest, Sha256};
 
-pub(crate) use delivery::{AcceptedDelivery, DeliveryContract, DeliveryRejection};
 #[cfg_attr(
     not(all(test, feature = "test-support")),
     expect(
         unused_imports,
-        reason = "consistency checks and human Item List edits are wired from tickets 10 and 13 on"
+        reason = "consistency checks are wired from ticket 13 on"
     )
 )]
-pub(crate) use delivery::{ConsistencyCheck, ItemListProblem};
+pub(crate) use delivery::ConsistencyCheck;
+pub(crate) use delivery::{
+    AcceptedDelivery, DeliveryContract, DeliveryRejection, ItemListProblem, OutputRule,
+    ValidatedOutput,
+};
 
 const SHA256_HEX_LEN: usize = 64;
 
