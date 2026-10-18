@@ -28,6 +28,7 @@ pub(super) struct Invocation {
 pub(super) struct Expectation {
     pub(super) session_id: Uuid,
     pub(super) model: String,
+    pub(super) effort: &'static str,
     pub(super) permission_mode: &'static str,
     pub(super) tools: BTreeSet<String>,
     pub(super) subscription: bool,
@@ -74,6 +75,7 @@ impl Expectation {
         Expectation {
             session_id: request.session_id,
             model: request.model.clone(),
+            effort: effort(request.launch.profile.effort),
             permission_mode: permission_mode(claude.permission_mode),
             tools,
             subscription: claude.auth == Auth::Subscription,

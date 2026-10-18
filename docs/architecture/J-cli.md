@@ -58,7 +58,7 @@ $ surt approve add-login
   use the full name
 ```
 
-- **Run.** Commands that write always act on the Subject's active run. Read commands use the active run, or the latest one when none is active. `--run N` selects run `N` (`workflow_run.ordinal`).
+- **Run.** Commands that write always act on the Subject's active run. Read commands use the active run, or the latest one when none is active. `--run N` selects run `N` (`workflow_run.ordinal`). A run `N` the Subject doesn't have is refused (exit `3`), listing the Subject's runs with their derived states.
 - **Task.** By item key (`B`). A task argument selects that item's Child Workflow Run.
 - **Execution.** `inspect` and `logs` also accept an Execution id, or an unambiguous prefix of at least 8 characters, which is how ids appear in Salvage Refs and Execution directories.
 - **Surt's own output** always prints full Feature names, so every suggested command can be copied as is.

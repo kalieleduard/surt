@@ -6,8 +6,8 @@ use super::integration::{integration_branch, login, task_branch_of};
 use super::repository::git;
 use super::team::{INTEGRATED_TASK, Team, builds, built, failures, reviews};
 use crate::project::{
-    Cancellation, Config, DriveOutcome, PendingIntegration, Progress, Refusal, RunState,
-    StatusScope, StepLabel,
+    Cancellation, Config, DriveOutcome, PendingIntegration, Progress, Refusal, RunSelector,
+    RunState, StatusScope, StepLabel,
 };
 
 fn moving_the_integration_branch(worktree: &Path) -> String {
@@ -177,7 +177,7 @@ async fn status_shows_an_intended_move_as_a_pending_integration_without_settling
 
     let statuses = feature
         .project
-        .status(StatusScope::Feature(SUBJECT))
+        .status(StatusScope::Feature(SUBJECT, RunSelector::Current))
         .await
         .expect("status reads");
 

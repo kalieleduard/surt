@@ -146,6 +146,7 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             item,
             known,
         } => reading::unknown_task(subject, item, known),
+        Refusal::UnknownRun { subject, run, runs } => reading::unknown_run(subject, *run, runs),
     }
 }
 

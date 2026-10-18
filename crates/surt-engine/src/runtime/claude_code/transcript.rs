@@ -1,10 +1,10 @@
 use serde_json::Value;
 
 use super::classification::Signals;
-use super::initialization;
 use super::invocation::Expectation;
+use super::{initialization, report};
 use crate::runtime::{
-    Exit, FailureClass, FinalResult, Initialization, RuntimeCompletion, RuntimeError,
+    Exit, FailureClass, FinalResult, Initialization, RuntimeCompletion, RuntimeError, RuntimeReport,
 };
 
 const SUCCESS_SUBTYPE: &str = "success";
@@ -18,6 +18,7 @@ pub(super) struct Transcript {
     result: Option<ResultEvent>,
     protocol_error: Option<RuntimeError>,
     signals: Signals,
+    report: RuntimeReport,
 }
 
 #[derive(Debug, PartialEq)]
@@ -39,6 +40,7 @@ pub(super) struct ResultEvent {
 impl Transcript {
     pub(super) fn new(expectation: Expectation) -> Transcript {
         Transcript {
+            report: report::requested(expectation.effort),
             expectation,
             initialization: None,
             incompatibility: None,
@@ -70,6 +72,13 @@ impl Transcript {
         }
     }
 
+    pub(super) fn report(&self, exit: Exit) -> RuntimeReport {
+        RuntimeReport {
+            exit_code: exit.code(),
+            ..self.report.clone()
+        }
+    }
+
     pub(super) fn conclude(self, exit: Exit) -> Result<RuntimeCompletion, RuntimeError> {
         if exit != Exit::Stopped
             && let Some(failure) = self.failure()
@@ -87,6 +96,7 @@ impl Transcript {
         if self.initialization.is_some() || self.incompatibility.is_some() {
             return Observation::Ignored;
         }
+        report::initialized(&mut self.report, event);
         match initialization::check(&self.expectation, event) {
             Ok(initialization) => {
                 self.initialization = Some(initialization.clone());
@@ -104,6 +114,7 @@ impl Transcript {
             self.protocol_failure("the stream carried more than one result");
             return;
         }
+        report::finished(&mut self.report, event);
         self.result = Some(ResultEvent::parse(event));
     }
 
