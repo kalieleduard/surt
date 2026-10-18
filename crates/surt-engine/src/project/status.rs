@@ -2,7 +2,7 @@ mod facts;
 mod gates;
 mod items;
 
-pub(in crate::project) use facts::base as recorded_base;
+pub(in crate::project) use facts::{base as recorded_base, merge as recorded_merge};
 pub(super) use gates::origin;
 
 use std::path::PathBuf;
@@ -12,7 +12,7 @@ use super::{
     RevisionOrigin, RunSelector, RunState,
 };
 use crate::cleanup::{Kept, Left};
-use crate::drive::{Frozen, StepLabel};
+use crate::drive::{BaseMerge, Frozen, StepLabel};
 use crate::git;
 use crate::platform;
 use crate::runtime::FailureClass;
@@ -39,6 +39,7 @@ pub struct RunStatus {
     pub base: Option<Commit>,
     pub branch: Option<IntegrationBranch>,
     pub merge_into_base: MergeIntoBase,
+    pub merge: Option<BaseMerge>,
     pub slots: AgentSlots,
     pub paused: Option<LaunchPause>,
     pub gates: Vec<GateView>,
@@ -231,6 +232,7 @@ impl Project {
                     tip: branch.tip_sha,
                 }),
             merge_into_base: frozen.merge_into_base,
+            merge: facts::merge(store, root).await?,
             slots,
             paused,
             gates: gates::views(store, &self.layout, run).await?,

@@ -91,6 +91,7 @@ fn stopped_with_everything_pending() -> RunStatus {
         }),
         branch: None,
         merge_into_base: MergeIntoBase::Never,
+        merge: None,
         slots: slots(3),
         paused: None,
         gates: vec![
@@ -161,6 +162,7 @@ fn cancelled_and_cleaned() -> RunStatus {
             tip: NEW_TIP.to_owned(),
         }),
         merge_into_base: MergeIntoBase::Never,
+        merge: None,
         slots: slots(0),
         paused: None,
         gates: vec![gate_over(
