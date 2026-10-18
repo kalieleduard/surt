@@ -3,7 +3,7 @@ use std::process::{Child, ChildStderr, Command};
 use std::time::{Duration, Instant};
 
 use crate::scripts::{build, tasks, tasks_needing, wait_until_stopped};
-use crate::start::{feature_name, planned};
+use crate::start::{feature_name, planned, planned_with};
 use crate::support::Sandbox;
 
 const INTERRUPTED_EXIT_CODE: i32 = 130;
@@ -101,14 +101,28 @@ fn a_closed_terminal_stops_the_builders_gracefully_and_exits_130() {
     interrupts_with("HUP");
 }
 
+const SPAWNED: &str = "SELECT CAST(count(*) AS TEXT) FROM execution WHERE pid IS NOT NULL";
+
+fn wait_until_spawned(sandbox: &Sandbox) {
+    let deadline = Instant::now() + FORCE_CEILING;
+    while sandbox.texts(SPAWNED).concat() == "0" {
+        assert!(Instant::now() < deadline, "the slow Check never spawned");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
 #[test]
 fn a_second_ctrl_c_forces_the_stop_without_waiting_for_a_running_check() {
     let name = feature_name();
-    let sandbox = planned(&name, &[tasks(1, &["A"]), build("A", 1, 1, "a.txt", "a\n")]);
-    sandbox.write_config(SLOW_CHECK);
+    let sandbox = planned_with(
+        &name,
+        &[tasks(1, &["A"]), build("A", 1, 1, "a.txt", "a\n")],
+        Some(SLOW_CHECK),
+    );
     let clock = Instant::now();
     let mut driving = Driving::start(&sandbox, &name);
     driving.wait_for("● task A check started\n");
+    wait_until_spawned(&sandbox);
 
     driving.signal("INT");
     driving.wait_for(STOPPING);
@@ -118,6 +132,15 @@ fn a_second_ctrl_c_forces_the_stop_without_waiting_for_a_running_check() {
     assert_eq!(code, Some(INTERRUPTED_EXIT_CODE), "{stderr}");
     assert!(stderr.ends_with(&interrupted(&name)), "{stderr}");
     assert!(!stderr.contains("task A check passed"), "{stderr}");
+    assert_eq!(
+        sandbox
+            .texts(
+                "SELECT state FROM execution WHERE pid IS NOT NULL ORDER BY rowid DESC LIMIT 1"
+            )
+            .concat(),
+        "running",
+        "the forced stop leaves the slow Check to recovery"
+    );
     assert!(clock.elapsed() < FORCE_CEILING, "{:?}", clock.elapsed());
 }
 

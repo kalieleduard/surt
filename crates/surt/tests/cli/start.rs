@@ -205,9 +205,17 @@ fn assert_cleaned(sandbox: &Sandbox, name: &str) {
 }
 
 pub fn planned(name: &str, scripts: &[String]) -> Sandbox {
+    planned_with(name, scripts, None)
+}
+
+/// `config` is written before the run is created, since a run freezes its configuration.
+pub fn planned_with(name: &str, scripts: &[String], config: Option<&str>) -> Sandbox {
     let mut all = vec![spec(1, "# Spec 1\n")];
     all.extend_from_slice(scripts);
     let sandbox = project(&all);
+    if let Some(config) = config {
+        sandbox.write_config(config);
+    }
     ok(sandbox.feature(&["add login"]));
     ok(surt(&sandbox, &["approve", name]));
     ok(surt(&sandbox, &["plan", name]));
