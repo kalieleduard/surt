@@ -6,7 +6,7 @@ Spec: [Milestone 2](../spec.md) (stories 24–31, 79) · Slice: R3 Full show and
 
 **Blocked by:** 05 (`surt inspect <execution-id>`), 08 (`show --iter` and `--file`)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `status --json`: each Feature's run, derived state, Driver, gates (Revision, origin, SHA-256, Approval) and Tasks (state, Iteration, Attempt, merged SHA, blocked reason, last error, resume command)
 - [x] `inspect --json`: timeline events and Execution detail as structured fields, with unreported values absent
@@ -16,3 +16,7 @@ Spec: [Milestone 2](../spec.md) (stories 24–31, 79) · Slice: R3 Full show and
 - [x] Driving commands reject `--json` at the clap level, exit `2`
 - [x] A J subsection records one example document per command and the rule that fields are only added within `"schema": 1`
 - [x] Binary tests parse each document with `serde_json` and check its fields, including a blocked Task in `status --json`; "reads never write" covers every `--json` call
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on macOS. Merged into `integration/milestone-2` at 7e51a5b; code-review fixes at 2c96dfe. Resolved.

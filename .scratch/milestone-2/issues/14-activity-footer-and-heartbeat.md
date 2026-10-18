@@ -6,7 +6,7 @@ Spec: [Milestone 2](../spec.md) (stories 71–74, 83) · Slice: R8 Terminal · P
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 - [x] The engine adds a typed activity snapshot to `Progress`, emitted when it changes: running steps with their start times, the queued count, slots in use and the limit
 - [x] The footer and the 5-minute line are pure functions of (last snapshot, time of the last event line, `now`, terminal capabilities) in the `surt` crate's progress module; a Tokio interval only calls them
@@ -14,3 +14,7 @@ Spec: [Milestone 2](../spec.md) (stories 71–74, 83) · Slice: R8 Terminal · P
 - [x] 5-minute line only without a TTY; no footer, colours or spinner without a TTY
 - [x] Pure render tests: footer text for a given snapshot and `now`; when the 5-minute line fires, with no real waiting
 - [x] Binary test: a non-TTY run's stderr has only event lines
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on macOS. Merged into `integration/milestone-2` at b2bd15f; code-review fixes at 2c96dfe. Open criterion: the terminal-width query added in the review fixes (`platform`) has Windows code that was not compiled locally — waits for the first Windows CI run (needs the branch pushed); the manual TTY footer check is in ticket 16.

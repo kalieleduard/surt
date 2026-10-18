@@ -6,7 +6,7 @@ Spec: [Milestone 2](../spec.md) (stories 32–39) · Slice: R4 Stop · Plan: [J.
 
 **Blocked by:** 02 (Events carry their details)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `Project::request_stop` writes `stop_requested_at/by` and a `run.stop_requested` event (with who asked) in one transaction, only when a Driver is live (liveness decided as `status` decides it)
 - [x] With no live Driver it refuses with the run's derived state; the CLI exits `3`
@@ -18,3 +18,7 @@ Spec: [Milestone 2](../spec.md) (stories 32–39) · Slice: R4 Stop · Plan: [J.
 - [x] `Project` tests: refusal without a Driver, leftover request cleared on lock, no Attempt spent
 - [x] Binary test: a stop from a second process against a Fake Execution that waits until stopped ends the Driver with `130`, and `surt start` resumes the run
 - [x] J records that the wait has no timeout
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on macOS. Merged into `integration/milestone-2` at 858fa14; code-review fixes at 2c96dfe. Resolved.

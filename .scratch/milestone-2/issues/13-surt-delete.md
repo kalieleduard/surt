@@ -6,7 +6,7 @@ Spec: [Milestone 2](../spec.md) (stories 59–70) · Slice: R7 Delete · Plan: [
 
 **Blocked by:** 12 (`--new-run`), which the test needs for a Subject with a cancelled and a succeeded run
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] A delete impact read companion: runs by state, refs to delete and to keep, directories with sizes, unrecorded edits, Revision/Execution/event counts
 - [x] The CLI shows it and asks `[y/N]`; `--yes` skips it; without a TTY and without `--yes` it refuses with exit `3`
@@ -22,3 +22,7 @@ Spec: [Milestone 2](../spec.md) (stories 59–70) · Slice: R7 Delete · Plan: [
 - [x] `Project` tests: busy lock refuses; a removal failure leaves rows intact and the rerun finishes; a run set that changed between step 2 and the purge rolls back; no unreferenced snapshot or blob remains; delivered Integration Branches survive
 - [x] Binary test: delete after a cancelled and a succeeded run keeps only the delivered branch
 - [x] B's facade rule exception lists the delete impact
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on macOS. Merged into `integration/milestone-2` at 36fafdd; code-review fixes at 2c96dfe. Resolved.

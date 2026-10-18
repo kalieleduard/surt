@@ -6,7 +6,7 @@ Spec: [Milestone 2](../spec.md) (stories 1, 2, 5, 7, 8) · Slice: R1 History · 
 
 **Blocked by:** 01 (Run selector and `--run`), 02 (Events carry their details)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `Project::inspect` returns a typed timeline view built from `event` and related rows; the engine names no phase concept, the `surt` crate prints Task keys
 - [x] Each line carries its time; events from an earlier day also carry their date
@@ -15,3 +15,7 @@ Spec: [Milestone 2](../spec.md) (stories 1, 2, 5, 7, 8) · Slice: R1 History · 
 - [x] An unknown Task key refuses and lists the run's Tasks
 - [x] Works after cleanup with the log directories deleted
 - [x] Binary test: the brief's E2E (rejected review, new Builder Iteration) is explained by `surt inspect`; "reads never write" covers `inspect`
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on macOS. Merged into `integration/milestone-2` at 3516e10; code-review fixes at 2c96dfe. Resolved.

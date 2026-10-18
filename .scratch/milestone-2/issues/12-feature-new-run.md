@@ -6,7 +6,7 @@ Spec: [Milestone 2](../spec.md) (stories 49–58, 78) · Slice: R6 New run · Pl
 
 **Blocked by:** 01 (Run selector and `--run`)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `create_run` gains the "new run of an existing Subject" form: the latest `request` Revision as a new human-origin Initial Artifact, a Base (`HEAD` or `--base`) and a fresh freeze of definitions, agents and configuration
 - [x] Branches are `surt/<feature>.N` and `surt/task/<feature>.N/<key>`; worktrees live under `<feature>.N`
@@ -18,3 +18,7 @@ Spec: [Milestone 2](../spec.md) (stories 49–58, 78) · Slice: R6 New run · Pl
 - [x] `surt status <feature>` on a Subject with several runs names the run it shows and how many exist
 - [x] `Project` tests: `.N` branches and worktree paths, the unrecorded-edit refusal, the active-run refusal
 - [x] Binary test: cancel → `--new-run` → spec gate with `surt/<feature>.2`; `status --run 1` still shows the cancelled run
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on macOS. Merged into `integration/milestone-2` at a70b135; code-review fixes at 2c96dfe. Resolved.

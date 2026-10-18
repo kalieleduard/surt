@@ -2,7 +2,7 @@
 
 Labels: ready-for-agent
 Type: spec
-Status: open
+Status: open (13 of 16 tickets resolved; 14, 15 await the first Windows CI run, 16 awaits CI on three OSes and the manual Claude Code smoke)
 Map: [Surt — Architecture and implementation plan](../surt-architecture/map.md)
 Plan: [K. Roadmap](../../docs/architecture/K-roadmap.md#after-milestone-1), [J. CLI Surface](../../docs/architecture/J-cli.md), [I. Cleanup, Delete and Logs](../../docs/architecture/I-cleanup.md)
 Previous: [Milestone 1](../milestone-1/spec.md)

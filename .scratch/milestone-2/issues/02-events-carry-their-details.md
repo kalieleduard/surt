@@ -8,7 +8,7 @@ Prefactor first: every event write goes through the store's one event-recording 
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Every event insert goes through one helper that takes the kind and its `data`
 - [x] `event.data` per kind, at least: Base and actor on `run.created`; artifact, Revision number and origin on `revision.published`; decision, Revision, actor and the reason's first line on `approval.recorded`; pid on `driver.started`/`driver.stopped`; Attempt, slot and runtime on `execution.started`; code and message on `execution.failed`; reason on `step.blocked`; the new budget base on `step.unblocked`; Iteration and cause on `iteration.started`
@@ -19,3 +19,7 @@ Prefactor first: every event write goes through the store's one event-recording 
 - [x] No migration; a Milestone 1 database opens unchanged
 - [x] M1's fault-point tests gain assertions on the events written; `Project` tests check `event.data` fields per kind
 - [x] D's events section lists the exact field set per kind
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on macOS. Merged into `integration/milestone-2` at 40c3305; code-review fixes at 2c96dfe. Resolved.

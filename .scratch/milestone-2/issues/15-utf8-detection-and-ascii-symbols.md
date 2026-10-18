@@ -8,7 +8,7 @@ Prefactor first: every glyph the CLI prints today (spread over messages, status,
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 - [x] Every glyph is printed through one symbol table in the `surt` crate
 - [x] The engine's `platform` module answers "does the console output UTF-8" (Windows: output code page ≠ 65001; Unix: the first set of `LC_ALL`, `LC_CTYPE`, `LANG` doesn't name UTF-8), re-exported through the facade
@@ -16,3 +16,7 @@ Prefactor first: every glyph the CLI prints today (spread over messages, status,
 - [x] `NO_COLOR` and the symbol set are independent
 - [x] Pure test: every message the CLI can print contains only ASCII bytes in ASCII mode
 - [x] `platform` unit test runs on each OS in CI
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on macOS. Merged into `integration/milestone-2` at 2957c09; code-review fixes at 2c96dfe. Open criterion: the Windows console code-page detection was not compiled locally (cross-build of sqlite fails) — waits for the first Windows CI run (needs the branch pushed).

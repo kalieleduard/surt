@@ -6,7 +6,7 @@ Spec: [Milestone 2](../spec.md) (stories 11, 16) · Slice: R2 Logs · Plan: [J. 
 
 **Blocked by:** 06 (`surt logs`)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `-f` polls the files and the engine's Execution list at bounded intervals; no file-watcher dependency
 - [x] New Executions are picked up as they start
@@ -14,3 +14,7 @@ Spec: [Milestone 2](../spec.md) (stories 11, 16) · Slice: R2 Logs · Plan: [J. 
 - [x] With no live Driver at start, it prints what exists and exits `0`
 - [x] Works with `--raw` and with a Task or Execution target
 - [x] Binary test: `logs -f` follows two Tasks of a live Fake run to the end; process waits are bounded polling, no fixed sleeps
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on macOS. Merged into `integration/milestone-2` at fded7c3; code-review fixes at 2c96dfe. Resolved.

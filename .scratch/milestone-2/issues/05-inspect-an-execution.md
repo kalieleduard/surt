@@ -6,7 +6,7 @@ Spec: [Milestone 2](../spec.md) (stories 3, 4, 6) · Slice: R1 History · Plan: 
 
 **Blocked by:** 03 (Full `runtime_info`), 04 (`surt inspect` timelines)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Execution reference resolution lives in the engine next to Subject resolution: full id or unique prefix of 8+ characters
 - [x] A prefix shorter than 8 or matching several Executions is a `Refusal` with candidates; the CLI lists them and exits `3`
@@ -14,3 +14,7 @@ Spec: [Milestone 2](../spec.md) (stories 3, 4, 6) · Slice: R1 History · Plan: 
 - [x] The Salvage Ref is read with a read-only `git for-each-ref`; nothing else outside SQLite is needed
 - [x] The log line names `surt logs <id>` (the command lands in 06; the hint is just text)
 - [x] Binary tests: full id, 8-character prefix, too-short and ambiguous prefixes, an Execution after cleanup
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on macOS. Merged into `integration/milestone-2` at fda8f1b; code-review fixes at 2c96dfe. Resolved.

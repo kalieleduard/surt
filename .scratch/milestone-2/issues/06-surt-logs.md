@@ -6,7 +6,7 @@ Spec: [Milestone 2](../spec.md) (stories 9, 10, 12, 13, 14, 15, 17, 77) · Slice
 
 **Blocked by:** 05 (`surt inspect <execution-id>`)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The engine exposes each Execution's log directory path and the Execution selection (latest per Task, a Task, an Execution); the CLI opens and renders the files
 - [x] The renderer is a pure function in the `surt` crate; tool results, unknown event types and unknown fields render nothing and never error
@@ -17,3 +17,7 @@ Spec: [Milestone 2](../spec.md) (stories 9, 10, 12, 13, 14, 15, 17, 77) · Slice
 - [x] `--run N` selects the run
 - [x] A blocked step in `surt status` prints `inspect: surt inspect <execution>` and `logs: surt logs <execution>` instead of a file path
 - [x] Renderer tests over the real Claude Code fixtures plus synthetic unknown lines; binary tests for the three targets, `--raw` and the missing directory; "reads never write" covers `logs`
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on macOS. Merged into `integration/milestone-2` at 727a0c5; code-review fixes at 2c96dfe. Resolved.

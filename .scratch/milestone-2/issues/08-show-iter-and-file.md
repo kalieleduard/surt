@@ -6,7 +6,7 @@ Spec: [Milestone 2](../spec.md) (stories 20, 21, 22, 23) · Slice: R3 Full show 
 
 **Blocked by:** 01 (Run selector and `--run`)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `--iter N` with `--task` prints that Iteration's Revision; an Iteration that produced none refuses
 - [x] `--iter` without `--task` is invalid usage at the clap level, exit `2`
@@ -14,3 +14,7 @@ Spec: [Milestone 2](../spec.md) (stories 20, 21, 22, 23) · Slice: R3 Full show 
 - [x] An unknown `--file` path refuses and lists the files of that Revision, exit `3`
 - [x] The flags combine with `--run`
 - [x] Binary tests for each flag and refusal; "reads never write" covers them
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on macOS. Merged into `integration/milestone-2` at 2d13ec9; code-review fixes at 2c96dfe. Resolved.

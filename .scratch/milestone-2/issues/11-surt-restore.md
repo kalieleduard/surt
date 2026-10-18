@@ -6,7 +6,7 @@ Spec: [Milestone 2](../spec.md) (stories 40–48) · Slice: R5 Restore · Plan: 
 
 **Blocked by:** 02 (Events carry their details)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] A restore impact read companion lists, per file: changed with added/removed line counts (counted in-house, no new dependency), new, or missing
 - [x] The CLI shows the impact and asks `[y/N]`; `--yes` skips it; without a TTY and without `--yes` it refuses with exit `3`
@@ -20,3 +20,7 @@ Spec: [Milestone 2](../spec.md) (stories 40–48) · Slice: R5 Restore · Plan: 
 - [x] `Project` tests: no Revision created, pending write settled, live-Driver and terminal-run refusals
 - [x] Binary test: a pinned-edit refusal is undone with `surt restore --yes` and the run continues
 - [x] H and I record the new wording and the terminal-run rule; J records the active-run-only rule; B's facade rule exception lists the restore impact
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on macOS. Merged into `integration/milestone-2` at e9d102d; code-review fixes at 2c96dfe. Resolved.
