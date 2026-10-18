@@ -222,7 +222,7 @@ $ surt status add-login
 
 `agent slots: N/M in use` and a queued Task's `waiting for agent slot (N/M in use)` count the whole project, not one Feature: `N` is the number of running agent Executions holding a slot across every run whose Driver is live, so with two Features driven at once a Task of one can wait for the other's agents. `M` is the current `max_concurrent_agents` in `.surt/config.toml`. The count is derived from SQLite; `status` never probes the slot lock files ([A](A-process-model.md#agent-concurrency-limit)), since a probe would briefly take a slot and could make a Driver skip a launch. `status --json`'s `agent_slots` carries the same numbers.
 
-While a Transient Failure pauses agent launches ([I](I-recovery.md#transient-failures-network-and-rate-limits)), the headline stays `RUNNING` and one line under it names the error code and the reset time the Execution recorded in `runtime_info.resets_at`, or `retrying with backoff` when it recorded none. Tasks waiting to launch read `queued … waiting for agent launches to resume`:
+While a Transient Failure pauses agent launches ([I](I-recovery.md#transient-failures-network-and-rate-limits)), the headline stays `RUNNING` and one line under it names the error code and the reset time the Execution recorded in `runtime_info.resets_at`, or `retrying with backoff` when it recorded none. Tasks waiting to launch read `queued … waiting for agent launches to resume` in place of `waiting for agent slot (N/M in use)`. Such a Task names the agent step it waits to launch: one not started yet, or the one whose Attempt failed `transient` (with that Attempt's number, since a Transient Failure spends none). A queued Task whose next launch is not an agent step names no step:
 
 ```
 $ surt status add-login
@@ -232,7 +232,7 @@ $ surt status add-login
   branch   surt/20261017-add-login @ 3c1aa20 · merge into base: never
   implement
     A  ✔ merged    iter 1 · as 3c1aa20
-    B  ⏳ queued    build iter 1 · attempt 2 · waiting for agent launches to resume
+    B  ⏳ queued    build iter 1 · attempt 1 · waiting for agent launches to resume
 ```
 
 The pause lives only in the Driver's memory, so `status` derives it on every read and nothing stores it: a run is paused when its Driver is live, its latest ended agent Execution failed `transient`, and no agent Execution started after it. A reset time no later than that failure counts as none, as it does for the Driver.
