@@ -84,8 +84,12 @@ fn headline(status: &RunStatus) -> String {
         (None, [RunState::Succeeded | RunState::Cancelled]) => String::new(),
         (None, _) => "   (no driver)".to_owned(),
     };
+    let of = match status.runs {
+        0 | 1 => String::new(),
+        runs => format!(" of {runs}"),
+    };
     format!(
-        "{} {DOT} run {}   {}{driver}\n",
+        "{} {DOT} run {}{of}   {}{driver}\n",
         status.subject,
         status.run,
         state_names(&status.states)

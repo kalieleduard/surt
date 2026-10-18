@@ -75,7 +75,9 @@ fn stopped_with_everything_pending() -> RunStatus {
     RunStatus {
         subject: SUBJECT.to_owned(),
         run: 2,
+        runs: 3,
         states: vec![RunState::AwaitingApproval, RunState::Blocked],
+        ended_at: None,
         driver: None,
         base: Some(Commit {
             sha: BASE.to_owned(),
@@ -142,7 +144,9 @@ fn cancelled_and_cleaned() -> RunStatus {
     RunStatus {
         subject: SUBJECT.to_owned(),
         run: 1,
+        runs: 1,
         states: vec![RunState::Cancelled],
+        ended_at: Some(1_760_713_320),
         driver: None,
         base: None,
         branch: Some(IntegrationBranch {
@@ -171,13 +175,14 @@ fn cancelled_and_cleaned() -> RunStatus {
 }
 
 #[test]
-fn the_detail_names_every_task_state_unattended_agent_and_pending_integration() {
+fn the_detail_names_the_run_among_several_and_every_task_state_unattended_agent_and_pending_integration()
+ {
     let text = detail::render(&stopped_with_everything_pending());
 
     assert_eq!(
         text,
         format!(
-            "{SUBJECT} · run 2   AWAITING APPROVAL + BLOCKED   (no driver)\n  \
+            "{SUBJECT} · run 2 of 3   AWAITING APPROVAL + BLOCKED   (no driver)\n  \
              base     HEAD @ a11c9d0\n  \
              spec     rev 1 (human) ✔ approved\n           \
              ✎ spec.md edited — not recorded\n  \
@@ -238,7 +243,7 @@ fn the_detail_in_ascii_mode_replaces_every_glyph() {
     assert_eq!(
         Symbols::Ascii.render(&text),
         format!(
-            "{SUBJECT} | run 2   AWAITING APPROVAL + BLOCKED   (no driver)\n  \
+            "{SUBJECT} | run 2 of 3   AWAITING APPROVAL + BLOCKED   (no driver)\n  \
              base     HEAD @ a11c9d0\n  \
              spec     rev 1 (human) [ok] approved\n           \
              [edited] spec.md edited - not recorded\n  \

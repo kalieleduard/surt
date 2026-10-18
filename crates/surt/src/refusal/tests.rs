@@ -168,6 +168,11 @@ fn every_refusal() -> Vec<Refusal> {
             item: "A".to_owned(),
             known: Vec::new(),
         },
+        Refusal::UnrecordedEditsBlockNewRun {
+            subject: "20261017-add-login".to_owned(),
+            run: 1,
+            files: vec!["spec.md".to_owned(), "notes.md".to_owned()],
+        },
         Refusal::ActiveRunExists {
             subject: "20261017-add-login".to_owned(),
         },
@@ -360,6 +365,26 @@ fn an_active_run_points_at_resuming_the_feature() {
     assert_eq!(
         text(&refusal),
         "✖ 20261017-add-login already has an active run\n  resume: surt feature 20261017-add-login\n"
+    );
+}
+
+#[test]
+fn unrecorded_edits_left_by_the_previous_run_are_listed_before_a_new_run() {
+    let single = Refusal::UnrecordedEditsBlockNewRun {
+        subject: "20261017-add-login".to_owned(),
+        run: 1,
+        files: vec!["spec.md".to_owned()],
+    };
+    let refusals = every_refusal();
+    let several = &refusals[refusals.len() - 2];
+
+    assert_eq!(
+        text(&single),
+        "✖ working copy has unrecorded edits from run 1\n    .surt/features/20261017-add-login/spec.md\n  fix: move or delete the file, then run again\n"
+    );
+    assert_eq!(
+        text(several),
+        "✖ working copy has unrecorded edits from run 1\n    .surt/features/20261017-add-login/spec.md .surt/features/20261017-add-login/notes.md\n  fix: move or delete the files, then run again\n"
     );
 }
 

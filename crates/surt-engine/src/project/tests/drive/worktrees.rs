@@ -53,7 +53,7 @@ agent = "builder"
 needs = ["setup"]
 "#;
 
-fn tracked_catalog() -> Catalog {
+pub(super) fn tracked_catalog() -> Catalog {
     Catalog::new()
         .workflow("tracked", TRACKED_WORKFLOW)
         .workflow("task", TASK_WORKFLOW)
@@ -61,7 +61,7 @@ fn tracked_catalog() -> Catalog {
         .agent("builder", agent(BUILDER))
 }
 
-async fn tracked(items: &[(&str, &[&str])], config: Config) -> Feature {
+pub(super) async fn tracked(items: &[(&str, &[&str])], config: Config) -> Feature {
     let feature = Feature::on_repository(tracked_catalog(), "tracked", config).await;
     let planned = feature
         .drive(Script::new().on("plan", 1, 1, plan(items)))
@@ -80,7 +80,7 @@ async fn tracked(items: &[(&str, &[&str])], config: Config) -> Feature {
     feature
 }
 
-fn refused() -> Behavior {
+pub(super) fn refused() -> Behavior {
     Behavior::ModelMismatch {
         reported: "another-model".to_owned(),
         delivery: Delivery::new("done"),

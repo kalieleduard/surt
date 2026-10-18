@@ -35,7 +35,7 @@ fn the_question_shows_what_is_stopped_and_what_stays() {
         "cancel 20261017-add-login?\n\
          \x20 2 running executions will be stopped · 2/4 tasks merged stay on surt/20261017-add-login\n\
          \x20 worktrees are removed; task branches and salvage refs stay\n\
-         \x20 starting over later needs a new feature: surt feature \"<description>\"\n"
+         \x20 starting over later needs a new run (surt feature 20261017-add-login --new-run)\n"
     );
 }
 
@@ -46,7 +46,7 @@ fn the_question_names_a_single_execution_and_a_run_without_tasks() {
         "cancel 20261017-add-login?\n\
          \x20 1 running execution will be stopped\n\
          \x20 worktrees are removed; task branches and salvage refs stay\n\
-         \x20 starting over later needs a new feature: surt feature \"<description>\"\n"
+         \x20 starting over later needs a new run (surt feature 20261017-add-login --new-run)\n"
     );
     assert!(
         question(SUBJECT, &impact(0, 2, 0, true))

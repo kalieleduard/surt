@@ -30,7 +30,9 @@ pub enum StatusScope<'a> {
 pub struct RunStatus {
     pub subject: String,
     pub run: u32,
+    pub runs: u32,
     pub states: Vec<RunState>,
+    pub ended_at: Option<i64>,
     pub driver: Option<Driver>,
     pub base: Option<Commit>,
     pub branch: Option<IntegrationBranch>,
@@ -204,6 +206,8 @@ impl Project {
         Ok(RunStatus {
             subject: run.subject.clone(),
             run: run.ordinal(),
+            runs: run.runs(),
+            ended_at: run.finished_at,
             states: states(&run.state, driver.is_some(), waiting, !blocked.is_empty()),
             base: facts::base(store, root).await?,
             branch: store
