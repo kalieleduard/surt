@@ -255,9 +255,9 @@ async fn an_operation_missing_from_the_registry_is_refused() {
 schema = 1
 name = "flow"
 
-[steps.merge]
+[steps.push]
 kind = "operation"
-run = "git.merge_into_base"
+run = "git.push"
 "#,
     )
     .await;
@@ -265,9 +265,9 @@ run = "git.merge_into_base"
     assert_eq!(
         invalid,
         in_step(
-            "merge",
+            "push",
             Problem::UnknownOperation {
-                name: "git.merge_into_base".to_owned()
+                name: "git.push".to_owned()
             }
         )
     );
