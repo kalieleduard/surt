@@ -11,11 +11,11 @@ use crate::runtime::{
     StopSignal,
 };
 
-struct CrashingAfter<'a> {
-    team: Team,
-    step: &'static str,
-    checkpoint: Checkpoint,
-    project: &'a Project,
+pub(super) struct CrashingAfter<'a> {
+    pub(super) team: Team,
+    pub(super) step: &'static str,
+    pub(super) checkpoint: Checkpoint,
+    pub(super) project: &'a Project,
 }
 
 impl AgentRuntime for CrashingAfter<'_> {

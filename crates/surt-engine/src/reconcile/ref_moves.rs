@@ -37,6 +37,12 @@ impl Reconcile<'_> {
     pub(super) async fn settle_ref_moves(&self) -> Result<Vec<Progress>, Error> {
         let mut found = Vec::new();
         for pending in self.store.pending_ref_moves(self.root).await? {
+            if pending.operation.as_deref().and_then(Operation::find)
+                == Some(Operation::MergeIntoBase)
+            {
+                found.extend(self.settle_fast_forward(pending).await?);
+                continue;
+            }
             match find(self.repository, &pending.intended).await? {
                 Found::Moved => found.push(self.confirm(pending).await?),
                 Found::NotMoved => self.store.forget_ref_move(&pending.step_run).await?,
@@ -47,7 +53,7 @@ impl Reconcile<'_> {
     }
 
     async fn confirm(&self, pending: PendingRefMove) -> Result<Progress, Error> {
-        let started = self.attempt(&pending).await?;
+        let started = self.attempt(&pending, Operation::Integrate).await?;
         let merge = pending.intended.new_sha;
         let acceptance = Acceptance {
             execution: &started.id,
@@ -58,6 +64,7 @@ impl Reconcile<'_> {
                 into: self.root,
                 merge: &merge,
             }),
+            recorded: None,
         };
         self.store.accept_execution(acceptance).await?;
         Ok(Progress::IntegrationRecorded {
@@ -72,7 +79,7 @@ impl Reconcile<'_> {
         pending: PendingRefMove,
         found: Option<String>,
     ) -> Result<Progress, Error> {
-        let started = self.attempt(&pending).await?;
+        let started = self.attempt(&pending, Operation::Integrate).await?;
         let RefMove {
             ref_name, old_sha, ..
         } = &pending.intended;
@@ -101,12 +108,14 @@ impl Reconcile<'_> {
         })
     }
 
-    async fn attempt(&self, pending: &PendingRefMove) -> Result<StartedExecution, Error> {
+    pub(super) async fn attempt(
+        &self,
+        pending: &PendingRefMove,
+        operation: Operation,
+    ) -> Result<StartedExecution, Error> {
         let start = ExecutionStart {
             step: &pending.step_run,
-            kind: ExecutionKind::Operation {
-                id: Operation::Integrate.id(),
-            },
+            kind: ExecutionKind::Operation { id: operation.id() },
             inputs: Vec::new(),
         };
         Ok(self.store.start_execution(start).await?)

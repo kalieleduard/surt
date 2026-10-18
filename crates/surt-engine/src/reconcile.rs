@@ -1,4 +1,5 @@
 mod branch;
+mod fast_forward;
 mod ref_moves;
 mod stale;
 pub(crate) mod worktree;

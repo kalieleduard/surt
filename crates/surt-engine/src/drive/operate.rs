@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::time::Duration;
 
+use super::base_merge::BaseMerge;
 use super::driver::{Driver, known};
 use super::failure::OperationError;
 use super::frozen::CorruptSnapshot;
@@ -11,6 +12,7 @@ use super::outcome::Progress;
 use crate::operations::Operation;
 use crate::platform::{self, ExclusiveLock};
 use crate::project::Error;
+use crate::project::MergeIntoBase;
 use crate::runtime::AgentRuntime;
 use crate::store::{
     Acceptance, ExecutionKind, ExecutionStart, Integrated, PublishedOutput, StartedExecution,
@@ -37,6 +39,7 @@ pub(super) struct Finished {
     pub(super) outcome: &'static str,
     pub(super) outputs: Vec<PublishedOutput>,
     pub(super) merged: Option<String>,
+    pub(super) recorded: Option<BaseMerge>,
 }
 
 impl From<&'static str> for Finished {
@@ -45,6 +48,7 @@ impl From<&'static str> for Finished {
             outcome,
             outputs: Vec::new(),
             merged: None,
+            recorded: None,
         }
     }
 }
@@ -85,10 +89,12 @@ impl<R: AgentRuntime> Driver<'_, R> {
             )?,
         };
         let started = self.driving.store.start_execution(start).await?;
-        self.report(Progress::StepStarted {
-            step: label(row),
-            attempt: started.attempt,
-        });
+        if self.announces(operation) {
+            self.report(Progress::StepStarted {
+                step: label(row),
+                attempt: started.attempt,
+            });
+        }
         Ok(OperationLaunch {
             row: row.clone(),
             started,
@@ -113,6 +119,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             Operation::RunChecks => self.run_checks(&launch).await,
             Operation::Integrate => self.integrate(&launch).await,
             Operation::SnapshotRunBranch => self.snapshot_run_branch(&launch).await,
+            Operation::MergeIntoBase => self.merge_into_base(&launch).await,
         };
         match result {
             Ok(finished) => self.finish_operation(&launch, finished).await,
@@ -124,11 +131,16 @@ impl<R: AgentRuntime> Driver<'_, R> {
         }
     }
 
+    fn announces(&self, operation: Operation) -> bool {
+        operation != Operation::MergeIntoBase || self.frozen.merge_into_base != MergeIntoBase::Never
+    }
+
     async fn finish_operation(
         &self,
         launch: &OperationLaunch,
         finished: Finished,
     ) -> Result<(), Error> {
+        let recorded = finished.recorded.as_ref().map(BaseMerge::data);
         let acceptance = Acceptance {
             execution: &launch.started.id,
             outcome: finished.outcome,
@@ -138,6 +150,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 into: &launch.root,
                 merge,
             }),
+            recorded: recorded.as_ref(),
         };
         let published = self.driving.store.accept_execution(acceptance).await?;
         for (artifact, revision) in published {
@@ -147,13 +160,14 @@ impl<R: AgentRuntime> Driver<'_, R> {
             });
         }
         let step = label(&launch.row);
-        self.report(match finished.merged {
-            Some(merge) => Progress::Merged { step, merge },
-            None => Progress::StepFinished {
+        match (finished.merged, finished.recorded) {
+            (Some(merge), _) => self.report(Progress::Merged { step, merge }),
+            (None, Some(_)) => {}
+            (None, None) => self.report(Progress::StepFinished {
                 step,
                 outcome: finished.outcome.to_owned(),
-            },
-        });
+            }),
+        }
         Ok(())
     }
 

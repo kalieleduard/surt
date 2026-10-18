@@ -2,6 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use serde_json::json;
+
 use super::super::fixtures::{ProjectDir, SUBJECT, initial, new_run};
 use super::fixtures::Feature;
 use crate::project::{Catalog, Config};
@@ -40,6 +42,15 @@ pub(super) fn commit_file(cwd: &Path, name: &str, text: &str) -> String {
 
 impl Feature {
     pub(super) async fn on_repository(catalog: Catalog, workflow: &str, config: Config) -> Feature {
+        Feature::on_base(catalog, workflow, config, Some("main")).await
+    }
+
+    pub(super) async fn on_base(
+        catalog: Catalog,
+        workflow: &str,
+        config: Config,
+        base_ref: Option<&str>,
+    ) -> Feature {
         let dir = ProjectDir::new();
         let root = dir.path();
         git(&root, &["init", "--quiet", "--initial-branch=main"]);
@@ -49,7 +60,7 @@ impl Feature {
         let base = commit_file(&root, "README.md", "hello\n");
         let project = dir.project(catalog, config).await;
         let mut new_run = new_run(workflow);
-        let base_json = format!(r#"{{"ref": "main", "sha": "{base}"}}"#);
+        let base_json = json!({ "ref": base_ref, "sha": base }).to_string();
         new_run.initial_artifacts[1] = initial("base", "base.json", base_json.as_bytes());
         let run = project
             .create_run(new_run)
