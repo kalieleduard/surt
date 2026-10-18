@@ -2,8 +2,10 @@ use std::fs::{self, File, Metadata, OpenOptions, TryLockError};
 use std::io;
 use std::path::Path;
 
+mod executable;
 mod process;
 
+pub(crate) use executable::find_executable;
 pub(crate) use process::{ProcessIdentity, identify, is_alive, stop};
 
 pub(crate) struct ExclusiveLock {

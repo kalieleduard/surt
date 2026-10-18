@@ -21,6 +21,7 @@ use super::{
     AgentRuntime, FailureClass, RuntimeCompletion, RuntimeError, RuntimeEvent, RuntimeEventSink,
     RuntimeRequest, StopSignal,
 };
+use crate::platform;
 use invocation::Invocation;
 use transcript::{Observation, Transcript};
 
@@ -65,7 +66,8 @@ impl AgentRuntime for ClaudeCodeRuntime {
     ) -> Result<RuntimeCompletion, RuntimeError> {
         let invocation = Invocation::assemble(&request, &self.environment)?;
         supervision::require_working_dir(&invocation)?;
-        let version = version::probe(&self.executable, &invocation.environment).await?;
+        let executable = platform::find_executable(&self.executable, &invocation.environment);
+        let version = version::probe(&executable, &invocation.environment).await?;
         let _ = events.send(RuntimeEvent::Identified {
             version: version.clone(),
         });
@@ -73,7 +75,7 @@ impl AgentRuntime for ClaudeCodeRuntime {
         write_launch_files(&invocation)?;
         let stream_log = open_log(&request.log_dir, STREAM_LOG).await?;
         let stderr_log = open_log(&request.log_dir, STDERR_LOG).await?;
-        let mut child = supervision::spawn(&self.executable, &invocation)?;
+        let mut child = supervision::spawn(&executable, &invocation)?;
         let _ = events.send(RuntimeEvent::Launched { pid: child.id() });
         let stdin = child.stdin().take();
         let stdout = child.stdout().take();
