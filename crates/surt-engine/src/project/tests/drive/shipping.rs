@@ -2,7 +2,7 @@ use serde_json::json;
 
 use super::super::fixtures::SUBJECT;
 use super::fixtures::label;
-use super::integration::{integration_branch, login, logout, task_branch_of};
+use super::integration::{integration_branch, login, logout};
 use super::team::{Team, assert_valid, builds, input, reviews, shipped, ships};
 use crate::project::{Config, DriveOutcome, INTEGRATION_SCHEMA, StepLabel};
 use crate::runtime::{Behavior, Delivery};
@@ -34,9 +34,12 @@ async fn the_shipper_reads_the_manifest_and_the_snapshot_of_every_merged_task() 
     let integration =
         input(&shipper, "integration", "integration.json").expect("the shipper reads it");
     assert_valid(INTEGRATION_SCHEMA, &integration);
-    let task = |key: &str| {
-        let reviewed = feature.sha(&task_branch_of(key)).expect("the task branch");
-        let merge = feature.merge_of(&reviewed).expect("the merge").sha;
+    let mut tips = Vec::new();
+    for key in ["A", "B"] {
+        tips.push(feature.task_tip(key).await);
+    }
+    let task = |key: &str, reviewed: &str| {
+        let merge = feature.merge_of(reviewed).expect("the merge").sha;
         json!({ "key": key, "reviewed_commit": reviewed, "merge_commit": merge })
     };
     assert_eq!(
@@ -45,7 +48,7 @@ async fn the_shipper_reads_the_manifest_and_the_snapshot_of_every_merged_task() 
             "branch": format!("surt/{SUBJECT}"),
             "base": { "ref": "main", "sha": feature.base() },
             "tip": tip,
-            "tasks": [task("A"), task("B")],
+            "tasks": [task("A", &tips[0]), task("B", &tips[1])],
         })
     );
     let plan = input(&shipper, "plan", "plan.json").expect("the shipper reads the manifest");

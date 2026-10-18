@@ -86,6 +86,14 @@ impl Phase {
         ))
     }
 
+    pub(crate) async fn finish_cleanup(
+        &self,
+        project: &Project,
+        subject: &Subject,
+    ) -> Result<bool, Failure> {
+        finish_cleanup(project, subject, self.command).await
+    }
+
     pub(crate) async fn resume(&self, project: &Project, subject: &Subject) -> Result<(), Failure> {
         let run = active_run(subject)?;
         if let GateStatus::Approved { revision } = project.gate_status(run, self.gate).await? {
@@ -116,6 +124,25 @@ impl Phase {
         };
         driven.drive(runtime).await
     }
+}
+
+pub(crate) async fn finish_cleanup(
+    project: &Project,
+    subject: &Subject,
+    command: &'static str,
+) -> Result<bool, Failure> {
+    let (None, Some(run)) = (&subject.active_run, &subject.pending_cleanup) else {
+        return Ok(false);
+    };
+    let runtime = runtime::select()?;
+    let driven = Driven {
+        project,
+        subject: &subject.name,
+        run,
+        command,
+    };
+    driven.drive(&runtime).await?;
+    Ok(true)
 }
 
 pub(crate) fn active_run(subject: &Subject) -> Result<&RunId, Failure> {

@@ -1,3 +1,5 @@
+use std::fs;
+use std::path::Path;
 use std::sync::Mutex;
 
 use tokio::sync::mpsc;
@@ -185,7 +187,40 @@ impl AgentRuntime for Recording {
         self.requests
             .lock()
             .expect("the requests")
-            .push(request.clone());
+            .push(preserved(&request));
         self.fake.execute(request, events, stop).await
+    }
+}
+
+pub(super) fn preserved(request: &RuntimeRequest) -> RuntimeRequest {
+    let mut kept = request.clone();
+    let Some(execution) = request.delivery_dir.parent() else {
+        return kept;
+    };
+    let (Some(id), Some(dot_surt)) = (execution.file_name(), execution.ancestors().nth(3)) else {
+        return kept;
+    };
+    let copy = dot_surt.join("preserved").join(id);
+    copy_tree(execution, &copy);
+    if let Some(name) = request.delivery_dir.file_name() {
+        kept.delivery_dir = copy.join(name);
+    }
+    kept.context = request.context.replace(
+        execution.to_string_lossy().as_ref(),
+        copy.to_string_lossy().as_ref(),
+    );
+    kept
+}
+
+fn copy_tree(from: &Path, to: &Path) {
+    fs::create_dir_all(to).expect("the copy directory");
+    for entry in fs::read_dir(from).expect("the execution directory") {
+        let entry = entry.expect("an entry");
+        let target = to.join(entry.file_name());
+        if entry.file_type().expect("a file type").is_dir() {
+            copy_tree(&entry.path(), &target);
+        } else {
+            fs::copy(entry.path(), target).expect("the file is copied");
+        }
     }
 }

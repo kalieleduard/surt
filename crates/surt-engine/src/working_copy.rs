@@ -3,17 +3,22 @@ mod disk;
 mod pending;
 mod revalidation;
 
-use std::path::PathBuf;
+use std::io;
+use std::path::{Path, PathBuf};
 
 use crate::artifacts::{DeliveryRejection, OutputRule};
 use crate::drive::{CorruptSnapshot, Frozen};
 use crate::project::{Error, Layout, Refusal};
-use crate::store::{EditRecord, Store, WorkingCopyArtifact};
+use crate::store::{BaselineFile, EditRecord, Store, WorkingCopyArtifact};
 use crate::workflow::{Definition, StepSpec};
 use candidate::Candidate;
 use disk::Inspection;
 
 pub(crate) use pending::finish_pending_writes;
+
+pub(crate) fn unrecorded_edits(dir: &Path, files: &[BaselineFile]) -> io::Result<Vec<String>> {
+    Ok(disk::inspect(dir, files)?.edited())
+}
 
 pub(crate) struct WorkingCopy {
     dir: PathBuf,

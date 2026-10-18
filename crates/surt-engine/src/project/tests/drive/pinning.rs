@@ -3,7 +3,7 @@ use std::fs;
 use super::super::fixtures::SUBJECT;
 use super::super::refusal;
 use super::fixtures::{ACTOR, Feature, PUBLISHER, WRITER, agent, draft, summary};
-use crate::project::{Catalog, DriveOutcome, Refusal};
+use crate::project::{Catalog, DriveOutcome, Progress, Refusal};
 use crate::runtime::{
     AgentRuntime, Behavior, Delivery, FakeRuntime, RuntimeCompletion, RuntimeError,
     RuntimeEventSink, RuntimeRequest, Script, StopSignal,
@@ -196,8 +196,9 @@ async fn removing_the_edited_file_of_a_pinned_revision_lets_the_run_continue() {
         driven.outcome.expect("drive returns"),
         DriveOutcome::Succeeded
     );
-    assert_eq!(
-        fs::read_to_string(feature.working_copy("draft.md")).expect("the recreated file"),
-        "# Draft 1\n"
-    );
+    assert!(driven.progress.contains(&Progress::FileRestored {
+        artifact: "draft".to_owned(),
+        path: "draft.md".to_owned(),
+        revision: 1,
+    }));
 }

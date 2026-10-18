@@ -6,12 +6,16 @@ use super::Store;
 pub(crate) struct SubjectRow {
     pub(crate) name: String,
     pub(crate) active_run: Option<String>,
+    pub(crate) pending_cleanup: Option<String>,
 }
 
 impl Store {
     pub(crate) async fn subjects(&self) -> Result<Vec<SubjectRow>, sqlx::Error> {
         sqlx::query_as(
-            "SELECT s.name, w.id AS active_run FROM subject s LEFT JOIN workflow_run w \
+            "SELECT s.name, w.id AS active_run, \
+             (SELECT p.id FROM workflow_run p WHERE p.subject_id = s.id AND p.parent_step_run_id IS NULL \
+              AND p.state <> 'active' AND p.cleaned_at IS NULL ORDER BY p.ordinal DESC LIMIT 1) AS pending_cleanup \
+             FROM subject s LEFT JOIN workflow_run w \
              ON w.subject_id = s.id AND w.parent_step_run_id IS NULL AND w.state = 'active' \
              ORDER BY s.name",
         )

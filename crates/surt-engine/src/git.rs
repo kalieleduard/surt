@@ -2,9 +2,10 @@ use std::ffi::OsStr;
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::process::{ExitStatus, Output};
+use std::process::{ExitStatus, Output, Stdio};
 use std::time::Duration;
 
+use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 mod merge;
@@ -13,7 +14,8 @@ pub(crate) mod worktrees;
 
 pub(crate) use merge::{CommitTree, MergeTree, commit_tree, merge_tree, move_ref};
 pub(crate) use refs::{
-    absolute_git_dir, common_dir, create_ref, is_ancestor, is_valid_branch_name, set_ref,
+    absolute_git_dir, common_dir, create_ref, delete_refs, is_ancestor, is_valid_branch_name,
+    refs_under, set_ref,
 };
 
 pub(crate) const MIN_VERSION: GitVersion = GitVersion {
@@ -214,20 +216,50 @@ async fn invoke(cwd: &Path, args: &[&str], env: &[(&str, &OsStr)]) -> Result<Str
 }
 
 async fn output(cwd: &Path, args: &[&str], env: &[(&str, &OsStr)]) -> Result<Output, GitError> {
+    command(cwd, args)
+        .envs(env.iter().copied())
+        .output()
+        .await
+        .map_err(spawn_error)
+}
+
+async fn run_with_stdin(cwd: &Path, args: &[&str], input: &str) -> Result<String, GitError> {
+    let mut child = command(cwd, args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(spawn_error)?;
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(input.as_bytes())
+            .await
+            .map_err(GitError::Spawn)?;
+    }
+    let output = child.wait_with_output().await.map_err(GitError::Spawn)?;
+    if !output.status.success() {
+        return Err(failed(args, &output));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+fn command(cwd: &Path, args: &[&str]) -> Command {
     tracing::debug!(cwd = %cwd.display(), ?args, "running git");
-    Command::new("git")
+    let mut command = Command::new("git");
+    command
         .args(PLATFORM_CONFIG)
         .args(args)
         .current_dir(cwd)
         .env("LC_ALL", "C")
-        .envs(env.iter().copied())
-        .kill_on_drop(true)
-        .output()
-        .await
-        .map_err(|error| match error.kind() {
-            io::ErrorKind::NotFound => GitError::NotFound,
-            _ => GitError::Spawn(error),
-        })
+        .kill_on_drop(true);
+    command
+}
+
+fn spawn_error(error: io::Error) -> GitError {
+    match error.kind() {
+        io::ErrorKind::NotFound => GitError::NotFound,
+        _ => GitError::Spawn(error),
+    }
 }
 
 fn failed(args: &[&str], output: &Output) -> GitError {

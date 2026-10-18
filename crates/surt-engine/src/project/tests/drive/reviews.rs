@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use super::evidence::{change, task_branch};
+use super::evidence::change;
 use super::repository::commit_file;
 use super::team::{
     REVIEWED_TASK, Team, blocking, builds, built, failures, input, input_line, reviews,
@@ -26,7 +26,7 @@ async fn a_review_of_another_commit_is_an_invalid_delivery() {
         driven.outcome.expect("drive returns"),
         DriveOutcome::Succeeded
     );
-    let reviewed = feature.sha(&task_branch()).expect("the task branch");
+    let reviewed = feature.task_tip("A").await;
     assert_eq!(
         failures(&feature, "review").await,
         [(

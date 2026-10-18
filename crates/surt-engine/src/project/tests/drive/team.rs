@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use jsonschema::{Draft, Retrieve, Uri};
 use serde_json::{Value, json};
 
-use super::fixtures::{ACTOR, Feature, agent};
+use super::fixtures::{ACTOR, Feature, agent, preserved};
 use super::planned::{PLANNER, plan};
 use super::repository::git;
 use crate::project::{
@@ -276,7 +276,7 @@ impl AgentRuntime for Team {
         self.requests
             .lock()
             .expect("the requests")
-            .push(request.clone());
+            .push(preserved(&request));
         let step = &request.step;
         let key = (step.step.clone(), step.iteration, step.attempt);
         let script = match self.turns.get(&key) {

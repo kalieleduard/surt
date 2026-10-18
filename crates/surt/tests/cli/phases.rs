@@ -269,7 +269,9 @@ fn approving_with_no_gate_waiting_is_refused() {
 fn a_feature_without_an_active_run_is_refused_by_every_phase_command() {
     let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n")]);
     let name = feature_name();
-    sandbox.execute("UPDATE workflow_run SET state = 'cancelled', finished_at = created_at");
+    sandbox.execute(
+        "UPDATE workflow_run SET state = 'cancelled', finished_at = created_at, cleaned_at = created_at",
+    );
 
     for args in [
         vec!["feature", name.as_str()],

@@ -144,6 +144,8 @@ async fn an_intended_move_found_undone_is_redone_from_the_start() {
     feature.intend_move(&feature.base(), &abandoned).await;
     feature.git(&["update-ref", &integration_branch(), &feature.base()]);
 
+    let reviewed = feature.reviewed();
+
     let driven = feature.drive_with(&Team::new()).await;
 
     assert_eq!(
@@ -151,7 +153,7 @@ async fn an_intended_move_found_undone_is_redone_from_the_start() {
         DriveOutcome::Succeeded
     );
     let merge = feature
-        .merge_of(&feature.reviewed())
+        .merge_of(&reviewed)
         .expect("the reviewed sha is merged");
     assert_ne!(merge.sha, abandoned);
     assert_eq!(merge.first_parent, feature.base());

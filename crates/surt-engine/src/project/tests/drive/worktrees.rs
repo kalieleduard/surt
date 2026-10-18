@@ -8,8 +8,8 @@ use super::planned::{BUILDER, PLANNER, plan, work};
 use super::repository::{commit_file, git, git_succeeds};
 use crate::project::{Catalog, Config, DriveOutcome, Progress, Refusal, StepLabel};
 use crate::runtime::{
-    AgentRuntime, Behavior, FakeRuntime, RuntimeCompletion, RuntimeError, RuntimeEventSink,
-    RuntimeRequest, Script, StopSignal,
+    AgentRuntime, Behavior, Delivery, FakeRuntime, RuntimeCompletion, RuntimeError,
+    RuntimeEventSink, RuntimeRequest, Script, StopSignal,
 };
 
 const TRACKED_WORKFLOW: &str = r#"
@@ -80,6 +80,13 @@ async fn tracked(items: &[(&str, &[&str])], config: Config) -> Feature {
     feature
 }
 
+fn refused() -> Behavior {
+    Behavior::ModelMismatch {
+        reported: "another-model".to_owned(),
+        delivery: Delivery::new("done"),
+    }
+}
+
 fn task_branch(key: &str) -> String {
     format!("refs/heads/surt/task/{SUBJECT}/{key}")
 }
@@ -99,14 +106,14 @@ async fn child_run(feature: &Feature, key: &'static str) -> String {
 async fn setup_creates_a_locked_worktree_on_a_task_branch_at_the_integration_tip() {
     let feature = tracked(&[("A", &[])], Config::default()).await;
     let base = feature.base();
-    let runtime = Recording::new(Script::new().on("A/build", 1, 1, work("a")));
+    let runtime = Recording::new(Script::new().on("A/build", 1, 1, refused()));
 
     let driven = feature.drive_with(&runtime).await;
 
-    assert_eq!(
+    assert!(matches!(
         driven.outcome.expect("drive returns"),
-        DriveOutcome::Succeeded
-    );
+        DriveOutcome::Blocked { .. }
+    ));
     let worktree = feature.worktree("A");
     let recorded: Vec<(String, String, String, Option<String>)> = feature
         .dir
@@ -211,16 +218,16 @@ async fn leftovers_of_a_failed_attempt_are_salvaged_and_the_next_attempt_starts_
     let runtime = Meddling::new(
         Script::new()
             .on("A/build", 1, 1, Behavior::Crash { exit_code: 1 })
-            .on("A/build", 1, 2, work("a")),
+            .on("A/build", 1, 2, refused()),
         leave_leftovers,
     );
 
     let driven = feature.drive_with(&runtime).await;
 
-    assert_eq!(
+    assert!(matches!(
         driven.outcome.expect("drive returns"),
-        DriveOutcome::Succeeded
-    );
+        DriveOutcome::Blocked { .. }
+    ));
     let seen = runtime.seen();
     assert_eq!(
         seen[1],
@@ -300,14 +307,14 @@ async fn rebuilt_after(meddle: fn(&Path)) -> (Feature, Meddling, Vec<Progress>) 
     let runtime = Meddling::new(
         Script::new()
             .on("A/build", 1, 1, Behavior::Crash { exit_code: 1 })
-            .on("A/build", 1, 2, work("a")),
+            .on("A/build", 1, 2, refused()),
         meddle,
     );
     let driven = feature.drive_with(&runtime).await;
-    assert_eq!(
+    assert!(matches!(
         driven.outcome.expect("drive returns"),
-        DriveOutcome::Succeeded
-    );
+        DriveOutcome::Blocked { .. }
+    ));
     (feature, runtime, driven.progress)
 }
 
@@ -504,15 +511,15 @@ async fn parallel_tasks_each_get_their_own_worktree_from_the_same_integration_ti
     let feature = tracked(&[("A", &[]), ("B", &[])], Config::default()).await;
     let base = feature.base();
     let script = Script::new()
-        .on("A/build", 1, 1, work("a"))
-        .on("B/build", 1, 1, work("b"));
+        .on("A/build", 1, 1, refused())
+        .on("B/build", 1, 1, refused());
 
     let driven = feature.drive(script).await;
 
-    assert_eq!(
+    assert!(matches!(
         driven.outcome.expect("drive returns"),
-        DriveOutcome::Succeeded
-    );
+        DriveOutcome::Blocked { .. }
+    ));
     let starts: Vec<(String, String)> = feature
         .dir
         .rows(

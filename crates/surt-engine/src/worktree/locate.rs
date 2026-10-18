@@ -103,7 +103,7 @@ fn aside_path(path: &Path) -> PathBuf {
     PathBuf::from(name)
 }
 
-fn same_path(listed: &Path, recorded: &Path) -> bool {
+pub(crate) fn same_path(listed: &Path, recorded: &Path) -> bool {
     if listed == recorded {
         return true;
     }

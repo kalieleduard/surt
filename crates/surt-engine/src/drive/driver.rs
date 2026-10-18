@@ -6,6 +6,7 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 
 use super::decide::{self, Action, Ctx, RunEnd};
+use super::ending;
 use super::flights::Flights;
 use super::frozen::{CorruptSnapshot, Frozen};
 use super::graph::StepRunId;
@@ -65,6 +66,9 @@ pub(crate) async fn drive<R: AgentRuntime>(
     let Some(_lock) = lock else {
         return Err(driver_live(&driving).await?);
     };
+    if let Some(outcome) = ending::ended(&driving, &progress).await? {
+        return Ok(outcome);
+    }
     let store = driving.store;
     let reconcile = Reconcile {
         store,
@@ -92,7 +96,9 @@ pub(crate) async fn drive<R: AgentRuntime>(
         return Ok(DriveOutcome::Halted(refusal));
     }
     store.unblock(driver.driving.root).await?;
-    driver.run().await
+    let outcome = driver.run().await?;
+    let ended = ending::ended(&driver.driving, &driver.progress).await?;
+    Ok(ended.unwrap_or(outcome))
 }
 
 async fn recover(
