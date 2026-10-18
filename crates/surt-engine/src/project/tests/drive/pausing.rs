@@ -323,3 +323,41 @@ async fn a_stop_during_the_pause_interrupts_and_driving_again_launches_at_once()
     assert!(attempts[1].3 < runtime.resets_at(), "{attempts:?}");
     assert_eq!(feature.dir.event_data("agents.paused").await.len(), 1);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_later_reset_from_an_agent_already_running_moves_the_end_of_the_pause() {
+    let feature = approved(TASK_WORKFLOW, &[("A", &[]), ("B", &[])]).await;
+    let script = Script::new()
+        .on(
+            "B/build",
+            1,
+            1,
+            Behavior::LimitFailureIn {
+                seconds: 2 * RESET_DELAY_SECONDS,
+            },
+        )
+        .on("A/build", 1, 2, work("a"))
+        .on("B/build", 1, 2, work("b"));
+    let runtime = RateLimited::new(FakeRuntime::new(script), "A/build", RESET_DELAY_SECONDS)
+        .holding("B/build");
+
+    let (outcome, _) =
+        drive_through_pause(&feature, &runtime, StopSignal::new(), || runtime.release()).await;
+
+    assert_eq!(outcome, DriveOutcome::Succeeded);
+    let paused = feature.dir.event_data("agents.paused").await;
+    assert_eq!(paused.len(), 2, "{paused:?}");
+    assert_eq!(paused[0]["until"], json!(runtime.resets_at()));
+    assert!(
+        paused[1]["until"].as_i64() > paused[0]["until"].as_i64(),
+        "{paused:?}"
+    );
+    assert_eq!(
+        (&paused[0]["waiting"], &paused[1]["waiting"]),
+        (&json!(1), &json!(2))
+    );
+    assert_eq!(feature.dir.event_data("agents.resumed").await.len(), 1);
+    for item in ["A", "B"] {
+        assert_eq!(attempts(&feature, item).await.len(), 2, "{item}");
+    }
+}
