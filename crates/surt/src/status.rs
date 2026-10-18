@@ -7,6 +7,7 @@ use surt_engine::project::{GateStatus, Project, RunState, RunStatus, StatusScope
 
 use crate::failure::Failure;
 use crate::phase;
+use crate::symbols::printable;
 
 #[derive(clap::Args)]
 pub(crate) struct StatusArgs {
@@ -19,7 +20,7 @@ pub(crate) async fn run(cwd: &Path, args: StatusArgs) -> Result<(), Failure> {
     let project = Project::open_read_only(cwd).await?;
     if let Some(feature) = &args.feature {
         for status in project.status(StatusScope::Feature(feature)).await? {
-            anstream::print!("{}", detail::render(&status));
+            anstream::print!("{}", printable(&detail::render(&status)));
         }
         return Ok(());
     }
@@ -33,7 +34,7 @@ pub(crate) async fn run(cwd: &Path, args: StatusArgs) -> Result<(), Failure> {
         anstream::eprintln!("no feature has an active run (surt status --all lists finished ones)");
         return Ok(());
     }
-    anstream::print!("{}", overview::render(&statuses));
+    anstream::print!("{}", printable(&overview::render(&statuses)));
     Ok(())
 }
 

@@ -10,9 +10,9 @@ Prefactor first: every glyph the CLI prints today (spread over messages, status,
 
 **Status:** ready-for-agent
 
-- [ ] Every glyph is printed through one symbol table in the `surt` crate
-- [ ] The engine's `platform` module answers "does the console output UTF-8" (Windows: output code page ≠ 65001; Unix: the first set of `LC_ALL`, `LC_CTYPE`, `LANG` doesn't name UTF-8), re-exported through the facade
-- [ ] ASCII mode maps `✔ ✖ ⚠` and the retry/paused/blocked symbols to J's six, and `● ⏳ ⏹ ✎ ⟳ │ ─ … −` to ASCII equivalents
-- [ ] `NO_COLOR` and the symbol set are independent
-- [ ] Pure test: every message the CLI can print contains only ASCII bytes in ASCII mode
-- [ ] `platform` unit test runs on each OS in CI
+- [x] Every glyph is printed through one symbol table in the `surt` crate
+- [x] The engine's `platform` module answers "does the console output UTF-8" (Windows: output code page ≠ 65001; Unix: the first set of `LC_ALL`, `LC_CTYPE`, `LANG` doesn't name UTF-8), re-exported through the facade
+- [x] ASCII mode maps `✔ ✖ ⚠` and the retry/paused/blocked symbols to J's six, and `● ⏳ ⏹ ✎ ⟳ │ ─ … −` to ASCII equivalents
+- [x] `NO_COLOR` and the symbol set are independent
+- [x] Pure test: every message the CLI can print contains only ASCII bytes in ASCII mode
+- [x] `platform` unit test runs on each OS in CI

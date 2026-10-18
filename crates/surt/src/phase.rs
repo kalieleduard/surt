@@ -5,6 +5,7 @@ use crate::driving::Driven;
 use crate::failure::Failure;
 use crate::message::Message;
 use crate::runtime;
+use crate::symbols::DASH;
 
 pub(crate) struct Phase {
     name: &'static str,
@@ -128,7 +129,7 @@ impl Phase {
         let run = active_run(subject)?;
         if let GateStatus::Approved { revision } = project.gate_status(run, self.gate).await? {
             Message::new(format!(
-                "{} rev {revision} already approved — next: {}",
+                "{} rev {revision} already approved {DASH} next: {}",
                 self.artifact,
                 self.next_command(&subject.name)
             ))

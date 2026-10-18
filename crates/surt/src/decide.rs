@@ -7,6 +7,7 @@ use crate::builtin;
 use crate::failure::Failure;
 use crate::message::{Mark, Message};
 use crate::phase::{Phase, active_run};
+use crate::symbols::{DASH, ELLIPSIS};
 
 const SHORT_SHA_CHARS: usize = 6;
 const ITEM_FILE_EXTENSION: &str = ".md";
@@ -70,7 +71,7 @@ fn approved(subject: &str, decided: &Decided) -> Message {
         RevisionOrigin::Human => "human edit",
     };
     let message = Message::new(format!(
-        "approved {} rev {} ({origin}) sha256:{short}… by {}",
+        "approved {} rev {} ({origin}) sha256:{short}{ELLIPSIS} by {}",
         decided.artifact, decided.revision, decided.actor
     ));
     match Phase::of_gate(&decided.gate) {
@@ -92,11 +93,11 @@ fn rejected(subject: &str, decided: &Decided) -> Message {
         .collect();
     let headline = match item_files.as_slice() {
         [] => format!(
-            "{what} — the {} will redo it reading your reason",
+            "{what} {DASH} the {} will redo it reading your reason",
             phase.agent()
         ),
         [only] => format!("{what} (with {only})"),
-        [first, .., last] => format!("{what} (with {first} … {last})"),
+        [first, .., last] => format!("{what} (with {first} {ELLIPSIS} {last})"),
     };
     Message::new(headline).way("regenerate", phase.resume_command(subject))
 }

@@ -3,11 +3,11 @@ use surt_engine::project::{CleanupState, GateStatus, ItemState, RunStatus};
 use super::state_names;
 use crate::driving::label;
 use crate::phase::Phase;
+use crate::symbols::{DASH, SEPARATOR};
 use crate::table;
 
 const HEADERS: [&str; 5] = ["FEATURE", "RUN", "STATE", "DRIVER", "PROGRESS"];
-const NONE: &str = "—";
-const SEPARATOR: &str = " · ";
+const NONE: &str = DASH;
 const COUNTED: [(ItemState, &str); 3] = [
     (ItemState::Running, "running"),
     (ItemState::Queued, "queued"),

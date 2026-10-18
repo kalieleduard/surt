@@ -5,6 +5,7 @@ use surt_engine::project::{ArtifactSummary, Project, RevisionOrigin, ShowRequest
 
 use crate::failure::Failure;
 use crate::message::{Mark, Message};
+use crate::symbols::{SEPARATOR, SUCCESS, printable};
 use crate::table;
 
 const HEADERS: [&str; 3] = ["ARTIFACT", "REVS", "LATEST"];
@@ -23,7 +24,7 @@ pub(crate) async fn run(cwd: &Path, args: ShowArgs) -> Result<(), Failure> {
     let project = Project::open_read_only(cwd).await?;
     let Some(artifact) = &args.artifact else {
         let artifacts = project.artifacts(&args.feature).await?;
-        anstream::print!("{}", index(&artifacts));
+        anstream::print!("{}", printable(&index(&artifacts)));
         return Ok(());
     };
     let request = ShowRequest {
@@ -63,10 +64,10 @@ fn index(artifacts: &[ArtifactSummary]) -> String {
 fn row(artifact: &ArtifactSummary) -> [String; 3] {
     let mut latest = format!("rev {} ({})", artifact.latest, origin(artifact.origin));
     if artifact.approved {
-        latest.push_str(" ✔ approved");
+        latest.push_str(&format!(" {SUCCESS} approved"));
     }
     if artifact.files > 1 {
-        latest.push_str(&format!(" · {} files", artifact.files));
+        latest.push_str(&format!("{SEPARATOR}{} files", artifact.files));
     }
     [
         artifact.name.clone(),

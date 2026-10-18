@@ -307,7 +307,18 @@ A driving command prints one line per relevant state change: a Step Run starting
   B
   ```
 - **Without a TTY** nothing is ever asked. A command that would confirm refuses with exit `3` unless `--yes` is given. There are no colours, spinners or footers, only the same lines.
-- `NO_COLOR` disables colour. When the terminal is not UTF-8 (an old Windows console), the symbols become `[ok] [error] [warn] [retry] [paused] [blocked]`.
+- `NO_COLOR` disables colour. When the terminal is not UTF-8 (an old Windows console), the symbols become `[ok] [error] [warn] [retry] [paused] [blocked]`. The two settings are independent.
+  - The engine's `platform` module answers "does the console output UTF-8". Unix: the first non-empty of `LC_ALL`, `LC_CTYPE`, `LANG` must name UTF-8 (`UTF-8` or `utf8`, any case); none set counts as UTF-8. Windows: the console output code page must be `65001`; a process with no console, or whose stdout and stderr are both redirected, counts as UTF-8, since the bytes go to a pipe or file, not to the console.
+  - Every glyph the CLI prints lives in one symbol table (`surt` crate, `symbols.rs`), which also holds its ASCII form. Lines are converted at the print boundary, so a glyph in an engine message (the `→` of a cycle) is converted too. `show` file content is never converted.
+
+    | Glyph | ASCII | Glyph | ASCII | Glyph | ASCII |
+    |---|---|---|---|---|---|
+    | `✔` | `[ok]` | `⏹` | `[stopped]` | `─` | `-` |
+    | `✖` | `[error]` | `●` | `*` | `…` | `...` |
+    | `⚠` | `[warn]` | `⏳` | `[waiting]` | `−` | `-` |
+    | `↻` | `[retry]` | `✎` | `[edited]` | `—` | `-` |
+    | `⏸` | `[paused]` | `⟳` | `[integrating]` | `·` | `\|` |
+    | `⛔` | `[blocked]` | `│` | `\|` | `→` | `->` |
 - `SURT_LOG` (`tracing` filter syntax, e.g. `SURT_LOG=debug`) turns on Surt's own diagnostic logs on stderr, for any command.
 
 ## Exit codes

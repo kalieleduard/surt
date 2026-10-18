@@ -4,6 +4,7 @@ use surt_engine::project::{BlockReason, BlockedStep, LastFailure};
 
 use super::progress::label;
 use crate::message::{Mark, Message};
+use crate::symbols::DASH;
 
 pub(super) fn report(steps: &[BlockedStep], resume: String) -> Message {
     let mut messages: Vec<Message> = steps.iter().map(message).collect();
@@ -46,7 +47,7 @@ pub(crate) fn last_error(failure: &LastFailure) -> String {
         failure.attempt, failure.code, failure.message
     );
     if let Some(resets) = failure.resets_at.and_then(local_time) {
-        line.push_str(&format!(" — resets {resets}"));
+        line.push_str(&format!(" {DASH} resets {resets}"));
     }
     line
 }

@@ -1,6 +1,7 @@
 use surt_engine::project::{Progress, StepLabel};
 
 use super::message;
+use crate::symbols::Symbols;
 
 fn line(progress: &Progress) -> String {
     let (mark, message) = message(progress);
@@ -70,5 +71,28 @@ fn a_cancel_request_says_which_driver_is_stopping_the_run() {
         lines,
         "⏳ cancel requested; driver pid 48213 is stopping it…\n\
          ⏳ cancel requested; waiting for the driver to stop…\n"
+    );
+}
+
+#[test]
+fn recovery_and_cancel_lines_print_only_ascii_in_ascii_mode() {
+    let found = [
+        Progress::Recovering {
+            driver: Some(48213),
+        },
+        Progress::Discarded {
+            step: task("C", "build"),
+            attempt: 1,
+        },
+        Progress::CancelRequested { driver: None },
+    ];
+
+    let lines: String = found.iter().map(line).collect();
+
+    assert_eq!(
+        Symbols::Ascii.render(&lines),
+        "[warn] previous driver (pid 48213) is gone - recovering\n\
+         [error] task C build attempt 1 exited but was never recorded - discarded\n\
+         [waiting] cancel requested; waiting for the driver to stop...\n"
     );
 }
