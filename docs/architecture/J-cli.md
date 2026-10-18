@@ -201,6 +201,8 @@ $ surt status add-login
     D  ⏸ pending   waits for B
 ```
 
+When the Feature has several runs, the headline names the one it shows and how many exist: `20261017-add-login · run 2 of 2   AWAITING APPROVAL`. `--run 1` shows the earlier one.
+
 At an Approval Gate it lists everything the Approval covers. For an Item List that is the list and every file it references ([F](F-agent-contract.md)):
 
 ```

@@ -14,7 +14,9 @@ impl Store {
         Ok(sqlx::query_as(
             "SELECT w.id, s.name AS subject, w.ordinal, w.state, w.definition_sha256 AS definition, \
              w.cleaned_at IS NOT NULL AS cleaned, \
-             w.driver_pid, w.driver_start_time, w.driver_boot_id, w.driver_since \
+             w.driver_pid, w.driver_start_time, w.driver_boot_id, w.driver_since, w.finished_at, \
+             (SELECT count(*) FROM workflow_run c WHERE c.subject_id = w.subject_id \
+              AND c.parent_step_run_id IS NULL) AS runs \
              FROM subject s JOIN workflow_run w ON w.subject_id = s.id AND w.parent_step_run_id IS NULL \
              WHERE s.name = ? ORDER BY w.ordinal",
         )

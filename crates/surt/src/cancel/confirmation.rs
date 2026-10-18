@@ -20,7 +20,7 @@ pub(super) fn question(subject: &str, impact: &CancelImpact) -> String {
     }
     format!(
         "cancel {subject}?\n  {}\n  worktrees are removed; task branches and salvage refs stay\n  \
-         starting over later needs a new feature: surt feature \"<description>\"\n",
+         starting over later needs a new run (surt feature {subject} --new-run)\n",
         stopped.join(SEPARATOR)
     )
 }

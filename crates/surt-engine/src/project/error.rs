@@ -79,6 +79,11 @@ pub enum Refusal {
     ActiveRunExists {
         subject: String,
     },
+    UnrecordedEditsBlockNewRun {
+        subject: String,
+        run: u32,
+        files: Vec<String>,
+    },
     DriverLive {
         subject: String,
         pid: Option<u32>,

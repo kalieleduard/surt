@@ -22,10 +22,26 @@ pub(super) fn invalid(subject: &str, artifact: &str, problem: &str, files: &[Str
         .way("fix", remove(subject, files))
 }
 
+pub(super) fn blocking_new_run(subject: &str, run: u32, files: &[String]) -> Message {
+    let what = match files {
+        [_] => "the file",
+        _ => "the files",
+    };
+    Message::new(format!("working copy has unrecorded edits from run {run}"))
+        .context(format!("  {}", in_working_copy(subject, files).join(" ")))
+        .way("fix", format!("move or delete {what}, then run again"))
+}
+
 fn remove(subject: &str, files: &[String]) -> String {
-    let paths: Vec<String> = files
+    format!(
+        "rm {}, then rerun",
+        in_working_copy(subject, files).join(" ")
+    )
+}
+
+fn in_working_copy(subject: &str, files: &[String]) -> Vec<String> {
+    files
         .iter()
         .map(|file| format!(".surt/features/{subject}/{file}"))
-        .collect();
-    format!("rm {}, then rerun", paths.join(" "))
+        .collect()
 }

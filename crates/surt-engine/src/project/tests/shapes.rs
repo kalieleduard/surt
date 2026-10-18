@@ -98,6 +98,7 @@ async fn a_build_check_review_integrate_loop_is_accepted_and_only_its_loop_start
             subject: "20261017-task-a".to_owned(),
             workflow: "cycle".to_owned(),
             initial_artifacts: vec![initial("item", "item.json", br#"{"key": "A"}"#)],
+            carried: Vec::new(),
             actor: "dev@example.com".to_owned(),
         })
         .await

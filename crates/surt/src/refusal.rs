@@ -61,6 +61,11 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             Message::new(format!("{subject} already has an active run"))
                 .way("resume", format!("surt feature {subject}"))
         }
+        Refusal::UnrecordedEditsBlockNewRun {
+            subject,
+            run,
+            files,
+        } => edits::blocking_new_run(subject, *run, files),
         Refusal::InvalidDefinition(invalid) => invalid_definition(invalid),
         Refusal::AgentOverrides { path } => Message::new(format!(
             "local agent overrides in {} are not supported yet",

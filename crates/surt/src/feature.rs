@@ -1,3 +1,4 @@
+mod new_run;
 mod retry;
 
 use std::path::Path;
@@ -31,13 +32,21 @@ pub(crate) struct FeatureArgs {
     base: Option<String>,
     #[arg(long)]
     new: bool,
+    #[arg(long = "new-run", conflicts_with_all = ["name", "new"])]
+    new_run: bool,
 }
 
 pub(crate) async fn run(cwd: &Path, args: FeatureArgs) -> Result<(), Failure> {
     let project = Project::open(cwd, builtin::catalog()).await?;
+    if args.new_run {
+        return new_run::start(&project, &args.description, args.base.as_deref()).await;
+    }
     if let Some(subject) = project.subject_named(&args.description).await? {
         if SPEC.finish_cleanup(&project, &subject).await? {
             return Ok(());
+        }
+        if subject.active_run.is_none() {
+            return Err(new_run::suggested(&project, &subject.name).await);
         }
         return SPEC.resume(&project, &subject).await;
     }
@@ -64,6 +73,7 @@ async fn create(project: &Project, args: &FeatureArgs) -> Result<(), Failure> {
         subject: name.name.clone(),
         workflow: FEATURE_WORKFLOW.to_owned(),
         initial_artifacts: vec![request(&args.description), base_artifact(&base)],
+        carried: Vec::new(),
         actor: project.actor().await?,
     };
     let runtime = runtime::select()?;
@@ -78,6 +88,14 @@ fn request(description: &str) -> InitialArtifact {
         REQUEST_FILE,
         description.as_bytes().to_vec(),
     )
+}
+
+fn short_base(base: &Commit) -> String {
+    let short = base.sha.get(..SHORT_SHA_CHARS).unwrap_or(&base.sha);
+    match &base.branch {
+        Some(branch) => format!("{branch} @ {short}"),
+        None => short.to_owned(),
+    }
 }
 
 fn base_artifact(base: &Commit) -> InitialArtifact {
@@ -96,12 +114,11 @@ fn single_file(name: &str, rel_path: &str, bytes: Vec<u8>) -> InitialArtifact {
 }
 
 fn created(name: &FreeName, base: &Commit) -> Message {
-    let short = base.sha.get(..SHORT_SHA_CHARS).unwrap_or(&base.sha);
-    let base = match &base.branch {
-        Some(branch) => format!("{branch} @ {short}"),
-        None => short.to_owned(),
-    };
-    let message = Message::new(format!("created {}   base: {base}", name.name));
+    let message = Message::new(format!(
+        "created {}   base: {}",
+        name.name,
+        short_base(base)
+    ));
     if name.is_suffixed() {
         return message.context(format!("{} already exists", name.stem));
     }
