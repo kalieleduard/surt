@@ -146,9 +146,13 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 revision: revision.number,
             });
         }
-        self.report(Progress::StepFinished {
-            step: label(&launch.row),
-            outcome: finished.outcome.to_owned(),
+        let step = label(&launch.row);
+        self.report(match finished.merged {
+            Some(merge) => Progress::Merged { step, merge },
+            None => Progress::StepFinished {
+                step,
+                outcome: finished.outcome.to_owned(),
+            },
         });
         Ok(())
     }

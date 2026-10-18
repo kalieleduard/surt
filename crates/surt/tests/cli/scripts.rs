@@ -1,3 +1,7 @@
+use serde_json::{Value, json};
+
+pub const HEAD: &str = "$HEAD";
+
 pub fn spec(iteration: u32, text: &str) -> String {
     format!(
         "[[on]]\nstep = \"spec\"\niteration = {iteration}\n\
@@ -22,8 +26,52 @@ pub fn crash(step: &str, attempt: u32) -> String {
     format!("[[on]]\nstep = \"{step}\"\nattempt = {attempt}\ncrash = {{ exit_code = 1 }}\n\n")
 }
 
+pub fn crash_in(step: &str, iteration: u32, attempt: u32) -> String {
+    format!(
+        "[[on]]\nstep = \"{step}\"\niteration = {iteration}\nattempt = {attempt}\ncrash = {{ exit_code = 1 }}\n\n"
+    )
+}
+
+pub fn build(item: &str, iteration: u32, attempt: u32, path: &str, contents: &str) -> String {
+    let commit = json!({ "sha": HEAD }).to_string();
+    format!(
+        "[[on]]\nstep = \"{item}/build\"\niteration = {iteration}\nattempt = {attempt}\n\
+         deliver = {{ outcome = \"done\", outputs = {{ commit = \"commit.json\" }}, files = {{ \"commit.json\" = {commit:?} }}, \
+         commit = {{ message = \"Build {item}\", files = {{ {path:?} = {contents:?} }} }} }}\n\n"
+    )
+}
+
+pub fn review(item: &str, iteration: u32, outcome: &str) -> String {
+    let findings: Vec<Value> = match outcome {
+        "approved" => Vec::new(),
+        _ => vec![json!({ "blocking": true, "path": "README.md", "message": "fix this" })],
+    };
+    let feedback = json!({
+        "reviewed_commit": HEAD,
+        "summary": format!("{outcome} after reading the code"),
+        "findings": findings,
+    })
+    .to_string();
+    format!(
+        "[[on]]\nstep = \"{item}/review\"\niteration = {iteration}\n\
+         deliver = {{ outcome = \"{outcome}\", outputs = {{ feedback = \"feedback.json\" }}, files = {{ \"feedback.json\" = {feedback:?} }} }}\n\n"
+    )
+}
+
+pub fn ship() -> String {
+    let delivery = json!({ "title": "Add login", "summary": "Adds the login." }).to_string();
+    format!(
+        "[[on]]\nstep = \"ship\"\n\
+         deliver = {{ outcome = \"done\", outputs = {{ delivery = \"delivery.json\" }}, files = {{ \"delivery.json\" = {delivery:?} }} }}\n\n"
+    )
+}
+
+pub fn limit_failure(step: &str, resets_at: i64) -> String {
+    format!("[[on]]\nstep = \"{step}\"\nlimit_failure = {{ resets_at = {resets_at} }}\n\n")
+}
+
 fn item(key: &str) -> String {
-    serde_json::json!({
+    json!({
         "key": key,
         "needs": [],
         "title": format!("Task {key}"),

@@ -328,9 +328,14 @@ fn an_agent_that_keeps_failing_blocks_the_phase_with_exit_4() {
         "{}",
         run.stderr
     );
+    let execution = sandbox
+        .texts("SELECT id FROM execution WHERE attempt = 3")
+        .concat();
     assert!(
-        run.stderr
-            .ends_with(&format!("⛔ spec blocked\n  resume: surt feature {name}\n")),
+        run.stderr.ends_with(&format!(
+            "⛔ spec blocked: attempts exhausted\n  attempt 3 failed (exit_code): ExitCode(1)\n  \
+             log: .surt/logs/{name}/{execution}/stream.jsonl\n  resume: surt feature {name}\n"
+        )),
         "{}",
         run.stderr
     );
