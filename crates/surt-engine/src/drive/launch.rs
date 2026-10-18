@@ -2,6 +2,7 @@ use std::fs::{self, OpenOptions};
 use std::path::Path;
 use std::sync::atomic::Ordering;
 
+use serde_json::json;
 use tokio::sync::mpsc::{self, UnboundedReceiver};
 use uuid::Uuid;
 
@@ -30,6 +31,7 @@ const LAUNCH_DIR: &str = "launch";
 const LOG_FILES: [&str; 2] = ["stream.jsonl", "stderr.log"];
 const SKIPPED: &str = "SKIPPED";
 const FIRST_ITERATION: u32 = 1;
+const RUNTIME_VERSION: &str = "runtime_version";
 
 pub(super) struct Launch {
     pub(super) slot: usize,
@@ -222,7 +224,13 @@ impl<R: AgentRuntime> Driver<'_, R> {
             let store = self.driving.store;
             match event {
                 RuntimeEvent::Identified { version } => {
-                    store.record_runtime_version(execution, &version).await?;
+                    let fields = json!({ RUNTIME_VERSION: version });
+                    store.record_runtime_info(execution, &fields).await?;
+                }
+                RuntimeEvent::Reported(report) => {
+                    store
+                        .record_runtime_info(execution, &report.fields())
+                        .await?;
                 }
                 RuntimeEvent::Launched { pid: Some(pid) } => {
                     if let Some(identity) = platform::identify(pid) {

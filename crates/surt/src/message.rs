@@ -1,5 +1,7 @@
 use anstyle::{AnsiColor, Style};
 
+use crate::symbols;
+
 #[derive(Clone, Copy)]
 pub(crate) enum Mark {
     Success,
@@ -16,15 +18,15 @@ pub(crate) enum Mark {
 impl Mark {
     fn symbol(self) -> &'static str {
         match self {
-            Mark::Success => "✔",
-            Mark::Error => "✖",
-            Mark::Paused => "⏸",
-            Mark::Blocked => "⛔",
-            Mark::Stopped => "⏹",
-            Mark::Started => "●",
-            Mark::Retry => "↻",
-            Mark::Warning => "⚠",
-            Mark::Waiting => "⏳",
+            Mark::Success => symbols::SUCCESS,
+            Mark::Error => symbols::ERROR,
+            Mark::Paused => symbols::PAUSED,
+            Mark::Blocked => symbols::BLOCKED,
+            Mark::Stopped => symbols::STOPPED,
+            Mark::Started => symbols::STARTED,
+            Mark::Retry => symbols::RETRY,
+            Mark::Warning => symbols::WARNING,
+            Mark::Waiting => symbols::WAITING,
         }
     }
 
@@ -72,7 +74,10 @@ impl Message {
     }
 
     pub(crate) fn print(&self, mark: Mark) {
-        anstream::eprint!("{}", self.render(mark.symbol(), mark.style()));
+        anstream::eprint!(
+            "{}",
+            symbols::printable(&self.render(mark.symbol(), mark.style()))
+        );
     }
 
     fn render(&self, symbol: &str, style: Style) -> String {
@@ -87,7 +92,7 @@ impl Message {
 
     #[cfg(test)]
     pub(crate) fn plain_error(&self) -> String {
-        self.render("✖", Style::new())
+        self.render(symbols::ERROR, Style::new())
     }
 
     #[cfg(test)]

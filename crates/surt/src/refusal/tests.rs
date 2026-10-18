@@ -8,6 +8,7 @@ use surt_engine::project::{
 };
 
 use super::message;
+use crate::symbols::Symbols;
 
 const MAX_CONTEXT_LINES: usize = 2;
 const MAX_WAYS_OUT: usize = 3;
@@ -464,4 +465,13 @@ fn an_ambiguous_feature_lists_every_candidate_and_asks_for_the_full_name() {
          20261017-add-login-2  AWAITING APPROVAL (manifest rev 2) + BLOCKED\n  \
          use the full name\n"
     );
+}
+
+#[test]
+fn every_refusal_prints_only_ascii_in_ascii_mode() {
+    for refusal in every_refusal() {
+        let text = text(&refusal);
+
+        assert!(Symbols::Ascii.render(&text).is_ascii(), "{text}");
+    }
 }

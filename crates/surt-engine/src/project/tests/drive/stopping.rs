@@ -11,12 +11,12 @@ use crate::runtime::{
     RuntimeRequest, Script, StopLevel, StopSignal,
 };
 
-enum Interference<'a> {
+pub(super) enum Interference<'a> {
     Stop(StopLevel),
     Cancel(&'a ProjectDir),
 }
 
-struct Interfering<'a> {
+pub(super) struct Interfering<'a> {
     fake: FakeRuntime,
     on_step: &'static str,
     interference: Interference<'a>,
@@ -24,7 +24,11 @@ struct Interfering<'a> {
 }
 
 impl<'a> Interfering<'a> {
-    fn new(script: Script, on_step: &'static str, interference: Interference<'a>) -> Self {
+    pub(super) fn new(
+        script: Script,
+        on_step: &'static str,
+        interference: Interference<'a>,
+    ) -> Self {
         Interfering {
             fake: FakeRuntime::new(script),
             on_step,
@@ -33,7 +37,7 @@ impl<'a> Interfering<'a> {
         }
     }
 
-    async fn drive(&self, feature: &Feature) -> Driven {
+    pub(super) async fn drive(&self, feature: &Feature) -> Driven {
         let (sink, mut events) = mpsc::unbounded_channel();
         let outcome = feature
             .project
@@ -41,7 +45,9 @@ impl<'a> Interfering<'a> {
             .await;
         let mut progress = Vec::new();
         while let Ok(event) = events.try_recv() {
-            progress.push(event);
+            if !matches!(event, Progress::Activity(_)) {
+                progress.push(event);
+            }
         }
         Driven { outcome, progress }
     }

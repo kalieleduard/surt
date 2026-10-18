@@ -2,9 +2,10 @@ use std::io::{self, BufRead, Write};
 
 use surt_engine::project::CancelImpact;
 
+use crate::symbols::SEPARATOR;
+
 const PROMPT: &str = "[y/N] ";
 const ACCEPTED: [&str; 2] = ["y", "yes"];
-const SEPARATOR: &str = " · ";
 
 pub(super) fn question(subject: &str, impact: &CancelImpact) -> String {
     let mut stopped = vec![running(impact.executions)];

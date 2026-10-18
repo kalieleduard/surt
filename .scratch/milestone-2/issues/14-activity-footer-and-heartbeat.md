@@ -8,9 +8,9 @@ Spec: [Milestone 2](../spec.md) (stories 71–74, 83) · Slice: R8 Terminal · P
 
 **Status:** ready-for-agent
 
-- [ ] The engine adds a typed activity snapshot to `Progress`, emitted when it changes: running steps with their start times, the queued count, slots in use and the limit
-- [ ] The footer and the 5-minute line are pure functions of (last snapshot, time of the last event line, `now`, terminal capabilities) in the `surt` crate's progress module; a Tokio interval only calls them
-- [ ] Footer only when stderr is a TTY, drawn with `\r` plus ANSI erase-line (no `indicatif`/`crossterm`), erased before each event line and before the final summary
-- [ ] 5-minute line only without a TTY; no footer, colours or spinner without a TTY
-- [ ] Pure render tests: footer text for a given snapshot and `now`; when the 5-minute line fires, with no real waiting
-- [ ] Binary test: a non-TTY run's stderr has only event lines
+- [x] The engine adds a typed activity snapshot to `Progress`, emitted when it changes: running steps with their start times, the queued count, slots in use and the limit
+- [x] The footer and the 5-minute line are pure functions of (last snapshot, time of the last event line, `now`, terminal capabilities) in the `surt` crate's progress module; a Tokio interval only calls them
+- [x] Footer only when stderr is a TTY, drawn with `\r` plus ANSI erase-line (no `indicatif`/`crossterm`), erased before each event line and before the final summary
+- [x] 5-minute line only without a TTY; no footer, colours or spinner without a TTY
+- [x] Pure render tests: footer text for a given snapshot and `now`; when the 5-minute line fires, with no real waiting
+- [x] Binary test: a non-TTY run's stderr has only event lines

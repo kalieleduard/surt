@@ -10,6 +10,7 @@ use tokio::sync::mpsc;
 use crate::failure::Failure;
 use crate::message::{Mark, Message};
 use crate::refusal;
+use crate::symbols::DASH;
 pub(crate) use cleanup::report as report_cleanup;
 use interruption::Interruptions;
 pub(crate) use progress::print as print_progress;
@@ -71,7 +72,7 @@ impl Driven<'_> {
     async fn succeeded(&self) -> Result<(), Failure> {
         if let Some(branch) = self.project.integration_branch(self.run).await? {
             Message::new(format!(
-                "shipper delivered — {} @ {}",
+                "shipper delivered {DASH} {} @ {}",
                 branch.name,
                 short(&branch.tip)
             ))
