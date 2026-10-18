@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 use super::decide::Limits;
 use crate::artifacts::DeliveryContract;
-use crate::checks::CheckSpec;
+use crate::operations::checks::CheckSpec;
 use crate::project::{Check, Error, GitConfig, MergeIntoBase, parse_timeout};
 use crate::runtime::AgentLaunch;
 use crate::store::FrozenFile;

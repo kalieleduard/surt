@@ -2,8 +2,8 @@ use serde_json::Value;
 
 use super::status::origin;
 use super::{Error, Project, Refusal, RevisionOrigin};
+use crate::artifacts::working_copy;
 use crate::store::{Store, StoredRevision};
-use crate::working_copy;
 
 const HUMAN: &str = "human";
 

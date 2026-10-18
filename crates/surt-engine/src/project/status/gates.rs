@@ -1,10 +1,10 @@
 use std::path::Path;
 
 use super::{GateView, RevisionSummary};
+use crate::artifacts::working_copy::{self, Comparison};
 use crate::project::gates::approval_step;
 use crate::project::{Error, GateStatus, Layout, RevisionOrigin};
 use crate::store::{GateViewRow, Producer, RootRunRow, Store, WorkingCopyArtifact};
-use crate::working_copy::{self, Comparison};
 
 const RUNNING: &str = "running";
 const DONE: &str = "done";

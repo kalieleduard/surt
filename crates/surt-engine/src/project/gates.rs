@@ -1,8 +1,8 @@
 use super::{Error, Project, Refusal, RunId, open_store};
+use crate::artifacts::working_copy::WorkingCopy;
 use crate::drive::{CorruptSnapshot, Frozen};
 use crate::store::{Decision, DecisionOutcome, NewDecision, Store, WaitingGate};
 use crate::workflow::StepSpec;
-use crate::working_copy::WorkingCopy;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Decided {

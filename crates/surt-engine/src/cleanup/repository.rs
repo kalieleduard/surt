@@ -6,8 +6,8 @@ use crate::drive::RunEnd;
 use crate::git::{self, worktrees::WorktreeEntry};
 use crate::platform::{self, ExclusiveLock};
 use crate::project::Error;
+use crate::reconcile::worktree::{self, Target};
 use crate::store::TaskBranch;
-use crate::worktree::{self, Target};
 
 const SALVAGE_REFS: &str = "refs/surt/salvage/";
 const REFS: &str = "refs";

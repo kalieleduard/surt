@@ -1,5 +1,6 @@
 mod delivery;
 mod items;
+pub(crate) mod working_copy;
 
 use std::fmt::Write;
 

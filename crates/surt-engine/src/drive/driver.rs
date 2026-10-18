@@ -13,13 +13,13 @@ use super::graph::StepRunId;
 use super::load::Loaded;
 use super::operate::Flight;
 use super::outcome::{DriveOutcome, Progress, ProgressSink};
+use crate::artifacts::working_copy::{WorkingCopy, finish_pending_writes};
 use crate::platform;
 use crate::project::{Error, Layout, Refusal};
 use crate::reconcile::Reconcile;
 use crate::runtime::{AgentRuntime, StopLevel, StopSignal};
 use crate::store::{StepRow, Store};
 use crate::workflow::{Catalog, Definition};
-use crate::working_copy::{WorkingCopy, finish_pending_writes};
 
 const TICK: Duration = Duration::from_secs(1);
 const DONE: &str = "done";

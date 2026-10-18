@@ -1,6 +1,6 @@
 use super::{Error, Project, RunId, open_store};
-use crate::cancel::{Cancel, Cancellation};
 use crate::drive::ProgressSink;
+use crate::drive::cancel::{Cancel, Cancellation};
 use crate::git;
 use crate::store::Store;
 

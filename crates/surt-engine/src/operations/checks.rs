@@ -15,7 +15,7 @@ use crate::platform;
 
 pub const REPORT_SCHEMA: (&str, &str) = (
     "schemas/check-report.schema.json",
-    include_str!("../assets/schemas/check-report.schema.json"),
+    include_str!("../../assets/schemas/check-report.schema.json"),
 );
 
 #[derive(Clone, Debug, PartialEq, Eq)]

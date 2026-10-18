@@ -9,12 +9,12 @@ use super::launch::Launch;
 use super::load::{Loaded, label};
 use super::outcome::Progress;
 use crate::artifacts::AcceptedDelivery;
+use crate::artifacts::working_copy::RecordedEdit;
 use crate::git;
 use crate::project::Error;
 use crate::runtime::AgentRuntime;
 use crate::store::{Acceptance, ExecutionEnd, PublishedOutput, StartedExecution, StepRow};
 use crate::workflow::Definition;
-use crate::working_copy::RecordedEdit;
 
 pub(super) struct WorkingCopy {
     dir: PathBuf,

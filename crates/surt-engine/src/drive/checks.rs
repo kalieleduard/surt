@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use super::driver::Driver;
 use super::failure::{Failure, OperationError};
 use super::operate::{Finished, OperationLaunch};
-use crate::checks::{self, CheckReport};
+use crate::operations::checks::{self, CheckReport};
 use crate::project::Error;
 use crate::runtime::AgentRuntime;
 use crate::store::PublishedOutput;
