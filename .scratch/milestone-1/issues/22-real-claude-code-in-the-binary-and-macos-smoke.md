@@ -8,9 +8,13 @@ Spec: [Milestone 1](../spec.md) (stories 9, 101, 110–111, 118) · Slice: S6 Cl
 
 **Status:** ready-for-agent
 
-- [ ] Without `SURT_RUNTIME`, the binary uses `ClaudeCodeRuntime`
-- [ ] Agent processes run under `process-wrap` (process group on Unix, Job Object with kill-on-close on Windows, `PR_SET_PDEATHSIG` on Linux); stopping sends a graceful signal, waits the fixed 10 s grace period, then kills the tree
-- [ ] Claude Code missing or older than 2.1.301 is a launch error that blocks at once with an upgrade message; the actual version is recorded on each Execution
-- [ ] Each Execution's stream and stderr are written to the Feature's log directory under `.surt/logs/`
-- [ ] A manual smoke checklist for macOS is written in `docs/`, covering setup of a toy repository, the full flow with two Tasks, and the expected final state
+- [x] Without `SURT_RUNTIME`, the binary uses `ClaudeCodeRuntime`
+- [x] Agent processes run under `process-wrap` (process group on Unix, Job Object with kill-on-close on Windows, `PR_SET_PDEATHSIG` on Linux); stopping sends a graceful signal, waits the fixed 10 s grace period, then kills the tree
+- [x] Claude Code missing or older than 2.1.301 is a launch error that blocks at once with an upgrade message; the actual version is recorded on each Execution
+- [x] Each Execution's stream and stderr are written to the Feature's log directory under `.surt/logs/`
+- [x] A manual smoke checklist for macOS is written in `docs/`, covering setup of a toy repository, the full flow with two Tasks, and the expected final state
 - [ ] The manual smoke passes on macOS and the result is recorded on this ticket
+
+## Smoke results
+
+One line per run of [the checklist](../../../docs/smoke-claude-code.md):

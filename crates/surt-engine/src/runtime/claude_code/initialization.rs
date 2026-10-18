@@ -4,9 +4,9 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use super::invocation::Expectation;
+use super::version;
 use crate::runtime::{FailureClass, Initialization, RuntimeError};
 
-const MINIMUM_VERSION: [u32; 3] = [2, 1, 301];
 const NO_API_KEY: &str = "none";
 
 pub(super) fn check(
@@ -46,22 +46,7 @@ pub(super) fn check(
 }
 
 fn check_version(event: &Value) -> Result<(), RuntimeError> {
-    let reported = event["claude_code_version"].as_str().unwrap_or_default();
-    match version(reported) {
-        Some(version) if version >= MINIMUM_VERSION => Ok(()),
-        _ => Err(RuntimeError::new(
-            FailureClass::NotRetryable,
-            "unsupported_version",
-            format!("Claude Code {reported:?} is older than the supported 2.1.301; upgrade it"),
-        )),
-    }
-}
-
-fn version(text: &str) -> Option<[u32; 3]> {
-    let core = text.split(['-', '+', ' ']).next()?;
-    let mut parts = core.split('.').map(|part| part.parse::<u32>().ok());
-    let version = [parts.next()??, parts.next()??, parts.next()??];
-    parts.next().is_none().then_some(version)
+    version::require_supported(event["claude_code_version"].as_str().unwrap_or_default())
 }
 
 fn check_isolation(expectation: &Expectation, event: &Value) -> Result<(), RuntimeError> {

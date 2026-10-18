@@ -67,6 +67,7 @@ pub struct FinalResult {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RuntimeEvent {
+    Identified { version: String },
     Launched { pid: Option<u32> },
     Initialized(Initialization),
 }
