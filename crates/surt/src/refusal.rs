@@ -119,8 +119,18 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             subject,
             artifact,
             problem,
+            ..
+        } => edits::invalid(subject, artifact, problem),
+        Refusal::NotRestorable {
+            subject,
+            artifact,
+            restorable,
+        } => edits::not_restorable(subject, artifact, restorable),
+        Refusal::TerminalRun {
+            subject,
+            run,
             files,
-        } => edits::invalid(subject, artifact, problem, files),
+        } => edits::terminal_run(subject, *run, files),
         Refusal::IntegrationBranchMoved {
             subject,
             branch,

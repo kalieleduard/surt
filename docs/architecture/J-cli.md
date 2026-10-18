@@ -170,6 +170,19 @@ T1     resume: surt start 20261017-add-login
 
 **`surt cancel`** confirms first ([Confirmations](#confirmations)), then behaves as in [A](A-process-model.md#external-control) and [I](I-recovery.md#without-a-driver-surt-cancel-and-surt-status). A Driver that is cancelled from another terminal exits `5`.
 
+## `surt restore`
+
+`surt restore <feature> <artifact>` discards an unrecorded Working Copy edit ([H](H-artifact-storage.md#editing-an-item-list)).
+
+- It acts only on the Subject's **active** run. It takes that root run's lock with `try_lock`; a live Driver refuses with exit `3`, naming its pid. A terminal run refuses with I's `fix: move or delete the file` ([I. Cleanup](I-cleanup.md#unrecorded-working-copy-edits)).
+- It shows what will be lost, per file: changed with added and removed line counts, a new file (removed), or a missing file (recreated), then asks `[y/N]` ([Confirmations](#confirmations)).
+- When nothing differs it says so and exits `0`:
+  ```
+  $ surt restore 20261017-add-login spec
+  ✔ spec already matches rev 1; nothing to restore
+  ```
+- An artifact without a Working Copy refuses and lists the artifacts that have one.
+
 ## Reading never writes
 
 `status`, `inspect`, `show` and `logs` never write to SQLite, the Working Copy or the disk. They never take the run lock and never recover ([I](I-recovery.md#without-a-driver-surt-cancel-and-surt-status)). They are safe in `watch surt status`, in scripts and on a read-only checkout.
@@ -371,8 +384,10 @@ cancel 20261017-add-login run 1?
 $ surt restore fix-cache manifest
 discard your unrecorded edit to the manifest of 20261016-fix-cache?
   tasks/B.md  +4 −1
-  tasks/C.md  new file (not referenced by any item)
-[y/N]
+  tasks/C.md  new file
+  tasks/D.md  missing
+[y/N] y
+✔ restored manifest rev 1; your edit was discarded
 ```
 
 `-y` / `--yes` skips the question. Without a TTY and without `--yes`, the command refuses with exit `3`.

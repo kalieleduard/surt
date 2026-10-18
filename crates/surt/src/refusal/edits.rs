@@ -13,13 +13,38 @@ pub(super) fn pinned(subject: &str, artifact: &str, revision: u32, files: &[Stri
         files.join(", ")
     ))
     .context("the edit was not recorded")
-    .way("fix", remove(subject, files))
+    .way("undo", restore(subject, artifact))
 }
 
-pub(super) fn invalid(subject: &str, artifact: &str, problem: &str, files: &[String]) -> Message {
+pub(super) fn invalid(subject: &str, artifact: &str, problem: &str) -> Message {
     Message::new(format!("{artifact} edit is invalid, no revision recorded:"))
         .context(format!("  {problem}"))
-        .way("fix", remove(subject, files))
+        .way("undo", restore(subject, artifact))
+}
+
+pub(super) fn not_restorable(subject: &str, artifact: &str, restorable: &[String]) -> Message {
+    let listed = match restorable {
+        [] => format!("{subject} has no artifact with a working copy"),
+        names => format!("restorable: {}", names.join(", ")),
+    };
+    Message::new(format!("{artifact} has no working copy to restore"))
+        .context(listed)
+        .way("inspect", format!("surt status {subject}"))
+}
+
+pub(super) fn terminal_run(subject: &str, run: u32, files: &[String]) -> Message {
+    let message = Message::new(format!(
+        "{subject} run {run} has ended; restore only rewrites an active run"
+    ));
+    match files {
+        [] => message.way("inspect", format!("surt status {subject}")),
+        [_] => kept(message, subject, files).way("fix", "move or delete the file"),
+        _ => kept(message, subject, files).way("fix", "move or delete the files"),
+    }
+}
+
+fn kept(message: Message, subject: &str, files: &[String]) -> Message {
+    message.context(format!("  {}", in_working_copy(subject, files).join(" ")))
 }
 
 pub(super) fn blocking_new_run(subject: &str, run: u32, files: &[String]) -> Message {
@@ -32,11 +57,8 @@ pub(super) fn blocking_new_run(subject: &str, run: u32, files: &[String]) -> Mes
         .way("fix", format!("move or delete {what}, then run again"))
 }
 
-fn remove(subject: &str, files: &[String]) -> String {
-    format!(
-        "rm {}, then rerun",
-        in_working_copy(subject, files).join(" ")
-    )
+fn restore(subject: &str, artifact: &str) -> String {
+    format!("surt restore {subject} {artifact}")
 }
 
 fn in_working_copy(subject: &str, files: &[String]) -> Vec<String> {

@@ -168,6 +168,9 @@ fn every_refusal() -> Vec<Refusal> {
             item: "A".to_owned(),
             known: Vec::new(),
         },
+        not_restorable("request", &["manifest", "spec"]),
+        not_restorable("spec", &[]),
+        terminal_run(),
         Refusal::NoLiveDriver {
             subject: "20261017-add-login".to_owned(),
             states: vec![RunState::AwaitingApproval, RunState::Blocked],
@@ -181,6 +184,46 @@ fn every_refusal() -> Vec<Refusal> {
             subject: "20261017-add-login".to_owned(),
         },
     ]
+}
+
+fn not_restorable(artifact: &str, restorable: &[&str]) -> Refusal {
+    Refusal::NotRestorable {
+        subject: "20261017-add-login".to_owned(),
+        artifact: artifact.to_owned(),
+        restorable: restorable.iter().map(|name| (*name).to_owned()).collect(),
+    }
+}
+
+fn terminal_run() -> Refusal {
+    Refusal::TerminalRun {
+        subject: "20261017-add-login".to_owned(),
+        run: 1,
+        files: vec!["spec.md".to_owned()],
+    }
+}
+
+#[test]
+fn an_artifact_without_a_working_copy_lists_the_restorable_ones() {
+    let texts = [
+        text(&not_restorable("request", &["manifest", "spec"])),
+        text(&not_restorable("spec", &[])),
+    ];
+
+    assert_eq!(
+        texts,
+        [
+            "✖ request has no working copy to restore\n  restorable: manifest, spec\n  inspect: surt status 20261017-add-login\n",
+            "✖ spec has no working copy to restore\n  20261017-add-login has no artifact with a working copy\n  inspect: surt status 20261017-add-login\n",
+        ]
+    );
+}
+
+#[test]
+fn a_terminal_run_keeps_the_edited_file_and_says_to_move_or_delete_it() {
+    assert_eq!(
+        text(&terminal_run()),
+        "✖ 20261017-add-login run 1 has ended; restore only rewrites an active run\n    .surt/features/20261017-add-login/spec.md\n  fix: move or delete the file\n"
+    );
 }
 
 #[test]
@@ -403,22 +446,22 @@ fn an_unapproved_edit_points_at_approving_it() {
 }
 
 #[test]
-fn an_edit_to_a_pinned_revision_says_which_files_to_remove() {
+fn an_edit_to_a_pinned_revision_says_how_to_undo_it() {
     let refusal = &every_refusal()[21];
 
     assert_eq!(
         text(refusal),
-        "✖ tasks/B.md, tasks/C.md changed, but manifest rev 1 is pinned (a later step already read it)\n  the edit was not recorded\n  fix: rm .surt/features/20261017-add-login/tasks/B.md .surt/features/20261017-add-login/tasks/C.md, then rerun\n"
+        "✖ tasks/B.md, tasks/C.md changed, but manifest rev 1 is pinned (a later step already read it)\n  the edit was not recorded\n  undo: surt restore 20261017-add-login manifest\n"
     );
 }
 
 #[test]
-fn an_invalid_edit_says_what_is_wrong_and_which_files_to_remove() {
+fn an_invalid_edit_says_what_is_wrong_and_how_to_undo_it() {
     let refusal = &every_refusal()[22];
 
     assert_eq!(
         text(refusal),
-        "✖ manifest edit is invalid, no revision recorded:\n    manifest.json: tasks/C.md is not referenced by any item\n  fix: rm .surt/features/20261017-add-login/tasks/C.md, then rerun\n"
+        "✖ manifest edit is invalid, no revision recorded:\n    manifest.json: tasks/C.md is not referenced by any item\n  undo: surt restore 20261017-add-login manifest\n"
     );
 }
 

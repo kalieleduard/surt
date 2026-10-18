@@ -94,11 +94,11 @@ impl AgentRuntime for Editing {
     }
 }
 
-fn archive() -> Behavior {
+pub(super) fn archive() -> Behavior {
     Behavior::Deliver(Delivery::new("done").output("archive", "archive.txt", "kept\n"))
 }
 
-async fn approved_draft() -> Feature {
+pub(super) async fn approved_draft() -> Feature {
     let catalog = Catalog::new()
         .workflow("pinning", PINNING_WORKFLOW)
         .agent("writer", agent(WRITER))

@@ -119,6 +119,16 @@ pub enum Refusal {
         problem: String,
         files: Vec<String>,
     },
+    NotRestorable {
+        subject: String,
+        artifact: String,
+        restorable: Vec<String>,
+    },
+    TerminalRun {
+        subject: String,
+        run: u32,
+        files: Vec<String>,
+    },
     AgentOverrides {
         path: PathBuf,
     },
