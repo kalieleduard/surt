@@ -208,11 +208,8 @@ fn an_execution_prints_only_ascii_in_ascii_mode() {
     }
 }
 
-#[test]
-fn a_rate_limited_execution_shows_its_class_its_code_and_the_reset_time() {
-    let reset = STARTED + 7_200;
-    let at = local_time(reset).expect("a local time");
-    let limited = ExecutionDetail {
+fn rate_limited(reset: i64) -> ExecutionDetail {
+    ExecutionDetail {
         failure: Some(ExecutionFailure {
             class: "transient".to_owned(),
             code: Some("rate_limit".to_owned()),
@@ -223,9 +220,15 @@ fn a_rate_limited_execution_shows_its_class_its_code_and_the_reset_time() {
             ..RuntimeInfo::default()
         },
         ..failed_builder()
-    };
+    }
+}
 
-    let text = render(&limited, NOW);
+#[test]
+fn a_rate_limited_execution_shows_its_class_its_code_and_the_reset_time() {
+    let reset = STARTED + 7_200;
+    let at = local_time(reset).expect("a local time");
+
+    let text = render(&rate_limited(reset), NOW);
 
     assert!(
         text.contains(&format!(
@@ -233,4 +236,21 @@ fn a_rate_limited_execution_shows_its_class_its_code_and_the_reset_time() {
         )),
         "{text}"
     );
+}
+
+#[test]
+fn a_rate_limited_execution_prints_only_ascii_in_ascii_mode() {
+    let reset = STARTED + 7_200;
+    let at = local_time(reset).expect("a local time");
+
+    let text = render(&rate_limited(reset), NOW);
+    let ascii = Symbols::Ascii.render(&text);
+
+    assert!(
+        ascii.contains(&format!(
+            "  state     failed (transient) | rate_limit - rate limited | resets {at}\n"
+        )),
+        "{ascii}"
+    );
+    assert!(ascii.is_ascii(), "{ascii}");
 }

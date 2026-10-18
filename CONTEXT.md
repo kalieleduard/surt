@@ -80,6 +80,10 @@ _Avoid_: Sign-off, acceptance
 The single process that advances one root Workflow Run, together with all its Child Workflow Runs. A root Workflow Run has at most one Driver at a time, and none while it waits on a human.
 _Avoid_: Runner, worker, daemon
 
+**Agent Slot**:
+One of the project's `max_concurrent_agents` places that an agent Execution must hold to run. Slots belong to the project, not to a Driver: every Driver of the project takes one before launching an agent and gives it back when the agent ends, so two Features driven at once share the limit.
+_Avoid_: Worker, seat
+
 **Interruption**:
 Stopping a Driver, for example with Ctrl-C or a stop request from another terminal, without ending its Workflow Run. Running Executions are stopped, and the run can be resumed later with new Attempts.
 _Avoid_: Cancel (which ends the run), abort, pause

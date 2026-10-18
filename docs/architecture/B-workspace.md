@@ -162,7 +162,7 @@ Inside `drive`, deciding what to do next is separated from doing it:
 pub(crate) enum Action {
     StartIteration { loop_: StepRunId },
     ExpandItems { step: StepRunId },
-    Launch { step: StepRunId },
+    Launch { step: StepRunId, slot: usize },
     RunOperation { step: StepRunId, op: OperationId },
     Block { step: StepRunId, reason: BlockReason },
     FinishRun { run: RunId, state: RunState },
@@ -170,10 +170,19 @@ pub(crate) enum Action {
     Wait,
 }
 
-pub(crate) struct Ctx { limits: FrozenLimits, free_slots: usize, paused_until: Option<Timestamp>, now: Timestamp, stop: StopLevel }
+pub(crate) struct Ctx {
+    limits: Limits,             // max_attempts, max_iterations, frozen at root run creation
+    free_slots: Vec<usize>,     // slot indices this Driver locked this tick (A), one per Launch
+    stop: StopLevel,
+    paused_until: Option<i64>,  // Unix seconds; no agent Launch while now < paused_until
+    now: i64,
+}
 
-pub(crate) fn decide(graph: &RunGraph, ctx: &Ctx) -> Vec<Action>;
+pub(crate) struct Decision { actions: Vec<Action>, queued: usize } // queued: ready agents left without a slot or paused
+pub(crate) fn decision(graph: &RunGraph, ctx: &Ctx) -> Decision;
 ```
+
+`paused_until` comes from the pause schedule, a pure function of the pause state, the failure just observed and `now` (`drive/pause.rs`; [I](I-recovery.md#transient-failures-network-and-rate-limits)), so neither it nor `decide` reads a clock. While the pause holds, `decide` still emits `RunOperation`: Checks and integrations do not wait.
 
 The hard rules of [G. State Machines](G-state-machines.md) (Attempt and Iteration limits, Transient Failures not spending an Attempt, dependents of a blocked Task waiting, a run ending only `succeeded` or `cancelled`) are table tests on `decide`: build a `RunGraph`, check the `Action`s. This is an internal seam of `drive`; it does not appear in the facade.
 
@@ -230,7 +239,7 @@ pub enum Progress {
     Salvaged { .. }, OrphanStopped { .. },
     Paused { until: i64, waiting: usize, backoff: Option<u64> }, Resumed { paused_seconds: u64 },
     ConfigInvalid { path: PathBuf, line: Option<usize>, reason: String, limit: usize }, // live limit kept (A)
-    Activity(ActivitySnapshot),       // running steps + start times, queued, slots: input for the footer
+    Activity(ActivitySnapshot),       // running steps + start times, queued, project-wide slots, the pause: input for the footer
     Cleanup { .. },
 }
 pub type ProgressSink = tokio::sync::mpsc::UnboundedSender<Progress>;

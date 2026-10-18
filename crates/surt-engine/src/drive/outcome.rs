@@ -136,7 +136,7 @@ pub struct ActivitySnapshot {
     pub paused: Option<ActivityPause>,
 }
 
-/// Agent launches wait until until (Unix seconds); ackoff is the delay
+/// Agent launches wait until `until` (Unix seconds); `backoff` is the delay
 /// in seconds when no reset time was reported.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActivityPause {

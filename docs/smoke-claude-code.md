@@ -80,11 +80,11 @@ From the Surt checkout:
 
 ## 6. Implementation, interrupted once
 
-This step also checks the process-tree handling on macOS: a graceful stop reaches Claude Code and the whole tree ends within the 10 s grace period.
+This step also checks the process-tree handling on macOS: a graceful stop reaches Claude Code and the whole tree ends within the grace period (`stop_grace_period`, 10 s by default). Run it with no `~/.surt/config.toml`, so the default applies.
 
 - [ ] `"$SURT" start <name>`. Wait until a line `● task … build started` appears.
 - [ ] In a second terminal, `pgrep -fl 'claude -p'` shows at least one Claude Code process.
-- [ ] Press **Ctrl-C once** in the first terminal. Within about 10 s `surt` exits with `130` and prints how to resume.
+- [ ] Press **Ctrl-C once** in the first terminal. Within the 10 s grace period `surt` exits with `130` and prints how to resume.
 - [ ] `pgrep -fl 'claude -p'` prints nothing: no orphaned agent survived the stop.
 - [ ] `"$SURT" start <name>` resumes. Expected lines, in some order:
   - `● task <key> build started` for both Tasks (Builders run in their own worktrees, in parallel; the keys come from the manifest);
@@ -93,7 +93,7 @@ This step also checks the process-tree handling on macOS: a graceful stop reache
   - finally `✔ shipper delivered — surt/<name> @ <sha7>` and `✔ run succeeded`.
 - [ ] Exit code `0`.
 
-If a step blocks (exit `4`), read the printed reason and log path. `unsupported_version` means Claude Code is too old; `authentication_failed` means the subscription login is missing; `rate_limit` prints when it resets. Fix the cause and run `"$SURT" start <name>` again.
+If a step blocks (exit `4`), read the printed reason and log path. `unsupported_version` means Claude Code is too old; `authentication_failed` means the subscription login is missing. Fix the cause and run `"$SURT" start <name>` again. A rate limit does not block: Surt prints `⏸ agent launches paused until <time> — N waiting · Ctrl-C to stop (resumable)` and resumes by itself after the reset.
 
 ## 7. Expected final state
 
@@ -178,7 +178,7 @@ It reuses sections 1–3 above (prerequisites, release binary, toy repository) a
 
 ## M2.4 `surt stop` from a second terminal leaves a resumable run
 
-- [ ] Terminal 3, while at least one Builder runs: `"$SURT" stop <name>`. It prints `⏳ stop requested; driver pid … is stopping N executions…`, then, within about 10 s, `✔ stopped. resumable: surt start <name>`, and exits `0` (`echo $?`).
+- [ ] Terminal 3, while at least one Builder runs: `"$SURT" stop <name>`. It prints `⏳ stop requested; driver pid … is stopping N executions…`, then, within the 10 s default grace period, `✔ stopped. resumable: surt start <name>`, and exits `0` (`echo $?`).
 - [ ] Terminal 1 prints `⏳ stop requested from another terminal; stopping…`, one `⏹ task … attempt N interrupted` line per running Execution, then `stopped by surt stop (from another terminal)` with `resume: surt start <name>`, erases the footer, and exits `130` (`echo $?`).
 - [ ] Terminal 2: `logs -f` drains the remaining lines and exits `0` on its own once the Driver is gone.
 - [ ] `pgrep -fl 'claude -p'` prints nothing.
@@ -198,6 +198,91 @@ It reuses sections 1–3 above (prerequisites, release binary, toy repository) a
 ## M2.6 Record the result
 
 Add a line to the "Smoke results" section of ticket 16 (`.scratch/milestone-2/issues/16-m2-close-out-and-macos-smoke.md`) and tick its manual-check box when every box of M2.1–M2.5 is ticked:
+
+```
+- YYYY-MM-DD · macOS <version> (<arch>) · Claude Code <version> · surt <commit> · <pass | fail: step and reason>
+```
+
+A failure is still a result: record it with the step that failed and the command's output, and open a ticket for it.
+
+# Milestone 3: run unattended with the real Claude Code
+
+This part makes "Milestone 3 done" a repeatable check ([Milestone 3 spec](../.scratch/milestone-3/spec.md), story 48). It covers what only the real `claude` and several real terminals show: two Features of one project driven at once share `max_concurrent_agents`, and `stop_grace_period` in the global `~/.surt/config.toml` governs `surt stop`. A real rate limit cannot be provoked on demand, so the Transient Failure pause is covered only by the automated suite (the Fake Runtime and the stream fixtures).
+
+It reuses sections 1–3 above and spends about twice the Milestone 1 run: two Features, each with two Tasks. Use a **fresh** toy repository: run section 3 again. Before starting, `ls ~/.surt/config.toml` should fail (no global file yet); if one exists, move it aside and put it back at the end.
+
+## M3.1 One agent slot for the project
+
+- [ ] Lower the limit and commit it:
+
+  ```sh
+  sed -i '' 's/^max_concurrent_agents = 3/max_concurrent_agents = 1/' .surt/config.toml
+  grep max_concurrent_agents .surt/config.toml
+  git commit --quiet -am "surt: one agent at a time"
+  ```
+
+  `grep` prints `max_concurrent_agents = 1 …`.
+- [ ] Create, approve and plan two Features as in sections 4 and 5, without the rejection step. Call the first `<one>` and the second `<two>`:
+
+  ```sh
+  "$SURT" feature "Add greet.sh, which prints 'Hello, <name>!' for its first argument, and farewell.sh, which prints 'Goodbye, <name>!'. Each script gets its own test under tests/."
+  "$SURT" approve <one>
+  "$SURT" plan <one>
+  "$SURT" approve <one>
+  "$SURT" feature "Add shout.sh, which prints its first argument in upper case, and whisper.sh, which prints it in lower case. Each script gets its own test under tests/."
+  "$SURT" approve <two>
+  "$SURT" plan <two>
+  "$SURT" approve <two>
+  ```
+
+  Each manifest lists two Tasks; reject and replan as in section 5 if one does not.
+
+## M3.2 Two Features never run two Builders
+
+- [ ] Terminal 1: `"$SURT" start <one>`. Terminal 2, a few seconds later: `"$SURT" start <two>`.
+- [ ] Terminal 3, in the toy repository, while both run: `while sleep 5; do clear; "$SURT" status; pgrep -fl 'claude -p'; done`. For as long as both Features show `RUNNING`:
+  - the last line of `status` reads `agent slots: 1/1 in use` or `agent slots: 0/1 in use`, never `2/1`;
+  - `pgrep` lists at most one `claude -p` process.
+- [ ] While an agent of `<one>` runs, stop the loop (Ctrl-C) and run `"$SURT" status <two>`: a Task of `<two>` reads `⏳ queued … waiting for agent slot (1/1 in use)`, although `<two>` itself runs nothing. Restart the loop.
+- [ ] The footers in terminals 1 and 2 show `slots 1/1` whenever either Feature has an agent running, not only their own.
+- [ ] Both Features reach `✔ run succeeded`, exit `0` (`echo $?` in each terminal).
+- [ ] Stop the loop in terminal 3. `pgrep -fl 'claude -p'` prints nothing.
+
+## M3.3 An invalid global file refuses every command
+
+- [ ] `mkdir -p ~/.surt && printf 'stop_grace_period = "ten"\n' > ~/.surt/config.toml`
+- [ ] `"$SURT" status` refuses and exits `3` (`echo $?`), naming the file, the line and a reason that mentions `stop_grace_period`:
+
+  ```
+  ✖ invalid configuration in /Users/<you>/.surt/config.toml:1
+    … stop_grace_period …
+    fix: edit /Users/<you>/.surt/config.toml:1
+  ```
+
+## M3.4 `stop_grace_period = "30s"` and a `surt stop` that lets a Builder exit
+
+- [ ] `printf 'stop_grace_period = "30s"\n' > ~/.surt/config.toml`, then `"$SURT" status` works again, exit `0`.
+- [ ] Raise the limit so both Builders of the next Feature run at once:
+
+  ```sh
+  sed -i '' 's/^max_concurrent_agents = 1/max_concurrent_agents = 2/' .surt/config.toml
+  git commit --quiet -am "surt: two agents at a time"
+  ```
+
+- [ ] Create, approve and plan a third Feature `<three>` as in M3.1, for example "Add count.sh, which prints the number of its arguments, and first.sh, which prints its first argument. Each script gets its own test under tests/."
+- [ ] Terminal 1: `"$SURT" start <three>`. Wait until a `● task … build started` line appears and `pgrep -fl 'claude -p'` lists the Builder.
+- [ ] Terminal 2: `"$SURT" stop <three>`. It prints `⏳ stop requested; driver pid … is stopping N executions…`, then, within the 30 s grace period, `✔ stopped. resumable: surt start <three>`, and exits `0`.
+- [ ] Terminal 1 prints one `⏹ task … attempt N interrupted` line per running Builder, then `resume: surt start <three>`, and exits `130`.
+- [ ] `pgrep -fl 'claude -p'` prints nothing: every Builder exited.
+- [ ] `"$SURT" inspect <three>` shows each stopped Builder's `execution.interrupted`, and `"$SURT" status <three>` shows the run `INTERRUPTED` with no Driver and no Attempt spent.
+- [ ] Terminal 1: `"$SURT" start <three>` resumes and reaches `✔ run succeeded`, exit `0`.
+- [ ] Remove the global file (`rm ~/.surt/config.toml`), or put back the one you moved aside.
+
+That a Builder ignoring the stop is force-killed only after the configured period is covered by the stub-process tests; the real Claude Code exits on the graceful stop.
+
+## M3.5 Record the result
+
+Add a line to the "Smoke results" section of ticket 07 (`.scratch/milestone-3/issues/07-m3-close-out-and-macos-smoke.md`) and tick its manual-check box when every box of M3.1–M3.4 is ticked:
 
 ```
 - YYYY-MM-DD · macOS <version> (<arch>) · Claude Code <version> · surt <commit> · <pass | fail: step and reason>
