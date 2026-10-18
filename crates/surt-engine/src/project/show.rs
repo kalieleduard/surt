@@ -1,9 +1,11 @@
-use serde_json::Value;
+mod picking;
+
+use picking::{content, item_run, revision_id};
 
 use super::status::origin;
-use super::{Error, Project, Refusal, RevisionOrigin, RunSelector};
+use super::{Error, Project, RevisionOrigin, RunSelector};
 use crate::artifacts::working_copy;
-use crate::store::{ArtifactSummaryRow, Store, StoredRevision};
+use crate::store::{ArtifactSummaryRow, Store};
 
 const HUMAN: &str = "human";
 
@@ -12,6 +14,8 @@ pub struct ShowRequest<'a> {
     pub artifact: &'a str,
     pub revision: Option<u32>,
     pub item: Option<&'a str>,
+    pub iteration: Option<u32>,
+    pub file: Option<&'a str>,
     pub run: RunSelector,
 }
 
@@ -68,19 +72,16 @@ impl Project {
         };
         let id = revision_id(store, subject, &run, request).await?;
         let revision = store.revision(&id).await?;
-        let edited = match request.item {
-            None => {
-                self.unrecorded_edits(store, subject, &root, request.artifact)
-                    .await?
-            }
-            Some(_) => Vec::new(),
-        };
+        let origin = origin(&revision.producer);
+        let content = content(subject, request, revision.number, revision.files)?;
         Ok(Shown {
             artifact: request.artifact.to_owned(),
             revision: revision.number,
-            origin: origin(&revision.producer),
-            content: primary(revision),
-            edited,
+            origin,
+            content,
+            edited: self
+                .unrecorded_edits(store, subject, &root, request)
+                .await?,
         })
     }
 
@@ -89,18 +90,23 @@ impl Project {
         store: &Store,
         subject: &str,
         root: &str,
-        artifact: &str,
+        request: ShowRequest<'_>,
     ) -> Result<Vec<String>, Error> {
+        if request.item.is_some() {
+            return Ok(Vec::new());
+        }
         let dir = self.layout.working_copy(subject);
         let copies = store.working_copy(root).await?;
         let Some(copy) = copies
             .iter()
-            .find(|copy| copy.name == artifact && !copy.pending)
+            .find(|copy| copy.name == request.artifact && !copy.pending)
         else {
             return Ok(Vec::new());
         };
-        working_copy::unrecorded_edits(&dir, &copy.files)
-            .map_err(|error| Error::io("read", &dir, error))
+        let mut edited = working_copy::unrecorded_edits(&dir, &copy.files)
+            .map_err(|error| Error::io("read", &dir, error))?;
+        edited.retain(|path| request.file.is_none_or(|file| file == path));
+        Ok(edited)
     }
 
     async fn summaries(
@@ -132,69 +138,6 @@ fn summary(row: ArtifactSummaryRow) -> ArtifactSummary {
         approved: row.approved,
         files: count(row.files),
     }
-}
-
-async fn item_run(store: &Store, subject: &str, root: &str, item: &str) -> Result<String, Error> {
-    if let Some(run) = store.item_run(root, item).await? {
-        return Ok(run);
-    }
-    Err(Refusal::UnknownItem {
-        subject: subject.to_owned(),
-        item: item.to_owned(),
-        known: store
-            .item_runs(root)
-            .await?
-            .into_iter()
-            .map(|row| row.key)
-            .collect(),
-    }
-    .into())
-}
-
-async fn revision_id(
-    store: &Store,
-    subject: &str,
-    run: &str,
-    request: ShowRequest<'_>,
-) -> Result<String, Error> {
-    let artifact = request.artifact;
-    if let Some(id) = store.revision_id(run, artifact, request.revision).await? {
-        return Ok(id);
-    }
-    let refusal = match (
-        store.latest_revision_number(run, artifact).await?,
-        request.revision,
-    ) {
-        (Some(latest), Some(revision)) => Refusal::UnknownRevision {
-            subject: subject.to_owned(),
-            artifact: artifact.to_owned(),
-            revision,
-            latest,
-        },
-        _ => Refusal::UnknownArtifact {
-            subject: subject.to_owned(),
-            artifact: artifact.to_owned(),
-            known: store
-                .artifact_summaries(run)
-                .await?
-                .into_iter()
-                .map(|row| row.name)
-                .collect(),
-        },
-    };
-    Err(refusal.into())
-}
-
-fn primary(revision: StoredRevision) -> Vec<u8> {
-    let mut files = revision.files;
-    if files.is_empty() {
-        return Vec::new();
-    }
-    let index = files
-        .iter()
-        .position(|(_, bytes)| matches!(serde_json::from_slice(bytes), Ok(Value::Array(_))))
-        .unwrap_or_default();
-    files.swap_remove(index).1
 }
 
 fn count(value: i64) -> u32 {

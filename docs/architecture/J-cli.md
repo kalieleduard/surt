@@ -259,7 +259,8 @@ $ surt show add-login feedback --task B     # an artifact of task B's Child Work
 $ surt show add-login spec --rev 1 > old-spec.md
 ```
 
-- Content goes to stdout byte for byte. The latest Revision is the default. `--rev N` selects one, and `--task <key> --iter N` selects the Revision produced in that Iteration of the Task.
+- Content goes to stdout byte for byte. The latest Revision is the default. `--rev N` selects one, and `--task <key> --iter N` selects the Revision produced in that Iteration of the Task. `--iter` without `--task`, or together with `--rev`, is invalid usage (exit `2`); an Iteration that produced no Revision of the artifact refuses and lists the Iterations that did.
+- `--file <path>` prints one file of the selected Revision byte for byte instead of its primary file. An unknown path refuses and lists the files of that Revision.
 - An unknown artifact name refuses and lists the existing ones.
 - When the Working Copy holds an unrecorded edit, `show` prints the recorded Revision and warns on stderr: `⚠ Working Copy has an unrecorded edit to spec.md`.
 - `--json` returns the metadata (number, origin, SHA-256, Approval) together with the content.

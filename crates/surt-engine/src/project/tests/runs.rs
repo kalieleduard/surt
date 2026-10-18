@@ -33,6 +33,8 @@ fn request(run: RunSelector) -> ShowRequest<'static> {
         artifact: "request",
         revision: None,
         item: None,
+        iteration: None,
+        file: None,
         run,
     }
 }

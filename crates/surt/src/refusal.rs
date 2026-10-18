@@ -147,6 +147,26 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             known,
         } => reading::unknown_task(subject, item, known),
         Refusal::UnknownRun { subject, run, runs } => reading::unknown_run(subject, *run, runs),
+        Refusal::NoRevisionInIteration {
+            subject,
+            item,
+            artifact,
+            iteration,
+            iterations,
+        } => reading::no_revision_in_iteration(
+            subject,
+            item.as_deref(),
+            artifact,
+            *iteration,
+            iterations,
+        ),
+        Refusal::UnknownFile {
+            artifact,
+            revision,
+            path,
+            files,
+            ..
+        } => reading::unknown_file(artifact, *revision, path, files),
     }
 }
 

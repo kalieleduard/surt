@@ -141,6 +141,20 @@ pub enum Refusal {
         item: String,
         known: Vec<String>,
     },
+    NoRevisionInIteration {
+        subject: String,
+        item: Option<String>,
+        artifact: String,
+        iteration: u32,
+        iterations: Vec<u32>,
+    },
+    UnknownFile {
+        subject: String,
+        artifact: String,
+        revision: u32,
+        path: String,
+        files: Vec<String>,
+    },
     InvalidDefinition(Box<InvalidDefinition>),
     IntegrationBranchMoved {
         subject: String,
