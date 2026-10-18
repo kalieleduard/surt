@@ -20,12 +20,13 @@ mod steps;
 mod subjects;
 
 pub(crate) use acceptance::{Acceptance, PublishedOutput};
-pub(crate) use approvals::{Decision, DecisionOutcome, NewDecision};
+pub(crate) use approvals::{Decision, DecisionOutcome, GateRow, NewDecision};
 pub(crate) use executions::{ExecutionEnd, ExecutionStart, InputRequest, StartedExecution};
 pub(crate) use frozen::FrozenFile;
 pub(crate) use graph::{RunRows, StepRow};
 pub(crate) use revisions::{Producer, StoredRevision};
 pub(crate) use runs::{NewInitialArtifact, NewRunRows, RunCreation};
+pub(crate) use subjects::SubjectRow;
 
 static MIGRATOR: Migrator = sqlx::migrate!();
 

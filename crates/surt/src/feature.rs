@@ -11,7 +11,10 @@ use surt_engine::project::{
 use crate::builtin::{self, BASE_ARTIFACT, FEATURE_WORKFLOW, REQUEST_ARTIFACT};
 use crate::failure::Failure;
 use crate::message::Message;
+use crate::phase::SPEC;
+use crate::runtime;
 use retry::Retry;
+pub(crate) use retry::quoted;
 
 const DEFAULT_BASE: &str = "HEAD";
 const REQUEST_FILE: &str = "request.txt";
@@ -32,18 +35,25 @@ pub(crate) struct FeatureArgs {
 
 pub(crate) async fn run(cwd: &Path, args: FeatureArgs) -> Result<(), Failure> {
     let project = Project::open(cwd, builtin::catalog()).await?;
+    if let Some(subject) = project.subject_named(&args.description).await? {
+        return SPEC.resume(&project, &subject).await;
+    }
+    create(&project, &args).await
+}
+
+async fn create(project: &Project, args: &FeatureArgs) -> Result<(), Failure> {
     let source = args.name.as_deref().unwrap_or(&args.description);
-    let slug = Slug::derive(source).ok_or_else(|| Failure::Refused(no_slug(&args)))?;
+    let slug = Slug::derive(source).ok_or_else(|| Failure::Refused(no_slug(args)))?;
     if !args.new
         && let Some(active) = project.active_subject_with_slug(&slug).await?
     {
-        return Err(Failure::Refused(active_slug(&args, &active)));
+        return Err(Failure::Refused(active_slug(args, &active)));
     }
     let base_ref = args.base.as_deref().unwrap_or(DEFAULT_BASE);
     let base = project
         .resolve_commit(base_ref)
         .await?
-        .ok_or_else(|| Failure::Refused(no_base(&args)))?;
+        .ok_or_else(|| Failure::Refused(no_base(args)))?;
     let name = project
         .free_subject_name(&slug, Zoned::now().date())
         .await?;
@@ -53,9 +63,10 @@ pub(crate) async fn run(cwd: &Path, args: FeatureArgs) -> Result<(), Failure> {
         initial_artifacts: vec![request(&args.description), base_artifact(&base)],
         actor: project.actor().await?,
     };
-    project.create_run(new_run).await?;
+    let runtime = runtime::select()?;
+    let run = project.create_run(new_run).await?;
     created(&name, &base).print_success();
-    Ok(())
+    SPEC.drive(project, &name.name, &run, &runtime).await
 }
 
 fn request(description: &str) -> InitialArtifact {

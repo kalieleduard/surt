@@ -78,7 +78,7 @@ pub(crate) fn is_named_after(name: &str, slug: &Slug) -> bool {
         })
 }
 
-fn without_date(name: &str) -> Option<&str> {
+pub(crate) fn without_date(name: &str) -> Option<&str> {
     let (date, rest) = name.split_at_checked(DATE_CHARS)?;
     if !date.bytes().all(|byte| byte.is_ascii_digit()) {
         return None;

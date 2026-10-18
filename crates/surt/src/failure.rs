@@ -4,23 +4,29 @@ use std::process::ExitCode;
 
 use surt_engine::project::Error;
 
-use crate::message::Message;
+use crate::message::{Mark, Message};
 
-const REFUSED: u8 = 3;
 const INTERNAL: u8 = 1;
+const REFUSED: u8 = 3;
+const BLOCKED: u8 = 4;
+const CANCELLED: u8 = 5;
+const INTERRUPTED: u8 = 130;
 
 pub(crate) enum Failure {
     Refused(Message),
+    Blocked(Message),
+    Cancelled(Message),
+    Interrupted(Message),
     Internal(Box<dyn StdError>),
 }
 
 impl Failure {
     pub(crate) fn report(self) -> ExitCode {
         match self {
-            Failure::Refused(message) => {
-                message.print_error();
-                ExitCode::from(REFUSED)
-            }
+            Failure::Refused(message) => stop(&message, Mark::Error, REFUSED),
+            Failure::Blocked(message) => stop(&message, Mark::Blocked, BLOCKED),
+            Failure::Cancelled(message) => stop(&message, Mark::Error, CANCELLED),
+            Failure::Interrupted(message) => stop(&message, Mark::Stopped, INTERRUPTED),
             Failure::Internal(error) => {
                 Message::new(format!("internal error: {}", chain(error.as_ref())))
                     .context("rerun with SURT_LOG=debug for details")
@@ -29,6 +35,11 @@ impl Failure {
             }
         }
     }
+}
+
+fn stop(message: &Message, mark: Mark, code: u8) -> ExitCode {
+    message.print(mark);
+    ExitCode::from(code)
 }
 
 fn chain(error: &dyn StdError) -> String {
