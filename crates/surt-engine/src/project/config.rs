@@ -57,14 +57,7 @@ impl Default for Config {
 }
 
 pub(crate) fn load(path: &Path) -> Result<Config, Error> {
-    let config: Config = read(path)?;
-    if config.git.merge_into_base == MergeIntoBase::FfOnly {
-        return Err(Refusal::MergeIntoBaseUnsupported {
-            path: path.to_path_buf(),
-        }
-        .into());
-    }
-    Ok(config)
+    read(path)
 }
 
 pub(crate) fn live_max_concurrent_agents(path: &Path) -> Result<Option<NonZeroU32>, Unreadable> {

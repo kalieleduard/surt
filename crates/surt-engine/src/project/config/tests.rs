@@ -175,13 +175,12 @@ fn a_zero_limit_is_refused() {
 }
 
 #[test]
-fn merging_into_base_fast_forward_only_is_refused_as_unsupported() {
-    let file = ConfigFile::with("[git]\nmerge_into_base = \"ff-only\"\n");
+fn merging_into_base_fast_forward_only_parses() {
+    let config = ConfigFile::with("[git]\nmerge_into_base = \"ff-only\"\n")
+        .load()
+        .expect("ff-only loads");
 
-    assert_eq!(
-        file.refusal(),
-        Refusal::MergeIntoBaseUnsupported { path: file.path() }
-    );
+    assert_eq!(config.git.merge_into_base, MergeIntoBase::FfOnly);
 }
 
 #[test]

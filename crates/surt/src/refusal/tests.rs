@@ -72,9 +72,6 @@ fn every_refusal() -> Vec<Refusal> {
             line: None,
             reason: "invalid TOML".to_owned(),
         },
-        Refusal::MergeIntoBaseUnsupported {
-            path: path.join(".surt/config.toml"),
-        },
         Refusal::InvalidDefinition(Box::new(InvalidDefinition {
             file: DefinitionFile::Workflow("feature".to_owned()),
             step: Some("ship".to_owned()),
