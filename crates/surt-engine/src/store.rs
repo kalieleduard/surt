@@ -50,7 +50,7 @@ pub(crate) use branches::{PreviousExecution, RunBranch};
 pub use checkpoints::Checkpoint;
 #[cfg(feature = "test-support")]
 pub(crate) use checkpoints::Faults;
-pub(crate) use cleanup::{ChildBranch, CleanupRecord};
+pub(crate) use cleanup::{ChildBranch, CleanupRecord, Ending};
 pub(crate) use columns::{count, number};
 pub(crate) use drivers::StaleExecution;
 pub(crate) use execution_detail::{ExecutionDetailRow, ExecutionInputRow, ExecutionScopeRow};

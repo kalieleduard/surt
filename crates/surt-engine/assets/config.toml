@@ -10,3 +10,6 @@ merge_into_base = "never"   # "never" | "ff-only"
 # name = "test"
 # run = ["cargo", "test", "--workspace"]
 # timeout = "10m"           # optional
+
+# [cleanup]
+# on_success = "keep"       # optional: a succeeded run keeps its worktrees and branches until surt delete

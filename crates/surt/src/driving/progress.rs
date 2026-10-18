@@ -17,6 +17,7 @@ const REDRAW: Duration = Duration::from_secs(1);
 #[derive(Default)]
 pub(crate) struct Printed {
     pub(crate) cleaned: Option<Cleanup>,
+    pub(crate) kept: bool,
     pub(crate) stop_requested: bool,
 }
 
@@ -29,6 +30,7 @@ pub(crate) async fn print(mut events: UnboundedReceiver<Progress>) -> Printed {
             event = events.recv() => match event {
                 None => break,
                 Some(Progress::CleanedUp(cleanup)) => printed.cleaned = Some(cleanup),
+                Some(Progress::RunKept) => printed.kept = true,
                 Some(Progress::Activity(snapshot)) => screen.snapshot(snapshot, now()),
                 Some(event) => {
                     printed.stop_requested |= event == Progress::StopRequested;

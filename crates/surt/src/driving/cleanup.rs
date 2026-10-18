@@ -21,6 +21,13 @@ pub(crate) fn report(cleanup: &Cleanup, retry: String) {
     }
 }
 
+pub(crate) fn report_kept(subject: &str) {
+    Message::new(format!(
+        "cleanup kept (on_success = \"keep\") {DASH} remove with: surt delete {subject}"
+    ))
+    .print(Mark::Note);
+}
+
 pub(super) fn summary(cleanup: &Cleanup) -> String {
     let mut parts = Vec::new();
     for (count, one, many) in [

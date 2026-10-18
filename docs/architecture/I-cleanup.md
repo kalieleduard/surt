@@ -4,7 +4,7 @@ What Surt removes when a Workflow Run ends and when the user deletes a Feature, 
 
 ## Principles
 
-1. **Cleanup follows a terminal state; it is not a Step.** It appears in no Workflow Definition and has no Step Run. The only per-workflow control is `[cleanup] on_success = "clean" | "keep"` ([E](E-workflow-schema.md)).
+1. **Cleanup follows a terminal state; it is not a Step.** It appears in no Workflow Definition and has no Step Run. The only control is the run's effective `on_success` policy, `"clean"` or `"keep"` ([below](#when-cleanup-runs)).
 2. **Every item is idempotent, and a failed cleanup is retried, not fatal.** Something that no longer exists counts as removed. A failure leaves the cleanup pending and never changes the command's exit code: the run's result is what the exit code reports.
 3. **Cleanup removes only views and scratch space.** The Working Copy, Execution input/delivery directories and Task worktrees can be regenerated or were never accepted. History (SQLite rows, logs) and work that was not integrated (refs of a cancelled run) leave only with `surt delete`.
 4. **Nothing a human typed is removed by cleanup.** A Working Copy file with an unrecorded edit is kept.
@@ -22,6 +22,17 @@ The process that records a root run's terminal state runs the cleanup right afte
 ✔ run        succeeded
 ↻ cleanup    3 worktrees · 3 task branches · 2 salvage refs · working copy
 ```
+
+**Effective policy.** `[cleanup] on_success` in `.surt/config.toml` ([J](J-cli.md#configuration)) when set, else the root Workflow Definition's `[cleanup] on_success` ([E](E-workflow-schema.md#file-layout)); `clean` for the built-in `feature`. Child definitions are not consulted. The policy is frozen into the `config` snapshot ([D](D-database.md#snapshots)) when the root run is created, so editing the configuration never changes a run that exists.
+
+**Kept.** A `succeeded` run with `keep` runs no cleanup step and writes no cleanup event. The Driver prints one line instead of the `↻ cleanup` line:
+
+```
+✔ run        succeeded
+· cleanup    kept (on_success = "keep") — remove with: surt delete 20261016-fix-cache
+```
+
+No command treats a kept run as cleanup pending: a driving command on it removes nothing, and `surt delete` removes it as the [table below](#what-each-ending-removes) says. A `cancelled` run ignores the policy.
 
 **State.** The root run's `cleaned_at` ([D](D-database.md#workflow-runs)) is written in the transaction that ends the cleanup. A root run is **cleanup pending** when it is terminal, its policy calls for a cleanup (`cancelled`, or `succeeded` with `on_success = "clean"`), and `cleaned_at` is NULL. A `succeeded` run with `on_success = "keep"` is **kept**: `cleaned_at` stays NULL and nothing is pending.
 

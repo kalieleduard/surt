@@ -9,7 +9,7 @@ const SCHEMA_VERSION: i64 = 1;
 pub(crate) struct Definition {
     pub(crate) name: String,
     description: Option<String>,
-    cleanup: Cleanup,
+    cleanup: CleanupPolicy,
     pub(crate) steps: Vec<Step>,
 }
 
@@ -18,18 +18,19 @@ pub(crate) struct Step {
     pub(crate) spec: StepSpec,
 }
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct Cleanup {
+pub(crate) struct CleanupPolicy {
     #[serde(default)]
-    on_success: OnSuccess,
+    pub(crate) on_success: OnSuccess,
 }
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
-enum OnSuccess {
+pub enum OnSuccess {
     #[default]
     Clean,
+    Keep,
 }
 
 #[derive(Deserialize)]
@@ -39,7 +40,7 @@ struct Document {
     name: String,
     description: Option<String>,
     #[serde(default)]
-    cleanup: Cleanup,
+    cleanup: CleanupPolicy,
     steps: toml::Table,
 }
 
@@ -49,7 +50,7 @@ struct Canonical<'a> {
     name: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     description: Option<&'a str>,
-    cleanup: &'a Cleanup,
+    cleanup: &'a CleanupPolicy,
     steps: CanonicalSteps<'a>,
 }
 
@@ -106,6 +107,10 @@ impl Definition {
             cleanup: document.cleanup,
             steps,
         })
+    }
+
+    pub(crate) fn on_success(&self) -> OnSuccess {
+        self.cleanup.on_success
     }
 
     pub(crate) fn step(&self, key: &str) -> Option<&Step> {

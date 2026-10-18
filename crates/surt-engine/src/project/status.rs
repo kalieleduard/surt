@@ -237,7 +237,7 @@ impl Project {
             items: items::statuses(store, run, &frozen, readiness).await?,
             unattended: facts::unattended(store, root, driver.is_some()).await?,
             integrating: facts::integrating(store, root).await?,
-            cleanup: facts::cleanup(store, run).await?,
+            cleanup: facts::cleanup(store, run, frozen.on_success).await?,
             driver,
             blocked,
         })

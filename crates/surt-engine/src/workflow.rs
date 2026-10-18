@@ -14,7 +14,8 @@ pub(crate) use agent::{
     AgentContract, Auth, ClaudeProfile, Format, ItemFileSpec, OutputSpec, Profile,
 };
 pub use catalog::{AgentAssets, Catalog, DeliveryCheck};
-pub(crate) use definition::Definition;
+pub use definition::OnSuccess;
+pub(crate) use definition::{CleanupPolicy, Definition};
 pub use error::{DefinitionFile, InvalidDefinition, Problem, StepField};
 pub(crate) use freeze::{FreezeError, FrozenRun, Snapshot, freeze};
 pub(crate) use steps::{PerItemStep, StepSpec};
