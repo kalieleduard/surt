@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use super::ExecutionState;
 use crate::git::{GitError, GitVersion};
 use crate::store::StoreError;
-use crate::workflow::{FreezeError, InvalidDefinition};
+use crate::workflow::{FreezeError, InvalidDefinition, InvalidOverride};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -151,9 +151,6 @@ pub enum Refusal {
         run: u32,
         files: Vec<String>,
     },
-    AgentOverrides {
-        path: PathBuf,
-    },
     UnknownSubject {
         reference: String,
     },
@@ -209,6 +206,7 @@ pub enum Refusal {
         files: Vec<String>,
     },
     InvalidDefinition(Box<InvalidDefinition>),
+    InvalidAgentOverride(Box<InvalidOverride>),
     IntegrationBranchMoved {
         subject: String,
         branch: String,

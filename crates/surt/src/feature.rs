@@ -6,7 +6,7 @@ use std::path::Path;
 use clap::builder::NonEmptyStringValueParser;
 use jiff::Zoned;
 use surt_engine::project::{
-    ArtifactFile, Commit, FreeName, InitialArtifact, NewRun, Project, Slug,
+    ArtifactFile, Commit, FreeName, InitialArtifact, LocalFiles, NewRun, Project, Slug,
 };
 
 use crate::builtin::{self, BASE_ARTIFACT, FEATURE_WORKFLOW, REQUEST_ARTIFACT};
@@ -75,9 +75,10 @@ async fn create(project: &Project, args: &FeatureArgs) -> Result<(), Failure> {
         actor: project.actor().await?,
     };
     let runtime = runtime::select(project)?;
-    let run = project.create_run(new_run).await?;
-    created(&name, &base).print_success();
-    SPEC.drive(project, &name.name, &run, &runtime).await
+    let created_run = project.create_run(new_run).await?;
+    with_local_agents(created(&name, &base), &created_run.local_agents).print_success();
+    SPEC.drive(project, &name.name, &created_run.run, &runtime)
+        .await
 }
 
 fn request(description: &str) -> InitialArtifact {
@@ -121,6 +122,17 @@ fn created(name: &FreeName, base: &Commit) -> Message {
         return message.context(format!("{} already exists", name.stem));
     }
     message
+}
+
+fn with_local_agents(message: Message, local_agents: &[LocalFiles]) -> Message {
+    if local_agents.is_empty() {
+        return message;
+    }
+    let agents: Vec<String> = local_agents
+        .iter()
+        .map(|local| format!("{} ({})", local.agent, local.files.join(", ")))
+        .collect();
+    message.context(format!("local agents: {}", agents.join(", ")))
 }
 
 fn no_slug(args: &FeatureArgs) -> Message {

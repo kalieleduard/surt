@@ -1,3 +1,4 @@
+mod local_agents;
 mod previous;
 
 use std::num::NonZeroU32;
@@ -7,7 +8,8 @@ use serde::Serialize;
 use super::{Check, Config, Error, GitConfig, Project, Refusal};
 pub use crate::drive::graph::RunId;
 use crate::store::{NewInitialArtifact, NewRunRows, RunCreation, Store, unix_now};
-use crate::workflow::{FreezeError, FrozenRun, freeze};
+use crate::workflow::{Catalog, FreezeError, FrozenRun, freeze};
+pub use local_agents::LocalFiles;
 
 #[derive(Clone, Debug)]
 pub struct NewRun {
@@ -38,16 +40,34 @@ struct FrozenConfig<'a> {
     checks: &'a [Check],
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CreatedRun {
+    pub run: RunId,
+    pub local_agents: Vec<LocalFiles>,
+}
+
 impl Project {
-    pub async fn create_run(&self, new: NewRun) -> Result<RunId, Error> {
-        self.refuse_agent_overrides()?;
+    pub async fn create_run(&self, new: NewRun) -> Result<CreatedRun, Error> {
+        let locals = local_agents::read(&self.layout, &self.catalog)?;
+        let catalog = self
+            .catalog
+            .with_local(&locals)
+            .map_err(Refusal::InvalidAgentOverride)?;
         let store = self.store().await?;
-        let created = self.create_with(&store, new).await;
+        let created = self.create_with(&store, &catalog, new).await;
         store.close().await;
-        created
+        Ok(CreatedRun {
+            run: created?,
+            local_agents: local_agents::reported(&locals),
+        })
     }
 
-    async fn create_with(&self, store: &Store, mut new: NewRun) -> Result<RunId, Error> {
+    async fn create_with(
+        &self,
+        store: &Store,
+        catalog: &Catalog,
+        mut new: NewRun,
+    ) -> Result<RunId, Error> {
         let carried = previous::carried(store, &self.layout, &new.subject, &new.carried).await?;
         new.initial_artifacts.extend(carried);
         let names = new
@@ -55,7 +75,7 @@ impl Project {
             .iter()
             .map(|artifact| artifact.name.as_str());
         let config = frozen_config(&self.config).map_err(FreezeError::from)?;
-        let frozen = freeze(&self.catalog, &new.workflow, names, config)?;
+        let frozen = freeze(catalog, &new.workflow, names, config)?;
         let subject = new.subject.clone();
         match store.create_run(rows(new, frozen)).await? {
             RunCreation::Created(run) => Ok(RunId(run)),

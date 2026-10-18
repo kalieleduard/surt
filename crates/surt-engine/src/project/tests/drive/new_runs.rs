@@ -58,7 +58,8 @@ async fn a_new_run_carries_the_request_and_works_on_dot_two_branches_and_worktre
         .project
         .create_run(next_run(&feature, "tracked"))
         .await
-        .expect("run 2 is created");
+        .expect("run 2 is created")
+        .run;
     feature
         .drive(Script::new().on("plan", 1, 1, plan(&[("A", &[])])))
         .await
@@ -172,7 +173,8 @@ async fn once_the_edits_are_moved_away_the_new_run_starts_from_the_request() {
         .project
         .create_run(review_next_run())
         .await
-        .expect("run 2 is created");
+        .expect("run 2 is created")
+        .run;
 
     let runs: Vec<(String, i64, String)> = feature
         .dir

@@ -107,7 +107,8 @@ impl Resolver<'_> {
                     },
                 )
             })?;
-            let contract = AgentContract::parse(&spec.agent, assets)?;
+            let toml = self.catalog.agent_toml(&spec.agent).unwrap_or(assets.toml);
+            let contract = AgentContract::parse(&spec.agent, toml, assets)?;
             self.agents.insert(spec.agent.clone(), contract);
         }
         Ok(())

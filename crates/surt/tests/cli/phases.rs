@@ -1,5 +1,4 @@
 use std::fs;
-use std::path::{MAIN_SEPARATOR, Path};
 
 use jiff::Zoned;
 
@@ -290,31 +289,6 @@ fn a_feature_without_an_active_run_is_refused_by_plan_approve_and_reject() {
             "{args:?}"
         );
     }
-}
-
-#[test]
-fn driving_commands_refuse_when_local_agent_overrides_exist() {
-    let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n"), spec(2, "# Spec 2\n")]);
-    let name = feature_name();
-    ok(surt(&sandbox, &["reject", &name, "-m", "no"]));
-    let agents = sandbox.dot_surt().join("agents");
-    fs::create_dir_all(agents.join("spec")).expect("an override");
-    let unsupported = format!(
-        "{MAIN_SEPARATOR}{} are not supported yet\n",
-        Path::new(".surt").join("agents").display()
-    );
-
-    let resumed = refused(sandbox.feature(&[&name]));
-    let created = refused(sandbox.feature(&["other thing"]));
-
-    for refusal in [resumed, created] {
-        assert!(
-            refusal.starts_with("✖ local agent overrides in ") && refusal.contains(&unsupported),
-            "{refusal}"
-        );
-    }
-    assert_eq!(count(&sandbox, "subject"), "1");
-    assert_eq!(count(&sandbox, "execution"), "1");
 }
 
 #[test]

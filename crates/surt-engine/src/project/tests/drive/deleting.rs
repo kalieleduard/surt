@@ -64,7 +64,8 @@ async fn cancelled_then_delivered() -> Feature {
         .project
         .create_run(next_run(&feature, SUBJECT))
         .await
-        .expect("run 2 is created");
+        .expect("run 2 is created")
+        .run;
     feature
         .drive(Script::new().on("plan", 1, 1, plan(ITEMS)))
         .await

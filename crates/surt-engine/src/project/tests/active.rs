@@ -44,7 +44,7 @@ async fn a_subject_whose_run_finished_gets_a_new_root_run_with_the_next_ordinal(
     assert_eq!(runs.len(), 2);
     assert_eq!(
         (runs[1].0.as_str(), runs[1].1, runs[1].2.as_str()),
-        (second.as_str(), 2, "active")
+        (second.run.as_str(), 2, "active")
     );
     let subjects: Vec<(i64,)> = dir.rows("SELECT count(*) FROM subject").await;
     assert_eq!(subjects, [(1,)]);

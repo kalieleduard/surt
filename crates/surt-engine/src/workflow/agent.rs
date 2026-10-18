@@ -131,13 +131,22 @@ pub(crate) enum PermissionMode {
 impl AgentContract {
     pub(crate) fn parse(
         id: &str,
+        toml: &str,
         assets: &AgentAssets,
     ) -> Result<AgentContract, Box<InvalidDefinition>> {
-        let invalid =
-            |problem| InvalidDefinition::new(DefinitionFile::Agent(id.to_owned()), None, problem);
-        let contract: AgentContract = toml::from_str(assets.toml)
-            .map_err(|error| invalid(Problem::syntax(assets.toml, &error)))?;
-        contract.check(id, assets).map_err(invalid)?;
+        AgentContract::parse_effective(id, toml, assets).map_err(|problem| {
+            InvalidDefinition::new(DefinitionFile::Agent(id.to_owned()), None, problem)
+        })
+    }
+
+    pub(crate) fn parse_effective(
+        id: &str,
+        toml: &str,
+        assets: &AgentAssets,
+    ) -> Result<AgentContract, Problem> {
+        let contract: AgentContract =
+            toml::from_str(toml).map_err(|error| Problem::syntax(toml, &error))?;
+        contract.check(id, assets)?;
         Ok(contract)
     }
 
