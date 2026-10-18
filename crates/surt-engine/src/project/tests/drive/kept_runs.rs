@@ -19,6 +19,7 @@ fn next_run(feature: &Feature) -> NewRun {
         workflow: "shipped".to_owned(),
         initial_artifacts: vec![initial("base", "base.json", base_json.as_bytes())],
         carried: vec![REQUEST.to_owned()],
+        merge_into_base: None,
         actor: ACTOR.to_owned(),
     }
 }

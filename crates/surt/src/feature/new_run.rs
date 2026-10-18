@@ -46,6 +46,7 @@ fn next_run(subject: &str, base: &Commit, actor: String) -> NewRun {
         workflow: FEATURE_WORKFLOW.to_owned(),
         initial_artifacts: vec![base_artifact(base)],
         carried: vec![REQUEST_ARTIFACT.to_owned()],
+        merge_into_base: None,
         actor,
     }
 }

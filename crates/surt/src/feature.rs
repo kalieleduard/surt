@@ -72,6 +72,7 @@ async fn create(project: &Project, args: &FeatureArgs) -> Result<(), Failure> {
         workflow: FEATURE_WORKFLOW.to_owned(),
         initial_artifacts: vec![request(&args.description), base_artifact(&base)],
         carried: Vec::new(),
+        merge_into_base: None,
         actor: project.actor().await?,
     };
     let runtime = runtime::select(project)?;
