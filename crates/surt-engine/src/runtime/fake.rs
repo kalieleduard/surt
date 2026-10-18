@@ -10,7 +10,7 @@ use serde_json::{Map, Value, json};
 
 use super::{
     AgentRuntime, Exit, FailureClass, FinalResult, Initialization, RuntimeCompletion, RuntimeError,
-    RuntimeEvent, RuntimeEventSink, RuntimeRequest, StepAttempt, StopSignal,
+    RuntimeEvent, RuntimeEventSink, RuntimeReport, RuntimeRequest, StepAttempt, StopSignal,
 };
 
 pub use scripted::InvalidScript;
@@ -163,7 +163,24 @@ impl AgentRuntime for FakeRuntime {
             log(&request.log_dir, &event)?;
             let _ = events.send(event);
         }
-        behavior.play(&request, initialization, &stop).await
+        let played = behavior.play(&request, initialization.clone(), &stop).await;
+        let _ = events.send(RuntimeEvent::Reported(simulated(initialization, &played)));
+        played
+    }
+}
+
+fn simulated(
+    initialization: Initialization,
+    played: &Result<RuntimeCompletion, RuntimeError>,
+) -> RuntimeReport {
+    RuntimeReport {
+        session_id: Some(initialization.session_id.to_string()),
+        model: Some(initialization.model),
+        exit_code: played
+            .as_ref()
+            .ok()
+            .and_then(|completion| completion.exit.code()),
+        ..RuntimeReport::default()
     }
 }
 

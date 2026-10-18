@@ -2,6 +2,7 @@ mod classification;
 mod environment;
 mod initialization;
 mod invocation;
+mod report;
 mod rules;
 mod supervision;
 mod transcript;
@@ -92,7 +93,9 @@ impl AgentRuntime for ClaudeCodeRuntime {
             drain(stderr, stderr_log),
             supervision::supervise(child, &stop, &incompatible, self.stop_grace_period),
         );
-        transcript.conclude(exit?)
+        let exit = exit?;
+        let _ = events.send(RuntimeEvent::Reported(transcript.report(exit)));
+        transcript.conclude(exit)
     }
 }
 
