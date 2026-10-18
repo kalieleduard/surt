@@ -6,6 +6,7 @@ mod driving;
 mod failure;
 mod feature;
 mod init;
+mod inspect;
 mod message;
 mod phase;
 mod plan;
@@ -43,6 +44,7 @@ enum Command {
     Status(status::StatusArgs),
     Stop(stop::StopArgs),
     Show(show::ShowArgs),
+    Inspect(inspect::InspectArgs),
 }
 
 #[tokio::main]
@@ -68,5 +70,6 @@ async fn run(command: Command) -> Result<(), Failure> {
         Command::Status(args) => status::run(&cwd, args).await,
         Command::Stop(args) => stop::run(&cwd, args).await,
         Command::Show(args) => show::run(&cwd, args).await,
+        Command::Inspect(args) => inspect::run(&cwd, args).await,
     }
 }
