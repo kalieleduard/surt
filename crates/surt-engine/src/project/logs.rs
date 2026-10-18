@@ -2,9 +2,10 @@ use std::path::PathBuf;
 
 use super::resolving::resolve_execution_in;
 use super::show::item_run;
-use super::{Error, Project, RunSelector};
+use super::{Error, ExecutionState, Project, RunSelector};
 use crate::platform;
-use crate::store::{ExecutionScopeRow, LogSourceRow, RootRunRow, Store};
+use crate::runtime::LogFiles;
+use crate::store::{ExecutionScopeRow, LogSourceRow, RootRunRow, Store, number};
 
 const AGENT: &str = "agent";
 
@@ -33,8 +34,9 @@ pub struct LogSource {
     pub step: String,
     pub iteration: Option<u32>,
     pub attempt: u32,
-    pub state: String,
+    pub state: ExecutionState,
     pub directory: PathBuf,
+    pub files: LogFiles,
 }
 
 impl Project {
@@ -100,8 +102,10 @@ impl Project {
     }
 
     fn source(&self, row: ExecutionScopeRow) -> LogSource {
+        let directory = self.layout.execution_logs(&row.subject, &row.id);
         LogSource {
-            directory: self.layout.execution_logs(&row.subject, &row.id),
+            files: LogFiles::in_directory(&directory),
+            directory,
             execution: row.id,
             subject: row.subject,
             run: number(row.ordinal),
@@ -109,7 +113,7 @@ impl Project {
             step: row.step,
             iteration: row.iteration.map(number),
             attempt: number(row.attempt),
-            state: row.state,
+            state: ExecutionState::from_column(&row.state),
         }
     }
 }
@@ -140,8 +144,4 @@ fn latest_per_run(executions: &[(String, LogSource)]) -> Vec<LogSource> {
 fn live(root: &RootRunRow) -> bool {
     root.driver()
         .is_some_and(|driver| platform::is_alive(&driver))
-}
-
-fn number(value: i64) -> u32 {
-    u32::try_from(value).unwrap_or_default()
 }

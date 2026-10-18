@@ -3,6 +3,7 @@ mod reported;
 use surt_engine::project::{ExecutionDetail, ExecutionInput, Performer};
 
 use super::scope;
+use crate::states::execution_state_name;
 use crate::symbols::{DASH, ELLIPSIS, SEPARATOR};
 use crate::table;
 
@@ -87,10 +88,11 @@ fn step(detail: &ExecutionDetail) -> String {
 }
 
 fn state(detail: &ExecutionDetail) -> String {
+    let name = execution_state_name(detail.state);
     let headline = match (&detail.outcome, &detail.failure) {
-        (Some(outcome), _) => format!("{} ({outcome})", detail.state),
-        (None, Some(failure)) => format!("{} ({})", detail.state, failure.class),
-        (None, None) => detail.state.clone(),
+        (Some(outcome), _) => format!("{name} ({outcome})"),
+        (None, Some(failure)) => format!("{name} ({})", failure.class),
+        (None, None) => name.to_owned(),
     };
     let error = detail.failure.as_ref().and_then(|failure| {
         let parts: Vec<&str> = [failure.code.as_deref(), failure.message.as_deref()]

@@ -4,7 +4,7 @@ use super::{Error, Layout, Project, Refusal, RunId};
 use crate::artifacts::working_copy::restoring::{self, FileChange};
 use crate::artifacts::working_copy::{finish_pending_writes, unrecorded_edits};
 use crate::platform;
-use crate::store::{RestoreTarget, RootRunRow, Store};
+use crate::store::{RestoreTarget, RootRunRow, Store, number};
 
 const RESTORED: &str = "working_copy.restored";
 const ACTIVE: &str = "active";
@@ -119,7 +119,7 @@ impl Restoring<'_> {
         };
         Refusal::TerminalRun {
             subject: self.subject.to_owned(),
-            run: u32::try_from(root.ordinal).unwrap_or_default(),
+            run: number(root.ordinal),
             files,
         }
         .into()

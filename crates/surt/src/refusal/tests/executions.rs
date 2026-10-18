@@ -1,4 +1,4 @@
-use surt_engine::project::{ExecutionCandidate, Refusal};
+use surt_engine::project::{ExecutionCandidate, ExecutionState, Refusal};
 
 use super::text;
 
@@ -6,7 +6,12 @@ const SUBJECT: &str = "20261017-add-login";
 const FIRST: &str = "0192f3a8-7b1c-7000-8000-000000000001";
 const SECOND: &str = "0192f3a8-9d20-7000-8000-000000000002";
 
-fn candidate(id: &str, item: Option<&str>, attempt: u32, state: &str) -> ExecutionCandidate {
+fn candidate(
+    id: &str,
+    item: Option<&str>,
+    attempt: u32,
+    state: ExecutionState,
+) -> ExecutionCandidate {
     ExecutionCandidate {
         id: id.to_owned(),
         subject: SUBJECT.to_owned(),
@@ -15,7 +20,7 @@ fn candidate(id: &str, item: Option<&str>, attempt: u32, state: &str) -> Executi
         step: "build".to_owned(),
         iteration: Some(2),
         attempt,
-        state: state.to_owned(),
+        state,
     }
 }
 
@@ -24,8 +29,8 @@ fn an_ambiguous_prefix_lists_each_execution_with_where_it_ran_and_its_state() {
     let refusal = Refusal::AmbiguousExecution {
         reference: "0192f3a8".to_owned(),
         candidates: vec![
-            candidate(FIRST, Some("B"), 1, "failed"),
-            candidate(SECOND, Some("B"), 2, "succeeded"),
+            candidate(FIRST, Some("B"), 1, ExecutionState::Failed),
+            candidate(SECOND, Some("B"), 2, ExecutionState::Succeeded),
         ],
     };
 
@@ -43,7 +48,14 @@ fn an_ambiguous_prefix_lists_each_execution_with_where_it_ran_and_its_state() {
 #[test]
 fn a_too_short_prefix_says_how_many_characters_it_needs_and_lists_at_most_ten() {
     let candidates: Vec<ExecutionCandidate> = (1..=12)
-        .map(|attempt| candidate(&format!("0192f3a8-{attempt:04}"), None, attempt, "failed"))
+        .map(|attempt| {
+            candidate(
+                &format!("0192f3a8-{attempt:04}"),
+                None,
+                attempt,
+                ExecutionState::Failed,
+            )
+        })
         .collect();
     let refusal = Refusal::ExecutionPrefixTooShort {
         reference: "0192".to_owned(),

@@ -1,6 +1,8 @@
 use sqlx::FromRow;
 
+use super::graph::run_state;
 use super::{Store, StoreError};
+use crate::drive::graph::RunState;
 
 #[derive(Clone, Debug, PartialEq, Eq, FromRow)]
 pub(crate) struct SubjectRun {
@@ -16,6 +18,18 @@ pub(crate) struct SubjectBranch {
     pub(crate) ordinal: i64,
     pub(crate) root_state: String,
     pub(crate) item: bool,
+}
+
+impl SubjectRun {
+    pub(crate) fn run_state(&self) -> RunState {
+        run_state(&self.state)
+    }
+}
+
+impl SubjectBranch {
+    pub(crate) fn root_run_state(&self) -> RunState {
+        run_state(&self.root_state)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, FromRow)]

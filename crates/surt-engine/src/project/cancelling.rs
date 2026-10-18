@@ -2,7 +2,7 @@ use super::{Error, Project, RunId, open_store};
 use crate::drive::ProgressSink;
 use crate::drive::cancel::{Cancel, Cancellation};
 use crate::git;
-use crate::store::Store;
+use crate::store::{Store, count};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CancelImpact {
@@ -44,8 +44,4 @@ async fn impact(store: &Store, root: &str) -> Result<CancelImpact, Error> {
         merged: count(row.merged),
         integration_branch: branch.map(|branch| git::short_branch(&branch.ref_name).to_owned()),
     })
-}
-
-fn count(value: i64) -> usize {
-    usize::try_from(value).unwrap_or_default()
 }

@@ -19,15 +19,13 @@ use tokio::process::ChildStdin;
 
 use super::{
     AgentRuntime, FailureClass, RuntimeCompletion, RuntimeError, RuntimeEvent, RuntimeEventSink,
-    RuntimeRequest, StopSignal,
+    RuntimeRequest, STDERR_LOG, STREAM_LOG, StopSignal,
 };
 use crate::platform;
 use invocation::Invocation;
 use transcript::{Observation, Transcript};
 
 const STOP_GRACE_PERIOD: Duration = Duration::from_secs(10);
-const STREAM_LOG: &str = "stream.jsonl";
-const STDERR_LOG: &str = "stderr.log";
 
 #[derive(Clone, Debug)]
 pub struct ClaudeCodeRuntime {

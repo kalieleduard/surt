@@ -1,4 +1,4 @@
-use super::super::source::{Files, render};
+use super::super::source::{Files, Format, render};
 use super::super::stream::Stream;
 use crate::symbols::Symbols;
 
@@ -99,7 +99,7 @@ fn every_captured_stream_prints_only_ascii_in_ascii_mode() {
             stderr: String::new(),
             output: String::new(),
         };
-        let text = render(&files, "B build#2 │ ", false);
+        let text = render(&files, "B build#2 │ ", Format::Rendered);
 
         assert!(Symbols::Ascii.render(&text).is_ascii(), "{text}");
     }

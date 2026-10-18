@@ -1,13 +1,13 @@
 use serde_json::Value;
 use surt_engine::project::{
-    BlockReason, BlockedStep, Conflict, GateStatus, GateView, ItemState, ItemStatus, LastFailure,
-    RunStatus,
+    BlockReason, BlockedStep, Conflict, GateStatus, GateView, ItemStatus, LastFailure, RunStatus,
 };
 
 use super::detail::merge_into_base;
 use super::{resume_command, state_name, state_names};
 use crate::json::Fields;
 use crate::show::origin;
+use crate::states::item_state_name;
 
 pub(super) fn features(statuses: &[RunStatus]) -> Fields {
     let features: Vec<Value> = statuses
@@ -120,7 +120,7 @@ fn gate(view: &GateView) -> Value {
 fn task(item: &ItemStatus, status: &RunStatus, resume: &str) -> Value {
     let fields = Fields::new()
         .with("key", item.key.as_str())
-        .with("state", item_state(item.state))
+        .with("state", item_state_name(item.state))
         .maybe("step", item.step.as_deref())
         .maybe("iteration", item.iteration)
         .maybe("attempt", item.attempt)
@@ -140,18 +140,6 @@ fn task(item: &ItemStatus, status: &RunStatus, resume: &str) -> Value {
         .maybe("last_error", step.last_failure.as_ref().map(last_error))
         .with("resume", resume)
         .into()
-}
-
-fn item_state(state: ItemState) -> &'static str {
-    match state {
-        ItemState::Pending => "pending",
-        ItemState::Queued => "queued",
-        ItemState::Running => "running",
-        ItemState::Interrupted => "interrupted",
-        ItemState::Blocked => "blocked",
-        ItemState::Succeeded => "succeeded",
-        ItemState::Cancelled => "cancelled",
-    }
 }
 
 fn conflict(conflict: &Conflict) -> Fields {

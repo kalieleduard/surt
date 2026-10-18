@@ -1,6 +1,6 @@
 use sqlx::FromRow;
 
-use super::revisions::number;
+use super::columns::number;
 use super::{Store, StoreError};
 use crate::platform::ProcessIdentity;
 

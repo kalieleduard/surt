@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use serde_json::json;
 use surt_engine::project::{
-    AgentProfile, ExecutionDetail, ExecutionFailure, ExecutionInput, Performer, RuntimeInfo, Usage,
+    AgentProfile, ExecutionDetail, ExecutionFailure, ExecutionInput, ExecutionState, Performer,
+    RuntimeInfo, Usage,
 };
 
 use super::render;
@@ -42,7 +43,7 @@ fn bare() -> ExecutionDetail {
                 permission_mode: None,
             },
         },
-        state: "succeeded".to_owned(),
+        state: ExecutionState::Succeeded,
         outcome: Some("done".to_owned()),
         failure: None,
         slot: None,
@@ -71,7 +72,7 @@ fn failed_builder() -> ExecutionDetail {
                 permission_mode: Some("dontAsk".to_owned()),
             },
         },
-        state: "failed".to_owned(),
+        state: ExecutionState::Failed,
         outcome: None,
         failure: Some(ExecutionFailure {
             class: "retryable".to_owned(),
@@ -162,7 +163,7 @@ fn values_the_runtime_did_not_report_are_left_out() {
 #[test]
 fn a_running_execution_shows_how_long_it_has_run_and_a_zero_is_still_shown() {
     let running = ExecutionDetail {
-        state: "running".to_owned(),
+        state: ExecutionState::Running,
         outcome: None,
         started_at: Some(STARTED),
         reported: RuntimeInfo {
@@ -186,7 +187,7 @@ fn an_operation_is_named_instead_of_a_role_and_profile() {
         performer: Performer::Operation {
             id: "checks.run".to_owned(),
         },
-        state: "succeeded".to_owned(),
+        state: ExecutionState::Succeeded,
         outcome: Some("passed".to_owned()),
         ..bare()
     };

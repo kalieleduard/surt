@@ -63,7 +63,7 @@ fn git(impact: &DeleteImpact) -> Vec<String> {
             )
         })
         .collect();
-    let mut refs = grouped(&impact.task_branches);
+    let mut refs = grouped(&impact.item_branches);
     refs.extend(counted(impact.salvage_refs, "salvage ref", "salvage refs"));
     if !refs.is_empty() {
         lines.push(verb("delete", &refs.join(SEPARATOR)));

@@ -6,8 +6,8 @@ use super::fixtures::review_catalog;
 use super::inspecting::{rejected, reworked};
 use super::repository::git;
 use crate::project::{
-    AgentProfile, Config, Error, ExecutionCandidate, ExecutionDetail, ExecutionInput, Performer,
-    Reference, Refusal,
+    AgentProfile, Config, Error, ExecutionCandidate, ExecutionDetail, ExecutionInput,
+    ExecutionState, Performer, Reference, Refusal,
 };
 
 async fn rejected_once() -> Feature {
@@ -99,8 +99,8 @@ async fn the_detail_shows_the_profile_state_inputs_and_what_the_runtime_reported
         }
     );
     assert_eq!(
-        (shown.state.as_str(), shown.outcome.as_deref()),
-        ("succeeded", Some("done"))
+        (shown.state, shown.outcome.as_deref()),
+        (ExecutionState::Succeeded, Some("done"))
     );
     assert_eq!(shown.failure, None);
     assert!(shown.started_at.is_some() && shown.finished_at >= shown.started_at);
@@ -246,7 +246,7 @@ async fn a_prefix_shared_by_several_executions_refuses_and_lists_them() {
                 (SUBJECT, 1, "write")
             );
             assert_eq!((first.iteration, first.attempt), (Some(1), 1));
-            assert_eq!(first.state, "succeeded");
+            assert_eq!(first.state, ExecutionState::Succeeded);
         }
         other => panic!("{other:?}"),
     }

@@ -1,5 +1,6 @@
 use sqlx::{FromRow, SqliteConnection};
 
+use super::columns::number;
 use super::runs::new_id;
 use super::{Store, StoreError};
 use crate::artifacts::{identity, sha256_hex};
@@ -87,10 +88,6 @@ impl Store {
         .fetch_all(&self.pool)
         .await?)
     }
-}
-
-pub(super) fn number(value: i64) -> u32 {
-    u32::try_from(value).unwrap_or(u32::MAX)
 }
 
 pub(super) async fn artifact_id(

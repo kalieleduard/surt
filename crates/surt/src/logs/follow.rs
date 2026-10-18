@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use surt_engine::project::{LogSource, Logs, Project};
 
-use super::source::{Files, Offsets, aligned, render_with};
+use super::source::{Files, Format, Offsets, Pass, aligned, render_with};
 use super::stream::Stream;
 use super::{Target, emit, missing};
 use crate::failure::Failure;
@@ -26,16 +26,16 @@ impl Tail {
         }
     }
 
-    fn drain(&mut self, prefix: &str, raw: bool, last: bool) -> Result<String, Failure> {
-        let files = Files::appended(&self.source.directory, &mut self.offsets, last)?;
-        Ok(render_with(&mut self.stream, &files, prefix, raw))
+    fn drain(&mut self, prefix: &str, format: Format, pass: Pass) -> Result<String, Failure> {
+        let files = Files::appended(&self.source.files, &mut self.offsets, pass)?;
+        Ok(render_with(&mut self.stream, &files, prefix, format))
     }
 }
 
 struct Follower<'a> {
     project: &'a Project,
     prefixed: bool,
-    raw: bool,
+    format: Format,
     known: HashSet<String>,
     tails: Vec<Tail>,
 }
@@ -62,15 +62,15 @@ impl Follower<'_> {
         )
     }
 
-    fn drain(&mut self, last: bool) -> Result<String, Failure> {
+    fn drain(&mut self, pass: Pass) -> Result<String, Failure> {
         let mut text = String::new();
         let prefixes = self.prefixes();
         for (tail, prefix) in self.tails.iter_mut().zip(prefixes) {
-            if last && !tail.source.directory.is_dir() {
+            if pass == Pass::Final && !tail.source.directory.is_dir() {
                 missing(self.project, &tail.source).print(Mark::Warning);
                 continue;
             }
-            text.push_str(&tail.drain(&prefix, self.raw, last)?);
+            text.push_str(&tail.drain(&prefix, self.format, pass)?);
         }
         Ok(text)
     }
@@ -80,12 +80,12 @@ pub(super) async fn follow(
     project: &Project,
     target: Target,
     mut logs: Logs,
-    raw: bool,
+    format: Format,
 ) -> Result<(), Failure> {
     let mut follower = Follower {
         project,
         prefixed: !matches!(target, Target::Execution(_)),
-        raw,
+        format,
         known: HashSet::new(),
         tails: Vec::new(),
     };
@@ -97,10 +97,14 @@ pub(super) async fn follow(
         .map(|source| source.execution.clone());
     follower.known.extend(started);
     loop {
-        let last = !logs.live;
-        let text = follower.drain(last)?;
-        let open = text.is_empty() || emit(&text, raw)?;
-        if last || !open {
+        let pass = if logs.live {
+            Pass::Ongoing
+        } else {
+            Pass::Final
+        };
+        let text = follower.drain(pass)?;
+        let open = text.is_empty() || emit(&text, format)?;
+        if pass == Pass::Final || !open {
             return Ok(());
         }
         tokio::time::sleep(POLL).await;

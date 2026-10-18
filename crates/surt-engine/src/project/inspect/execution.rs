@@ -3,10 +3,10 @@ mod reported;
 use std::path::PathBuf;
 
 use super::super::resolving::resolve_execution_in;
-use super::super::{Error, Project};
+use super::super::{Error, ExecutionState, Project};
 use crate::drive::CorruptSnapshot;
 use crate::git;
-use crate::store::{ExecutionDetailRow, ExecutionInputRow, Store};
+use crate::store::{ExecutionDetailRow, ExecutionInputRow, Store, number};
 use crate::workflow::AgentContract;
 
 pub use reported::{RuntimeInfo, Usage};
@@ -23,7 +23,7 @@ pub struct ExecutionDetail {
     pub iteration: Option<u32>,
     pub attempt: u32,
     pub performer: Performer,
-    pub state: String,
+    pub state: ExecutionState,
     pub outcome: Option<String>,
     pub failure: Option<ExecutionFailure>,
     pub slot: Option<u32>,
@@ -111,7 +111,7 @@ fn detail(
         iteration: scope.iteration.map(number),
         attempt: number(scope.attempt),
         performer,
-        state: scope.state,
+        state: ExecutionState::from_column(&scope.state),
         outcome: row.outcome,
         failure: row.failure_class.map(|class| ExecutionFailure {
             class,
@@ -150,10 +150,6 @@ fn performer(row: &ExecutionDetailRow) -> Result<Performer, Error> {
         },
         role,
     })
-}
-
-fn number(value: i64) -> u32 {
-    u32::try_from(value).unwrap_or_default()
 }
 
 impl From<ExecutionInputRow> for ExecutionInput {

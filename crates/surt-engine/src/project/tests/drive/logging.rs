@@ -5,7 +5,7 @@ use super::checks::{check, with_checks};
 use super::fixtures::Feature;
 use super::integration::independent_tasks;
 use super::team::{INTEGRATED_TASK, built};
-use crate::project::{Error, LogRequest, LogSource, Refusal, RunSelector};
+use crate::project::{Error, ExecutionState, LogRequest, LogSource, Refusal, RunSelector};
 
 fn whole_run() -> LogRequest<'static> {
     LogRequest {
@@ -214,7 +214,7 @@ async fn an_execution_prefix_selects_that_execution_and_its_log_directory() {
         (source.step.as_str(), source.iteration, source.attempt),
         ("build", Some(1), 1)
     );
-    assert_eq!(source.state, "succeeded");
+    assert_eq!(source.state, ExecutionState::Succeeded);
     assert_eq!(
         source.directory,
         feature.root().join(".surt/logs").join(SUBJECT).join(&build)

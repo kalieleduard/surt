@@ -7,6 +7,7 @@ mod delivery;
 mod discovery;
 mod driving;
 mod error;
+mod execution_state;
 mod gate_status;
 mod gates;
 mod init;
@@ -35,6 +36,7 @@ pub use crate::git::GitVersion;
 pub use crate::operations::checks::REPORT_SCHEMA as CHECK_REPORT_SCHEMA;
 pub use crate::operations::{BASE_SCHEMA, CONFLICT_SCHEMA, INTEGRATION_SCHEMA};
 pub use crate::platform::console_outputs_utf8;
+pub use crate::runtime::LogFiles;
 pub use crate::workflow::{
     AgentAssets, Catalog, DefinitionFile, DeliveryCheck, InvalidDefinition, Problem, StepField,
 };
@@ -49,6 +51,7 @@ pub use error::{
     AwaitedRevision, Candidate, Error, ExecutionCandidate, InternalError, KnownRun, Refusal,
     RunState,
 };
+pub use execution_state::ExecutionState;
 pub use gate_status::GateStatus;
 pub use gates::{Decided, RevisionOrigin};
 pub use init::{FileState, InitFile, Initialized};

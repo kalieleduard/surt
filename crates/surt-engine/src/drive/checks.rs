@@ -7,13 +7,12 @@ use super::failure::{Failure, OperationError};
 use super::operate::{Finished, OperationLaunch};
 use crate::operations::checks::{self, CheckReport};
 use crate::project::Error;
-use crate::runtime::AgentRuntime;
+use crate::runtime::{AgentRuntime, OUTPUT_LOG};
 use crate::store::PublishedOutput;
 
 const COMMIT_INPUT: &str = "commit";
 const CHECK_REPORT: &str = "check-report";
 const REPORT_FILE: &str = "check-report.json";
-const OUTPUT_LOG: &str = "output.log";
 const PASSED: &str = "passed";
 const FAILED: &str = "failed";
 

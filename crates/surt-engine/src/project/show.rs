@@ -6,7 +6,7 @@ use picking::{content, primary, revision_id};
 use super::status::origin;
 use super::{Error, Project, RevisionOrigin, RunSelector};
 use crate::artifacts::working_copy;
-use crate::store::{ApprovalRow, ArtifactSummaryRow, Store};
+use crate::store::{ApprovalRow, ArtifactSummaryRow, Store, number};
 
 const HUMAN: &str = "human";
 const APPROVE: &str = "approve";
@@ -151,15 +151,15 @@ impl Project {
 fn summary(row: ArtifactSummaryRow) -> ArtifactSummary {
     ArtifactSummary {
         name: row.name,
-        revisions: count(row.revisions),
-        latest: count(row.number),
+        revisions: number(row.revisions),
+        latest: number(row.number),
         origin: if row.origin == HUMAN {
             RevisionOrigin::Human
         } else {
             RevisionOrigin::Agent
         },
         approved: row.approved,
-        files: count(row.files),
+        files: number(row.files),
     }
 }
 
@@ -169,8 +169,4 @@ fn approval(row: ApprovalRow) -> RevisionApproval {
         actor: row.actor,
         decided_at: row.decided_at,
     }
-}
-
-fn count(value: i64) -> u32 {
-    u32::try_from(value).unwrap_or_default()
 }

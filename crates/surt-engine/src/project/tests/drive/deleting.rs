@@ -239,7 +239,7 @@ async fn the_delete_impact_lists_runs_refs_directories_edits_and_history() {
         ]
     );
     assert_eq!(
-        impact.task_branches,
+        impact.item_branches,
         [
             format!("surt/task/{SUBJECT}/A"),
             format!("surt/task/{SUBJECT}/B")

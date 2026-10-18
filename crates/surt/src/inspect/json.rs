@@ -4,6 +4,7 @@ use surt_engine::project::{
 };
 
 use crate::json::Fields;
+use crate::states::execution_state_name;
 
 pub(super) fn timeline(timeline: &Timeline) -> Fields {
     Fields::new()
@@ -39,7 +40,7 @@ pub(super) fn execution(detail: &ExecutionDetail) -> Fields {
         .maybe("iteration", detail.iteration)
         .with("attempt", detail.attempt)
         .with("performer", performer(&detail.performer))
-        .with("state", detail.state.as_str())
+        .with("state", execution_state_name(detail.state))
         .maybe("outcome", detail.outcome.as_deref())
         .maybe(
             "failure",

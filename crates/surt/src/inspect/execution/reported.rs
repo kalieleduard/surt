@@ -1,4 +1,4 @@
-use surt_engine::project::{AgentProfile, ExecutionDetail, RuntimeInfo};
+use surt_engine::project::{AgentProfile, ExecutionDetail, ExecutionState, RuntimeInfo};
 
 use crate::symbols::SEPARATOR;
 
@@ -33,7 +33,7 @@ pub(super) fn session(reported: &RuntimeInfo) -> Option<String> {
 pub(super) fn process(detail: &ExecutionDetail, now: i64) -> Option<String> {
     let elapsed = match (detail.started_at, detail.finished_at) {
         (Some(started), Some(finished)) => Some(duration(finished - started)),
-        (Some(started), None) if detail.state == "running" => {
+        (Some(started), None) if detail.state == ExecutionState::Running => {
             Some(format!("running for {}", duration(now - started)))
         }
         _ => None,
