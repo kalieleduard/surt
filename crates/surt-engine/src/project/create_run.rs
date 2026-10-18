@@ -7,7 +7,7 @@ use serde::Serialize;
 use super::{Check, Config, Error, GitConfig, Project, Refusal};
 pub use crate::drive::graph::RunId;
 use crate::store::{NewInitialArtifact, NewRunRows, RunCreation, Store, unix_now};
-use crate::workflow::{FreezeError, FrozenRun, freeze};
+use crate::workflow::{CleanupPolicy, FrozenRun, OnSuccess, freeze};
 
 #[derive(Clone, Debug)]
 pub struct NewRun {
@@ -35,6 +35,7 @@ struct FrozenConfig<'a> {
     max_attempts: NonZeroU32,
     max_iterations: NonZeroU32,
     git: &'a GitConfig,
+    cleanup: CleanupPolicy,
     checks: &'a [Check],
 }
 
@@ -54,8 +55,9 @@ impl Project {
             .initial_artifacts
             .iter()
             .map(|artifact| artifact.name.as_str());
-        let config = frozen_config(&self.config).map_err(FreezeError::from)?;
-        let frozen = freeze(&self.catalog, &new.workflow, names, config)?;
+        let frozen = freeze(&self.catalog, &new.workflow, names, |root| {
+            frozen_config(&self.config, root)
+        })?;
         let subject = new.subject.clone();
         match store.create_run(rows(new, frozen)).await? {
             RunCreation::Created(run) => Ok(RunId(run)),
@@ -87,11 +89,14 @@ fn rows(new: NewRun, frozen: FrozenRun) -> NewRunRows {
     }
 }
 
-fn frozen_config(config: &Config) -> Result<String, toml::ser::Error> {
+fn frozen_config(config: &Config, root: OnSuccess) -> Result<String, toml::ser::Error> {
     toml::to_string(&FrozenConfig {
         max_attempts: config.max_attempts,
         max_iterations: config.max_iterations,
         git: &config.git,
+        cleanup: CleanupPolicy {
+            on_success: config.cleanup.effective(root),
+        },
         checks: &config.checks,
     })
 }

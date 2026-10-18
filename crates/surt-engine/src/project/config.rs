@@ -8,9 +8,11 @@ use serde::{Deserialize, Serialize};
 use super::error::{Error, Refusal};
 
 mod check;
+mod cleanup;
 pub(crate) mod global;
 
 pub use check::Check;
+pub use cleanup::CleanupConfig;
 pub(crate) use check::parse_timeout;
 pub use global::GlobalConfig;
 
@@ -28,6 +30,7 @@ pub struct Config {
     pub max_iterations: NonZeroU32,
     pub git: GitConfig,
     pub checks: Vec<Check>,
+    pub cleanup: CleanupConfig,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
@@ -52,6 +55,7 @@ impl Default for Config {
             max_iterations: DEFAULT_MAX_ITERATIONS,
             git: GitConfig::default(),
             checks: Vec::new(),
+            cleanup: CleanupConfig::default(),
         }
     }
 }

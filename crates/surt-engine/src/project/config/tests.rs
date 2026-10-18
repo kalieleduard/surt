@@ -4,7 +4,8 @@ use std::path::PathBuf;
 
 use tempfile::TempDir;
 
-use super::{Check, Config, MergeIntoBase, TEMPLATE, load};
+use super::{Check, CleanupConfig, Config, MergeIntoBase, TEMPLATE, load};
+use crate::project::OnSuccess;
 use crate::project::{Error, Refusal};
 
 struct ConfigFile {
@@ -55,6 +56,7 @@ fn the_generated_template_holds_exactly_the_documented_defaults() {
     assert_eq!(config.max_iterations, nonzero(5));
     assert_eq!(config.git.merge_into_base, MergeIntoBase::Never);
     assert!(config.checks.is_empty());
+    assert_eq!(config.cleanup.on_success, None);
     assert_eq!(config, Config::default());
 }
 
@@ -192,4 +194,37 @@ fn an_unknown_merge_mode_is_an_invalid_config() {
         file.refusal(),
         Refusal::InvalidConfig { line: Some(2), .. }
     ));
+}
+
+#[test]
+fn the_cleanup_policy_on_success_is_absent_by_default() {
+    let config = ConfigFile::with("max_attempts = 3\n")
+        .load()
+        .expect("the config loads");
+
+    assert_eq!(config.cleanup, CleanupConfig { on_success: None });
+}
+
+#[test]
+fn a_succeeded_run_may_be_cleaned_or_kept() {
+    for (text, policy) in [("clean", OnSuccess::Clean), ("keep", OnSuccess::Keep)] {
+        let file = ConfigFile::with(&format!("[cleanup]\non_success = \"{text}\"\n"));
+
+        let config = file.load().expect("the config loads");
+
+        assert_eq!(config.cleanup.on_success, Some(policy), "{text}");
+    }
+}
+
+#[test]
+fn an_unknown_cleanup_policy_is_refused_with_its_line() {
+    let file = ConfigFile::with("max_attempts = 3\n\n[cleanup]\non_success = \"keeep\"\n");
+
+    let Refusal::InvalidConfig { path, line, reason } = file.refusal() else {
+        panic!("expected an invalid config");
+    };
+
+    assert_eq!(path, file.path());
+    assert_eq!(line, Some(4));
+    assert!(reason.contains("keeep"), "{reason}");
 }
