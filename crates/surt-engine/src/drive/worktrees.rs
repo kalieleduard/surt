@@ -71,7 +71,10 @@ impl<R: AgentRuntime> Driver<'_, R> {
         Ok(intended)
     }
 
-    async fn require_owned(&self, integration: &RunBranch) -> Result<(), OperationError> {
+    pub(super) async fn require_owned(
+        &self,
+        integration: &RunBranch,
+    ) -> Result<(), OperationError> {
         let root = self.driving.layout.root();
         let found = git::commit_sha(root, &integration.ref_name).await?;
         if found.as_deref() != Some(integration.tip_sha.as_str()) {

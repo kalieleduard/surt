@@ -17,13 +17,14 @@ mod executions;
 mod frozen;
 mod graph;
 mod items;
+mod ref_moves;
 mod revisions;
 mod runs;
 mod steps;
 mod subjects;
 mod working_copy;
 
-pub(crate) use acceptance::{Acceptance, PublishedOutput};
+pub(crate) use acceptance::{Acceptance, Integrated, PublishedOutput};
 pub(crate) use approvals::{Decision, DecisionOutcome, GateRow, NewDecision, WaitingGate};
 pub(crate) use branches::{PreviousExecution, RunBranch};
 pub(crate) use executions::{
@@ -32,6 +33,7 @@ pub(crate) use executions::{
 pub(crate) use frozen::FrozenFile;
 pub(crate) use graph::{RunRows, StepRow};
 pub(crate) use items::{Expansion, ListRevision, NewChild};
+pub(crate) use ref_moves::RefMove;
 pub(crate) use revisions::{Producer, StoredRevision};
 pub(crate) use runs::{NewInitialArtifact, NewRunRows, RunCreation};
 pub(crate) use subjects::SubjectRow;

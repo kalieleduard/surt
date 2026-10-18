@@ -3,20 +3,12 @@ use std::collections::BTreeMap;
 use jsonschema::Validator;
 use serde_json::Value;
 
-use super::AcceptedDelivery;
 use crate::workflow::{AgentContract, Format, ItemFileSpec, OutputSpec};
 
 #[derive(Debug)]
 pub(crate) struct DeliveryContract {
     pub(super) outcomes: Vec<String>,
     pub(super) outputs: BTreeMap<String, OutputRule>,
-    pub(super) checks: Vec<ConsistencyCheck>,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct ConsistencyCheck {
-    pub(crate) name: &'static str,
-    pub(crate) check: fn(&AcceptedDelivery) -> Result<(), String>,
 }
 
 #[derive(Debug)]
@@ -51,20 +43,7 @@ impl DeliveryContract {
         Ok(DeliveryContract {
             outcomes: agent.outcomes(),
             outputs,
-            checks: Vec::new(),
         })
-    }
-
-    #[cfg_attr(
-        not(all(test, feature = "test-support")),
-        expect(
-            dead_code,
-            reason = "the built-in workflow registers consistency checks from ticket 13 on"
-        )
-    )]
-    pub(crate) fn with_check(mut self, check: ConsistencyCheck) -> DeliveryContract {
-        self.checks.push(check);
-        self
     }
 
     pub(crate) fn into_output(mut self, name: &str) -> Option<OutputRule> {

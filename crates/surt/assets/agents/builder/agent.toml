@@ -19,6 +19,7 @@ optional = true
 
 [inputs.conflict]
 format = "json"
+json_schema = "schemas/conflict.schema.json"
 optional = true
 
 [outputs.commit]

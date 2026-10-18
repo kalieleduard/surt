@@ -1,7 +1,9 @@
+use std::path::Path;
+
 use super::driver::Driver;
 use super::failure::{Failure, OperationError};
 use super::operate::{Finished, OperationLaunch};
-use crate::checks;
+use crate::checks::{self, CheckReport};
 use crate::project::Error;
 use crate::runtime::AgentRuntime;
 use crate::store::PublishedOutput;
@@ -41,19 +43,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             )
             .into());
         }
-        let log = self
-            .driving
-            .layout
-            .execution_logs(&launch.subject, &launch.started.id)
-            .join(OUTPUT_LOG);
-        let report = checks::run(&self.frozen.checks, &worktree, &commit, &log)
-            .await
-            .map_err(|error| {
-                Failure::retryable(
-                    "checks_unrecorded",
-                    format!("cannot record the checks in {}: {error}", log.display()),
-                )
-            })?;
+        let report = self.run_frozen_checks(launch, &worktree, &commit).await?;
         let outcome = if report.passed() { PASSED } else { FAILED };
         let bytes = serde_json::to_vec_pretty(&report).map_err(Error::internal)?;
         Ok(Finished {
@@ -63,6 +53,30 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 files: vec![(REPORT_FILE.to_owned(), bytes)],
                 working_copy: false,
             }],
+            merged: None,
         })
+    }
+}
+
+impl<R: AgentRuntime> Driver<'_, R> {
+    pub(super) async fn run_frozen_checks(
+        &self,
+        launch: &OperationLaunch,
+        worktree: &Path,
+        commit: &str,
+    ) -> Result<CheckReport, Failure> {
+        let log = self
+            .driving
+            .layout
+            .execution_logs(&launch.subject, &launch.started.id)
+            .join(OUTPUT_LOG);
+        checks::run(&self.frozen.checks, worktree, commit, &log)
+            .await
+            .map_err(|error| {
+                Failure::retryable(
+                    "checks_unrecorded",
+                    format!("cannot record the checks in {}: {error}", log.display()),
+                )
+            })
     }
 }

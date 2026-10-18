@@ -1,6 +1,8 @@
 use std::collections::BTreeSet;
 
-use surt_engine::project::{CHECK_REPORT_SCHEMA, DeliveryCheck};
+use surt_engine::project::{
+    BASE_SCHEMA, CHECK_REPORT_SCHEMA, CONFLICT_SCHEMA, DeliveryCheck, INTEGRATION_SCHEMA,
+};
 use toml::{Table, Value};
 
 use super::{AGENTS, BASE_ARTIFACT, FEATURE_WORKFLOW, REQUEST_ARTIFACT, catalog};
@@ -107,17 +109,54 @@ fn each_role_gets_the_tools_and_approvals_of_its_row_in_the_agent_contract() {
 }
 
 #[test]
-fn only_the_builders_commit_must_be_proven_by_git() {
+fn the_builders_commit_is_proven_by_git_and_the_reviewers_verdict_is_bound_to_it() {
     let catalog = catalog();
 
     for (id, _) in AGENTS {
-        let expected: &[(String, DeliveryCheck)] = if id == "builder" {
-            &[("commit".to_owned(), DeliveryCheck::CommitEvidence)]
-        } else {
-            &[]
+        let expected: Vec<(String, DeliveryCheck)> = match id {
+            "builder" => vec![("commit".to_owned(), DeliveryCheck::CommitEvidence)],
+            "reviewer" => vec![
+                ("feedback".to_owned(), DeliveryCheck::ReviewedCommit),
+                (
+                    "feedback".to_owned(),
+                    DeliveryCheck::NoBlockingFinding {
+                        outcome: "approved",
+                    },
+                ),
+            ],
+            _ => Vec::new(),
         };
-        assert_eq!(catalog.delivery_checks(id), expected, "{id}");
+        assert_eq!(catalog.delivery_checks(id), expected.as_slice(), "{id}");
     }
+}
+
+#[test]
+fn agents_reading_operation_artifacts_validate_them_with_the_engines_schemas() {
+    let readers = [
+        ("builder", "conflict", CONFLICT_SCHEMA),
+        ("reviewer", "conflict", CONFLICT_SCHEMA),
+        ("shipper", "integration", INTEGRATION_SCHEMA),
+    ];
+
+    for (id, input, (path, text)) in readers {
+        let agent = agent(id);
+        let (_, assets) = AGENTS
+            .iter()
+            .find(|(candidate, _)| *candidate == id)
+            .expect("the agent");
+
+        assert_eq!(
+            agent["inputs"][input]["json_schema"].as_str(),
+            Some(path),
+            "{id}"
+        );
+        assert!(assets.schemas.contains(&(path, text)), "{id}");
+    }
+    let (_, shipper) = AGENTS
+        .iter()
+        .find(|(candidate, _)| *candidate == "shipper")
+        .expect("the shipper");
+    assert!(shipper.schemas.contains(&BASE_SCHEMA));
 }
 
 #[test]

@@ -1,10 +1,12 @@
+use serde_json::Value;
+
 use super::driver::Driver;
 use super::expand::per_item;
 use super::frozen::CorruptSnapshot;
 use super::load::Loaded;
 use crate::artifacts::item_view;
 use crate::runtime::AgentRuntime;
-use crate::store::{InputRequest, StepRow, StoredRevision};
+use crate::store::{InputRequest, StartedExecution, StepRow, StoreError, StoredRevision};
 use crate::workflow::PerItemStep;
 
 const ITEM: &str = "item";
@@ -47,6 +49,31 @@ impl<R: AgentRuntime> Driver<'_, R> {
             .collect())
     }
 
+    pub(super) async fn input_json(
+        &self,
+        started: &StartedExecution,
+        input: &str,
+    ) -> Result<Option<Value>, StoreError> {
+        let Some((_, revision)) = started.inputs.iter().find(|(name, _)| name == input) else {
+            return Ok(None);
+        };
+        let revision = self.driving.store.revision(revision).await?;
+        Ok(revision
+            .files
+            .first()
+            .and_then(|(_, bytes)| serde_json::from_slice(bytes).ok()))
+    }
+
+    pub(super) async fn input_text(
+        &self,
+        started: &StartedExecution,
+        input: &str,
+        field: &str,
+    ) -> Result<Option<String>, StoreError> {
+        let json = self.input_json(started, input).await?;
+        Ok(json.as_ref().and_then(|json| text(json, field)))
+    }
+
     fn per_item_parent<'s>(
         &'s self,
         loaded: &'s Loaded,
@@ -74,4 +101,8 @@ pub(super) fn scoped(
     let files = item_view(&revision.files, item)
         .ok_or_else(|| CorruptSnapshot::new(item, "the item is missing from its Item List"))?;
     Ok(StoredRevision { files, ..revision })
+}
+
+pub(super) fn text(json: &Value, field: &str) -> Option<String> {
+    json.get(field).and_then(Value::as_str).map(str::to_owned)
 }

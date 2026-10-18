@@ -3,6 +3,7 @@ use super::closure::{self, Closure};
 use super::definition::Definition;
 use super::error::InvalidDefinition;
 use super::flow::Available;
+use super::references::local_references;
 use super::steps::StepKind;
 use crate::artifacts::{identity, sha256_hex};
 
@@ -131,12 +132,16 @@ fn agent_snapshots(catalog: &Catalog, closure: &Closure) -> Result<Vec<Snapshot>
             SnapshotFile::new(AGENT_FILE, contract.canonical()?.into_bytes()),
             SnapshotFile::new(INSTRUCTIONS_FILE, assets.instructions.as_bytes().to_vec()),
         ];
-        for path in contract.schema_paths() {
-            if let Some(text) = assets.schema(path)
-                && files.iter().all(|file| file.rel_path != path)
-            {
-                files.push(SnapshotFile::new(path, text.as_bytes().to_vec()));
+        let mut pending: Vec<String> = contract.schema_paths().map(str::to_owned).collect();
+        while let Some(path) = pending.pop() {
+            let Some(text) = assets.schema(&path) else {
+                continue;
+            };
+            if files.iter().any(|file| file.rel_path == path) {
+                continue;
             }
+            pending.extend(local_references(&path, text));
+            files.push(SnapshotFile::new(&path, text.as_bytes().to_vec()));
         }
         snapshots.push(Snapshot {
             kind: SnapshotKind::Agent,

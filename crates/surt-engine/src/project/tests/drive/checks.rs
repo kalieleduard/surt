@@ -41,7 +41,7 @@ until = { step = "review", outcome = "approved" }
 needs = ["setup"]
 "#;
 
-fn check(name: &str, run: &[&str]) -> Check {
+pub(super) fn check(name: &str, run: &[&str]) -> Check {
     Check {
         name: name.to_owned(),
         run: run.iter().map(|argument| (*argument).to_owned()).collect(),
@@ -49,7 +49,7 @@ fn check(name: &str, run: &[&str]) -> Check {
     }
 }
 
-fn with_checks(checks: Vec<Check>) -> Config {
+pub(super) fn with_checks(checks: Vec<Check>) -> Config {
     Config {
         checks,
         ..Config::default()

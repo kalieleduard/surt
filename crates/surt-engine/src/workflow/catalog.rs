@@ -14,6 +14,8 @@ pub struct Catalog {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DeliveryCheck {
     CommitEvidence,
+    ReviewedCommit,
+    NoBlockingFinding { outcome: &'static str },
 }
 
 #[derive(Clone, Copy, Debug)]

@@ -204,18 +204,18 @@ impl ProjectDir {
         }
     }
 
-    pub(super) async fn execute(&self, sql: &'static str) {
+    pub(super) async fn execute(&self, sql: &str) {
         let pool = SqlitePool::connect_with(SqliteConnectOptions::new().filename(self.database()))
             .await
             .expect("the database opens");
-        sqlx::query(sql)
+        sqlx::query(sqlx::AssertSqlSafe(sql.to_owned()))
             .execute(&pool)
             .await
             .expect("the statement runs");
         pool.close().await;
     }
 
-    pub(super) async fn rows<T>(&self, sql: &'static str) -> Vec<T>
+    pub(super) async fn rows<T>(&self, sql: &str) -> Vec<T>
     where
         T: for<'r> FromRow<'r, sqlx::sqlite::SqliteRow> + Send + Unpin,
     {
@@ -225,7 +225,7 @@ impl ProjectDir {
         let pool = SqlitePool::connect_with(options)
             .await
             .expect("the database opens read-only");
-        let rows = sqlx::query_as::<Sqlite, T>(sql)
+        let rows = sqlx::query_as::<Sqlite, T>(sqlx::AssertSqlSafe(sql.to_owned()))
             .fetch_all(&pool)
             .await
             .expect("the rows are readable");

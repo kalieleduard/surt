@@ -1,5 +1,3 @@
-use serde::Deserialize;
-
 use super::driver::Driver;
 use super::failure::{Failure, OperationError};
 use super::operate::OperationLaunch;
@@ -9,11 +7,7 @@ use crate::store::RunBranch;
 
 const DONE: &str = "done";
 const BASE_INPUT: &str = "base";
-
-#[derive(Deserialize)]
-struct NamedCommit {
-    sha: String,
-}
+const SHA_FIELD: &str = "sha";
 
 pub(super) fn run_stem(subject: &str, ordinal: u32) -> String {
     if ordinal > 1 {
@@ -72,22 +66,15 @@ impl<R: AgentRuntime> Driver<'_, R> {
         launch: &OperationLaunch,
         input: &str,
     ) -> Result<String, OperationError> {
-        let missing = || {
-            Failure::not_retryable(
-                "invalid_input",
-                format!("the {input} input has no readable commit"),
-            )
-        };
-        let (_, revision) = launch
-            .started
-            .inputs
-            .iter()
-            .find(|(name, _)| name == input)
-            .ok_or_else(missing)?;
-        let revision = self.driving.store.revision(revision).await?;
-        let (_, bytes) = revision.files.first().ok_or_else(missing)?;
-        let named: NamedCommit = serde_json::from_slice(bytes).map_err(|_| missing())?;
-        Ok(named.sha)
+        self.input_text(&launch.started, input, SHA_FIELD)
+            .await?
+            .ok_or_else(|| {
+                Failure::not_retryable(
+                    "invalid_input",
+                    format!("the {input} input has no readable commit"),
+                )
+                .into()
+            })
     }
 }
 

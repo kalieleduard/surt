@@ -6,6 +6,7 @@ mod error;
 mod flow;
 mod freeze;
 mod outcomes;
+mod references;
 mod steps;
 mod structure;
 

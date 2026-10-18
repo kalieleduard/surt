@@ -2,14 +2,16 @@ use std::ffi::OsStr;
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::process::ExitStatus;
+use std::process::{ExitStatus, Output};
 use std::time::Duration;
 
 use tokio::process::Command;
 
+mod merge;
 mod refs;
 pub(crate) mod worktrees;
 
+pub(crate) use merge::{CommitTree, MergeTree, commit_tree, merge_tree, move_ref};
 pub(crate) use refs::{
     absolute_git_dir, common_dir, create_ref, is_ancestor, is_valid_branch_name, set_ref,
 };
@@ -204,8 +206,16 @@ fn held_lock(result: &Result<String, GitError>) -> Option<PathBuf> {
 }
 
 async fn invoke(cwd: &Path, args: &[&str], env: &[(&str, &OsStr)]) -> Result<String, GitError> {
+    let output = output(cwd, args, env).await?;
+    if !output.status.success() {
+        return Err(failed(args, &output));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+async fn output(cwd: &Path, args: &[&str], env: &[(&str, &OsStr)]) -> Result<Output, GitError> {
     tracing::debug!(cwd = %cwd.display(), ?args, "running git");
-    let output = Command::new("git")
+    Command::new("git")
         .args(PLATFORM_CONFIG)
         .args(args)
         .current_dir(cwd)
@@ -217,15 +227,15 @@ async fn invoke(cwd: &Path, args: &[&str], env: &[(&str, &OsStr)]) -> Result<Str
         .map_err(|error| match error.kind() {
             io::ErrorKind::NotFound => GitError::NotFound,
             _ => GitError::Spawn(error),
-        })?;
-    if !output.status.success() {
-        return Err(GitError::Failed {
-            args: args.join(" "),
-            status: output.status,
-            stderr: String::from_utf8_lossy(&output.stderr).trim().to_owned(),
-        });
+        })
+}
+
+fn failed(args: &[&str], output: &Output) -> GitError {
+    GitError::Failed {
+        args: args.join(" "),
+        status: output.status,
+        stderr: String::from_utf8_lossy(&output.stderr).trim().to_owned(),
     }
-    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
 #[cfg(test)]

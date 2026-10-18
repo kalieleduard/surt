@@ -33,6 +33,4 @@ pub(crate) enum DeliveryRejection {
         path: String,
         problem: ItemListProblem,
     },
-    #[error("{check}: {detail}")]
-    Inconsistent { check: String, detail: String },
 }

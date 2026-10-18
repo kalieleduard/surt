@@ -1,4 +1,3 @@
-mod consistency;
 mod contracts;
 mod deliveries;
 mod failures;
