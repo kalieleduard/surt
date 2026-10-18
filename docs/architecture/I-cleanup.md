@@ -33,7 +33,7 @@ The process that records a root run's terminal state runs the cleanup right afte
     retry: surt start 20261017-add-login
 ```
 
-**Retry.** Every command that takes the run lock of a cleanup-pending run finishes the cleanup before anything else: `surt feature`, `plan`, `start` and `cancel` on that Feature (on a terminal run they have nothing else to do) and `surt delete`. A driving command never cleans other Subjects' runs, whose locks it does not hold. Reading commands never clean ([J](J-cli.md#reading-never-writes)).
+**Retry.** Every command that takes the run lock of a cleanup-pending run finishes the cleanup before anything else: `surt feature`, `plan`, `start` and `cancel` on that Feature (on a terminal run they have nothing else to do, except that `surt feature` then still refuses with exit `3` and suggests `--new-run`) and `surt delete`. A driving command never cleans other Subjects' runs, whose locks it does not hold. Reading commands never clean ([J](J-cli.md#reading-never-writes)).
 
 **Final warnings.** Three situations end the cleanup with a warning instead of leaving it pending, because retrying would not change them: a Working Copy file with an unrecorded edit ([below](#unrecorded-working-copy-edits)), a Task Branch that someone moved away from its recorded `tip_sha`, and a recorded `worktree_path` that is no longer a worktree of this repository. `cleaned_at` is written and each case is listed in the `cleanup.finished` event.
 

@@ -330,8 +330,19 @@ fn every_phase_command_finishes_a_pending_cleanup_of_the_feature() {
         std::fs::create_dir_all(&leftover).expect("a leftover execution directory");
         sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
 
-        let finished = ok(surt(&sandbox, &[command, &name]));
+        let run = surt(&sandbox, &[command, &name]);
 
+        let finished = if command == "feature" {
+            assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
+            assert!(
+                run.stderr.contains("--new-run"),
+                "{command}: {}",
+                run.stderr
+            );
+            run.stderr.split("✖").next().unwrap_or_default().to_owned()
+        } else {
+            ok(run)
+        };
         assert!(
             finished.ends_with("✔ run succeeded\n↻ cleanup done\n"),
             "{command}: {finished}"

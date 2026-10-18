@@ -59,7 +59,7 @@ fn a_phase_command_finishes_the_cleanup_of_a_cancelled_run_and_reports_it_as_alr
     assert_eq!(cancelled.code, Some(0), "{}", cancelled.stderr);
     sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
 
-    for command in ["feature", "plan", "start"] {
+    for command in ["plan", "start"] {
         let finished = surt(&sandbox, &[command, &name]);
 
         assert_eq!(finished.code, Some(0), "{command}: {}", finished.stderr);
@@ -70,6 +70,37 @@ fn a_phase_command_finishes_the_cleanup_of_a_cancelled_run_and_reports_it_as_alr
         );
         sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
     }
+}
+
+#[test]
+fn feature_finishes_the_cleanup_of_a_cancelled_run_then_still_suggests_a_new_run() {
+    let name = feature_name();
+    let sandbox = planned(&name, &[tasks(1, &["A"])]);
+    let cancelled = surt(&sandbox, &["cancel", "--yes", &name]);
+    assert_eq!(cancelled.code, Some(0), "{}", cancelled.stderr);
+    sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
+
+    let refused = surt(&sandbox, &["feature", &name]);
+
+    assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
+    assert!(
+        refused.stderr.starts_with(&format!(
+            "✔ {name} was already cancelled\n↻ cleanup done\n✖ {name} has no active run (run 1 cancelled"
+        )),
+        "{}",
+        refused.stderr
+    );
+    assert!(
+        refused
+            .stderr
+            .ends_with(&format!("surt feature {name} --new-run\n")),
+        "{}",
+        refused.stderr
+    );
+    assert_eq!(
+        sandbox.texts("SELECT CAST(count(*) AS TEXT) FROM workflow_run WHERE cleaned_at IS NULL"),
+        ["0"]
+    );
 }
 
 #[cfg(unix)]
