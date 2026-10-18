@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use super::{
     BlockedStep, Commit, Error, GateStatus, IntegrationBranch, MergeIntoBase, Project,
-    RevisionOrigin, RunState,
+    RevisionOrigin, RunSelector, RunState,
 };
 use crate::cleanup::{Kept, Left};
 use crate::drive::{Frozen, StepLabel};
@@ -23,7 +23,7 @@ const CANCELLED: &str = "cancelled";
 pub enum StatusScope<'a> {
     Active,
     All,
-    Feature(&'a str),
+    Feature(&'a str, RunSelector),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -128,19 +128,32 @@ pub enum CleanupState {
 
 impl Project {
     pub async fn status(&self, scope: StatusScope<'_>) -> Result<Vec<RunStatus>, Error> {
-        let (subject, terminal) = match scope {
-            StatusScope::Active => (None, false),
-            StatusScope::All => (None, true),
-            StatusScope::Feature(reference) => {
-                (Some(self.resolve_subject(reference).await?.name), true)
+        let feature = match scope {
+            StatusScope::Feature(reference, run) => {
+                Some((self.resolve_subject(reference).await?.name, run))
             }
+            _ => None,
         };
         let store = self.reader().await?;
-        let statuses = self
-            .read_statuses(&store, subject.as_deref(), terminal)
-            .await;
+        let statuses = match &feature {
+            Some((subject, run)) => self.selected_status(&store, subject, *run).await,
+            None => {
+                self.read_statuses(&store, None, scope == StatusScope::All)
+                    .await
+            }
+        };
         store.close().await;
         statuses
+    }
+
+    async fn selected_status(
+        &self,
+        store: &Store,
+        subject: &str,
+        run: RunSelector,
+    ) -> Result<Vec<RunStatus>, Error> {
+        let run = self.select_run(store, subject, run).await?;
+        Ok(vec![self.run_status(store, &run).await?])
     }
 
     pub(super) async fn read_statuses(
@@ -156,7 +169,11 @@ impl Project {
         Ok(statuses)
     }
 
-    async fn run_status(&self, store: &Store, run: &RootRunRow) -> Result<RunStatus, Error> {
+    pub(super) async fn run_status(
+        &self,
+        store: &Store,
+        run: &RootRunRow,
+    ) -> Result<RunStatus, Error> {
         let root = run.id.as_str();
         let driver = run
             .driver()

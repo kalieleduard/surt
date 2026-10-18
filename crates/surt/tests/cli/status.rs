@@ -273,6 +273,20 @@ fn show_reads_any_revision_after_cleanup_including_a_tasks_own_artifacts() {
 }
 
 #[test]
+fn status_run_1_of_a_single_run_feature_is_the_detail_shown_by_default() {
+    let name = feature_name();
+    let sandbox = at_the_manifest_gate(&name);
+
+    let selected = ok(surt(&sandbox, &["status", &name, "--run", "1"]));
+
+    assert_eq!(selected, ok(surt(&sandbox, &["status", &name])));
+    assert!(
+        selected.starts_with(&format!("{name} · run 1 ")),
+        "{selected}"
+    );
+}
+
+#[test]
 fn status_and_show_write_nothing_to_the_database_or_the_working_copy() {
     let name = feature_name();
     let sandbox = at_the_manifest_gate(&name);
@@ -285,9 +299,12 @@ fn status_and_show_write_nothing_to_the_database_or_the_working_copy() {
         vec!["status"],
         vec!["status", "--all"],
         vec!["status", &name],
+        vec!["status", &name, "--run", "1"],
         vec!["show", &name],
         vec!["show", &name, "manifest"],
         vec!["show", &name, "spec", "--rev", "1"],
+        vec!["show", &name, "--run", "1"],
+        vec!["show", &name, "manifest", "--run", "1"],
     ] {
         ok(surt(&sandbox, &args));
     }
