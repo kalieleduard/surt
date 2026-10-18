@@ -130,6 +130,10 @@ _Avoid_: Persona, bot
 The concrete way of running an Agent: runtime, model, effort, permissions and limits. Each Agent has exactly one, used by every Execution of it; repeating work never switches to another model.
 _Avoid_: Model config, agent config
 
+**Agent Override**:
+Files under `.surt/agents/<id>/` merged over a built-in Agent when a root run is created.
+_Avoid_: Custom agent, plugin
+
 **Agent Runtime**:
 The adapter that knows how to launch and follow one kind of agent, such as Claude Code or the Fake Runtime used in tests.
 _Avoid_: Provider (reserved for external integrations), driver, backend
