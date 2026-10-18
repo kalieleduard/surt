@@ -101,7 +101,7 @@ A reference that keeps whatever an Attempt left behind in a worktree (uncommitte
 _Avoid_: Stash, backup
 
 **Transient Failure**:
-A technical failure caused by something outside the agent that passes by itself, such as a rate limit or a network outage. Surt waits and tries again without spending an Attempt.
+A technical failure caused by something outside the agent that passes by itself, such as a rate limit or a network outage. Surt pauses every agent launch of the Driver until the reported reset time or a backoff ends, then tries again without spending an Attempt.
 _Avoid_: Retryable failure (which spends an Attempt), outage
 
 **Blocked**:
