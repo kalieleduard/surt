@@ -66,7 +66,7 @@ pub(crate) async fn drive<R: AgentRuntime>(
     let Some(_lock) = lock else {
         return Err(driver_live(&driving).await?);
     };
-    if let Some(outcome) = ending::ended(&driving, &progress).await? {
+    if let Some(outcome) = ending::ended_before(&driving, &progress).await? {
         return Ok(outcome);
     }
     let store = driving.store;
@@ -97,7 +97,7 @@ pub(crate) async fn drive<R: AgentRuntime>(
     }
     store.unblock(driver.driving.root).await?;
     let outcome = driver.run().await?;
-    let ended = ending::ended(&driver.driving, &driver.progress).await?;
+    let ended = ending::ended_while_driving(&driver.driving, &driver.progress).await?;
     Ok(ended.unwrap_or(outcome))
 }
 

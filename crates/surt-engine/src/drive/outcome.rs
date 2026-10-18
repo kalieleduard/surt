@@ -11,6 +11,7 @@ pub enum DriveOutcome {
     Succeeded,
     Blocked { steps: Vec<StepLabel> },
     Cancelled,
+    AlreadyCancelled,
     Interrupted,
     Halted(Refusal),
 }
