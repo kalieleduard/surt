@@ -118,6 +118,7 @@ pub enum Progress {
         paused_seconds: i64,
     },
     CleanedUp(Cleanup),
+    RunKept,
     Activity(ActivitySnapshot),
 }
 

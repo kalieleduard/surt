@@ -4,6 +4,7 @@ use super::naming::without_date;
 use super::{
     AwaitedRevision, Candidate, Error, GateStatus, KnownRun, Project, Refusal, RunId, RunStatus,
 };
+use crate::cleanup;
 use crate::store::{RootRunRow, Store, SubjectRow};
 
 pub use executions::Reference;
@@ -125,9 +126,9 @@ impl Project {
 
     async fn subjects(&self) -> Result<Vec<Subject>, Error> {
         let store = self.reader().await?;
-        let rows = store.subjects().await;
+        let subjects = read_subjects(&store).await;
         store.close().await;
-        Ok(rows?.into_iter().map(Subject::from).collect())
+        subjects
     }
 }
 
@@ -145,6 +146,20 @@ fn candidate(name: &str, status: Option<RunStatus>) -> Candidate {
         }),
         states: status.map(|status| status.states).unwrap_or_default(),
     }
+}
+
+async fn read_subjects(store: &Store) -> Result<Vec<Subject>, Error> {
+    let mut subjects = Vec::new();
+    for row in store.subjects().await? {
+        let mut subject = Subject::from(row);
+        if let Some(run) = &subject.pending_cleanup
+            && cleanup::is_kept(store, run).await?
+        {
+            subject.pending_cleanup = None;
+        }
+        subjects.push(subject);
+    }
+    Ok(subjects)
 }
 
 fn matching(subjects: &[Subject], matches: impl Fn(&str) -> bool) -> Vec<&Subject> {

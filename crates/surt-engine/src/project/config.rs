@@ -12,8 +12,8 @@ mod cleanup;
 pub(crate) mod global;
 
 pub use check::Check;
-pub use cleanup::CleanupConfig;
 pub(crate) use check::parse_timeout;
+pub use cleanup::CleanupConfig;
 pub use global::GlobalConfig;
 
 pub(crate) const TEMPLATE: &str = include_str!("../../assets/config.toml");
