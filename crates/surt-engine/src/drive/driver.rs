@@ -1,15 +1,19 @@
+use std::future::Future;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use super::decide::{self, Action, Ctx};
+use super::decide::{self, Action, Ctx, RunEnd};
+use super::flights::Flights;
 use super::frozen::{CorruptSnapshot, Frozen};
 use super::graph::StepRunId;
-use super::load::{Loaded, label};
-use super::outcome::{DriveOutcome, Gate, Progress, ProgressSink};
+use super::launch::Launch;
+use super::load::Loaded;
+use super::outcome::{DriveOutcome, Progress, ProgressSink};
 use crate::platform;
 use crate::project::{Error, Layout, Refusal};
 use crate::runtime::{AgentRuntime, StopLevel, StopSignal};
 use crate::store::{StepRow, Store};
-use crate::workflow::{Definition, StepSpec};
+use crate::workflow::Definition;
 
 const TICK: Duration = Duration::from_secs(1);
 const DONE: &str = "done";
@@ -26,7 +30,17 @@ pub(super) struct Driver<'a, R> {
     pub(super) frozen: Frozen,
     pub(super) runtime: &'a R,
     progress: ProgressSink,
-    pub(super) stop: StopSignal,
+    stop: StopSignal,
+    pub(super) agents: StopSignal,
+    pub(super) cancelling: AtomicBool,
+}
+
+enum Tick {
+    Again,
+    Launched(Vec<Launch>),
+    Wait,
+    Cancel,
+    Return(DriveOutcome),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -47,24 +61,23 @@ pub(crate) async fn drive<R: AgentRuntime>(
     let Some(_lock) = lock else {
         return Err(driver_live(&driving).await?);
     };
-    driving
-        .store
+    let store = driving.store;
+    store
         .record_driver(driving.root, std::process::id())
         .await?;
-    driving.store.interrupt_stale(driving.root).await?;
-    let frozen = Frozen::from_files(driving.store.frozen_files(driving.root).await?)?;
+    store.interrupt_stale(driving.root).await?;
+    store.unblock(driving.root).await?;
+    let frozen = Frozen::from_files(store.frozen_files(driving.root).await?)?;
     let driver = Driver {
         driving,
         frozen,
         runtime,
         progress,
         stop,
+        agents: StopSignal::new(),
+        cancelling: AtomicBool::new(false),
     };
-    loop {
-        if let Some(outcome) = driver.tick().await? {
-            return Ok(outcome);
-        }
-    }
+    driver.run().await
 }
 
 async fn driver_live(driving: &Driving<'_>) -> Result<Error, Error> {
@@ -82,69 +95,123 @@ impl<R: AgentRuntime> Driver<'_, R> {
         let _ = self.progress.send(progress);
     }
 
-    async fn tick(&self) -> Result<Option<DriveOutcome>, Error> {
-        let rows = self.driving.store.run_rows(self.driving.root).await?;
-        let definition = self.frozen.definition(&rows.definition)?;
-        let loaded = Loaded::new(definition, rows);
-        let ctx = Ctx {
-            limits: self.frozen.limits,
-            free_slots: self.driving.max_agents,
-            stop: stop_level(self.stop.level()),
-        };
-        for action in decide::decide(&loaded.graph, &ctx) {
-            if let Some(outcome) = self.act(&loaded, definition, action).await? {
-                return Ok(Some(outcome));
+    async fn run(&self) -> Result<DriveOutcome, Error> {
+        let mut flights = Flights::new(self.driving.max_agents);
+        loop {
+            let level = self.stop.level();
+            self.agents.raise(level);
+            if level == StopLevel::Force {
+                return Ok(DriveOutcome::Interrupted);
+            }
+            let free_slots = flights.free_slots();
+            let (tick, landed) = flights.alongside(self.tick(free_slots)).await;
+            let stale = !landed.is_empty();
+            settle(landed)?;
+            match tick? {
+                Tick::Again => {}
+                Tick::Wait | Tick::Return(_) if stale => {}
+                Tick::Launched(launches) => {
+                    for launch in launches {
+                        flights.push(launch.slot, self.carry(launch));
+                    }
+                }
+                Tick::Return(outcome) if flights.is_empty() => return Ok(outcome),
+                Tick::Return(_) | Tick::Wait => self.wait(&mut flights, level).await?,
+                Tick::Cancel => self.cancel(&mut flights).await?,
             }
         }
-        Ok(None)
     }
 
-    async fn act(
-        &self,
-        loaded: &Loaded,
-        definition: &Definition,
-        action: Action,
-    ) -> Result<Option<DriveOutcome>, Error> {
+    async fn wait<F>(&self, flights: &mut Flights<F>, seen: StopLevel) -> Result<(), Error>
+    where
+        F: Future<Output = Result<(), Error>>,
+    {
+        let busy = !flights.is_empty();
+        tokio::select! {
+            landed = flights.landed(), if busy => settle(landed),
+            () = tokio::time::sleep(TICK) => Ok(()),
+            () = self.stop.raised_above(seen) => Ok(()),
+        }
+    }
+
+    async fn cancel<F>(&self, flights: &mut Flights<F>) -> Result<(), Error>
+    where
+        F: Future<Output = Result<(), Error>>,
+    {
+        self.cancelling.store(true, Ordering::SeqCst);
+        self.agents.raise(StopLevel::Graceful);
+        while !flights.is_empty() {
+            settle(flights.landed().await)?;
+        }
+        Ok(self.driving.store.cancel_run(self.driving.root).await?)
+    }
+
+    async fn tick(&self, free_slots: Vec<usize>) -> Result<Tick, Error> {
+        let rows = self.driving.store.run_rows(self.driving.root).await?;
+        let lists = self.item_lists(&rows).await?;
+        let loaded = Loaded::new(&self.frozen, rows, &lists)?;
+        let ctx = Ctx {
+            limits: self.frozen.limits,
+            free_slots: free_slots.len(),
+            stop: stop_level(self.stop.level()),
+        };
+        let mut slots = free_slots.into_iter();
+        let mut launches = Vec::new();
+        for action in decide::decide(&loaded.graph, &ctx) {
+            match action {
+                Action::Launch { step } => {
+                    let slot = slots.next().unwrap_or_default();
+                    launches.push(self.launch(&loaded, &step, slot).await?);
+                }
+                Action::FinishRun {
+                    end: RunEnd::Cancelled,
+                    ..
+                } => return Ok(Tick::Cancel),
+                Action::Wait => return Ok(Tick::Wait),
+                Action::Return(outcome) => {
+                    return Ok(Tick::Return(self.public(&loaded, outcome)?));
+                }
+                action => self.act(&loaded, action).await?,
+            }
+        }
+        if launches.is_empty() {
+            Ok(Tick::Again)
+        } else {
+            Ok(Tick::Launched(launches))
+        }
+    }
+
+    async fn act(&self, loaded: &Loaded, action: Action) -> Result<(), Error> {
         let store = self.driving.store;
         match action {
-            Action::StartIteration { loop_ } => {
-                self.start_iteration(loaded, definition, &loop_).await?;
-            }
-            Action::Launch { step } => self.launch(loaded, definition, &step).await?,
+            Action::StartIteration { loop_ } => self.start_iteration(loaded, &loop_).await?,
+            Action::ExpandItems { step } => self.expand(loaded, &step).await?,
             Action::OpenGate { step } => store.open_step(&step.0).await?,
             Action::Skip { step } => store.skip_step(&step.0).await?,
             Action::Block { step, reason } => store.block_step(&step.0, reason).await?,
             Action::FinishStep { step } => store.finish_step(&step.0, DONE).await?,
             Action::FinishRun { run, end } => store.finish_run(&run.0, end).await?,
-            Action::ExpandItems { step } | Action::RunOperation { step, .. } => {
+            Action::RunOperation { step, .. } => {
                 return Err(Error::internal(Unsupported {
                     step: known(loaded, &step)?.key.clone(),
                 }));
             }
-            Action::Wait => tokio::time::sleep(TICK).await,
-            Action::Return(outcome) => return Ok(Some(public(loaded, definition, outcome))),
+            Action::Launch { .. } | Action::Wait | Action::Return(_) => {}
         }
-        Ok(None)
+        Ok(())
     }
 
-    async fn start_iteration(
+    pub(super) fn definition(
         &self,
         loaded: &Loaded,
-        definition: &Definition,
-        loop_: &StepRunId,
-    ) -> Result<(), Error> {
-        let row = known(loaded, loop_)?;
-        let Some(StepSpec::Loop(spec)) = definition.step(&row.key).map(|step| &step.spec) else {
-            return Err(CorruptSnapshot::new(&row.key, "not a loop").into());
-        };
-        let body: Vec<(&str, &str)> = spec
-            .body
-            .iter()
-            .filter_map(|key| definition.step(key))
-            .map(|step| (step.key.as_str(), step.spec.kind().as_str()))
-            .collect();
-        Ok(self.driving.store.start_iteration(&row.id, &body).await?)
+        row: &StepRow,
+    ) -> Result<&Definition, CorruptSnapshot> {
+        self.frozen.definition(loaded.definition_of(&row.run))
     }
+}
+
+fn settle(landed: Vec<Result<(), Error>>) -> Result<(), Error> {
+    landed.into_iter().collect()
 }
 
 pub(super) fn known<'a>(
@@ -154,39 +221,6 @@ pub(super) fn known<'a>(
     loaded
         .step(step)
         .ok_or_else(|| CorruptSnapshot::new(&step.0, "no such step run"))
-}
-
-fn public(loaded: &Loaded, definition: &Definition, outcome: decide::DriveOutcome) -> DriveOutcome {
-    let rows = |steps: &[StepRunId]| {
-        steps
-            .iter()
-            .filter_map(|step| loaded.step(step))
-            .collect::<Vec<_>>()
-    };
-    match outcome {
-        decide::DriveOutcome::AtGate { gates } => DriveOutcome::AtGate {
-            gates: rows(&gates)
-                .into_iter()
-                .map(|row| Gate {
-                    step: label(row),
-                    artifact: gate_artifact(definition, &row.key),
-                })
-                .collect(),
-        },
-        decide::DriveOutcome::Blocked { steps } => DriveOutcome::Blocked {
-            steps: rows(&steps).into_iter().map(label).collect(),
-        },
-        decide::DriveOutcome::Succeeded => DriveOutcome::Succeeded,
-        decide::DriveOutcome::Cancelled => DriveOutcome::Cancelled,
-        decide::DriveOutcome::Interrupted => DriveOutcome::Interrupted,
-    }
-}
-
-fn gate_artifact(definition: &Definition, key: &str) -> String {
-    match definition.step(key).map(|step| &step.spec) {
-        Some(StepSpec::Approval(gate)) => gate.artifact.clone(),
-        _ => String::new(),
-    }
 }
 
 fn stop_level(level: StopLevel) -> decide::StopLevel {

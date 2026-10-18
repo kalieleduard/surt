@@ -11,12 +11,15 @@ const STEP_RUNNING: &str = "step.running";
 pub(crate) struct ExecutionStart<'a> {
     pub(crate) step: &'a str,
     pub(crate) agent_snapshot: &'a str,
+    pub(crate) slot: usize,
     pub(crate) inputs: Vec<InputRequest>,
 }
 
 pub(crate) struct InputRequest {
     pub(crate) input: String,
     pub(crate) artifact: String,
+    pub(crate) run: String,
+    pub(crate) item: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -32,6 +35,7 @@ pub(crate) enum ExecutionEnd {
         class: FailureClass,
         code: String,
         message: String,
+        resets_at: Option<i64>,
     },
     Interrupted,
 }
@@ -43,9 +47,8 @@ impl Store {
     ) -> Result<StartedExecution, StoreError> {
         let now = unix_now();
         let mut transaction = self.begin_write().await?;
-        let (run, attempt): (String, i64) = sqlx::query_as(
-            "SELECT workflow_run_id, (SELECT coalesce(max(attempt), 0) + 1 FROM execution \
-             WHERE step_run_id = ?1) FROM step_run WHERE id = ?1",
+        let attempt: i64 = sqlx::query_scalar(
+            "SELECT coalesce(max(attempt), 0) + 1 FROM execution WHERE step_run_id = ?",
         )
         .bind(start.step)
         .fetch_one(&mut *transaction)
@@ -63,13 +66,14 @@ impl Store {
         }
         let id = new_id();
         sqlx::query(
-            "INSERT INTO execution (id, step_run_id, attempt, kind, agent_snapshot_sha256, state, started_at) \
-             VALUES (?, ?, ?, 'agent', ?, 'running', ?)",
+            "INSERT INTO execution (id, step_run_id, attempt, kind, agent_snapshot_sha256, state, slot, started_at) \
+             VALUES (?, ?, ?, 'agent', ?, 'running', ?, ?)",
         )
         .bind(&id)
         .bind(start.step)
         .bind(attempt)
         .bind(start.agent_snapshot)
+        .bind(i64::try_from(start.slot).unwrap_or(i64::MAX))
         .bind(now)
         .execute(&mut *transaction)
         .await?;
@@ -82,7 +86,7 @@ impl Store {
         .await?;
         let mut inputs = Vec::new();
         for request in &start.inputs {
-            if let Some(revision) = fix_input(&mut transaction, &run, &id, request, now).await? {
+            if let Some(revision) = fix_input(&mut transaction, &id, request, now).await? {
                 inputs.push((request.input.clone(), revision));
             }
         }
@@ -100,29 +104,41 @@ impl Store {
         end: &ExecutionEnd,
     ) -> Result<(), StoreError> {
         let now = unix_now();
-        let (state, class, code, message, event) = match end {
+        let (state, class, code, message, resets_at, event) = match end {
             ExecutionEnd::Failed {
                 class,
                 code,
                 message,
+                resets_at,
             } => (
                 "failed",
                 Some(failure_class_name(*class)),
                 Some(code.as_str()),
                 Some(message.as_str()),
+                *resets_at,
                 "execution.failed",
             ),
-            ExecutionEnd::Interrupted => ("interrupted", None, None, None, "execution.interrupted"),
+            ExecutionEnd::Interrupted => (
+                "interrupted",
+                None,
+                None,
+                None,
+                None,
+                "execution.interrupted",
+            ),
         };
         let mut transaction = self.begin_write().await?;
         sqlx::query(
-            "UPDATE execution SET state = ?, failure_class = ?, error_code = ?, error_message = ?, \
-             finished_at = ? WHERE id = ? AND state IN ('queued', 'running')",
+            "UPDATE execution SET state = ?1, failure_class = ?2, error_code = ?3, error_message = ?4, \
+             runtime_info = CASE WHEN ?5 IS NULL THEN runtime_info \
+             ELSE json_set(coalesce(runtime_info, '{}'), '$.resets_at', ?5) END, \
+             finished_at = ?6 WHERE id = ?7 AND state IN ('queued', 'running')",
         )
         .bind(state)
         .bind(class)
         .bind(code)
         .bind(message)
+        .bind(resets_at)
         .bind(now)
         .bind(execution)
         .execute(&mut *transaction)
@@ -134,28 +150,30 @@ impl Store {
 
 async fn fix_input(
     connection: &mut SqliteConnection,
-    run: &str,
     execution: &str,
     request: &InputRequest,
     now: i64,
 ) -> Result<Option<String>, sqlx::Error> {
     let latest: Option<String> = sqlx::query_scalar(
         "SELECT r.id FROM artifact a JOIN artifact_revision r ON r.artifact_id = a.id \
-         WHERE a.workflow_run_id = ? AND a.name = ? ORDER BY r.number DESC LIMIT 1",
+         WHERE a.workflow_run_id = ? AND a.name = ? AND (? IS NULL OR r.pinned_at IS NOT NULL) \
+         ORDER BY r.number DESC LIMIT 1",
     )
-    .bind(run)
+    .bind(&request.run)
     .bind(&request.artifact)
+    .bind(&request.item)
     .fetch_optional(&mut *connection)
     .await?;
     let Some(revision) = latest else {
         return Ok(None);
     };
     sqlx::query(
-        "INSERT INTO execution_input (execution_id, input_name, revision_id) VALUES (?, ?, ?)",
+        "INSERT INTO execution_input (execution_id, input_name, revision_id, item_key) VALUES (?, ?, ?, ?)",
     )
     .bind(execution)
     .bind(&request.input)
     .bind(&revision)
+    .bind(&request.item)
     .execute(&mut *connection)
     .await?;
     let pinned = sqlx::query(

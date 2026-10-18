@@ -1,8 +1,10 @@
+use std::collections::BTreeSet;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::driver::Driver;
 use super::frozen::gate_artifacts;
+use super::launch::Launch;
 use super::load::{Loaded, label};
 use super::outcome::Progress;
 use crate::artifacts::AcceptedDelivery;
@@ -11,22 +13,43 @@ use crate::runtime::AgentRuntime;
 use crate::store::{Acceptance, ExecutionEnd, PublishedOutput, StartedExecution, StepRow};
 use crate::workflow::Definition;
 
+pub(super) struct WorkingCopy {
+    dir: PathBuf,
+    artifacts: BTreeSet<String>,
+}
+
 impl<R: AgentRuntime> Driver<'_, R> {
-    pub(super) async fn publish(
+    pub(super) fn working_copy(
         &self,
         loaded: &Loaded,
-        definition: &Definition,
         row: &StepRow,
-        started: &StartedExecution,
+        definition: &Definition,
+    ) -> Option<WorkingCopy> {
+        (row.run == loaded.rows.id).then(|| WorkingCopy {
+            dir: self.driving.layout.working_copy(&loaded.rows.subject),
+            artifacts: gate_artifacts(definition)
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+        })
+    }
+
+    pub(super) async fn publish(
+        &self,
+        launch: &Launch,
         delivery: AcceptedDelivery,
     ) -> Result<(), Error> {
-        let gated = gate_artifacts(definition);
-        let in_root = row.run == loaded.rows.id;
+        let gated = |name: &str| {
+            launch
+                .working_copy
+                .as_ref()
+                .is_some_and(|copy| copy.artifacts.contains(name))
+        };
         let outputs: Vec<PublishedOutput> = delivery
             .outputs
             .into_iter()
             .map(|(name, output)| PublishedOutput {
-                working_copy: in_root && gated.contains(name.as_str()),
+                working_copy: gated(&name),
                 name,
                 files: output
                     .files
@@ -36,19 +59,18 @@ impl<R: AgentRuntime> Driver<'_, R> {
             })
             .collect();
         let acceptance = Acceptance {
-            execution: &started.id,
+            execution: &launch.started.id,
             outcome: &delivery.outcome,
             outputs: &outputs,
         };
         let published = self.driving.store.accept_execution(acceptance).await?;
-        let working_copy = self.driving.layout.working_copy(&loaded.rows.subject);
         for (output, (name, revision)) in outputs.iter().zip(published) {
-            if output.working_copy {
-                write_files(&working_copy, &output.files)
-                    .map_err(|error| Error::io("write", &working_copy, error))?;
+            if let Some(copy) = launch.working_copy.as_ref().filter(|_| output.working_copy) {
+                write_files(&copy.dir, &output.files)
+                    .map_err(|error| Error::io("write", &copy.dir, error))?;
                 self.driving
                     .store
-                    .promote_working_copy(&row.run, &revision.revision_id)
+                    .promote_working_copy(&launch.row.run, &revision.revision_id)
                     .await?;
             }
             self.report(Progress::RevisionPublished {
@@ -57,7 +79,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             });
         }
         self.report(Progress::StepFinished {
-            step: label(row),
+            step: label(&launch.row),
             outcome: delivery.outcome,
         });
         Ok(())

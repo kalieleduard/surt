@@ -1,4 +1,5 @@
 mod delivery;
+mod items;
 
 use std::fmt::Write;
 
@@ -13,6 +14,7 @@ pub(crate) use delivery::{AcceptedDelivery, DeliveryContract, DeliveryRejection}
     )
 )]
 pub(crate) use delivery::{ConsistencyCheck, ItemListProblem};
+pub(crate) use items::{ListedItem, item_view, listed_items};
 
 const SHA256_HEX_LEN: usize = 64;
 

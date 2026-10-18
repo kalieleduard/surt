@@ -1,5 +1,6 @@
 use std::fs::{self, OpenOptions};
 use std::path::Path;
+use std::sync::atomic::Ordering;
 
 use tokio::sync::mpsc;
 use uuid::Uuid;
@@ -7,16 +8,18 @@ use uuid::Uuid;
 use super::driver::{Driver, known};
 use super::frozen::{CorruptSnapshot, FrozenAgent};
 use super::graph::{StepRunId, StepRunState};
+use super::inputs::scoped;
 use super::load::{Loaded, label};
 use super::outcome::Progress;
+use super::record::WorkingCopy;
 use crate::artifacts::{AcceptedDelivery, DeliveryContract};
 use crate::context::{Assembly, ContextInput, PreviousIteration};
 use crate::project::Error;
 use crate::runtime::{
     AgentRuntime, Rejection, RuntimeRequest, StepAttempt, StopLevel, Verdict, accept,
 };
-use crate::store::{ExecutionEnd, ExecutionStart, InputRequest, StartedExecution, StepRow};
-use crate::workflow::{Definition, StepSpec};
+use crate::store::{ExecutionEnd, ExecutionStart, StartedExecution, StepRow};
+use crate::workflow::StepSpec;
 
 const DELIVERY_DIR: &str = "delivery";
 const LAUNCH_DIR: &str = "launch";
@@ -24,37 +27,40 @@ const LOG_FILES: [&str; 2] = ["stream.jsonl", "stderr.log"];
 const SKIPPED: &str = "SKIPPED";
 const FIRST_ITERATION: u32 = 1;
 
-pub(super) enum Ending {
+pub(super) struct Launch {
+    pub(super) slot: usize,
+    pub(super) row: StepRow,
+    pub(super) started: StartedExecution,
+    request: RuntimeRequest,
+    contract: DeliveryContract,
+    pub(super) working_copy: Option<WorkingCopy>,
+}
+
+enum Ending {
     Accepted(AcceptedDelivery),
     Ended(ExecutionEnd),
+    Cancelled,
 }
 
 impl<R: AgentRuntime> Driver<'_, R> {
     pub(super) async fn launch(
         &self,
         loaded: &Loaded,
-        definition: &Definition,
         step: &StepRunId,
-    ) -> Result<(), Error> {
+        slot: usize,
+    ) -> Result<Launch, Error> {
         let row = known(loaded, step)?;
+        let definition = self.definition(loaded, row)?;
         let Some(StepSpec::Agent(spec)) = definition.step(&row.key).map(|step| &step.spec) else {
             return Err(CorruptSnapshot::new(&row.key, "not an agent step").into());
         };
         let agent = self.frozen.agent(&spec.agent)?;
         let contract = agent.delivery_contract()?;
-        let inputs = agent
-            .contract
-            .inputs
-            .keys()
-            .map(|input| InputRequest {
-                input: input.clone(),
-                artifact: spec.inputs.get(input).unwrap_or(input).clone(),
-            })
-            .collect();
         let start = ExecutionStart {
             step: &row.id,
             agent_snapshot: &agent.snapshot,
-            inputs,
+            slot,
+            inputs: self.input_requests(loaded, row, spec, agent)?,
         };
         let started = self.driving.store.start_execution(start).await?;
         let request = self.prepare(loaded, row, agent, &started).await?;
@@ -62,12 +68,21 @@ impl<R: AgentRuntime> Driver<'_, R> {
             step: label(row),
             attempt: started.attempt,
         });
-        match self.execute(&request, &contract).await {
-            Ending::Accepted(delivery) => {
-                self.publish(loaded, definition, row, &started, delivery)
-                    .await
-            }
-            Ending::Ended(end) => self.end(row, &started, end).await,
+        Ok(Launch {
+            slot,
+            row: row.clone(),
+            started,
+            request,
+            contract,
+            working_copy: self.working_copy(loaded, row, definition),
+        })
+    }
+
+    pub(super) async fn carry(&self, launch: Launch) -> Result<(), Error> {
+        match self.execute(&launch.request, &launch.contract).await {
+            Ending::Accepted(delivery) => self.publish(&launch, delivery).await,
+            Ending::Ended(end) => self.end(&launch.row, &launch.started, end).await,
+            Ending::Cancelled => Ok(()),
         }
     }
 
@@ -87,7 +102,8 @@ impl<R: AgentRuntime> Driver<'_, R> {
         create_logs(&log_dir).map_err(|error| Error::io("create", &log_dir, error))?;
         let mut revisions = Vec::new();
         for (name, revision) in &started.inputs {
-            revisions.push((name, self.driving.store.revision(revision).await?));
+            let revision = self.driving.store.revision(revision).await?;
+            revisions.push((name, scoped(name, row, revision)?));
         }
         let assembly = Assembly {
             execution_dir: &execution_dir,
@@ -103,7 +119,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             .map_err(|error| Error::io("write the context in", &execution_dir, error))?;
         Ok(RuntimeRequest {
             step: StepAttempt::new(
-                &row.key,
+                &runtime_key(row),
                 row.iteration.unwrap_or(FIRST_ITERATION),
                 started.attempt,
             ),
@@ -120,9 +136,12 @@ impl<R: AgentRuntime> Driver<'_, R> {
         let (events, _received) = mpsc::unbounded_channel();
         let result = self
             .runtime
-            .execute(request.clone(), events, self.stop.clone())
+            .execute(request.clone(), events, self.agents.clone())
             .await;
-        if self.stop.level() != StopLevel::None {
+        if self.cancelling.load(Ordering::SeqCst) {
+            return Ending::Cancelled;
+        }
+        if self.agents.level() != StopLevel::None {
             return Ending::Ended(ExecutionEnd::Interrupted);
         }
         let completion = match result {
@@ -132,6 +151,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
                     class: error.class,
                     code: error.code,
                     message: error.message,
+                    resets_at: error.resets_at,
                 });
             }
         };
@@ -142,8 +162,16 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 class: rejection.class(),
                 code: rejection_code(&rejection).to_owned(),
                 message: format!("{rejection:?}"),
+                resets_at: None,
             }),
         }
+    }
+}
+
+fn runtime_key(row: &StepRow) -> String {
+    match &row.item {
+        Some(item) => format!("{item}/{}", row.key),
+        None => row.key.clone(),
     }
 }
 

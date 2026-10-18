@@ -1,10 +1,16 @@
+use std::collections::BTreeMap;
+
+use super::frozen::{CorruptSnapshot, Frozen};
 use super::graph::{
-    Attempts, Condition, Iterations, OperationId, Outcome, RunGraph, RunId, Step, StepKey,
-    StepRunId, Work, WorkflowRun,
+    Attempts, Condition, Item, ItemKey, Iterations, OperationId, Outcome, RunGraph, RunId,
+    RunState, Step, StepKey, StepRunId, Work, WorkflowRun,
 };
 use super::outcome::StepLabel;
+use crate::artifacts::ListedItem;
 use crate::store::{RunRows, StepRow};
 use crate::workflow::{Definition, StepSpec};
+
+pub(crate) type ItemLists = BTreeMap<String, Vec<ListedItem>>;
 
 pub(crate) struct Loaded {
     pub(crate) graph: RunGraph,
@@ -12,40 +18,44 @@ pub(crate) struct Loaded {
 }
 
 struct Builder<'a> {
-    definition: &'a Definition,
+    frozen: &'a Frozen,
     rows: &'a RunRows,
+    lists: &'a ItemLists,
 }
 
 impl Loaded {
-    pub(crate) fn new(definition: &Definition, rows: RunRows) -> Loaded {
+    pub(crate) fn new(
+        frozen: &Frozen,
+        rows: RunRows,
+        lists: &ItemLists,
+    ) -> Result<Loaded, CorruptSnapshot> {
         let builder = Builder {
-            definition,
+            frozen,
             rows: &rows,
+            lists,
         };
-        let steps = definition
-            .steps
-            .iter()
-            .filter(|step| definition.enclosing_loop(&step.key).is_none())
-            .filter_map(|step| {
-                let row = rows.steps.iter().find(|row| {
-                    row.run == rows.id && row.loop_step.is_none() && row.key == step.key
-                })?;
-                Some(builder.step(row, &step.spec))
-            })
-            .collect();
+        let root = builder.run(&rows.id, rows.state, &rows.definition)?;
         let graph = RunGraph {
-            root: WorkflowRun {
-                id: RunId(rows.id.clone()),
-                state: rows.state,
-                steps,
-            },
+            root,
             cancel_requested: rows.cancel_requested,
         };
-        Loaded { graph, rows }
+        Ok(Loaded { graph, rows })
     }
 
     pub(crate) fn step(&self, id: &StepRunId) -> Option<&StepRow> {
         self.rows.steps.iter().find(|row| row.id == id.0)
+    }
+
+    pub(crate) fn definition_of(&self, run: &str) -> &str {
+        self.rows.definition_of(run)
+    }
+
+    pub(crate) fn parent_of(&self, run: &str) -> Option<&StepRow> {
+        let child = self.rows.children.iter().find(|child| child.id == run)?;
+        self.rows
+            .steps
+            .iter()
+            .find(|row| row.id == child.parent_step)
     }
 
     pub(crate) fn previous_iteration(&self, row: &StepRow) -> Vec<&StepRow> {
@@ -65,14 +75,47 @@ impl Loaded {
 pub(crate) fn label(row: &StepRow) -> StepLabel {
     StepLabel {
         key: row.key.clone(),
-        item: None,
+        item: row.item.clone(),
         iteration: row.iteration,
     }
 }
 
 impl Builder<'_> {
-    fn step(&self, row: &StepRow, spec: &StepSpec) -> Step {
-        Step {
+    fn run(
+        &self,
+        id: &str,
+        state: RunState,
+        snapshot: &str,
+    ) -> Result<WorkflowRun, CorruptSnapshot> {
+        let definition = self.frozen.definition(snapshot)?;
+        let mut steps = Vec::new();
+        for step in &definition.steps {
+            if definition.enclosing_loop(&step.key).is_some() {
+                continue;
+            }
+            let row = self
+                .rows
+                .steps
+                .iter()
+                .find(|row| row.run == id && row.loop_step.is_none() && row.key == step.key);
+            if let Some(row) = row {
+                steps.push(self.step(definition, row, &step.spec)?);
+            }
+        }
+        Ok(WorkflowRun {
+            id: RunId(id.to_owned()),
+            state,
+            steps,
+        })
+    }
+
+    fn step(
+        &self,
+        definition: &Definition,
+        row: &StepRow,
+        spec: &StepSpec,
+    ) -> Result<Step, CorruptSnapshot> {
+        Ok(Step {
             id: StepRunId(row.id.clone()),
             key: StepKey(row.key.clone()),
             needs: spec
@@ -82,12 +125,17 @@ impl Builder<'_> {
                 .collect(),
             when: spec.when().map(|when| condition(&when.step, &when.outcome)),
             state: row.state.clone(),
-            work: self.work(row, spec),
-        }
+            work: self.work(definition, row, spec)?,
+        })
     }
 
-    fn work(&self, row: &StepRow, spec: &StepSpec) -> Work {
-        match spec {
+    fn work(
+        &self,
+        definition: &Definition,
+        row: &StepRow,
+        spec: &StepSpec,
+    ) -> Result<Work, CorruptSnapshot> {
+        Ok(match spec {
             StepSpec::Agent(_) => Work::Agent(self.attempts(row)),
             StepSpec::Operation(operation) => {
                 Work::Operation(OperationId(operation.run.clone()), self.attempts(row))
@@ -95,10 +143,10 @@ impl Builder<'_> {
             StepSpec::Approval(_) => Work::Approval,
             StepSpec::Loop(spec) => Work::Loop(
                 condition(&spec.until.step, &spec.until.outcome),
-                self.iterations(row, &spec.body),
+                self.iterations(definition, row, &spec.body)?,
             ),
-            StepSpec::PerItem(_) => Work::PerItem(Vec::new()),
-        }
+            StepSpec::PerItem(_) => Work::PerItem(self.items(row)?),
+        })
     }
 
     fn attempts(&self, row: &StepRow) -> Attempts {
@@ -110,11 +158,16 @@ impl Builder<'_> {
                 .filter(|execution| execution.step == row.id)
                 .map(|execution| execution.state)
                 .collect(),
-            budget_start: 0,
+            budget_start: row.budget_base,
         }
     }
 
-    fn iterations(&self, row: &StepRow, body: &[String]) -> Iterations {
+    fn iterations(
+        &self,
+        definition: &Definition,
+        row: &StepRow,
+        body: &[String],
+    ) -> Result<Iterations, CorruptSnapshot> {
         let members: Vec<&StepRow> = self
             .rows
             .steps
@@ -126,23 +179,48 @@ impl Builder<'_> {
             .filter_map(|member| member.iteration)
             .max()
             .unwrap_or_default();
-        let bodies = (1..=count)
-            .map(|iteration| {
-                body.iter()
-                    .filter_map(|key| {
-                        let member = members.iter().find(|member| {
-                            member.iteration == Some(iteration) && &member.key == key
-                        })?;
-                        let spec = &self.definition.step(key)?.spec;
-                        Some(self.step(member, spec))
-                    })
-                    .collect()
-            })
-            .collect();
-        Iterations {
-            bodies,
-            budget_start: 0,
+        let mut bodies = Vec::new();
+        for iteration in 1..=count {
+            let mut steps = Vec::new();
+            for key in body {
+                let member = members
+                    .iter()
+                    .find(|member| member.iteration == Some(iteration) && &member.key == key);
+                if let (Some(member), Some(step)) = (member, definition.step(key)) {
+                    steps.push(self.step(definition, member, &step.spec)?);
+                }
+            }
+            bodies.push(steps);
         }
+        Ok(Iterations {
+            bodies,
+            budget_start: row.budget_base,
+        })
+    }
+
+    fn items(&self, row: &StepRow) -> Result<Vec<Item>, CorruptSnapshot> {
+        let Some(listed) = self.lists.get(&row.id) else {
+            return Ok(Vec::new());
+        };
+        let mut items = Vec::new();
+        for item in listed {
+            let child = self
+                .rows
+                .children
+                .iter()
+                .find(|child| child.parent_step == row.id && child.item == item.key)
+                .ok_or_else(|| CorruptSnapshot::new(&item.key, "no child run for the item"))?;
+            items.push(Item {
+                key: ItemKey(item.key.clone()),
+                needs: item
+                    .needs
+                    .iter()
+                    .map(|need| ItemKey(need.clone()))
+                    .collect(),
+                run: self.run(&child.id, child.state, &child.definition)?,
+            });
+        }
+        Ok(items)
     }
 }
 
