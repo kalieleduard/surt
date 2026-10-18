@@ -12,6 +12,7 @@ mod acceptance;
 mod approvals;
 mod blocked;
 mod branches;
+mod checkpoints;
 mod cleanup;
 mod control;
 mod drivers;
@@ -31,6 +32,9 @@ pub(crate) use acceptance::{Acceptance, Integrated, PublishedOutput};
 pub(crate) use approvals::{Decision, DecisionOutcome, GateRow, NewDecision, WaitingGate};
 pub(crate) use blocked::{BlockedRow, FailureRow};
 pub(crate) use branches::{PreviousExecution, RunBranch};
+pub use checkpoints::Checkpoint;
+#[cfg(feature = "test-support")]
+pub(crate) use checkpoints::Faults;
 pub(crate) use cleanup::{CleanupRecord, TaskBranch};
 pub(crate) use drivers::StaleExecution;
 pub(crate) use executions::{
@@ -63,10 +67,15 @@ pub(crate) enum StoreError {
     Migration(#[from] MigrateError),
     #[error(transparent)]
     Database(#[from] sqlx::Error),
+    #[cfg(feature = "test-support")]
+    #[error("crashed after {0:?}")]
+    Crashed(Checkpoint),
 }
 
 pub(crate) struct Store {
     pool: SqlitePool,
+    #[cfg(feature = "test-support")]
+    faults: Faults,
 }
 
 impl Store {
@@ -88,7 +97,11 @@ impl Store {
         let _migration_lock = take_lock(lock.to_path_buf()).await?;
         let pool = SqlitePool::connect_with(connect_options(database, busy_timeout)).await?;
         migrate(&pool).await?;
-        let store = Store { pool };
+        let store = Store {
+            pool,
+            #[cfg(feature = "test-support")]
+            faults: Faults::default(),
+        };
         store.record_project(project_name).await?;
         Ok(store)
     }

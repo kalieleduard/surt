@@ -1,6 +1,6 @@
 use super::graph::block_reason_name;
 use super::runs::new_id;
-use super::{About, Store, StoreError, record_event, unix_now};
+use super::{About, Checkpoint, Store, StoreError, record_event, unix_now};
 use crate::drive::RunEnd;
 use crate::drive::graph::BlockReason;
 
@@ -101,7 +101,8 @@ impl Store {
             now,
         )
         .await?;
-        Ok(transaction.commit().await?)
+        transaction.commit().await?;
+        self.reached(Checkpoint::IterationOrExpansion)
     }
 
     pub(crate) async fn open_step(&self, step: &str) -> Result<(), StoreError> {

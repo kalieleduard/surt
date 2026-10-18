@@ -2,7 +2,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::process::{Child, ChildStderr, Command};
 use std::time::{Duration, Instant};
 
-use crate::scripts::{build, tasks};
+use crate::scripts::{build, tasks, wait_until_stopped};
 use crate::start::{feature_name, planned};
 use crate::support::Sandbox;
 
@@ -53,10 +53,6 @@ impl Driving {
         let status = self.child.wait().expect("surt exits");
         (status.code(), self.seen)
     }
-}
-
-fn wait_until_stopped(step: &str) -> String {
-    format!("[[on]]\nstep = \"{step}\"\nwait_until_stopped = {{}}\n\n")
 }
 
 fn interrupted(name: &str) -> String {

@@ -5,6 +5,7 @@ mod feature;
 mod init;
 #[cfg(unix)]
 mod interrupt;
+mod kill;
 mod output;
 mod phases;
 mod scripts;

@@ -39,6 +39,10 @@ pub use repository::Commit;
 pub use resolving::Subject;
 pub use subjects::FreeName;
 
+#[cfg(feature = "test-support")]
+pub use crate::store::Checkpoint;
+#[cfg(feature = "test-support")]
+use crate::store::Faults;
 use crate::store::Store;
 pub(crate) use discovery::SurtHome;
 pub(crate) use layout::Layout;
@@ -49,6 +53,8 @@ pub struct Project {
     config: Config,
     catalog: Catalog,
     home: SurtHome,
+    #[cfg(feature = "test-support")]
+    faults: Faults,
 }
 
 impl Project {
@@ -72,6 +78,8 @@ impl Project {
             config,
             catalog,
             home: home.clone(),
+            #[cfg(feature = "test-support")]
+            faults: Faults::default(),
         })
     }
 
@@ -85,6 +93,18 @@ impl Project {
 
     pub fn config(&self) -> &Config {
         &self.config
+    }
+
+    #[cfg(feature = "test-support")]
+    pub fn crash_after(&self, checkpoint: Checkpoint) {
+        self.faults.arm(checkpoint);
+    }
+
+    async fn store(&self) -> Result<Store, Error> {
+        let store = open_store(&self.layout).await?;
+        #[cfg(feature = "test-support")]
+        let store = store.with_faults(self.faults.clone());
+        Ok(store)
     }
 
     fn refuse_agent_overrides(&self) -> Result<(), Error> {

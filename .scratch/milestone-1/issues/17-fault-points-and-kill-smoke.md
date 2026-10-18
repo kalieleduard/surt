@@ -8,8 +8,8 @@ Spec: [Milestone 1](../spec.md) (story 116) · Slice: S5 Recovery and ending · 
 
 **Status:** ready-for-agent
 
-- [ ] Fault points exist only with the `test-support` feature and can fail the process right after the commit of: run created, Iteration started / Per-Item expansion, Execution started, process spawned, Intention, Execution accepted, Working Copy written, Execution ended otherwise
-- [ ] For each checkpoint, a `Project` test fails there and checks the next `drive` finishes the run without duplicating any effect (no double merge, no duplicate Revision, no lost Approval)
-- [ ] The `kill` smoke kills the `surt` process during a Fake Execution that waits until stopped; resuming finishes the run, with the killed Execution `interrupted` and a new Attempt
-- [ ] A `kill -9` of a Driver releases the run lock and the next command takes over
-- [ ] All tests are deterministic on the three OSes, with no real sleeps
+- [x] Fault points exist only with the `test-support` feature and can fail the process right after the commit of: run created, Iteration started / Per-Item expansion, Execution started, process spawned, Intention, Execution accepted, Working Copy written, Execution ended otherwise
+- [x] For each checkpoint, a `Project` test fails there and checks the next `drive` finishes the run without duplicating any effect (no double merge, no duplicate Revision, no lost Approval)
+- [x] The `kill` smoke kills the `surt` process during a Fake Execution that waits until stopped; resuming finishes the run, with the killed Execution `interrupted` and a new Attempt
+- [x] A `kill -9` of a Driver releases the run lock and the next command takes over
+- [x] All tests are deterministic on the three OSes, with no real sleeps

@@ -3,7 +3,7 @@ use sqlx::SqliteConnection;
 use super::graph::failure_class_name;
 use super::revisions::number;
 use super::runs::new_id;
-use super::{About, Store, StoreError, record_event, unix_now};
+use super::{About, Checkpoint, Store, StoreError, record_event, unix_now};
 use crate::runtime::FailureClass;
 
 const STEP_RUNNING: &str = "step.running";
@@ -106,6 +106,7 @@ impl Store {
             }
         }
         transaction.commit().await?;
+        self.reached(Checkpoint::ExecutionStarted)?;
         Ok(StartedExecution {
             id,
             attempt: number(attempt),
@@ -159,7 +160,8 @@ impl Store {
         .execute(&mut *transaction)
         .await?;
         record_event(&mut transaction, About::Execution(execution), event, now).await?;
-        Ok(transaction.commit().await?)
+        transaction.commit().await?;
+        self.reached(Checkpoint::ExecutionEnded)
     }
 }
 
