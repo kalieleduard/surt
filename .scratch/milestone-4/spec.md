@@ -2,7 +2,7 @@
 
 Labels: ready-for-agent
 Type: spec
-Status: open (tickets not cut yet)
+Status: open (0 of 10 tickets resolved; tickets in [issues/](issues/))
 Map: [Surt — Architecture and implementation plan](../surt-architecture/map.md)
 Plan: [K. Roadmap](../../docs/architecture/K-roadmap.md#after-milestone-1), [F. Built-in defaults and local overrides](../../docs/architecture/F-agent-contract.md#built-in-defaults-and-local-overrides), [A. Merging into the Base](../../docs/architecture/A-git-integration.md#merging-into-the-base-opt-in), [I. An interrupted fast-forward](../../docs/architecture/I-recovery.md#an-interrupted-fast-forward-into-the-base), [I. Cleanup — what each ending removes](../../docs/architecture/I-cleanup.md#what-each-ending-removes), [J. Configuration](../../docs/architecture/J-cli.md#configuration), [ADR 0006](../../docs/adr/0006-merge-into-base-is-opt-in-fast-forward.md)
 Previous: [Milestone 3](../milestone-3/spec.md)
@@ -229,4 +229,4 @@ The plan documents ([F](../../docs/architecture/F-agent-contract.md#built-in-def
 - **ADR 0006 becomes code.** The map's standing constraint "no automatic merge into the main branch except the opt-in `ff-only`" is enforced by the Operation's compare-and-swap, not by an Agent's instructions; the Shipper stays read-only.
 - **Writing into the user's worktree.** Recovery's principle "never writes to the user's worktree" has exactly one opt-in exception, the clean fast-forward of step 4, and it is the reason for the `worktree_path` Intention and the `merge_into_base_interrupted` block. Nothing else in M4 writes there.
 - **Overrides and trust.** `.surt/agents/` is versioned, so pulling a branch can change which tools a new run's Builder may run. Tool and permission rules are not a sandbox (F); a team reviews `.surt/agents/` like any other code.
-- **Shipping** follows Milestones 1 to 3: M4 ships once the suite passes in CI on the three OSes and the M4 section of the manual smoke passes on macOS. Tickets for M4 are cut from this spec into `.scratch/milestone-4/issues/`.
+- **Shipping** follows Milestones 1 to 3: M4 ships once the suite passes in CI on the three OSes and the M4 section of the manual smoke passes on macOS. Tickets for M4 are in [issues/](issues/).
