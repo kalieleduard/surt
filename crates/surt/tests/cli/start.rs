@@ -3,12 +3,12 @@ use std::time::{Duration, Instant};
 use jiff::tz::TimeZone;
 use jiff::{Timestamp, Zoned};
 
-use crate::scripts::{build, crash_in, limit_failure, review, ship, spec, tasks};
+use crate::scripts::{build, crash_in, limit_failure_in, review, ship, spec, tasks};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const SHORT_SHA_CHARS: usize = 7;
 const BLOCKED_EXIT_CODE: i32 = 4;
-const RESET_DELAY_SECONDS: i64 = 3600;
+const RESET_DELAY_SECONDS: i64 = 2;
 const E2E_CEILING: Duration = Duration::from_secs(60);
 
 pub fn feature_name() -> String {
@@ -234,9 +234,8 @@ fn last_failure(sandbox: &Sandbox, item: &str) -> (String, String) {
 }
 
 #[test]
-fn blocked_tasks_stop_start_with_exit_4_naming_each_last_error_and_log() {
+fn a_rate_limited_task_pauses_and_merges_while_a_blocked_task_stops_start_with_exit_4() {
     let name = feature_name();
-    let resets_at = Zoned::now().timestamp().as_second() + RESET_DELAY_SECONDS;
     let sandbox = planned(
         &name,
         &[
@@ -246,7 +245,9 @@ fn blocked_tasks_stop_start_with_exit_4_naming_each_last_error_and_log() {
             crash_in("B/build", 1, 1),
             crash_in("B/build", 1, 2),
             crash_in("B/build", 1, 3),
-            limit_failure("C/build", resets_at),
+            limit_failure_in("C/build", RESET_DELAY_SECONDS),
+            build("C", 1, 2, "cache.txt", "cache\n"),
+            review("C", 1, "approved"),
         ],
     );
 
@@ -254,36 +255,60 @@ fn blocked_tasks_stop_start_with_exit_4_naming_each_last_error_and_log() {
 
     assert_eq!(run.code, Some(BLOCKED_EXIT_CODE), "{}", run.stderr);
     let (b_execution, b_message) = last_failure(&sandbox, "B");
-    let (c_execution, c_message) = last_failure(&sandbox, "C");
+    let resets_at: i64 = text(
+        &sandbox,
+        "SELECT CAST(json_extract(e.runtime_info, '$.resets_at') AS TEXT) FROM execution e \
+         JOIN step_run s ON s.id = e.step_run_id JOIN workflow_run w ON w.id = s.workflow_run_id \
+         WHERE w.item_key = 'C' AND e.failure_class = 'transient'",
+    )
+    .parse()
+    .expect("the reset time C's failure recorded");
     let resets = Timestamp::from_second(resets_at)
         .expect("a timestamp")
         .to_zoned(TimeZone::system())
         .strftime("%H:%M")
         .to_string();
+    let paused = format!("⏸ agent launches paused until {resets} — ");
+    let at = run.stderr.find(&paused).expect(&run.stderr);
+    let rest = &run.stderr[at..];
+    assert!(
+        rest.lines()
+            .next()
+            .is_some_and(|line| line.ends_with(" waiting · Ctrl-C to stop (resumable)")),
+        "{}",
+        run.stderr
+    );
+    assert!(
+        rest.contains("\n↻ agent launches resumed after "),
+        "{}",
+        run.stderr
+    );
+    assert!(
+        rest.contains("\n↻ task C build attempt 2\n"),
+        "{}",
+        run.stderr
+    );
+    for task in ["A", "C"] {
+        assert!(
+            run.stderr.contains(&format!(
+                "✔ task {task} merged ({})\n",
+                short(&merged_as(&sandbox, task))
+            )),
+            "{}",
+            run.stderr
+        );
+    }
     assert!(
         run.stderr.ends_with(&format!(
             "⛔ task B build blocked: attempts exhausted\n  \
              attempt 3 failed (exit_code): {b_message}\n  \
              inspect: surt inspect {b_execution}\n  \
-             logs: surt logs {b_execution}\n\
-             ⛔ task C build blocked: cannot be retried\n  \
-             attempt 1 failed (rate_limit): {c_message} — resets {resets}\n  \
-             inspect: surt inspect {c_execution}\n  \
-             logs: surt logs {c_execution}\n  \
+             logs: surt logs {b_execution}\n  \
              resume: surt start {name}\n"
         )),
         "{}",
         run.stderr
     );
-    assert!(
-        run.stderr.contains(&format!(
-            "✔ task A merged ({})\n",
-            short(&merged_as(&sandbox, "A"))
-        )),
-        "{}",
-        run.stderr
-    );
-    assert_eq!(count(&sandbox, "step_run WHERE step_key = 'ship'"), "1");
     assert_eq!(
         text(
             &sandbox,
@@ -292,7 +317,6 @@ fn blocked_tasks_stop_start_with_exit_4_naming_each_last_error_and_log() {
         "pending"
     );
 }
-
 #[test]
 fn start_refuses_until_the_manifest_is_approved() {
     let sandbox = project(&[spec(1, "# Spec 1\n"), tasks(1, &["A"])]);

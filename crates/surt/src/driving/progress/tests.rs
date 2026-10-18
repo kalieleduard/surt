@@ -1,6 +1,7 @@
 use surt_engine::project::{Progress, StepLabel};
 
 use super::message;
+use crate::driving::blocked::local_time;
 use crate::symbols::Symbols;
 
 fn line(progress: &Progress) -> String {
@@ -120,5 +121,47 @@ fn stop_and_salvage_lines_print_only_ascii_in_ascii_mode() {
          [stopped] task B build attempt 1 interrupted\n\
          [warn] task B build worktree had leftovers - saved to refs/surt/salvage/0192f3a8\n\
          \x20 inspect: git log -p refs/surt/salvage/0192f3a8\n"
+    );
+}
+
+const RESET: i64 = 1_792_900_800;
+
+#[test]
+fn launches_pause_until_the_reset_time_or_for_the_backoff_delay_then_resume() {
+    let at = local_time(RESET).expect("a local time");
+    let lines: String = [
+        Progress::Paused {
+            until: RESET,
+            waiting: 2,
+            backoff: None,
+        },
+        Progress::Paused {
+            until: RESET,
+            waiting: 1,
+            backoff: Some(120),
+        },
+        Progress::Resumed {
+            paused_seconds: 2 * 3600 + 5 * 60,
+        },
+    ]
+    .iter()
+    .map(line)
+    .collect();
+
+    assert_eq!(
+        lines,
+        format!(
+            "⏸ agent launches paused until {at} — 2 waiting · Ctrl-C to stop (resumable)\n\
+             ⏸ agent launches paused until {at} (backoff 2m) — 1 waiting · Ctrl-C to stop (resumable)\n\
+             ↻ agent launches resumed after 2h05m\n"
+        )
+    );
+    assert_eq!(
+        Symbols::Ascii.render(&lines),
+        format!(
+            "[paused] agent launches paused until {at} - 2 waiting | Ctrl-C to stop (resumable)\n\
+             [paused] agent launches paused until {at} (backoff 2m) - 1 waiting | Ctrl-C to stop (resumable)\n\
+             [retry] agent launches resumed after 2h05m\n"
+        )
     );
 }
