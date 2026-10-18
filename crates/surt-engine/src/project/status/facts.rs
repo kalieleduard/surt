@@ -25,7 +25,7 @@ struct BaseData {
     sha: String,
 }
 
-pub(super) async fn base(store: &Store, root: &str) -> Result<Option<Commit>, Error> {
+pub(in crate::project) async fn base(store: &Store, root: &str) -> Result<Option<Commit>, Error> {
     let Some(id) = store.revision_id(root, BASE_ARTIFACT, None).await? else {
         return Ok(None);
     };

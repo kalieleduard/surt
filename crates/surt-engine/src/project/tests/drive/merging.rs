@@ -3,8 +3,11 @@ use serde_json::{Value, json};
 use super::super::fixtures::SUBJECT;
 use super::fixtures::Feature;
 use super::integration::{integration_branch, login};
+use super::repository::commit_file;
 use super::team::{INTEGRATED_TASK, Team, approved, builds, reviews, ships, team_catalog};
-use crate::project::{Config, DriveOutcome, GitConfig, MergeIntoBase};
+use crate::project::{
+    BaseMerge, BaseMergeReport, Commit, Config, DriveOutcome, GitConfig, MergeIntoBase, NotMerged,
+};
 
 const MERGED_WORKFLOW: &str = r#"
 schema = 1
@@ -113,5 +116,30 @@ async fn a_base_branch_checked_out_nowhere_is_fast_forwarded_to_the_delivered_ti
     assert_eq!(
         feature.git(&["reflog", "-1", "--format=%gs", "main"]),
         format!("surt: fast-forward main to surt/{SUBJECT}")
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_project_reports_the_recorded_merge_with_the_base_it_started_from() {
+    let feature = merged_feature(MergeIntoBase::FfOnly, Some("main")).await;
+    let moved = commit_file(&feature.root(), "NEWS.md", "news\n");
+    feature.leave_main();
+    let base = feature.git(&["rev-parse", "main~1"]);
+    assert_eq!(
+        feature.project.base_merge(&feature.run).await.ok(),
+        Some(None)
+    );
+
+    feature.drive_with(&delivering_team()).await;
+
+    assert_eq!(
+        feature.project.base_merge(&feature.run).await.ok(),
+        Some(Some(BaseMergeReport {
+            base: Commit {
+                sha: base,
+                branch: Some("main".to_owned()),
+            },
+            merge: BaseMerge::Skipped(NotMerged::BaseMoved { found: Some(moved) }),
+        }))
     );
 }

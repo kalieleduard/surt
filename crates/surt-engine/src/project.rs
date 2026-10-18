@@ -1,3 +1,4 @@
+mod base_merge;
 mod blocked;
 mod cancelling;
 mod config;
@@ -42,6 +43,7 @@ pub use crate::runtime::LogFiles;
 pub use crate::workflow::{
     AgentAssets, Catalog, DefinitionFile, DeliveryCheck, InvalidDefinition, Problem, StepField,
 };
+pub use base_merge::BaseMergeReport;
 pub use blocked::{BlockedStep, LastFailure};
 pub use cancelling::CancelImpact;
 pub use config::{Check, Config, GitConfig, GlobalConfig, MergeIntoBase};
