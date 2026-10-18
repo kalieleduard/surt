@@ -196,6 +196,7 @@ fn invalid_override(field: Option<&str>) -> Refusal {
     Refusal::InvalidAgentOverride(Box::new(InvalidOverride {
         file: ".surt/agents/builder/agent.toml".to_owned(),
         field: field.map(str::to_owned),
+        needed_by: None,
         problem: Problem::Syntax {
             line: None,
             detail:

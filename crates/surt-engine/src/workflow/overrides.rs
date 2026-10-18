@@ -1,3 +1,4 @@
+mod blame;
 mod fields;
 
 use toml::Table;
@@ -22,7 +23,14 @@ pub(crate) struct LocalFile {
 pub struct InvalidOverride {
     pub file: String,
     pub field: Option<String>,
+    pub needed_by: Option<WorkflowStep>,
     pub problem: Problem,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WorkflowStep {
+    pub workflow: String,
+    pub step: String,
 }
 
 impl InvalidOverride {
@@ -30,6 +38,7 @@ impl InvalidOverride {
         Box::new(InvalidOverride {
             file: file.to_owned(),
             field,
+            needed_by: None,
             problem,
         })
     }
