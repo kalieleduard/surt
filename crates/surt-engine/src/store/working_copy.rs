@@ -3,9 +3,10 @@ use std::collections::BTreeMap;
 use sqlx::{FromRow, SqliteConnection};
 
 use super::revisions::{Origin, number, publish};
-use super::{About, Store, StoreError, record_event, unix_now};
+use super::{About, Store, StoreError, record_event_data, unix_now};
 
 const EDIT: &str = "edit";
+const EDIT_DETECTED: &str = "working_copy.edit_detected";
 
 #[derive(Clone, Debug)]
 pub(crate) struct WorkingCopyArtifact {
@@ -157,13 +158,14 @@ impl Store {
             .execute(&mut *transaction)
             .await?;
         }
-        record_event(
-            &mut transaction,
-            About::Run(&artifact.run),
-            "working_copy.edit_detected",
-            now,
-        )
-        .await?;
+        let data = serde_json::json!({
+            "artifact": artifact.name,
+            "revision": published.number,
+            "origin": "human",
+            "actor": edit.actor,
+        });
+        let about = About::Run(&artifact.run);
+        record_event_data(&mut transaction, about, EDIT_DETECTED, now, &data).await?;
         transaction.commit().await?;
         Ok(Some(published.number))
     }

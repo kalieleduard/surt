@@ -158,6 +158,17 @@ async fn an_edit_to_a_pinned_revision_lets_running_work_finish_and_launches_noth
         DriveOutcome::Halted(pinned_edit())
     );
     assert_eq!(refusal(approve), pinned_edit());
+    let refused = serde_json::json!({
+        "artifact": "draft",
+        "reason": "pinned",
+        "revision": 1,
+        "files": ["draft.md"],
+    });
+    assert_eq!(
+        feature.dir.event_data("working_copy.edit_refused").await,
+        [refused.clone(), refused],
+        "the drive and the approval each refused the edit"
+    );
     assert_eq!(
         executions(&feature).await,
         [

@@ -34,9 +34,9 @@ pub(crate) async fn run(cwd: &Path, args: CancelArgs) -> Result<(), Failure> {
         }
     };
     let (sink, events) = mpsc::unbounded_channel();
-    let (cancellation, cleaned) = tokio::join!(project.cancel(run, sink), print_progress(events));
+    let (cancellation, printed) = tokio::join!(project.cancel(run, sink), print_progress(events));
     ended(&subject.name, cancellation?).print_success();
-    if let Some(cleanup) = cleaned {
+    if let Some(cleanup) = printed.cleaned {
         report_cleanup(&cleanup, format!("surt cancel {}", subject.name));
     }
     Ok(())

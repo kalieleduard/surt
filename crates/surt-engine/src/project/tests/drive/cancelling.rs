@@ -84,7 +84,11 @@ async fn cancelling_a_driven_run_asks_its_driver_to_stop_and_returns_once_it_has
         )
         .await;
     let actor = feature.project.actor().await.expect("the actor");
-    assert_eq!(requests, [(actor,)]);
+    assert_eq!(requests, [(actor.clone(),)]);
+    assert_eq!(
+        feature.dir.event_data("run.cancel_requested").await,
+        [serde_json::json!({ "actor": actor })]
+    );
     assert!(feature.root_cleaned_at().await.is_some());
 }
 

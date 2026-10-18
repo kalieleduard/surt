@@ -17,7 +17,7 @@ const SQLITE_SHARED_MEMORY: &str = "surt.db-shm";
 const SQLITE_WRITE_AHEAD_LOG: &str = "surt.db-wal";
 const EMPTY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-fn hashes(root: &Path) -> BTreeMap<String, String> {
+pub fn hashes(root: &Path) -> BTreeMap<String, String> {
     let mut found = BTreeMap::new();
     let mut pending = vec![root.to_path_buf()];
     while let Some(directory) = pending.pop() {
@@ -304,6 +304,8 @@ fn status_and_show_write_nothing_to_the_database_or_the_working_copy() {
         vec!["show", &name, "manifest"],
         vec!["show", &name, "spec", "--rev", "1"],
         vec!["show", &name, "--run", "1"],
+        vec!["inspect", &name],
+        vec!["inspect", &name, "--run", "1"],
         vec!["show", &name, "manifest", "--run", "1"],
         vec!["show", &name, "manifest", "--file", "tasks/A.md"],
         vec![
@@ -322,8 +324,10 @@ fn status_and_show_write_nothing_to_the_database_or_the_working_copy() {
         &sandbox,
         &["show", &name, "manifest", "--file", "tasks/Z.md"],
     );
+    let no_task = surt(&sandbox, &["inspect", &name, "A"]);
 
     assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
+    assert_eq!(no_task.code, Some(REFUSED_EXIT_CODE), "{}", no_task.stderr);
     assert_unchanged(&sandbox.dot_surt(), before);
     assert!(!working_copy.join("tasks/B.md").exists());
 }
@@ -362,7 +366,7 @@ fn show_of_an_iteration_writes_nothing_to_the_database() {
     assert_unchanged(&sandbox.dot_surt(), before);
 }
 
-fn assert_unchanged(root: &Path, before: BTreeMap<String, String>) {
+pub fn assert_unchanged(root: &Path, before: BTreeMap<String, String>) {
     let mut after = hashes(root);
     let shared_memory = after.remove(SQLITE_SHARED_MEMORY);
     let log = after.remove(SQLITE_WRITE_AHEAD_LOG);

@@ -14,6 +14,7 @@ pub(crate) struct RunRows {
     pub(crate) definition: String,
     pub(crate) state: RunState,
     pub(crate) cancel_requested: bool,
+    pub(crate) stop_requested: bool,
     pub(crate) children: Vec<ChildRow>,
     pub(crate) steps: Vec<StepRow>,
     pub(crate) executions: Vec<ExecutionRow>,
@@ -56,6 +57,7 @@ struct RootRow {
     definition_sha256: String,
     state: String,
     cancel_requested: bool,
+    stop_requested: bool,
 }
 
 #[derive(FromRow)]
@@ -86,7 +88,8 @@ impl Store {
         let mut snapshot = self.pool.begin().await?;
         let run: RootRow = sqlx::query_as(
             "SELECT w.id, s.name AS subject, w.ordinal, w.definition_sha256, w.state, \
-             w.cancel_requested_at IS NOT NULL AS cancel_requested \
+             w.cancel_requested_at IS NOT NULL AS cancel_requested, \
+             w.stop_requested_at IS NOT NULL AS stop_requested \
              FROM workflow_run w JOIN subject s ON s.id = w.subject_id WHERE w.id = ?",
         )
         .bind(root)
@@ -124,6 +127,7 @@ impl Store {
             definition: run.definition_sha256,
             state: run_state(&run.state),
             cancel_requested: run.cancel_requested,
+            stop_requested: run.stop_requested,
             children,
             steps: steps.into_iter().map(StepRow::from).collect(),
             executions: executions.into_iter().map(ExecutionRow::from).collect(),

@@ -69,6 +69,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             kind: ExecutionKind::Agent {
                 snapshot: &agent.snapshot,
                 slot,
+                runtime: agent.contract.runtime(),
             },
             inputs: self.input_requests(
                 loaded,

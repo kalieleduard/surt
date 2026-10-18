@@ -168,8 +168,37 @@ $ surt inspect 20261017-add-login B
 16:10:00  step.unblocked      budget_base 3
 ```
 
-- `kind` is an open set, not a CHECK, so a new kind needs no table rebuild. Initial kinds: `run.created`, `run.cancel_requested`, `run.stop_requested`, `run.cancelled`, `run.succeeded`, `driver.started`, `driver.stopped`, `driver.recovered`, `intention.confirmed`, `intention.discarded`, `worktree.salvaged`, `worktree.repaired`, `agents.paused`, `agents.resumed`, `iteration.started`, `step.running`, `step.done`, `step.skipped`, `step.blocked`, `step.unblocked`, `step.cancelled`, `execution.queued`, `execution.started`, `execution.succeeded`, `execution.failed`, `execution.interrupted`, `execution.cancelled`, `execution.orphan_stopped`, `revision.published`, `revision.pinned`, `working_copy.edit_detected`, `working_copy.edit_refused`, `approval.recorded`, `cleanup.finished`, `cleanup.incomplete`.
+- `kind` is an open set, not a CHECK, so a new kind needs no table rebuild. Initial kinds: `run.created`, `run.cancel_requested`, `run.stop_requested`, `run.cancelled`, `run.succeeded`, `driver.started`, `driver.stopped`, `driver.recovered`, `intention.confirmed`, `intention.discarded`, `worktree.salvaged`, `worktree.repaired`, `agents.paused`, `agents.resumed`, `iteration.started`, `step.running`, `step.done`, `step.skipped`, `step.blocked`, `step.unblocked`, `step.cancelled`, `execution.queued`, `execution.started`, `execution.succeeded`, `execution.failed`, `execution.interrupted`, `execution.cancelled`, `execution.orphan_stopped`, `revision.published`, `revision.pinned`, `working_copy.edit_detected`, `working_copy.edit_refused`, `working_copy.written`, `ref_move.intended`, `approval.recorded`, `cleanup.finished`, `cleanup.incomplete`.
 - A trigger aborts any `UPDATE`. Rows leave only with their Subject.
+- Every insert goes through one store helper that takes the kind and its `data`.
+
+#### Event data
+
+`data` holds display details only, written with the event. A timeline renders from it without joins. The engine never reads it to decide anything; `status` only shows the last `cleanup.*` event's lists. A missing field, or the `{}` of a Milestone 1 event, renders as the bare kind. Kinds not listed carry `{}`.
+
+| Kind | `data` |
+|---|---|
+| `run.created` | root run: `base` (the `base` Initial Artifact's JSON, e.g. `{"ref", "sha"}`), `actor`; child run: `item` |
+| `run.cancel_requested`, `run.stop_requested` | `actor` |
+| `driver.started`, `driver.stopped` | `pid`. `driver.stopped` is written on every Driver exit that returns normally after `driver.started`; a crash or a kill writes none |
+| `driver.recovered` | `previous_pid`, `found`: one object per finding, each with `kind`, `step`, `item`, `iteration` plus `attempt` and `pid` (`orphan_stopped`), `attempt` (`discarded`, `interrupted_with_driver`), `branch` and `merge` (`integration_recorded`), `attempt` and `code` (`attempt_failed`). Written only when reconciliation found something |
+| `ref_move.intended`, `intention.confirmed`, `intention.discarded` for a ref move | `intention` = `ref_move`, `ref`, `old_sha`, `new_sha`. Confirmed when the Operation's result deletes the row, discarded when the row is deleted because the move did not happen or happened elsewhere |
+| `intention.confirmed`, `intention.discarded` for a run's branch | `intention` = `run_branch`, `ref`, `sha` (the recorded tip), `found` (the ref's SHA before settling, `null` when absent), `worktree` for a child run. Written when an Attempt finds the `run_branch` row an earlier Attempt recorded: confirmed when the branch (and worktree) is now in place, discarded when it is not |
+| `iteration.started` | `iteration`, `cause`: `loop_started` for the first, else `until_not_met` with the `until` `step` and its `outcome` in the previous Iteration |
+| `step.done` | `outcome` |
+| `step.blocked` | `reason` |
+| `step.unblocked` | `budget_base`, the new budget base |
+| `execution.started` | `attempt`, and `slot` and `runtime` (`claude-code`, `fake`) for an agent or `operation` for an Operation |
+| `execution.succeeded` | `outcome` |
+| `execution.failed` | `code`, `message` |
+| `execution.orphan_stopped` | `pid` |
+| `worktree.repaired` | `path`, `repair` |
+| `worktree.salvaged` | `ref`, the Salvage Ref |
+| `revision.published` | `artifact`, `revision` (its number), `origin` = `execution` |
+| `working_copy.edit_detected` | `artifact`, `revision`, `origin` = `human`, `actor` |
+| `working_copy.edit_refused` | `artifact`, `files`, `reason`: `pinned` with `revision`, or `invalid` with `problem` |
+| `approval.recorded` | `decision` (`approve`, `reject`), `artifact`, `revision`, `actor`, `reason` (first line of a rejection's reason, else `null`) |
+| `cleanup.finished`, `cleanup.incomplete` | `kept`, and `left` when incomplete |
 
 ## When rows are created
 

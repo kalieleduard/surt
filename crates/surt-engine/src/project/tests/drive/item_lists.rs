@@ -227,6 +227,15 @@ async fn an_invalid_edit_creates_no_revision_and_refuses() {
 
         assert_eq!(refusal(approve), invalid(problem, files), "{path}: {text}");
         assert_eq!(plan_revisions(&feature).await, [(1, 3)]);
+        assert_eq!(
+            feature.dir.event_data("working_copy.edit_refused").await,
+            [serde_json::json!({
+                "artifact": "plan",
+                "reason": "invalid",
+                "problem": problem,
+                "files": files,
+            })]
+        );
     }
 }
 

@@ -148,6 +148,13 @@ impl AgentContract {
         &self.profile.model
     }
 
+    pub(crate) fn runtime(&self) -> &'static str {
+        match self.profile.runtime {
+            RuntimeKind::ClaudeCode => "claude-code",
+            RuntimeKind::Fake => "fake",
+        }
+    }
+
     pub(crate) fn outcomes(&self) -> Vec<String> {
         self.outcomes
             .clone()

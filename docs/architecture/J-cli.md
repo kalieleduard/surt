@@ -156,12 +156,17 @@ Both go through SQLite, never through signals between Surt processes ([A. Extern
 T2 $ surt stop 20261017-add-login
 ⏳ stop requested; driver pid 48213 is stopping 3 executions…
 ✔ stopped. resumable: surt start 20261017-add-login
-T1   ⏹ stopped by surt stop (from another terminal) — resumable: surt start 20261017-add-login
+T1   ⏳ stop requested from another terminal; stopping…
+T1   ⏹ task B build attempt 1 interrupted
+T1   ⏹ stopped by surt stop (from another terminal)
+T1     resume: surt start 20261017-add-login
 ```
 
 - A stop request addresses the Driver that was live when it was written. A driving command clears any leftover stop request when it takes the run lock, so a request whose Driver died first never stops the next one.
 - With no live Driver there is nothing to stop. It refuses with exit `3` and shows the run's derived state.
 - `stop` asks no confirmation: the run stays resumable.
+- `stop` waits for the Driver to release the run lock, the same way `cancel` waits for a live Driver. **The wait has no timeout**: the Driver's own grace period bounds it. A Ctrl-C on `surt stop` leaves the request in place, and the Driver still stops.
+- Stopped Executions end `interrupted` and spend no Attempt, the same as a Ctrl-C.
 
 **`surt cancel`** confirms first ([Confirmations](#confirmations)), then behaves as in [A](A-process-model.md#external-control) and [I](I-recovery.md#without-a-driver-surt-cancel-and-surt-status). A Driver that is cancelled from another terminal exits `5`.
 
@@ -223,17 +228,18 @@ Timelines read from `event` ([D. Events](D-database.md#events)) and the Executio
 
 ```
 $ surt inspect add-login            # run: iterations, gates, Driver, recovery
-13:02  run.created         base main @ a11c9d0 · by you@example.com
-13:09  revision.published  spec rev 1 (agent)
-13:20  approval.recorded   spec rev 1 rejected — "falta o fluxo OAuth"
-13:31  revision.published  spec rev 2 (agent)
-13:40  approval.recorded   spec rev 2 approved
-14:02  driver.started      pid 48213
+13:02:40  run.created         base main @ a11c9d0 · by you@example.com
+13:02:41  driver.started      pid 48213
+13:09:12  revision.published  spec iter 1 · attempt 1 · spec rev 1 (agent)
+13:20:05  approval.recorded   approve-spec iter 1 · spec rev 1 rejected — "falta o fluxo OAuth" · by you@example.com
+13:20:06  iteration.started   spec-loop · iter 2 until approve-spec not met: rejected
+14:02:30  run.created         task B
 
 $ surt inspect add-login B          # one Task: steps, attempts, errors
+14:02:11  iteration.started   cycle · iter 2 until integrate not met
 14:02:11  step.running        build iter 2
-14:02:11  execution.started   attempt 1 (agent-0) · 0192f3a8
-14:09:40  execution.failed    attempt 1 · invalid_delivery — final JSON missing "outputs"
+14:02:11  execution.started   build iter 2 · attempt 1 · agent-0 · claude-code · 0192f3a8-7b1c-…
+14:09:40  execution.failed    build iter 2 · attempt 1 · invalid_delivery — final JSON missing "outputs"
 
 $ surt inspect 0192f3a8             # one Execution
 execution 0192f3a8-…   builder · task B · build iter 2 · attempt 1   failed (invalid_delivery)
@@ -244,6 +250,8 @@ execution 0192f3a8-…   builder · task B · build iter 2 · attempt 1   failed
   salvage    refs/surt/salvage/0192f3a8…
   logs       surt logs 0192f3a8
 ```
+
+Each line is the event's local time (with its date when it is from an earlier day than today), its kind and its details: the Task (run timeline only), the step and Iteration, the Attempt, then the kind's `event.data` fields ([D. Event data](D-database.md#event-data)). A field that is missing, as in a Milestone 1 event's `{}`, is left out, so such an event renders as its bare kind. The run timeline holds the root run's events plus each Task's `run.*` events; a Task's timeline holds every event of its Child Workflow Run. `--run N` picks the run, an unknown Task refuses and lists the run's Tasks. Execution ids are printed whole so they can be passed to `surt inspect <execution-id>` and `surt logs`.
 
 ### `surt show`
 

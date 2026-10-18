@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+use serde_json::json;
 use tokio::sync::Mutex;
 
 use super::decide::{self, Action, Ctx, RunEnd};
@@ -13,6 +14,7 @@ use super::graph::{RunId, StepRunId};
 use super::load::Loaded;
 use super::operate::Flight;
 use super::outcome::{ActivitySnapshot, DriveOutcome, Progress, ProgressSink};
+use super::recovered;
 use crate::artifacts::working_copy::{WorkingCopy, finish_pending_writes};
 use crate::platform;
 use crate::project::{Error, Layout, Refusal};
@@ -23,6 +25,7 @@ use crate::workflow::{Catalog, Definition};
 
 const TICK: Duration = Duration::from_secs(1);
 const DONE: &str = "done";
+const DRIVER_STOPPED: &str = "driver.stopped";
 
 pub(crate) struct Driving<'a> {
     pub(crate) store: &'a Store,
@@ -70,13 +73,29 @@ pub(crate) async fn drive<R: AgentRuntime>(
     if let Some(outcome) = ending::ended_before(&driving, &progress).await? {
         return Ok(outcome);
     }
-    let store = driving.store;
+    let (store, root) = (driving.store, driving.root);
     let reconcile = Reconcile {
         store,
         repository: driving.layout.root(),
-        root: driving.root.as_str(),
+        root: root.as_str(),
     };
     recover(&driving, &reconcile, &progress).await?;
+    let outcome = drive_recovered(driving, &reconcile, runtime, progress, stop).await?;
+    let stopped = json!({ "pid": std::process::id() });
+    store
+        .record_run_event(root.as_str(), DRIVER_STOPPED, &stopped)
+        .await?;
+    Ok(outcome)
+}
+
+async fn drive_recovered<R: AgentRuntime>(
+    driving: Driving<'_>,
+    reconcile: &Reconcile<'_>,
+    runtime: &R,
+    progress: ProgressSink,
+    stop: StopSignal,
+) -> Result<DriveOutcome, Error> {
+    let store = driving.store;
     let frozen = Frozen::from_files(store.frozen_files(driving.root.as_str()).await?)?;
     let working_copy =
         WorkingCopy::load(store, driving.layout, driving.root.as_str(), &frozen).await?;
@@ -118,6 +137,11 @@ async fn recover(
     let found = reconcile.settle().await?;
     if !found.is_empty() {
         let driver = previous.and_then(|pid| u32::try_from(pid).ok());
+        let data = recovered::recovered(driver, &found);
+        let root = driving.root.as_str();
+        store
+            .record_run_event(root, recovered::DRIVER_RECOVERED, &data)
+            .await?;
         let _ = progress.send(Progress::Recovering { driver });
         for recovered in found {
             let _ = progress.send(recovered);
@@ -196,6 +220,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
 
     async fn tick(&self, free_slots: Vec<usize>) -> Result<Tick, Error> {
         let rows = self.driving.store.run_rows(self.driving.root).await?;
+        self.read_stop_request(rows.stop_requested);
         let lists = self.item_lists(&rows).await?;
         let loaded = Loaded::new(&self.frozen, rows, &lists)?;
         let ctx = Ctx {
@@ -239,6 +264,13 @@ impl<R: AgentRuntime> Driver<'_, R> {
             Ok(Tick::Again)
         } else {
             Ok(Tick::Launched(launches))
+        }
+    }
+
+    fn read_stop_request(&self, requested: bool) {
+        if requested && self.stop.level() == StopLevel::None {
+            self.stop.graceful();
+            self.report(Progress::StopRequested);
         }
     }
 
