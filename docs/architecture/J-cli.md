@@ -222,6 +222,21 @@ $ surt status add-login
 
 `agent slots: N/M in use` and a queued Task's `waiting for agent slot (N/M in use)` count the whole project, not one Feature: `N` is the number of running agent Executions holding a slot across every run whose Driver is live, so with two Features driven at once a Task of one can wait for the other's agents. `M` is the current `max_concurrent_agents` in `.surt/config.toml`. The count is derived from SQLite; `status` never probes the slot lock files ([A](A-process-model.md#agent-concurrency-limit)), since a probe would briefly take a slot and could make a Driver skip a launch. `status --json`'s `agent_slots` carries the same numbers.
 
+While a Transient Failure pauses agent launches ([I](I-recovery.md#transient-failures-network-and-rate-limits)), the headline stays `RUNNING` and one line under it names the error code and the reset time the Execution recorded in `runtime_info.resets_at`, or `retrying with backoff` when it recorded none. Tasks waiting to launch read `queued … waiting for agent launches to resume`:
+
+```
+$ surt status add-login
+20261017-add-login · run 1   RUNNING   driver pid 48213 since 14:02
+  ⏸ agent launches paused: rate_limit — resets 03:00
+  base     main @ a11c9d0
+  branch   surt/20261017-add-login @ 3c1aa20 · merge into base: never
+  implement
+    A  ✔ merged    iter 1 · as 3c1aa20
+    B  ⏳ queued    build iter 1 · attempt 2 · waiting for agent launches to resume
+```
+
+The pause lives only in the Driver's memory, so `status` derives it on every read and nothing stores it: a run is paused when its Driver is live, its latest ended agent Execution failed `transient`, and no agent Execution started after it. A reset time no later than that failure counts as none, as it does for the Driver.
+
 When the Feature has several runs, the headline names the one it shows and how many exist: `20261017-add-login · run 2 of 2   AWAITING APPROVAL`. `--run 1` shows the earlier one.
 
 At an Approval Gate it lists everything the Approval covers. For an Item List that is the list and every file it references ([F](F-agent-contract.md)):
@@ -277,7 +292,7 @@ execution 0192f3a8-7b1c-7000-8000-4a1f0c3e9b21
 
 The Execution detail reads only SQLite (the Execution row, its `runtime_info`, its Inputs with their Revision numbers and identity SHA-256, the Task's `run_branch`) plus a read-only `git for-each-ref` for `refs/surt/salvage/<execution-id>`, so it works after cleanup and without log files. The profile is the frozen agent's: runtime, model, requested effort and, for Claude Code, permission mode. `session` and `usage` show what the runtime reported. A value the runtime did not report is left out, never printed as `0`, and a line with nothing to show is left out. An Operation's Execution shows `operation <id>` instead of a role and profile.
 
-Each line is the event's local time (with its date when it is from an earlier day than today), its kind and its details: the Task (run timeline only), the step and Iteration, the Attempt, then the kind's `event.data` fields ([D. Event data](D-database.md#event-data)). A field that is missing, as in a Milestone 1 event's `{}`, is left out, so such an event renders as its bare kind. The run timeline holds the root run's events plus each Task's `run.*` events; a Task's timeline holds every event of its Child Workflow Run. `--run N` picks the run, an unknown Task refuses and lists the run's Tasks. Execution ids are printed whole so they can be passed to `surt inspect <execution-id>` and `surt logs`.
+Each line is the event's local time (with its date when it is from an earlier day than today), its kind and its details: the Task (run timeline only), the step and Iteration, the Attempt, then the kind's `event.data` fields ([D. Event data](D-database.md#event-data)). A field that is missing, as in a Milestone 1 event's `{}`, is left out, so such an event renders as its bare kind. The run timeline holds the root run's events plus each Task's `run.*` events; a Task's timeline holds every event of its Child Workflow Run. `--run N` picks the run, an unknown Task refuses and lists the run's Tasks. Execution ids are printed whole so they can be passed to `surt inspect <execution-id>` and `surt logs`. The pause reads `agents.paused  until 03:00 · rate_limit · 2 waiting` (with `backoff step N` when no reset time was reported, and the date when the end falls on another day) and `agents.resumed  after 2h05m00s`. The Execution detail of a rate-limited Execution shows `failed (transient) · rate_limit — … · resets 03:00` when the runtime reported a reset time.
 
 ### `surt show`
 
@@ -333,7 +348,8 @@ A driving command prints one line per relevant state change: a Step Run starting
   ── 2 running (B build 6m, C review 1m) · 1 queued · slots 3/3 · 32m ──
   ```
 - The footer is drawn with `\r` plus ANSI erase-line, erased before each event line and redrawn after it, and erased before the final summary, so the scrollback holds only event lines. A footer wider than the terminal is cut to one line ending in `…`, since erase-line clears only the physical line the cursor is on; the width comes from the console (falling back to `COLUMNS`, then 80). Durations read `42s`, `6m`, `2h05m`.
-- **Without a TTY** there is no footer. After 5 minutes without an event it prints a line so CI does not assume a hang: `… still running: B build (15m), C review (3m)`.
+- While agent launches are paused, the footer says until when and how many agents wait instead of the queue: `── 1 running (C review 1m) · ⏸ paused until 03:00 · 2 waiting · slots 1/3 · 32m ──`, or `paused until 13:01 (backoff 1m)` without a reset time.
+- **Without a TTY** there is no footer. After 5 minutes without an event it prints a line so CI does not assume a hang: `… still running: B build (15m), C review (3m)`. A pause adds itself, and a pause with nothing running still prints: `… agent launches paused until 03:00 — 2 waiting`.
 - It ends with a summary and the next command, as in the mocks of sections A, G and I.
 
 ## Output channels and non-interactive use
@@ -410,7 +426,7 @@ Each document serialises the read view the human output renders (`RunStatus`, `T
 }
 ```
 
-Optional Feature fields: `ended_at`, `driver` (`pid`, `since`), `cleanup` (`state` `done`, `pending` or `kept`; `left` lists items with `item` and `reason`; `kept` lists `moved_branch` with `branch`, or `unrecorded_edit` or `foreign_path` with `path`); per gate `edited` and `missing`; per Task `waits_for`, `conflict` (`kind` `merge` with `paths`, or `checks` with `failed`); per last error `resets_at`.
+Optional Feature fields: `ended_at`, `driver` (`pid`, `since`), `paused` while a Transient Failure pauses agent launches (`code`, plus `resets_at` when the Execution recorded a reset time), `cleanup` (`state` `done`, `pending` or `kept`; `left` lists items with `item` and `reason`; `kept` lists `moved_branch` with `branch`, or `unrecorded_edit` or `foreign_path` with `path`); per gate `edited` and `missing`; per Task `waits_for`, `conflict` (`kind` `merge` with `paths`, or `checks` with `failed`); per last error `resets_at`.
 
 `agent_slots` is the project-wide count of [`surt status`](#surt-status), the same in every Feature's document, whether or not that Feature has a live Driver.
 

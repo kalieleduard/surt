@@ -18,6 +18,14 @@ const PASSED: &str = "passed";
 pub(super) struct Readiness {
     pub(super) driven: bool,
     pub(super) slots_full: bool,
+    pub(super) paused: bool,
+}
+
+impl Readiness {
+    /// A ready agent of a live Driver waits for a slot or for the pause.
+    fn waits_to_launch(self) -> bool {
+        self.driven && (self.slots_full || self.paused)
+    }
 }
 
 #[derive(Deserialize)]
@@ -49,7 +57,9 @@ pub(super) async fn statuses(
             ItemState::Succeeded | ItemState::Cancelled => None,
             _ => conflict(store, &row.run).await?,
         };
-        let shows_step = state != ItemState::Queued || row.step_state.as_deref() == Some(PENDING);
+        let shows_step = state != ItemState::Queued
+            || readiness.paused
+            || row.step_state.as_deref() == Some(PENDING);
         statuses.push(ItemStatus {
             key: row.key.clone(),
             state,
@@ -107,7 +117,7 @@ fn state(row: &ItemRunRow, waits_for: &[String], readiness: Readiness) -> ItemSt
         (Some("running"), Some("running")) => ItemState::Running,
         (Some("running"), Some("queued")) => ItemState::Queued,
         _ if !waits_for.is_empty() => ItemState::Pending,
-        _ if readiness.driven && readiness.slots_full && next_is_agent(row) => ItemState::Queued,
+        _ if readiness.waits_to_launch() && next_is_agent(row) => ItemState::Queued,
         (None | Some(PENDING), _) => ItemState::Pending,
         _ => ItemState::Interrupted,
     }

@@ -227,6 +227,8 @@ Observed in the real streams of [Capture a real Claude Code stream as a fixture]
 
 Without a reset time the paused line names the delay: `paused until 13:01 (backoff 1m)`. The Driver records `agents.paused` on the root run once an agent waits for the pause, and again whenever its end moves later, then `agents.resumed` when launches resume ([D](D-database.md#event-data)).
 
+From any other terminal, `surt status` shows the paused run as `RUNNING` with one line naming the error code and the reset time, or `retrying with backoff`, and `status --json` carries a `paused` object. Since nothing stores the pause, `status` derives it from the rows: a live Driver whose latest ended agent Execution failed `transient`, with no agent Execution started after it ([J](J-cli.md#surt-status)).
+
 The pause lives in the Driver's memory. A new driving command starts unpaused and learns again from its first failure. A Step Run that a Milestone 1 or 2 binary blocked on a Transient Failure (`blocked_reason = 'not_retryable'`) is unblocked by the next driving command with the usual fresh budget, like any other block ([G](G-state-machines.md#leaving-blocked)). Several Drivers (other Features, other projects) do not coordinate their pauses; account-wide pressure across Drivers stays open on the map.
 
 Operations never fail `transient`. Git lock contention from third parties is retried with backoff inside the Operation ([A](A-process-model.md#native-git-operations-across-processes)).

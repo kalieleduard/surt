@@ -4,10 +4,14 @@ use std::sync::Mutex;
 use serde_json::json;
 use tokio::sync::{mpsc, watch};
 
+use super::super::fixtures::SUBJECT;
 use super::evidence::{Committing, change, committed_catalog};
 use super::fixtures::{ACTOR, Feature};
 use super::planned::{TASK_WORKFLOW, approved, plan, review, work};
-use crate::project::{Config, DriveOutcome, Progress};
+use crate::project::{
+    ActivityPause, ActivitySnapshot, Config, DriveOutcome, ItemState, LaunchPause, Progress,
+    RunSelector, RunState, RunStatus, StatusScope,
+};
 use crate::runtime::{
     AgentRuntime, Behavior, FakeRuntime, RuntimeCompletion, RuntimeError, RuntimeEventSink,
     RuntimeRequest, Script, StopSignal,
@@ -169,6 +173,15 @@ fn now() -> i64 {
     jiff::Timestamp::now().as_second()
 }
 
+async fn status(feature: &Feature) -> RunStatus {
+    let mut statuses = feature
+        .project
+        .status(StatusScope::Feature(SUBJECT, RunSelector::Current))
+        .await
+        .expect("the status");
+    statuses.remove(0)
+}
+
 fn limited(resets_at: i64) -> Behavior {
     Behavior::LimitFailure {
         resets_at: Some(resets_at),
@@ -246,6 +259,109 @@ async fn a_transient_failure_pauses_agent_launches_until_the_reset_and_spends_no
     );
 }
 
+struct StoppedOncePaused {
+    outcome: DriveOutcome,
+    status: Option<RunStatus>,
+    snapshots: Vec<ActivitySnapshot>,
+}
+
+/// Drives the run, reading its status once launches pause, then stops it.
+async fn stopped_once_paused(
+    feature: &Feature,
+    runtime: &impl AgentRuntime,
+    stop: StopSignal,
+) -> StoppedOncePaused {
+    let (sink, mut events) = mpsc::unbounded_channel();
+    let drive = feature
+        .project
+        .drive(&feature.run, runtime, sink, stop.clone());
+    let watch = async {
+        let (mut status, mut snapshots) = (None, Vec::new());
+        while let Some(event) = events.recv().await {
+            match event {
+                Progress::Paused { .. } if status.is_none() => {
+                    status = Some(self::status(feature).await);
+                    stop.graceful();
+                }
+                Progress::Activity(snapshot) => snapshots.push(snapshot),
+                _ => {}
+            }
+        }
+        (status, snapshots)
+    };
+    let driven = tokio::time::timeout(CEILING, async { tokio::join!(drive, watch) });
+    let (outcome, (status, snapshots)) = driven.await.expect("the drive ends within the ceiling");
+    StoppedOncePaused {
+        outcome: outcome.expect("drive returns"),
+        status,
+        snapshots,
+    }
+}
+#[tokio::test(flavor = "multi_thread")]
+async fn status_shows_the_pause_while_the_driver_waits_and_not_once_an_agent_started_after_it() {
+    let feature = approved(TASK_WORKFLOW, &[("A", &[])]).await;
+    let stop = StopSignal::new();
+    let runtime = RateLimited::new(
+        FakeRuntime::new(Script::new()),
+        "A/build",
+        DISTANT_RESET_SECONDS,
+    );
+
+    let paused = stopped_once_paused(&feature, &runtime, stop).await;
+
+    assert_eq!(paused.outcome, DriveOutcome::Interrupted);
+    let shown = paused.status.expect("launches paused");
+    assert_eq!(shown.states, [RunState::Running]);
+    assert_eq!(
+        shown.paused,
+        Some(LaunchPause {
+            code: "rate_limit".to_owned(),
+            resets_at: Some(runtime.resets_at()),
+        })
+    );
+    let tasks: Vec<_> = shown
+        .items
+        .iter()
+        .map(|task| (task.key.as_str(), task.state, task.step.as_deref()))
+        .collect();
+    assert_eq!(tasks, [("A", ItemState::Queued, Some("build"))]);
+
+    let resumed = feature
+        .drive(Script::new().on("A/build", 1, 2, work("a")))
+        .await;
+    assert_eq!(
+        resumed.outcome.expect("drive returns"),
+        DriveOutcome::Succeeded
+    );
+    assert_eq!(status(&feature).await.paused, None);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_activity_snapshot_carries_the_end_of_the_pause() {
+    let feature = approved(TASK_WORKFLOW, &[("A", &[])]).await;
+    let runtime = RateLimited::new(
+        FakeRuntime::new(Script::new()),
+        "A/build",
+        DISTANT_RESET_SECONDS,
+    );
+
+    let paused = stopped_once_paused(&feature, &runtime, StopSignal::new()).await;
+
+    let pauses: Vec<_> = paused
+        .snapshots
+        .iter()
+        .filter_map(|snapshot| snapshot.paused)
+        .collect();
+    assert_eq!(
+        pauses.first(),
+        Some(&ActivityPause {
+            until: runtime.resets_at(),
+            backoff: None,
+        }),
+        "{:?}",
+        paused.snapshots
+    );
+}
 #[tokio::test(flavor = "multi_thread")]
 async fn during_the_pause_no_agent_starts_while_operations_run_and_running_agents_finish() {
     let feature = two_checked_tasks().await;

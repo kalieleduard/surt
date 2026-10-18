@@ -1,6 +1,7 @@
-use surt_engine::project::{ActivitySnapshot, RunningStep, StepLabel};
+use surt_engine::project::{ActivityPause, ActivitySnapshot, RunningStep, StepLabel};
 
 use super::{Activity, Output, Terminal, on_tick};
+use crate::driving::local_time;
 use crate::symbols::Symbols;
 
 const STARTED: i64 = 1_000_000;
@@ -27,6 +28,7 @@ fn busy() -> ActivitySnapshot {
         queued: 1,
         slots_in_use: 3,
         slots_limit: 3,
+        paused: None,
     }
 }
 
@@ -59,6 +61,7 @@ fn the_footer_names_root_steps_and_later_iterations_and_counts_seconds_then_hour
         queued: 0,
         slots_in_use: 1,
         slots_limit: 3,
+        paused: None,
     };
     let now = STARTED + 2 * 3600 + 42;
 
@@ -107,6 +110,7 @@ fn without_a_tty_nothing_fires_when_nothing_runs() {
         queued: 0,
         slots_in_use: 0,
         slots_limit: 3,
+        paused: None,
     };
 
     assert_eq!(
@@ -153,5 +157,84 @@ fn a_footer_wider_than_the_terminal_is_cut_to_stay_on_one_line() {
         Some(Output::Footer(
             "── 2 running (B build 6m, C review 1m) · 1 queued · slots 3/3 · 32m ──".to_owned()
         ))
+    );
+}
+
+const RESET: i64 = 1_792_900_800;
+
+fn paused(running: Vec<RunningStep>, waiting: usize, backoff: Option<u64>) -> ActivitySnapshot {
+    ActivitySnapshot {
+        running,
+        queued: waiting,
+        slots_in_use: 0,
+        slots_limit: 3,
+        paused: Some(ActivityPause {
+            until: RESET,
+            backoff,
+        }),
+    }
+}
+
+#[test]
+fn the_footer_says_until_when_launches_are_paused_and_how_many_agents_wait() {
+    let at = local_time(RESET).expect("a local time");
+    let now = STARTED + 32 * MINUTE + 10;
+    let footer = |snapshot| on_tick(&activity(snapshot, STARTED), now, WIDE);
+
+    assert_eq!(
+        footer(paused(Vec::new(), 2, None)),
+        Some(Output::Footer(format!(
+            "── 0 running · ⏸ paused until {at} · 2 waiting · slots 0/3 · 32m ──"
+        )))
+    );
+    assert_eq!(
+        footer(paused(Vec::new(), 1, Some(120))),
+        Some(Output::Footer(format!(
+            "── 0 running · ⏸ paused until {at} (backoff 2m) · 1 waiting · slots 0/3 · 32m ──"
+        )))
+    );
+}
+
+#[test]
+fn without_a_tty_the_heartbeat_mentions_the_pause_even_when_nothing_runs() {
+    let at = local_time(RESET).expect("a local time");
+    let last_line = STARTED + 31 * MINUTE;
+    let quiet = |snapshot| {
+        on_tick(
+            &activity(snapshot, last_line),
+            last_line + 5 * MINUTE,
+            Terminal::Plain,
+        )
+    };
+    let building = vec![running(Some("B"), "build", None, STARTED + 26 * MINUTE)];
+
+    assert_eq!(
+        quiet(paused(Vec::new(), 2, None)),
+        Some(Output::Line(format!(
+            "… agent launches paused until {at} — 2 waiting"
+        )))
+    );
+    assert_eq!(
+        quiet(paused(building, 1, None)),
+        Some(Output::Line(format!(
+            "… still running: B build (10m) · agent launches paused until {at} — 1 waiting"
+        )))
+    );
+}
+
+#[test]
+fn the_paused_footer_reads_in_ascii_mode() {
+    let at = local_time(RESET).expect("a local time");
+    let now = STARTED + 32 * MINUTE + 10;
+
+    let footer = ascii(on_tick(
+        &activity(paused(Vec::new(), 2, None), STARTED),
+        now,
+        WIDE,
+    ));
+
+    assert_eq!(
+        footer,
+        format!("-- 0 running | [paused] paused until {at} | 2 waiting | slots 0/3 | 32m --")
     );
 }

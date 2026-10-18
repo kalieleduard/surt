@@ -7,6 +7,7 @@ use surt_engine::project::{
 };
 
 use super::render;
+use crate::driving::local_time;
 use crate::symbols::Symbols;
 
 const ID: &str = "0192f3a8-7b1c-7000-8000-000000000001";
@@ -205,4 +206,31 @@ fn an_execution_prints_only_ascii_in_ascii_mode() {
 
         assert!(Symbols::Ascii.render(&text).is_ascii(), "{text}");
     }
+}
+
+#[test]
+fn a_rate_limited_execution_shows_its_class_its_code_and_the_reset_time() {
+    let reset = STARTED + 7_200;
+    let at = local_time(reset).expect("a local time");
+    let limited = ExecutionDetail {
+        failure: Some(ExecutionFailure {
+            class: "transient".to_owned(),
+            code: Some("rate_limit".to_owned()),
+            message: Some("rate limited".to_owned()),
+        }),
+        reported: RuntimeInfo {
+            resets_at: Some(reset),
+            ..RuntimeInfo::default()
+        },
+        ..failed_builder()
+    };
+
+    let text = render(&limited, NOW);
+
+    assert!(
+        text.contains(&format!(
+            "  state     failed (transient) · rate_limit — rate limited · resets {at}\n"
+        )),
+        "{text}"
+    );
 }

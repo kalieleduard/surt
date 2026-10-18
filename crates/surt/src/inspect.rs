@@ -5,6 +5,7 @@ mod json;
 
 use std::path::Path;
 
+use jiff::tz::TimeZone;
 use jiff::{Timestamp, Zoned};
 use surt_engine::project::{InspectRequest, Project, Reference, Timeline, TimelineEvent};
 
@@ -59,7 +60,7 @@ pub(crate) fn render(timeline: &Timeline, now: &Zoned) -> String {
             [
                 stamp(event.at, now),
                 event.kind.clone(),
-                describe(timeline, event),
+                describe(timeline, event, now.time_zone()),
             ]
         })
         .collect();
@@ -79,9 +80,9 @@ fn stamp(at: i64, now: &Zoned) -> String {
     zoned.strftime(format).to_string()
 }
 
-fn describe(timeline: &Timeline, event: &TimelineEvent) -> String {
+fn describe(timeline: &Timeline, event: &TimelineEvent, zone: &TimeZone) -> String {
     let mut parts = describe_scope(timeline, event);
-    parts.extend(details::of(event));
+    parts.extend(details::of(event, zone));
     parts.join(SEPARATOR)
 }
 

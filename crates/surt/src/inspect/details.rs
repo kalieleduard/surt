@@ -1,19 +1,25 @@
 mod changes;
 
+use jiff::Timestamp;
+use jiff::tz::TimeZone;
 use surt_engine::project::TimelineEvent;
 
+use super::execution::duration;
 use super::fields::{Fields, joined};
 use crate::symbols::{ARROW, DASH};
 
 const LIST_SEPARATOR: &str = ", ";
+const SAME_DAY: &str = "%H:%M";
+const OTHER_DAY: &str = "%Y-%m-%d %H:%M";
 
-pub(super) fn of(event: &TimelineEvent) -> Vec<String> {
+pub(super) fn of(event: &TimelineEvent, zone: &TimeZone) -> Vec<String> {
     let fields = Fields(&event.data);
     let kind = event.kind.as_str();
     let parts = match kind.split_once('.').map_or(kind, |(group, _)| group) {
         "run" | "driver" | "cleanup" => lifecycle(kind, fields),
         "iteration" | "step" => steps(kind, fields),
         "execution" => execution(kind, fields, event),
+        "agents" => agents(kind, fields, event.at, zone),
         _ => changes::of(kind, fields),
     };
     parts.into_iter().flatten().collect()
@@ -61,6 +67,42 @@ fn execution(kind: &str, fields: Fields<'_>, event: &TimelineEvent) -> Vec<Optio
     }
 }
 
+/// The pause on Transient Failure (D. Event data): until when, why, at
+/// which backoff step and how many agents wait; then how long it lasted.
+fn agents(kind: &str, fields: Fields<'_>, at: i64, zone: &TimeZone) -> Vec<Option<String>> {
+    match kind {
+        "agents.paused" => vec![
+            fields
+                .number("until")
+                .and_then(|until| clock(until, at, zone))
+                .map(|until| format!("until {until}")),
+            fields.text("code").map(str::to_owned),
+            fields.labelled("backoff step", "backoff_step"),
+            fields
+                .number("waiting")
+                .map(|waiting| format!("{waiting} waiting")),
+        ],
+        "agents.resumed" => vec![
+            fields
+                .number("paused_seconds")
+                .map(|seconds| format!("after {}", duration(seconds))),
+        ],
+        _ => Vec::new(),
+    }
+}
+
+/// `seconds` as a time of day, with its date when that is not the day of
+/// the event at `at`.
+fn clock(seconds: i64, at: i64, zone: &TimeZone) -> Option<String> {
+    let time = Timestamp::from_second(seconds).ok()?.to_zoned(zone.clone());
+    let event = Timestamp::from_second(at).ok()?.to_zoned(zone.clone());
+    let format = if time.date() == event.date() {
+        SAME_DAY
+    } else {
+        OTHER_DAY
+    };
+    Some(time.strftime(format).to_string())
+}
 fn base(fields: Fields<'_>) -> Option<String> {
     let base = fields.object("base")?;
     let at = base.sha("sha").map(|sha| format!("@ {sha}"));

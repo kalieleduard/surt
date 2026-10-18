@@ -15,6 +15,7 @@ mod kill;
 mod logs;
 mod new_run;
 mod output;
+mod paused;
 mod phases;
 mod restore;
 mod scripts;

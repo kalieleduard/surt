@@ -9,7 +9,7 @@ use serde_json::{Map, Value, json};
 
 use super::decide::{Ctx, StopLevel};
 use super::driver::Driver;
-use super::outcome::Progress;
+use super::outcome::{ActivityPause, Progress};
 use super::pause::{Pause, backoff};
 use crate::project::Error;
 use crate::runtime::AgentRuntime;
@@ -111,9 +111,19 @@ impl<R: AgentRuntime> Driver<'_, R> {
         self.report(Progress::Paused {
             until,
             waiting,
-            backoff: step.map(|step| u64::try_from(backoff(step)).unwrap_or_default()),
+            backoff: step.map(backoff_seconds),
         });
         Ok(())
+    }
+
+    /// The pause as the activity snapshot shows it, while launches wait
+    /// until until.
+    pub(super) fn activity_pause(&self, until: Option<i64>) -> Option<ActivityPause> {
+        let step = self.with_pausing(|pausing| pausing.schedule.backoff_step())?;
+        Some(ActivityPause {
+            until: until?,
+            backoff: step.map(backoff_seconds),
+        })
     }
 
     /// How long until the pause ends, if launches are paused.
@@ -132,6 +142,10 @@ impl<R: AgentRuntime> Driver<'_, R> {
         let (store, root) = (self.driving.store, self.driving.root.as_str());
         Ok(store.record_run_event(root, kind, data).await?)
     }
+}
+
+fn backoff_seconds(step: u32) -> u64 {
+    u64::try_from(backoff(step)).unwrap_or_default()
 }
 
 /// D's `agents.paused` data: `backoff_step` only when no reset time was

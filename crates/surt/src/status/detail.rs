@@ -3,11 +3,11 @@ mod tasks;
 
 use std::fmt::Write;
 
-use surt_engine::project::{CleanupState, MergeIntoBase, RunState, RunStatus};
+use surt_engine::project::{CleanupState, LaunchPause, MergeIntoBase, RunState, RunStatus};
 
 use super::{resume_command, state_names};
 use crate::driving::{kept_line, label, last_error, local_time, reason, short};
-use crate::symbols::{ARROW, BLOCKED, DASH, DOT, INTEGRATING, WARNING};
+use crate::symbols::{ARROW, BLOCKED, DASH, DOT, INTEGRATING, PAUSED, WARNING};
 
 const LABEL_WIDTH: usize = 8;
 const CONTINUATION: &str = "           ";
@@ -15,6 +15,9 @@ const CONTINUATION: &str = "           ";
 pub(super) fn render(status: &RunStatus) -> String {
     let resume = resume_command(status);
     let mut text = headline(status);
+    if let Some(pause) = &status.paused {
+        line(&mut text, &paused(pause));
+    }
     if let Some(base) = &status.base {
         let reference = base.branch.as_deref().unwrap_or("HEAD");
         field(
@@ -36,7 +39,12 @@ pub(super) fn render(status: &RunStatus) -> String {
         );
     }
     gates::render(&mut text, status);
-    tasks::render(&mut text, &status.items, status.slots);
+    tasks::render(
+        &mut text,
+        &status.items,
+        status.slots,
+        status.paused.is_some(),
+    );
     blocked(&mut text, status, &resume);
     for unattended in &status.unattended {
         line(
@@ -93,6 +101,19 @@ fn headline(status: &RunStatus) -> String {
         status.subject,
         status.run,
         state_names(&status.states)
+    )
+}
+
+/// The pause on Transient Failure (I): until the reset time the stream
+/// reported, or with backoff when it reported none.
+fn paused(pause: &LaunchPause) -> String {
+    let until = match pause.resets_at.and_then(local_time) {
+        Some(time) => format!("resets {time}"),
+        None => "retrying with backoff".to_owned(),
+    };
+    format!(
+        "{PAUSED} agent launches paused: {} {DASH} {until}",
+        pause.code
     )
 }
 

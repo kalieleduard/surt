@@ -1,8 +1,7 @@
-use surt_engine::project::{Progress, StepLabel};
+use surt_engine::project::{ActivityPause, Progress, StepLabel};
 
-use super::super::blocked::local_time;
 use super::super::cleanup::summary;
-use super::activity::duration;
+use super::activity::{duration, paused_until};
 use super::{FIRST, label, short};
 use crate::message::{Mark, Message};
 use crate::refusal::config_location;
@@ -180,15 +179,9 @@ fn cancel_requested(driver: Option<u32>) -> Message {
 }
 
 fn paused(until: i64, waiting: usize, backoff: Option<u64>) -> Message {
-    let at = local_time(until).unwrap_or_else(|| until.to_string());
-    let delay = backoff
-        .map(|seconds| {
-            let seconds = i64::try_from(seconds).unwrap_or(i64::MAX);
-            format!(" (backoff {})", duration(seconds))
-        })
-        .unwrap_or_default();
+    let until = paused_until(ActivityPause { until, backoff });
     Message::new(format!(
-        "agent launches paused until {at}{delay} {DASH} {waiting} waiting{SEPARATOR}Ctrl-C to stop (resumable)"
+        "agent launches {until} {DASH} {waiting} waiting{SEPARATOR}Ctrl-C to stop (resumable)"
     ))
 }
 

@@ -14,10 +14,11 @@ use crate::cleanup::{Kept, Left};
 use crate::drive::{Frozen, StepLabel};
 use crate::git;
 use crate::platform;
-use crate::store::{RootRunRow, Store};
+use crate::store::{LastAgentEnd, RootRunRow, Store};
 
 const SUCCEEDED: &str = "succeeded";
 const CANCELLED: &str = "cancelled";
+const TRANSIENT: &str = "transient";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StatusScope<'a> {
@@ -38,6 +39,7 @@ pub struct RunStatus {
     pub branch: Option<IntegrationBranch>,
     pub merge_into_base: MergeIntoBase,
     pub slots: AgentSlots,
+    pub paused: Option<LaunchPause>,
     pub gates: Vec<GateView>,
     pub items: Vec<ItemStatus>,
     pub blocked: Vec<BlockedStep>,
@@ -50,6 +52,14 @@ pub struct RunStatus {
 pub struct AgentSlots {
     pub in_use: u32,
     pub total: u32,
+}
+
+/// Agent launches of a live Driver wait out a Transient Failure: derived on
+/// every read from the latest agent Execution that ended, nothing stored.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaunchPause {
+    pub code: String,
+    pub resets_at: Option<i64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -198,9 +208,14 @@ impl Project {
             in_use: slots_in_use(store).await?,
             total: self.config.max_concurrent_agents.get(),
         };
+        let paused = match driver {
+            Some(_) => store.last_agent_end(root).await?.and_then(pause),
+            None => None,
+        };
         let readiness = items::Readiness {
             driven: driver.is_some(),
             slots_full: slots.in_use >= slots.total,
+            paused: paused.is_some(),
         };
         Ok(RunStatus {
             subject: run.subject.clone(),
@@ -218,6 +233,7 @@ impl Project {
                 }),
             merge_into_base: frozen.merge_into_base,
             slots,
+            paused,
             gates: gates::views(store, &self.layout, run).await?,
             items: items::statuses(store, run, &frozen, readiness).await?,
             unattended: facts::unattended(store, root, driver.is_some()).await?,
@@ -227,6 +243,18 @@ impl Project {
             blocked,
         })
     }
+}
+
+/// A Transient Failure no agent launch followed. A reset time no later than
+/// the failure is no reset time: the Driver backs off instead.
+fn pause(end: LastAgentEnd) -> Option<LaunchPause> {
+    if end.failure_class.as_deref() != Some(TRANSIENT) || end.started_after {
+        return None;
+    }
+    Some(LaunchPause {
+        code: end.error_code.unwrap_or_default(),
+        resets_at: end.resets_at.filter(|reset| *reset > end.finished_at),
+    })
 }
 
 /// The Agent Slots in use across the whole project: running agent

@@ -281,3 +281,37 @@ fn a_timeline_prints_only_ascii_in_ascii_mode() {
          12:00:02  execution.failed     build iter 2 | attempt 1 | invalid_delivery - final JSON missing\n"
     );
 }
+
+#[test]
+fn the_pause_shows_until_when_why_and_how_many_wait_and_the_resume_how_long_it_lasted() {
+    let events = vec![
+        event(
+            NOON,
+            "agents.paused",
+            json!({ "until": NOON + 3_600, "code": "rate_limit", "waiting": 2 }),
+        ),
+        event(
+            NOON + 60,
+            "agents.paused",
+            json!({ "until": NOON + 180, "code": "overloaded", "backoff_step": 2, "waiting": 1 }),
+        ),
+        event(
+            NOON + 3_600,
+            "agents.resumed",
+            json!({ "paused_seconds": 3_600 }),
+        ),
+        event(
+            NOON + 3_601,
+            "agents.paused",
+            json!({ "until": NOON + 86_400, "code": "rate_limit", "waiting": 1 }),
+        ),
+    ];
+
+    assert_eq!(
+        shown(&timeline(None, events)),
+        "12:00:00  agents.paused   until 13:00 · rate_limit · 2 waiting\n\
+         12:01:00  agents.paused   until 12:03 · overloaded · backoff step 2 · 1 waiting\n\
+         13:00:00  agents.resumed  after 1h00m00s\n\
+         13:00:01  agents.paused   until 2025-10-18 12:00 · rate_limit · 1 waiting\n"
+    );
+}

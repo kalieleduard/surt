@@ -1,14 +1,16 @@
 use std::path::PathBuf;
 
 use surt_engine::project::{
-    AgentSlots, BlockReason, BlockedStep, CleanupState, Commit, Conflict, GateStatus, GateView,
-    IntegrationBranch, ItemState, ItemStatus, Kept, Left, MergeIntoBase, PendingIntegration,
-    RevisionOrigin, RevisionSummary, RunState, RunStatus, StepLabel, Unattended,
+    AgentSlots, BlockReason, BlockedStep, CleanupState, Commit, Conflict, Driver, GateStatus,
+    GateView, IntegrationBranch, ItemState, ItemStatus, Kept, LaunchPause, Left, MergeIntoBase,
+    PendingIntegration, RevisionOrigin, RevisionSummary, RunState, RunStatus, StepLabel,
+    Unattended,
 };
 
 use serde_json::json;
 
 use super::{detail, json, overview};
+use crate::driving::local_time;
 use crate::symbols::Symbols;
 
 const SUBJECT: &str = "20261017-add-login";
@@ -90,6 +92,7 @@ fn stopped_with_everything_pending() -> RunStatus {
         branch: None,
         merge_into_base: MergeIntoBase::Never,
         slots: slots(3),
+        paused: None,
         gates: vec![
             gate(
                 "approve-spec",
@@ -159,6 +162,7 @@ fn cancelled_and_cleaned() -> RunStatus {
         }),
         merge_into_base: MergeIntoBase::Never,
         slots: slots(0),
+        paused: None,
         gates: vec![gate_over(
             "approve-tasks",
             "manifest",
@@ -348,4 +352,84 @@ fn status_json_carries_the_cleanup_state_the_detail_shows() {
     );
     assert_eq!(cleanup(Some(CleanupState::Kept)), json!({"state": "kept"}));
     assert_eq!(cleanup(None), serde_json::Value::Null);
+}
+
+const RESET: i64 = 1_792_900_800;
+
+fn paused_with_a_task_waiting(resets_at: Option<i64>) -> RunStatus {
+    RunStatus {
+        states: vec![RunState::Running],
+        driver: Some(Driver {
+            pid: 48213,
+            since: None,
+        }),
+        slots: slots(1),
+        paused: Some(LaunchPause {
+            code: "rate_limit".to_owned(),
+            resets_at,
+        }),
+        gates: Vec::new(),
+        items: vec![
+            ItemStatus {
+                iteration: Some(1),
+                ..task("A", ItemState::Queued)
+            },
+            ItemStatus {
+                iteration: Some(1),
+                ..task("B", ItemState::Running)
+            },
+        ],
+        blocked: Vec::new(),
+        unattended: Vec::new(),
+        integrating: Vec::new(),
+        ..stopped_with_everything_pending()
+    }
+}
+
+#[test]
+fn a_paused_run_stays_running_and_names_the_error_code_and_the_reset_time() {
+    let at = local_time(RESET).expect("a local time");
+
+    let text = detail::render(&paused_with_a_task_waiting(Some(RESET)));
+
+    assert_eq!(
+        text,
+        format!(
+            "{SUBJECT} · run 2 of 3   RUNNING   driver pid 48213\n  \
+             ⏸ agent launches paused: rate_limit — resets {at}\n  \
+             base     HEAD @ a11c9d0\n  \
+             implement\n    \
+             A  ⏳ queued    build iter 1 · attempt 1 · waiting for agent launches to resume\n    \
+             B  ● build     iter 1 · attempt 1\n"
+        )
+    );
+}
+
+#[test]
+fn a_pause_without_a_reset_time_retries_with_backoff_and_reads_in_ascii() {
+    let text = detail::render(&paused_with_a_task_waiting(None));
+
+    let ascii = Symbols::Ascii.render(&text);
+
+    assert!(
+        ascii.contains("\n  [paused] agent launches paused: rate_limit - retrying with backoff\n"),
+        "{ascii}"
+    );
+    assert!(ascii.is_ascii(), "{ascii}");
+}
+
+#[test]
+fn status_json_carries_the_pause_with_its_reset_time_when_known() {
+    let paused = |resets_at| {
+        serde_json::Value::from(json::feature(&paused_with_a_task_waiting(resets_at)))["paused"]
+            .clone()
+    };
+
+    assert_eq!(
+        paused(Some(RESET)),
+        json!({"code": "rate_limit", "resets_at": "2026-10-25T04:00:00Z"})
+    );
+    assert_eq!(paused(None), json!({"code": "rate_limit"}));
+    let running = serde_json::Value::from(json::feature(&cancelled_and_cleaned()));
+    assert_eq!(running.get("paused"), None);
 }

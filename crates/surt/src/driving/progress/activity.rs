@@ -1,6 +1,7 @@
-use surt_engine::project::{ActivitySnapshot, RunningStep};
+use surt_engine::project::{ActivityPause, ActivitySnapshot, RunningStep};
 
-use crate::symbols::{ELLIPSIS, HORIZONTAL, SEPARATOR};
+use crate::driving::local_time;
+use crate::symbols::{DASH, ELLIPSIS, HORIZONTAL, PAUSED, SEPARATOR};
 
 const QUIET_LIMIT: i64 = 5 * 60;
 const SECONDS_PER_MINUTE: i64 = 60;
@@ -49,8 +50,13 @@ fn footer(snapshot: &ActivitySnapshot, started: i64, now: i64) -> String {
             .collect();
         parts[0].push_str(&format!(" ({})", running.join(", ")));
     }
-    if snapshot.queued > 0 {
-        parts.push(format!("{} queued", snapshot.queued));
+    match snapshot.paused {
+        Some(pause) => {
+            parts.push(format!("{PAUSED} {}", paused_until(pause)));
+            parts.push(format!("{} waiting", snapshot.queued));
+        }
+        None if snapshot.queued > 0 => parts.push(format!("{} queued", snapshot.queued)),
+        None => {}
     }
     parts.push(format!(
         "slots {}/{}",
@@ -74,15 +80,43 @@ fn fit(text: &str, width: usize) -> String {
 }
 
 fn still_running(snapshot: &ActivitySnapshot, last_line: i64, now: i64) -> Option<String> {
-    if snapshot.running.is_empty() || now - last_line < QUIET_LIMIT {
+    if now - last_line < QUIET_LIMIT {
         return None;
     }
-    let running: Vec<String> = snapshot
-        .running
-        .iter()
-        .map(|step| format!("{} ({})", name(step), duration(now - step.started_at)))
-        .collect();
-    Some(format!("{ELLIPSIS} still running: {}", running.join(", ")))
+    let mut parts = Vec::new();
+    if !snapshot.running.is_empty() {
+        let running: Vec<String> = snapshot
+            .running
+            .iter()
+            .map(|step| format!("{} ({})", name(step), duration(now - step.started_at)))
+            .collect();
+        parts.push(format!("still running: {}", running.join(", ")));
+    }
+    if let Some(pause) = snapshot.paused {
+        parts.push(format!(
+            "agent launches {} {DASH} {} waiting",
+            paused_until(pause),
+            snapshot.queued
+        ));
+    }
+    if parts.is_empty() {
+        return None;
+    }
+    Some(format!("{ELLIPSIS} {}", parts.join(SEPARATOR)))
+}
+
+/// `paused until 03:00`, with the backoff delay when no reset time was
+/// reported.
+pub(super) fn paused_until(pause: ActivityPause) -> String {
+    let at = local_time(pause.until).unwrap_or_else(|| pause.until.to_string());
+    let delay = pause
+        .backoff
+        .map(|seconds| {
+            let seconds = i64::try_from(seconds).unwrap_or(i64::MAX);
+            format!(" (backoff {})", duration(seconds))
+        })
+        .unwrap_or_default();
+    format!("paused until {at}{delay}")
 }
 
 fn name(running: &RunningStep) -> String {
