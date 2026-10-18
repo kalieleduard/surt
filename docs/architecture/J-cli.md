@@ -358,6 +358,125 @@ A driving command prints one line per relevant state change: a Step Run starting
     | `⛔` | `[blocked]` | `│` | `\|` | `→` | `->` |
 - `SURT_LOG` (`tracing` filter syntax, e.g. `SURT_LOG=debug`) turns on Surt's own diagnostic logs on stderr, for any command.
 
+### `--json` documents
+
+Each document serialises the read view the human output renders (`RunStatus`, `Timeline`, `ExecutionDetail`, `Shown`, `ArtifactSummary`); there is no second query path. The rules:
+
+- `"schema": 1` is the first field of every document. Within schema 1 fields are only **added**; removing or renaming a field, or changing its type, bumps the schema.
+- Timestamps are RFC 3339 UTC strings (`2026-10-17T14:09:40Z`). Ids (Execution ids, SHAs, SHA-256 identities) are full strings, never shortened.
+- A run's derived state uses the human table's uppercase names (`RUNNING`, `AWAITING APPROVAL`, `BLOCKED`, `INTERRUPTED`, `SUCCEEDED`, `CANCELLED`); `state` joins them with ` + ` as the table does, `states` lists them. Other closed values are lowercase words (`blocked`, `approved`, `attempts_exhausted`).
+- A value nobody reported is **absent**, not `null`: no `driver` without a live Driver, no `turns` or `cost_usd` when the runtime did not report them, no `approval` on an undecided Revision. Empty lists other than the top-level collections (`features`, `gates`, `tasks`, `events`, `files`, `inputs`, `artifacts`) are absent too.
+- A refusal or error prints nothing on stdout; the `✖` message goes to stderr with the usual exit code.
+
+`surt status <feature> --json` prints one Feature; `surt status [--all] --json` prints `{"schema": 1, "features": [...]}` with the same object per Feature (an empty list when none is active). A blocked Task carries its reason, last error and the command to resume:
+
+```json
+{
+  "schema": 1,
+  "name": "20261017-add-login",
+  "run": 1,
+  "runs": 1,
+  "state": "BLOCKED",
+  "states": ["BLOCKED"],
+  "base": {"sha": "a11c9d0e5f60718293a4b5c6d7e8f90112233445", "branch": "main"},
+  "branch": {"name": "surt/20261017-add-login", "tip": "9e04b7d0c1a2b3c4d5e6f708192a3b4c5d6e7f80"},
+  "merge_into_base": "never",
+  "agent_slots": {"in_use": 0, "total": 3},
+  "gates": [
+    {
+      "step": "approve-spec",
+      "artifact": "spec",
+      "status": "approved",
+      "revision": {"number": 1, "origin": "agent", "sha256": "5d41402a…(64 hex)", "files": ["spec.md"]},
+      "approval": {"decision": "approve", "actor": "dev@example.com", "decided_at": "2026-10-17T14:02:11Z"}
+    }
+  ],
+  "tasks": [
+    {"key": "A", "state": "succeeded", "step": "integrate", "iteration": 1, "attempt": 1,
+     "since": "2026-10-17T14:05:02Z", "merged_sha": "3c1aa2…(40 hex)"},
+    {"key": "B", "state": "blocked", "step": "build", "iteration": 1, "attempt": 3,
+     "since": "2026-10-17T14:09:40Z", "blocked_reason": "attempts_exhausted",
+     "last_error": {"attempt": 3, "code": "exit_code", "message": "the agent exited with code 1"},
+     "resume": "surt start 20261017-add-login"}
+  ],
+  "blocked": [
+    {"step": "build", "task": "B", "iteration": 1, "reason": "attempts_exhausted",
+     "last_error": {"attempt": 3, "code": "exit_code", "message": "the agent exited with code 1"}}
+  ],
+  "resume": "surt start 20261017-add-login"
+}
+```
+
+Optional Feature fields: `ended_at`, `driver` (`pid`, `since`); per gate `edited` and `missing`; per Task `waits_for`, `conflict` (`kind` `merge` with `paths`, or `checks` with `failed`); per last error `resets_at`.
+
+`surt inspect <feature> [<task>] --json` prints the timeline; each event keeps its `data` object as recorded ([D](D-database.md)):
+
+```json
+{
+  "schema": 1,
+  "feature": "20261017-add-login",
+  "run": 1,
+  "task": "B",
+  "events": [
+    {"at": "2026-10-17T14:09:40Z", "kind": "execution.failed", "task": "B", "step": "build",
+     "iteration": 1, "attempt": 3, "execution": "01a14f9b-c44f-7608-80bd-fe56114a4306",
+     "data": {"code": "exit_code", "message": "the agent exited with code 1"}}
+  ]
+}
+```
+
+`surt inspect <execution-id> --json` prints one Execution; `reported` holds only what the runtime reported:
+
+```json
+{
+  "schema": 1,
+  "execution": {
+    "id": "01a14f9b-c44f-7608-80bd-fe56114a4306",
+    "feature": "20261017-add-login",
+    "run": 1,
+    "task": "B",
+    "step": "build",
+    "iteration": 1,
+    "attempt": 3,
+    "performer": {"kind": "agent", "role": "builder", "runtime": "claude-code",
+                  "model": "claude-sonnet-5-5", "effort": "high", "permission_mode": "dontAsk"},
+    "state": "failed",
+    "failure": {"class": "retryable", "code": "exit_code", "message": "the agent exited with code 1"},
+    "slot": 1,
+    "pid": 48213,
+    "started_at": "2026-10-17T14:08:02Z",
+    "finished_at": "2026-10-17T14:09:40Z",
+    "reported": {"version": "2.1.3", "session_id": "…", "model": "claude-sonnet-5-5", "exit_code": 1,
+                 "turns": 12, "usage": {"input_tokens": 5120, "output_tokens": 830}, "cost_usd": 0.42},
+    "inputs": [{"name": "task", "artifact": "manifest", "revision": 1, "sha256": "…(64 hex)", "task": "B"}],
+    "worktree": "/home/dev/.surt/worktrees/…/20261017-add-login/B",
+    "salvage_ref": "refs/surt/salvage/01a14f9b-c44f-7608-80bd-fe56114a4306"
+  }
+}
+```
+
+A Check or other Operation has `"performer": {"kind": "operation", "id": "check"}`. Optional fields: `outcome`, `failure`, `slot`, `pid`, `started_at`, `finished_at`, `worktree`, `salvage_ref`, and in `reported` each of `version`, `session_id`, `model`, `exit_code`, `turns`, `usage`, `cost_usd`, `permission_denials`, `resets_at`.
+
+`surt show <feature> <artifact> --json` prints one Revision with every file (only the one `--file` names). A file's content is a UTF-8 string, or `content_base64` (RFC 4648, padded) when its bytes aren't UTF-8:
+
+```json
+{
+  "schema": 1,
+  "artifact": "manifest",
+  "revision": 1,
+  "origin": "agent",
+  "sha256": "…(64 hex)",
+  "approval": {"decision": "approve", "actor": "dev@example.com", "decided_at": "2026-10-17T14:04:30Z"},
+  "files": [
+    {"path": "manifest.json", "content": "[{\"key\":\"A\",\"needs\":[]}]"},
+    {"path": "tasks/A.md", "content": "# Task A\n"},
+    {"path": "tasks/logo.bin", "content_base64": "//4AQQ=="}
+  ]
+}
+```
+
+`edited` lists files whose Working Copy holds an unrecorded edit (the `⚠` warning still goes to stderr). `surt show <feature> --json` prints `{"schema": 1, "artifacts": [{"name", "revisions", "latest", "origin", "approved", "files"}]}`.
+
 ## Exit codes
 
 The same on macOS, Linux and Windows.

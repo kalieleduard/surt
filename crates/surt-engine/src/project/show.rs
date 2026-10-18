@@ -1,14 +1,15 @@
 mod picking;
 
 pub(super) use picking::item_run;
-use picking::{content, revision_id};
+use picking::{content, primary, revision_id};
 
 use super::status::origin;
 use super::{Error, Project, RevisionOrigin, RunSelector};
 use crate::artifacts::working_copy;
-use crate::store::{ArtifactSummaryRow, Store};
+use crate::store::{ApprovalRow, ArtifactSummaryRow, Store};
 
 const HUMAN: &str = "human";
+const APPROVE: &str = "approve";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ShowRequest<'a> {
@@ -25,8 +26,24 @@ pub struct Shown {
     pub artifact: String,
     pub revision: u32,
     pub origin: RevisionOrigin,
+    pub sha256: String,
+    pub approval: Option<RevisionApproval>,
     pub content: Vec<u8>,
+    pub files: Vec<ShownFile>,
     pub edited: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RevisionApproval {
+    pub approved: bool,
+    pub actor: String,
+    pub decided_at: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ShownFile {
+    pub path: String,
+    pub content: Vec<u8>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -73,13 +90,18 @@ impl Project {
         };
         let id = revision_id(store, subject, &run, request).await?;
         let revision = store.revision(&id).await?;
-        let origin = origin(&revision.producer);
-        let content = content(subject, request, revision.number, revision.files)?;
+        let files = content(subject, request, revision.number, revision.files)?;
         Ok(Shown {
             artifact: request.artifact.to_owned(),
             revision: revision.number,
-            origin,
-            content,
+            origin: origin(&revision.producer),
+            sha256: revision.sha256,
+            approval: store.revision_approval(&id).await?.map(approval),
+            content: primary(&files),
+            files: files
+                .into_iter()
+                .map(|(path, content)| ShownFile { path, content })
+                .collect(),
             edited: self
                 .unrecorded_edits(store, subject, &root, request)
                 .await?,
@@ -138,6 +160,14 @@ fn summary(row: ArtifactSummaryRow) -> ArtifactSummary {
         },
         approved: row.approved,
         files: count(row.files),
+    }
+}
+
+fn approval(row: ApprovalRow) -> RevisionApproval {
+    RevisionApproval {
+        approved: row.decision == APPROVE,
+        actor: row.actor,
+        decided_at: row.decided_at,
     }
 }
 

@@ -61,7 +61,7 @@ pub use naming::Slug;
 pub use repository::Commit;
 pub use resolving::{Reference, RunSelector, Subject};
 pub use restoring::RestoreImpact;
-pub use show::{ArtifactSummary, ShowRequest, Shown};
+pub use show::{ArtifactSummary, RevisionApproval, ShowRequest, Shown, ShownFile};
 pub use status::{
     AgentSlots, CleanupState, Conflict, Driver, GateView, ItemState, ItemStatus,
     PendingIntegration, RevisionSummary, RunStatus, StatusScope, Unattended,

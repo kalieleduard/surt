@@ -75,6 +75,7 @@ pub struct GateView {
 pub struct RevisionSummary {
     pub number: u32,
     pub origin: RevisionOrigin,
+    pub sha256: String,
     pub files: Vec<String>,
 }
 

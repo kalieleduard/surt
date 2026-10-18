@@ -8,6 +8,7 @@ mod init;
 mod inspect;
 #[cfg(unix)]
 mod interrupt;
+mod json;
 mod kill;
 mod logs;
 mod new_run;

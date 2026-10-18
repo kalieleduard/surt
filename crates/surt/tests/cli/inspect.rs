@@ -14,7 +14,7 @@ fn surt(sandbox: &Sandbox, args: &[&str]) -> Run {
     sandbox.surt(&sandbox.repo(), args)
 }
 
-fn delivered_after_a_rejected_review(name: &str) -> Sandbox {
+pub fn delivered_after_a_rejected_review(name: &str) -> Sandbox {
     let sandbox = Sandbox::with_repository();
     sandbox.commit_something();
     sandbox.init();
@@ -128,7 +128,7 @@ fn inspect_of_an_unknown_task_or_run_refuses_and_lists_what_exists() {
 const TWIN: &str = "aaaaaaaa-0000-7000-8000-000000000000";
 const OTHER_TWIN: &str = "aaaaaaaa-1111-7000-8000-000000000000";
 
-fn crashed_build(sandbox: &Sandbox) -> String {
+pub fn crashed_build(sandbox: &Sandbox) -> String {
     sandbox
         .texts(
             "SELECT x.id FROM execution x JOIN step_run s ON s.id = x.step_run_id \

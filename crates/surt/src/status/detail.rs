@@ -64,7 +64,7 @@ pub(super) fn render(status: &RunStatus) -> String {
     text
 }
 
-fn merge_into_base(mode: MergeIntoBase) -> &'static str {
+pub(super) fn merge_into_base(mode: MergeIntoBase) -> &'static str {
     match mode {
         MergeIntoBase::Never => "never",
         MergeIntoBase::FfOnly => "ff-only",
