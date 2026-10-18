@@ -89,6 +89,59 @@ fn checks_are_read_in_order_with_an_optional_timeout() {
 }
 
 #[test]
+fn a_check_timeout_in_milliseconds_seconds_minutes_or_hours_is_accepted() {
+    for timeout in ["250ms", "30s", "10m", "2h"] {
+        let file = ConfigFile::with(&format!(
+            "[[checks]]\nname = \"test\"\nrun = [\"cargo\", \"test\"]\ntimeout = \"{timeout}\"\n"
+        ));
+
+        let config = file.load().expect("the config loads");
+
+        assert_eq!(config.checks[0].timeout.as_deref(), Some(timeout));
+    }
+}
+
+#[test]
+fn a_check_timeout_without_a_known_unit_is_refused_with_its_line() {
+    for timeout in ["10", "ten minutes", "10d", "m", "0s"] {
+        let file = ConfigFile::with(&format!(
+            "[[checks]]\nname = \"test\"\nrun = [\"cargo\", \"test\"]\ntimeout = \"{timeout}\"\n"
+        ));
+
+        let Refusal::InvalidConfig { line, reason, .. } = file.refusal() else {
+            panic!("expected an invalid config for {timeout}");
+        };
+
+        assert_eq!(line, Some(4), "{timeout}");
+        assert!(reason.contains("timeout"), "{reason}");
+    }
+}
+
+#[test]
+fn a_check_without_a_program_to_run_is_refused() {
+    let file = ConfigFile::with("[[checks]]\nname = \"test\"\nrun = []\n");
+
+    let Refusal::InvalidConfig { line, reason, .. } = file.refusal() else {
+        panic!("expected an invalid config");
+    };
+
+    assert_eq!(line, Some(3));
+    assert!(reason.contains("run"), "{reason}");
+}
+
+#[test]
+fn a_check_name_that_is_not_an_identifier_is_refused() {
+    let file = ConfigFile::with("[[checks]]\nname = \"Unit Tests\"\nrun = [\"cargo\", \"test\"]\n");
+
+    let Refusal::InvalidConfig { line, reason, .. } = file.refusal() else {
+        panic!("expected an invalid config");
+    };
+
+    assert_eq!(line, Some(2));
+    assert!(reason.contains("Unit Tests"), "{reason}");
+}
+
+#[test]
 fn an_unknown_top_level_key_is_refused_with_its_line() {
     let file = ConfigFile::with("max_attempts = 3\nmax_atempts = 4\n");
 

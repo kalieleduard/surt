@@ -10,7 +10,9 @@ use tokio::process::Command;
 mod refs;
 pub(crate) mod worktrees;
 
-pub(crate) use refs::{absolute_git_dir, common_dir, create_ref, is_valid_branch_name, set_ref};
+pub(crate) use refs::{
+    absolute_git_dir, common_dir, create_ref, is_ancestor, is_valid_branch_name, set_ref,
+};
 
 pub(crate) const MIN_VERSION: GitVersion = GitVersion {
     major: 2,
@@ -130,6 +132,12 @@ pub(crate) async fn commit_sha(cwd: &Path, reference: &str) -> Result<Option<Str
         Err(GitError::Failed { .. }) => Ok(None),
         Err(error) => Err(error),
     }
+}
+
+pub(crate) fn short_branch(reference: &str) -> &str {
+    reference
+        .strip_prefix(BRANCH_NAMESPACE)
+        .unwrap_or(reference)
 }
 
 pub(crate) async fn branch_name(cwd: &Path, reference: &str) -> Result<Option<String>, GitError> {

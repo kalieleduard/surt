@@ -16,7 +16,7 @@ use crate::platform;
 use crate::project::{Error, Layout, Refusal};
 use crate::runtime::{AgentRuntime, StopLevel, StopSignal};
 use crate::store::{StepRow, Store};
-use crate::workflow::Definition;
+use crate::workflow::{Catalog, Definition};
 use crate::working_copy::WorkingCopy;
 
 const TICK: Duration = Duration::from_secs(1);
@@ -29,6 +29,7 @@ pub(crate) struct Driving<'a> {
     pub(crate) max_agents: usize,
     pub(crate) worktrees: Option<PathBuf>,
     pub(crate) actor: &'a str,
+    pub(crate) catalog: &'a Catalog,
 }
 
 pub(super) struct Driver<'a, R> {

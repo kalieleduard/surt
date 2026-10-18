@@ -11,7 +11,7 @@ const DONE: &str = "done";
 const BASE_INPUT: &str = "base";
 
 #[derive(Deserialize)]
-struct Base {
+struct NamedCommit {
     sha: String,
 }
 
@@ -28,7 +28,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         &self,
         launch: &OperationLaunch,
     ) -> Result<&'static str, OperationError> {
-        let base = self.base_sha(launch).await?;
+        let base = self.input_sha(launch, BASE_INPUT).await?;
         let branch = format!("surt/{}", run_stem(&launch.subject, launch.ordinal));
         let reference = self.branch_reference(&branch).await?;
         let store = self.driving.store;
@@ -67,28 +67,32 @@ impl<R: AgentRuntime> Driver<'_, R> {
         Ok(format!("{}{branch}", git::BRANCH_NAMESPACE))
     }
 
-    async fn base_sha(&self, launch: &OperationLaunch) -> Result<String, OperationError> {
+    pub(super) async fn input_sha(
+        &self,
+        launch: &OperationLaunch,
+        input: &str,
+    ) -> Result<String, OperationError> {
         let missing = || {
             Failure::not_retryable(
                 "invalid_input",
-                format!("the {BASE_INPUT} input has no readable commit"),
+                format!("the {input} input has no readable commit"),
             )
         };
         let (_, revision) = launch
             .started
             .inputs
             .iter()
-            .find(|(name, _)| name == BASE_INPUT)
+            .find(|(name, _)| name == input)
             .ok_or_else(missing)?;
         let revision = self.driving.store.revision(revision).await?;
         let (_, bytes) = revision.files.first().ok_or_else(missing)?;
-        let base: Base = serde_json::from_slice(bytes).map_err(|_| missing())?;
-        Ok(base.sha)
+        let named: NamedCommit = serde_json::from_slice(bytes).map_err(|_| missing())?;
+        Ok(named.sha)
     }
 }
 
 pub(super) fn moved(recorded: &RunBranch, found: &str) -> Failure {
-    let branch = short_branch(&recorded.ref_name);
+    let branch = git::short_branch(&recorded.ref_name);
     Failure::not_retryable(
         "integration_branch_moved",
         format!(
@@ -96,10 +100,4 @@ pub(super) fn moved(recorded: &RunBranch, found: &str) -> Failure {
             recorded.tip_sha
         ),
     )
-}
-
-pub(super) fn short_branch(reference: &str) -> &str {
-    reference
-        .strip_prefix(git::BRANCH_NAMESPACE)
-        .unwrap_or(reference)
 }

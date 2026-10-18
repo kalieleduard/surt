@@ -8,8 +8,8 @@ Spec: [Milestone 1](../spec.md) (stories 46–49) · Slice: S4 Git · Plan: [A. 
 
 **Status:** ready-for-agent
 
-- [ ] A Builder delivery is accepted only if its commit exists, is the worktree's `HEAD` and the Task Branch tip, descends from the Task's start, is new, and leaves a clean worktree; a SHA-shaped string alone is refused as an invalid delivery
-- [ ] An empty commit explaining why nothing changed is a valid delivery
-- [ ] `checks.run` runs each frozen Check as argv, without a shell, in the Task worktree on the Builder's commit, runs all of them even after one fails, and honours the optional timeout
-- [ ] A failed Check skips review and starts a new Iteration whose Builder receives the `check-report`
-- [ ] `Project` tests against a real repository: valid commit, each evidence refusal, the failing-Checks scenario
+- [x] A Builder delivery is accepted only if its commit exists, is the worktree's `HEAD` and the Task Branch tip, descends from the Task's start, is new, and leaves a clean worktree; a SHA-shaped string alone is refused as an invalid delivery
+- [x] An empty commit explaining why nothing changed is a valid delivery
+- [x] `checks.run` runs each frozen Check as argv, without a shell, in the Task worktree on the Builder's commit, runs all of them even after one fails, and honours the optional timeout
+- [x] A failed Check skips review and starts a new Iteration whose Builder receives the `check-report`
+- [x] `Project` tests against a real repository: valid commit, each evidence refusal, the failing-Checks scenario

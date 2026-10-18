@@ -1,6 +1,8 @@
 mod blocked;
 mod branches;
+mod checks;
 mod drivers;
+mod evidence;
 mod fixtures;
 mod gates;
 mod item_lists;

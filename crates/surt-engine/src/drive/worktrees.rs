@@ -2,7 +2,7 @@ use std::path::Path;
 
 use serde_json::json;
 
-use super::branches::{moved, run_stem, short_branch};
+use super::branches::{moved, run_stem};
 use super::driver::Driver;
 use super::failure::{Failure, OperationError};
 use super::graph::ExecutionState;
@@ -86,7 +86,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 "integration_branch_checked_out",
                 format!(
                     "{} is checked out in {}",
-                    short_branch(&integration.ref_name),
+                    git::short_branch(&integration.ref_name),
                     entry.path.display()
                 ),
             )

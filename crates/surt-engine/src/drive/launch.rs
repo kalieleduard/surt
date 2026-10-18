@@ -22,7 +22,7 @@ use crate::runtime::{
 use crate::store::{
     ExecutionEnd, ExecutionKind, ExecutionStart, RunBranch, StartedExecution, StepRow,
 };
-use crate::workflow::StepSpec;
+use crate::workflow::{DeliveryCheck, StepSpec};
 
 const DELIVERY_DIR: &str = "delivery";
 const LAUNCH_DIR: &str = "launch";
@@ -38,6 +38,7 @@ pub(super) struct Launch {
     contract: DeliveryContract,
     pub(super) working_copy: Option<WorkingCopy>,
     pub(super) worktree: Option<RunBranch>,
+    pub(super) checks: Vec<(String, DeliveryCheck)>,
 }
 
 enum Ending {
@@ -97,26 +98,24 @@ impl<R: AgentRuntime> Driver<'_, R> {
             contract,
             working_copy: self.working_copy(loaded, row, definition),
             worktree,
+            checks: self.driving.catalog.delivery_checks(&spec.agent).to_vec(),
         })
     }
 
     pub(super) async fn carry(&self, launch: Launch) -> Result<(), Error> {
         if let Some(branch) = &launch.worktree {
-            match self
+            let prepared = self
                 .prepare_worktree(&launch.row, &launch.started, branch)
-                .await
-            {
-                Ok(()) => {}
-                Err(OperationError::Failed(failure)) => {
-                    return self
-                        .end(&launch.row, &launch.started, failure.into_end())
-                        .await;
-                }
-                Err(OperationError::Fatal(error)) => return Err(error),
+                .await;
+            if let Some(end) = failed(prepared)? {
+                return self.end(&launch.row, &launch.started, end).await;
             }
         }
         match self.execute(&launch.request, &launch.contract).await {
-            Ending::Accepted(delivery) => self.publish(&launch, delivery).await,
+            Ending::Accepted(delivery) => match failed(self.prove(&launch, &delivery).await)? {
+                Some(end) => self.end(&launch.row, &launch.started, end).await,
+                None => self.publish(&launch, delivery).await,
+            },
             Ending::Ended(end) => self.end(&launch.row, &launch.started, end).await,
             Ending::Cancelled => Ok(()),
         }
@@ -207,6 +206,14 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 resets_at: None,
             }),
         }
+    }
+}
+
+fn failed(result: Result<(), OperationError>) -> Result<Option<ExecutionEnd>, Error> {
+    match result {
+        Ok(()) => Ok(None),
+        Err(OperationError::Failed(failure)) => Ok(Some(failure.into_end())),
+        Err(OperationError::Fatal(error)) => Err(error),
     }
 }
 

@@ -26,6 +26,7 @@ impl Project {
                 .worktrees()
                 .map(|worktrees| worktrees.join(&self.id)),
             actor: &actor,
+            catalog: &self.catalog,
         };
         let outcome = drive::drive(driving, runtime, progress, stop).await;
         store.close().await;

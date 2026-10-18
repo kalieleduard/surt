@@ -23,7 +23,7 @@ impl Operation {
     pub(crate) fn is_supported(self) -> bool {
         matches!(
             self,
-            Operation::CreateRunBranch | Operation::CreateChildWorktree
+            Operation::CreateRunBranch | Operation::CreateChildWorktree | Operation::RunChecks
         )
     }
 
