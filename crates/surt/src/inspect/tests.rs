@@ -5,6 +5,7 @@ use serde_json::{Map, Value, json};
 use surt_engine::project::{Timeline, TimelineEvent};
 
 use super::render;
+use crate::symbols::Symbols;
 
 const SUBJECT: &str = "20261017-add-login";
 const NOON: i64 = 1_760_702_400;
@@ -245,5 +246,38 @@ fn recovery_stop_requests_intentions_and_cleanup_name_what_they_touched() {
          12:00:01  run.stop_requested   by you@example.com\n\
          12:00:02  intention.confirmed  ref_move refs/heads/surt/x 1111111 → 2222222\n\
          12:00:03  cleanup.incomplete   kept spec.md · left worktree B: busy\n"
+    );
+}
+
+#[test]
+fn a_timeline_prints_only_ascii_in_ascii_mode() {
+    let events = vec![
+        event(
+            NOON,
+            "approval.recorded",
+            json!({ "decision": "reject", "artifact": "spec", "revision": 1, "actor": "you@example.com", "reason": "needs OAuth" }),
+        ),
+        event(
+            NOON + 1,
+            "intention.confirmed",
+            json!({ "intention": "ref_move", "ref": "refs/heads/surt/x", "old_sha": "1111111aaaa", "new_sha": "2222222bbbb" }),
+        ),
+        of_execution(
+            event(
+                NOON + 2,
+                "execution.failed",
+                json!({ "code": "invalid_delivery", "message": "final JSON missing" }),
+            ),
+            "build",
+            2,
+            1,
+        ),
+    ];
+
+    assert_eq!(
+        Symbols::Ascii.render(&shown(&timeline(None, events))),
+        "12:00:00  approval.recorded    spec rev 1 rejected - \"needs OAuth\" | by you@example.com\n\
+         12:00:01  intention.confirmed  ref_move refs/heads/surt/x 1111111 -> 2222222\n\
+         12:00:02  execution.failed     build iter 2 | attempt 1 | invalid_delivery - final JSON missing\n"
     );
 }

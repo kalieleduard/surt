@@ -44,22 +44,7 @@ Ten of the fourteen commands of [J](J-cli.md#commands). A command or flag that i
 | `show <feature> [<artifact>] [--rev N] [--task <key>]` | `--iter`, `--file`, `--run`, `--json`: M2 |
 | — | `stop`, `inspect`, `logs`, `restore`, `delete`: M2 |
 
-What replaces the cut commands in Milestone 1:
-
-- **`stop`:** Ctrl-C in the driving terminal performs the same Interruption.
-- **`inspect` and `logs`:** `status <feature>` prints the log path of a blocked step. The stream files are written exactly as in [I. Cleanup](I-cleanup.md#logs).
-  ```
-  $ surt status add-login
-    implement
-      A  ✔ merged    iter 1 · as 3c1aa20
-      B  ⛔ blocked   build iter 2 · 3 attempts failed · invalid_delivery
-                     log: .surt/logs/20261017-add-login/0192f3a8-…/stream.jsonl
-                     resume: surt start 20261017-add-login
-  ```
-- **`restore`:** removing the edited file. A missing Working Copy file is recreated from the latest Revision ([H](H-artifact-storage.md#edit-detection)). The refusals of [H](H-artifact-storage.md#revalidation) print `fix: rm <file>, then rerun` instead of `surt restore`.
-- **`delete`:** nothing. Features and logs accumulate; nothing breaks.
-- **`--new-run`:** `surt feature "<description>"` after a cancel creates a `-2` Feature, because the slug guard only looks at **active** runs ([J](J-cli.md#surt-feature-create-resume-or-start-again)).
-- **`--json`:** tests verify final state by reading Git and SQLite directly.
+Every command and flag marked M2 above now exists: Milestone 2 shipped them ([After Milestone 1](#after-milestone-1)).
 
 ### Mechanisms deferred
 
@@ -71,7 +56,7 @@ What replaces the cut commands in Milestone 1:
 | Agent overrides in `.surt/agents/` | Only the built-in `Catalog`. Driving commands refuse with exit `3` when `.surt/agents/` exists, rather than ignoring it. `init` still lists `agents/` as versioned. | [F](F-agent-contract.md#built-in-defaults-and-local-overrides) | M4 | no |
 | Global `~/.surt/config.toml` | Not read. `stop_grace_period` is fixed at 10 s. | [J](J-cli.md#global-surtconfigtoml-optional) | M3 | no |
 | Agent slots across processes | `max_concurrent_agents` is a per-Driver semaphore. Two Features driven at once may use 3 + 3. `status` omits `agent slots`. `execution.slot` is still written. | [A. Process Model](A-process-model.md#agent-concurrency-limit) | M3 | no |
-| TTY footer, 5-minute line without a TTY, ASCII symbols | Event lines only. | [J](J-cli.md#foreground-progress) | M2 | no |
+| TTY footer, 5-minute line without a TTY, ASCII symbols | Event lines only. | [J](J-cli.md#foreground-progress) | M2 (shipped) | no |
 
 **Kept in Milestone 1** although they could have been cut: the whole Recovery of [I](I-recovery.md#what-a-driving-command-does-when-it-takes-the-lock), Salvage Refs (worktree preparation is one code path for the normal flow and recovery, and salvage protects human work for a handful of Git commands), Checks, cleanup with its pending retry, and `cleaned_at`.
 
@@ -126,10 +111,12 @@ docs/smoke-claude-code.md                # manual smoke checklist
 
 ## After Milestone 1
 
-| Milestone | Goal | Contents |
-|---|---|---|
-| **M2 Operate and debug** | understand and fix a run without opening SQLite | `inspect`, `logs [-f] [--raw]`, full `show`, `--json` on reads, `--run`, `stop`, `restore`, `delete`, `--new-run`, the TTY footer, the 5-minute line, ASCII symbols |
-| **M3 Run unattended** | leave a long `surt start` running without coming back to restart it | the Transient Failure pause (reset time and backoff), agent slots across processes, `~/.surt/config.toml` |
-| **M4 Fit the project** | adapt agents and delivery to the repository | `.surt/agents/` overrides, `merge_into_base = "ff-only"` with `--merge`/`--no-merge`, `on_success = "keep"` |
+| Milestone | Goal | Contents | Status |
+|---|---|---|---|
+| **M2 Operate and debug** | understand and fix a run without opening SQLite | `inspect`, `logs [-f] [--raw]`, full `show`, `--json` on reads, `--run`, `stop`, `restore`, `delete`, `--new-run`, the TTY footer, the 5-minute line, ASCII symbols | shipped |
+| **M3 Run unattended** | leave a long `surt start` running without coming back to restart it | the Transient Failure pause (reset time and backoff), agent slots across processes, `~/.surt/config.toml` | next |
+| **M4 Fit the project** | adapt agents and delivery to the repository | `.surt/agents/` overrides, `merge_into_base = "ff-only"` with `--merge`/`--no-merge`, `on_success = "keep"` | planned |
+
+**Milestone 2 shipped** with the spec [Milestone 2](../../.scratch/milestone-2/spec.md): a run is operated and debugged through `inspect`, `logs`, `show`, `--json`, `stop`, `restore`, `delete` and `--new-run`, and every M2 change to sections B, D, H, I and J is written there. M3 is next.
 
 **v1 is the end of M4**: everything sections A–J describe. M2 comes before M3 because a blocked run in Milestone 1 already says what to do, while debugging a review rejected three times with only `tail` hurts every time; a rate limit blocks with a time to come back, which is rarer. What the map ruled out of scope stays out.

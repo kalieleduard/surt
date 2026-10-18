@@ -114,7 +114,7 @@ $ surt init
    $ surt feature 20261017-add-login --new-run
    ✔ run 2 of 20261017-add-login   base main @ b22e310   branch surt/20261017-add-login.2
    ```
-   It refuses with exit `3` while the Working Copy holds an unrecorded edit left by the previous run ([I](I-cleanup.md#unrecorded-working-copy-edits)). Run `N+1` takes the Subject's latest `request` Revision as a new human-origin Initial Artifact. Its Base is the current `HEAD`, or `--base`. It freezes the definitions, agents and configuration again. A `succeeded` Subject works the same way.
+   It refuses with exit `3` while the Working Copy holds an unrecorded edit left by the previous run ([I](I-cleanup.md#unrecorded-working-copy-edits)). Run `N+1` takes the Subject's latest `request` Revision as a new human-origin Initial Artifact. Its Base is the current `HEAD`, or `--base`. It freezes the definitions, agents and configuration again. A `succeeded` Subject works the same way. A cleanup the previous run left pending is finished first, under that run's lock: the command drives the previous root run, which cleans and returns at once because it is terminal, then creates run `N+1` ([I. Cleanup](I-cleanup.md#when-cleanup-runs)).
 
 `--base <ref>` resolves `<ref>` to a commit when the run is created; the default is `HEAD`. `--merge` and `--no-merge` override `[git] merge_into_base` for this run only, as `ff-only` and `never`, before the configuration is frozen. They exist on no other command.
 
@@ -176,7 +176,7 @@ T1     resume: surt start 20261017-add-login
 `surt restore <feature> <artifact>` discards an unrecorded Working Copy edit ([H](H-artifact-storage.md#editing-an-item-list)).
 
 - It acts only on the Subject's **active** run. It takes that root run's lock with `try_lock`; a live Driver refuses with exit `3`, naming its pid. A terminal run refuses with I's `fix: move or delete the file` ([I. Cleanup](I-cleanup.md#unrecorded-working-copy-edits)).
-- It shows what will be lost, per file: changed with added and removed line counts, a new file (removed), or a missing file (recreated), then asks `[y/N]` ([Confirmations](#confirmations)).
+- It shows what will be lost, per file: changed with added and removed line counts, a new file (removed), or a missing file (recreated), then asks `[y/N]` ([Confirmations](#confirmations)) The line counts come from a small line-based count in the engine, not a diff library.
 - When nothing differs it says so and exits `0`:
   ```
   $ surt restore 20261017-add-login spec
@@ -314,6 +314,7 @@ C build#1 │ ✔ delivered (commit 9e04b7d)
 ```
 
 - **Rendered** by default: one line per tool call (`<Tool> <main argument>`, a path relative to the agent's working directory, an edit's `(+added −removed)` lines), the first line of each assistant message in quotes (`…` when more follows), `✔ delivered` for the runtime's accepted structured output (with a non-default outcome and the commit), no tool results. Unknown event types, unknown fields and lines that are not JSON render nothing. `stderr.log` and an Operation's `output.log` (one `=== <check>: <command>` header per Check) pass through after the stream.
+- The engine resolves the sources and gives each Execution's log directory path; the CLI opens and renders the files, since rendering is text and the engine stays text-free.
 - **`--raw`** prints the original `stream.jsonl` lines untouched and nothing else, without prefix, so the output pipes to `jq`.
 - **Without `-f`**: the latest Execution of the run's own steps and of each Task, or of the given Task, or the given Execution. An Operation that ran no process has no log and is skipped when picking the latest. Sources print one after another, run first, then Tasks by key.
 - **`-f`** follows until the run's Driver stops, picking up new Executions (the next Attempt, the next Task) as they start. It polls the log files and the run's Execution list every 200 ms (no file watcher), prints each file's new complete lines, and once the Driver is gone drains every file to its end and exits `0`. With no live Driver at start it prints what exists, as without `-f`, and exits. An Execution target follows only that Execution.

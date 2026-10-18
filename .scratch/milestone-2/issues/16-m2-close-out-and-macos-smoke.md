@@ -8,8 +8,16 @@ Spec: [Milestone 2](../spec.md) (story 84, "Done when") · Slice: all · Plan: [
 
 **Status:** ready-for-agent
 
-- [ ] K marks M2 shipped and removes the "replacements for cut commands" notes
-- [ ] Every plan update the spec lists is present (J, D, H, I. Cleanup, B's rule exception); any still missing is written
-- [ ] Glyphs added by later tickets (logs, stop) go through the symbol table and pass the ASCII-only test
+- [x] K marks M2 shipped and removes the "replacements for cut commands" notes
+- [x] Every plan update the spec lists is present (J, D, H, I. Cleanup, B's rule exception); any still missing is written
+- [x] Glyphs added by later tickets (logs, stop) go through the symbol table and pass the ASCII-only test
 - [ ] CI is green on macOS, Linux and Windows with the line-coverage gate above 90%
 - [ ] Manual check on macOS appended to `docs/smoke-claude-code.md`: the footer redraws during `surt start`; `surt logs -f` renders a live Builder; `surt stop` from a second terminal leaves a resumable run; `surt inspect <execution>` shows session, model, turns and cost
+
+## Smoke results
+
+One line per run of [the Milestone 2 checklist](../../../docs/smoke-claude-code.md#milestone-2-operate-and-debug-a-run-with-the-real-claude-code):
+
+## Comments
+
+- 2026-10-18 (implementer): K marks M2 shipped. The plan audit found J, D, H, I. Cleanup and B's exception already written by tickets 02–15; three "decided here" points were missing and are now in J (`--new-run` finishes the previous run's pending cleanup first, restore's in-house line counts, the engine giving log directory paths). ASCII-mode tests now cover logs, stop, restore, delete, inspect (timeline and Execution) and the stop progress lines. Local line coverage (`cargo llvm-cov --workspace --features test-support`, as CI): 95.57% before this ticket's tests. Open: CI on the three OSes (needs a push) and the manual macOS check (M2 section of `docs/smoke-claude-code.md`).

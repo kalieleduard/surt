@@ -5,6 +5,7 @@ use surt_engine::project::{BranchFate, DeleteImpact, DeletedRun, Directory, Left
 use super::incomplete;
 use super::question::{question, size};
 use crate::message::Mark;
+use crate::symbols::Symbols;
 
 const SUBJECT: &str = "20261017-add-login";
 
@@ -131,4 +132,20 @@ fn an_incomplete_delete_names_what_is_left_and_how_to_retry() {
          \x20 could not remove refs (git failed)\n\
          \x20 retry: surt delete 20261017-add-login\n"
     );
+}
+
+#[test]
+fn the_question_and_an_incomplete_delete_print_only_ascii_in_ascii_mode() {
+    let left = [Left {
+        item: "refs".to_owned(),
+        reason: "git failed".to_owned(),
+    }];
+    let texts = [
+        question(&impact()),
+        incomplete(SUBJECT, &left).plain(Mark::Error),
+    ];
+
+    for text in texts {
+        assert!(Symbols::Ascii.render(&text).is_ascii(), "{text}");
+    }
 }
