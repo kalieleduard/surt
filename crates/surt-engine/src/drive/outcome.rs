@@ -103,6 +103,7 @@ pub enum Progress {
     CancelRequested {
         driver: Option<u32>,
     },
+    StopRequested,
     CleanedUp(Cleanup),
     Activity(ActivitySnapshot),
 }

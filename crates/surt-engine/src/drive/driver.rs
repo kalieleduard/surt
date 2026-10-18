@@ -220,6 +220,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
 
     async fn tick(&self, free_slots: Vec<usize>) -> Result<Tick, Error> {
         let rows = self.driving.store.run_rows(self.driving.root).await?;
+        self.read_stop_request(rows.stop_requested);
         let lists = self.item_lists(&rows).await?;
         let loaded = Loaded::new(&self.frozen, rows, &lists)?;
         let ctx = Ctx {
@@ -263,6 +264,13 @@ impl<R: AgentRuntime> Driver<'_, R> {
             Ok(Tick::Again)
         } else {
             Ok(Tick::Launched(launches))
+        }
+    }
+
+    fn read_stop_request(&self, requested: bool) {
+        if requested && self.stop.level() == StopLevel::None {
+            self.stop.graceful();
+            self.report(Progress::StopRequested);
         }
     }
 

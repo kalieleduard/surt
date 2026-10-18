@@ -14,6 +14,7 @@ mod runtime;
 mod show;
 mod start;
 mod status;
+mod stop;
 mod symbols;
 mod table;
 
@@ -40,6 +41,7 @@ enum Command {
     Reject(decide::RejectArgs),
     Cancel(cancel::CancelArgs),
     Status(status::StatusArgs),
+    Stop(stop::StopArgs),
     Show(show::ShowArgs),
 }
 
@@ -64,6 +66,7 @@ async fn run(command: Command) -> Result<(), Failure> {
         Command::Reject(args) => decide::reject(&cwd, args).await,
         Command::Cancel(args) => cancel::run(&cwd, args).await,
         Command::Status(args) => status::run(&cwd, args).await,
+        Command::Stop(args) => stop::run(&cwd, args).await,
         Command::Show(args) => show::run(&cwd, args).await,
     }
 }

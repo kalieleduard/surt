@@ -156,12 +156,17 @@ Both go through SQLite, never through signals between Surt processes ([A. Extern
 T2 $ surt stop 20261017-add-login
 ⏳ stop requested; driver pid 48213 is stopping 3 executions…
 ✔ stopped. resumable: surt start 20261017-add-login
-T1   ⏹ stopped by surt stop (from another terminal) — resumable: surt start 20261017-add-login
+T1   ⏳ stop requested from another terminal; stopping…
+T1   ⏹ task B build attempt 1 interrupted
+T1   ⏹ stopped by surt stop (from another terminal)
+T1     resume: surt start 20261017-add-login
 ```
 
 - A stop request addresses the Driver that was live when it was written. A driving command clears any leftover stop request when it takes the run lock, so a request whose Driver died first never stops the next one.
 - With no live Driver there is nothing to stop. It refuses with exit `3` and shows the run's derived state.
 - `stop` asks no confirmation: the run stays resumable.
+- `stop` waits for the Driver to release the run lock, the same way `cancel` waits for a live Driver. **The wait has no timeout**: the Driver's own grace period bounds it. A Ctrl-C on `surt stop` leaves the request in place, and the Driver still stops.
+- Stopped Executions end `interrupted` and spend no Attempt, the same as a Ctrl-C.
 
 **`surt cancel`** confirms first ([Confirmations](#confirmations)), then behaves as in [A](A-process-model.md#external-control) and [I](I-recovery.md#without-a-driver-surt-cancel-and-surt-status). A Driver that is cancelled from another terminal exits `5`.
 

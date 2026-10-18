@@ -28,6 +28,7 @@ mod repository;
 mod reviews;
 mod runtime_info;
 mod shipping;
+mod stop_requests;
 mod stopping;
 mod team;
 mod working_copy;
