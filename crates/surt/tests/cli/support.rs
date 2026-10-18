@@ -151,6 +151,12 @@ impl Sandbox {
         fs::write(self.dot_surt().join("config.toml"), contents).expect("the config");
     }
 
+    pub fn write_global_config(&self, contents: &str) {
+        let dot_surt = self.home().join(".surt");
+        fs::create_dir_all(&dot_surt).expect("the global .surt directory");
+        fs::write(dot_surt.join("config.toml"), contents).expect("the global config");
+    }
+
     pub fn surt(&self, cwd: &Path, args: &[&str]) -> Run {
         self.surt_with(cwd, args, &[])
     }
