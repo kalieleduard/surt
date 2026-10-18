@@ -13,7 +13,7 @@ use super::graph::{StepRunId, StepRunState};
 use super::inputs::scoped;
 use super::load::{Loaded, label};
 use super::outcome::Progress;
-use super::pausing::AgentEnd;
+use super::pausing::{AgentEnd, unix_now};
 use super::record::WorkingCopy;
 use crate::artifacts::{AcceptedDelivery, DeliveryContract};
 use crate::context::{Assembly, ContextInput, PreviousIteration};
@@ -39,6 +39,7 @@ pub(super) struct Launch {
     pub(super) slot: usize,
     pub(super) row: StepRow,
     pub(super) started: StartedExecution,
+    launched_at: i64,
     request: RuntimeRequest,
     contract: DeliveryContract,
     pub(super) working_copy: Option<WorkingCopy>,
@@ -100,6 +101,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             slot,
             row: row.clone(),
             started,
+            launched_at: unix_now(),
             request,
             contract,
             working_copy: self.working_copy(loaded, row, definition),
@@ -127,6 +129,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             }) => AgentEnd::Transient {
                 code,
                 resets_at: *resets_at,
+                launched_at: launch.launched_at,
             },
             _ => AgentEnd::Other,
         });

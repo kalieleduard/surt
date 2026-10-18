@@ -24,7 +24,7 @@ impl Pause {
     /// while launches are paused comes from an agent that was already
     /// running, so it changes nothing; a failure once launches resumed takes
     /// the next backoff step.
-    pub(crate) fn failed(self, resets_at: Option<i64>, now: i64) -> Pause {
+    pub(crate) fn failed(self, launched_at: i64, resets_at: Option<i64>, now: i64) -> Pause {
         let paused = self.until(now);
         match (resets_at.filter(|reset| now < *reset), paused) {
             (Some(reset), Some(until)) if reset <= until => self,
@@ -33,8 +33,8 @@ impl Pause {
                 backoff_step: None,
                 ..self
             },
-            (None, Some(_)) => self,
-            (None, None) => {
+            (None, _) if !self.resumed(launched_at) => self,
+            (None, _) => {
                 let step = self.steps_taken + 1;
                 Pause {
                     until: Some(now + backoff(step)),
@@ -43,6 +43,10 @@ impl Pause {
                 }
             }
         }
+    }
+
+    fn resumed(&self, launched_at: i64) -> bool {
+        self.until.is_none_or(|until| until <= launched_at)
     }
 
     /// An agent Execution ended any other way: the backoff starts over.

@@ -30,6 +30,7 @@ pub(super) enum AgentEnd<'a> {
     Transient {
         code: &'a str,
         resets_at: Option<i64>,
+        launched_at: i64,
     },
     Other,
 }
@@ -37,9 +38,13 @@ pub(super) enum AgentEnd<'a> {
 impl Pausing {
     fn learn(&mut self, end: &AgentEnd<'_>, now: i64) {
         match *end {
-            AgentEnd::Transient { code, resets_at } => {
+            AgentEnd::Transient {
+                code,
+                resets_at,
+                launched_at,
+            } => {
                 let before = self.schedule.until(now);
-                self.schedule = self.schedule.failed(resets_at, now);
+                self.schedule = self.schedule.failed(launched_at, resets_at, now);
                 if self.schedule.until(now) != before {
                     code.clone_into(&mut self.code);
                 }
