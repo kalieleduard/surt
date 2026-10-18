@@ -1,6 +1,7 @@
 mod builtin;
 mod cancel;
 mod decide;
+mod delete;
 mod diagnostics;
 mod driving;
 mod failure;
@@ -39,6 +40,7 @@ enum Command {
     Approve(decide::ApproveArgs),
     Reject(decide::RejectArgs),
     Cancel(cancel::CancelArgs),
+    Delete(delete::DeleteArgs),
     Status(status::StatusArgs),
     Show(show::ShowArgs),
 }
@@ -63,6 +65,7 @@ async fn run(command: Command) -> Result<(), Failure> {
         Command::Approve(args) => decide::approve(&cwd, args).await,
         Command::Reject(args) => decide::reject(&cwd, args).await,
         Command::Cancel(args) => cancel::run(&cwd, args).await,
+        Command::Delete(args) => delete::run(&cwd, args).await,
         Command::Status(args) => status::run(&cwd, args).await,
         Command::Show(args) => show::run(&cwd, args).await,
     }

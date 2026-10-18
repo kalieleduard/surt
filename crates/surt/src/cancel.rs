@@ -1,5 +1,7 @@
 mod confirmation;
 
+pub(crate) use confirmation::ask;
+
 use std::io::{self, IsTerminal};
 use std::path::Path;
 

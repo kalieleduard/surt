@@ -22,6 +22,7 @@ mod frozen;
 mod graph;
 mod items;
 mod iterations;
+mod purge;
 mod reading;
 mod ref_moves;
 mod revisions;
@@ -46,6 +47,7 @@ pub(crate) use executions::{
 pub(crate) use frozen::FrozenFile;
 pub(crate) use graph::{RunRows, StepRow};
 pub(crate) use items::{Expansion, ListRevision, NewChild};
+pub(crate) use purge::{SubjectBranch, SubjectRun};
 pub(crate) use reading::{ArtifactSummaryRow, GateViewRow, ItemRunRow, RootRunRow};
 pub(crate) use ref_moves::{PendingRefMove, RefMove};
 pub(crate) use revisions::{Producer, StoredRevision};

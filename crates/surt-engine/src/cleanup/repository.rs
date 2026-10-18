@@ -5,7 +5,7 @@ use super::{Kept, Sweep};
 use crate::drive::RunEnd;
 use crate::git::{self, worktrees::WorktreeEntry};
 use crate::platform::{self, ExclusiveLock};
-use crate::project::Error;
+use crate::project::{Error, Layout};
 use crate::reconcile::worktree::{self, Target};
 use crate::store::ChildBranch;
 
@@ -40,12 +40,7 @@ impl Sweep<'_> {
     }
 
     async fn lock_git(&self) -> Result<ExclusiveLock, Error> {
-        let path = self.layout.git_lock();
-        let waited = path.clone();
-        tokio::task::spawn_blocking(move || platform::lock_exclusive(&waited))
-            .await
-            .map_err(Error::internal)?
-            .map_err(|error| Error::io("lock", &path, error))
+        lock_git(self.layout).await
     }
 
     async fn remove_worktree(&mut self, branch: &ChildBranch, listed: &[WorktreeEntry]) -> bool {
@@ -158,6 +153,15 @@ impl Sweep<'_> {
         owners.extend(branches.iter().map(|branch| branch.run.clone()));
         Ok(owners)
     }
+}
+
+pub(crate) async fn lock_git(layout: &Layout) -> Result<ExclusiveLock, Error> {
+    let path = layout.git_lock();
+    let waited = path.clone();
+    tokio::task::spawn_blocking(move || platform::lock_exclusive(&waited))
+        .await
+        .map_err(Error::internal)?
+        .map_err(|error| Error::io("lock", &path, error))
 }
 
 fn owned(listed: Vec<(String, String)>, owners: &BTreeSet<String>) -> Vec<(String, String)> {

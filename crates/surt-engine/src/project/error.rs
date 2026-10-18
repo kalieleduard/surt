@@ -76,6 +76,15 @@ pub enum Refusal {
     MergeIntoBaseUnsupported {
         path: PathBuf,
     },
+    ActiveRunBlocksDelete {
+        subject: String,
+    },
+    RunLockBusy {
+        subject: String,
+    },
+    SubjectChangedWhileDeleting {
+        subject: String,
+    },
     ActiveRunExists {
         subject: String,
     },

@@ -26,7 +26,7 @@ pub(super) fn question(subject: &str, impact: &CancelImpact) -> String {
     )
 }
 
-pub(super) fn ask(
+pub(crate) fn ask(
     question: &str,
     mut input: impl BufRead,
     mut output: impl Write,

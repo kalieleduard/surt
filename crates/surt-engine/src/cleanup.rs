@@ -1,5 +1,9 @@
 mod disk;
+mod purge;
 mod repository;
+
+pub(crate) use purge::{RefKind, Targets, size};
+pub(crate) use repository::lock_git;
 
 use std::fmt::Display;
 use std::path::{Path, PathBuf};

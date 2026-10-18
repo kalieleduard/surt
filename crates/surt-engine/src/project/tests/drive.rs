@@ -5,6 +5,7 @@ mod cancelling;
 mod checks;
 mod cleanup;
 mod conflicts;
+mod deleting;
 mod drivers;
 mod evidence;
 mod fault_intentions;

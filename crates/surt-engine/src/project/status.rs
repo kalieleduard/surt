@@ -126,6 +126,7 @@ pub struct PendingIntegration {
 pub enum CleanupState {
     Pending { left: Vec<Left>, kept: Vec<Kept> },
     Finished { kept: Vec<Kept> },
+    Kept,
 }
 
 impl Project {
