@@ -1,47 +1,79 @@
-use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::driver::Driver;
 use super::frozen::gate_artifacts;
 use super::guard::refused;
+use super::launch::Launch;
 use super::load::{Loaded, label};
 use super::outcome::Progress;
-use crate::artifacts::{AcceptedDelivery, ValidatedOutput};
-use crate::project::{Error, Refusal};
+use crate::artifacts::AcceptedDelivery;
+use crate::project::Error;
 use crate::runtime::AgentRuntime;
 use crate::store::{Acceptance, ExecutionEnd, PublishedOutput, StartedExecution, StepRow};
 use crate::workflow::Definition;
 use crate::working_copy::RecordedEdit;
 
+pub(super) struct WorkingCopy {
+    dir: PathBuf,
+    artifacts: BTreeSet<String>,
+}
+
 impl<R: AgentRuntime> Driver<'_, R> {
-    pub(super) async fn publish(
+    pub(super) fn working_copy(
         &self,
         loaded: &Loaded,
-        definition: &Definition,
         row: &StepRow,
-        started: &StartedExecution,
+        definition: &Definition,
+    ) -> Option<WorkingCopy> {
+        (row.run == loaded.rows.id).then(|| WorkingCopy {
+            dir: self.driving.layout.working_copy(&loaded.rows.subject),
+            artifacts: gate_artifacts(definition)
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+        })
+    }
+
+    pub(super) async fn publish(
+        &self,
+        launch: &Launch,
         delivery: AcceptedDelivery,
-    ) -> Result<Option<Refusal>, Error> {
-        let in_root = row.run == loaded.rows.id;
-        let outputs = published_outputs(definition, in_root, delivery.outputs);
-        let saved = match refused(self.save_edits(&outputs).await)? {
-            Ok(saved) => saved,
-            Err(refusal) => {
-                self.end(row, started, ExecutionEnd::Interrupted).await?;
-                return Ok(Some(refusal));
-            }
+    ) -> Result<(), Error> {
+        let gated = |name: &str| {
+            launch
+                .working_copy
+                .as_ref()
+                .is_some_and(|copy| copy.artifacts.contains(name))
+        };
+        let outputs: Vec<PublishedOutput> = delivery
+            .outputs
+            .into_iter()
+            .map(|(name, output)| PublishedOutput {
+                working_copy: gated(&name),
+                name,
+                files: output
+                    .files
+                    .into_iter()
+                    .map(|file| (file.path, file.bytes))
+                    .collect(),
+            })
+            .collect();
+        let Ok(saved) = refused(self.save_edits(&outputs).await)? else {
+            return self
+                .end(&launch.row, &launch.started, ExecutionEnd::Interrupted)
+                .await;
         };
         let acceptance = Acceptance {
-            execution: &started.id,
+            execution: &launch.started.id,
             outcome: &delivery.outcome,
             outputs: &outputs,
         };
         let published = self.driving.store.accept_execution(acceptance).await?;
-        let working_copy = self.driving.layout.working_copy(&loaded.rows.subject);
         for (output, (name, revision)) in outputs.iter().zip(published) {
-            if output.working_copy {
-                self.materialize(&working_copy, &row.run, output, &revision.revision_id)
+            if let Some(copy) = launch.working_copy.as_ref().filter(|_| output.working_copy) {
+                self.materialize(&copy.dir, &launch.row.run, output, &revision.revision_id)
                     .await?;
             }
             if let Some(edit) = saved.iter().find(|edit| edit.artifact == name) {
@@ -57,10 +89,10 @@ impl<R: AgentRuntime> Driver<'_, R> {
             });
         }
         self.report(Progress::StepFinished {
-            step: label(row),
+            step: label(&launch.row),
             outcome: delivery.outcome,
         });
-        Ok(None)
+        Ok(())
     }
 
     async fn materialize(
@@ -111,26 +143,6 @@ impl<R: AgentRuntime> Driver<'_, R> {
         });
         Ok(())
     }
-}
-
-fn published_outputs(
-    definition: &Definition,
-    in_root: bool,
-    outputs: BTreeMap<String, ValidatedOutput>,
-) -> Vec<PublishedOutput> {
-    let gated = gate_artifacts(definition);
-    outputs
-        .into_iter()
-        .map(|(name, output)| PublishedOutput {
-            working_copy: in_root && gated.contains(name.as_str()),
-            name,
-            files: output
-                .files
-                .into_iter()
-                .map(|file| (file.path, file.bytes))
-                .collect(),
-        })
-        .collect()
 }
 
 fn remove_files(root: &Path, rel_paths: &[String]) -> std::io::Result<()> {

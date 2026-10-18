@@ -4,6 +4,7 @@ use super::super::fixtures::SUBJECT;
 use super::super::refusal;
 use super::fixtures::{ACTOR, Feature, agent};
 use super::pinning::Editing;
+use super::planned::{TASK_WORKFLOW, approved, work};
 use crate::project::{Catalog, DriveOutcome, Refusal, RevisionOrigin};
 use crate::runtime::{Behavior, Delivery, Script};
 
@@ -345,4 +346,28 @@ async fn an_invalid_edit_while_the_planner_reruns_is_kept_and_halts_the_driver()
         )
         .await;
     assert_eq!(ended, [("interrupted".to_owned(),)]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_edit_after_approval_holds_the_per_item_expansion_until_it_is_approved() {
+    let feature = approved(TASK_WORKFLOW, &[("A", &[]), ("B", &[])]).await;
+    feature.edit("tasks/A.md", "# Task A, edited after approval\n");
+
+    let driven = feature
+        .drive(Script::new().on("A/build", 1, 1, work("a")))
+        .await;
+
+    assert_eq!(
+        driven.outcome.expect("drive returns"),
+        DriveOutcome::Halted(Refusal::UnapprovedRevision {
+            subject: SUBJECT.to_owned(),
+            artifact: "plan".to_owned(),
+            revision: 2,
+        })
+    );
+    let children: Vec<(i64,)> = feature
+        .dir
+        .rows("SELECT count(*) FROM workflow_run WHERE parent_step_run_id IS NOT NULL")
+        .await;
+    assert_eq!(children, [(0,)]);
 }

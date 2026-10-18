@@ -1,4 +1,5 @@
 mod delivery;
+mod items;
 
 use std::fmt::Write;
 
@@ -14,8 +15,8 @@ use sha2::{Digest, Sha256};
 pub(crate) use delivery::ConsistencyCheck;
 pub(crate) use delivery::{
     AcceptedDelivery, DeliveryContract, DeliveryRejection, ItemListProblem, OutputRule,
-    ValidatedOutput,
 };
+pub(crate) use items::{ListedItem, item_view, listed_items};
 
 const SHA256_HEX_LEN: usize = 64;
 

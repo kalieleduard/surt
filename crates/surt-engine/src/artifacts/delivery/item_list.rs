@@ -37,12 +37,12 @@ pub(crate) enum ItemListProblem {
     UnreferencedFile { path: String },
 }
 
-#[derive(Deserialize)]
-struct Item {
-    key: String,
-    needs: Vec<String>,
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct Item {
+    pub(crate) key: String,
+    pub(crate) needs: Vec<String>,
     #[serde(default)]
-    files: BTreeMap<String, String>,
+    pub(crate) files: BTreeMap<String, String>,
 }
 
 impl OutputRule {
