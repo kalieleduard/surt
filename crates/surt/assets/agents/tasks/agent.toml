@@ -1,0 +1,33 @@
+schema = 1
+id = "tasks"
+
+[inputs.spec]
+format = "markdown"
+
+[inputs.manifest]
+format = "item_list"
+json_schema = "schemas/manifest.schema.json"
+optional = true
+
+[inputs.manifest-rejection-reason]
+format = "text"
+optional = true
+
+[outputs.manifest]
+format = "item_list"
+json_schema = "schemas/manifest.schema.json"
+
+[outputs.manifest.item_files.task]
+format = "markdown"
+
+[profile]
+runtime = "claude-code"
+model = "claude-sonnet-5-5"
+effort = "high"
+
+[profile.claude]
+auth = "subscription"
+permission_mode = "dontAsk"
+tools = ["Read", "Glob", "Grep", "Write"]
+allowed_tools = ["Read", "Glob", "Grep"]
+disallowed_tools = ["mcp__*"]

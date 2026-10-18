@@ -1,3 +1,5 @@
+mod definition;
+
 use std::path::Path;
 
 use surt_engine::project::{DefinitionFile, InvalidDefinition, Refusal};
@@ -50,11 +52,10 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
                     format!("set merge_into_base = \"never\" in {}", path.display()),
                 )
         }
-        Refusal::ActiveRunExists { run } => Message::new(format!(
-            "this feature already has an active run {}",
-            run.as_str()
-        ))
-        .way("inspect", "surt status"),
+        Refusal::ActiveRunExists { subject } => {
+            Message::new(format!("{subject} already has an active run"))
+                .way("resume", format!("surt feature {subject}"))
+        }
         Refusal::InvalidDefinition(invalid) => invalid_definition(invalid),
     }
 }
@@ -69,7 +70,7 @@ fn invalid_definition(invalid: &InvalidDefinition) -> Message {
         None => file,
     };
     Message::new(format!("invalid built-in definition: {location}"))
-        .context(format!("{:?}", invalid.problem))
+        .context(definition::describe(&invalid.problem))
         .way("fix", "reinstall surt")
 }
 
