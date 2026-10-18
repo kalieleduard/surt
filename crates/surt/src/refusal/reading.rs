@@ -1,5 +1,8 @@
+use surt_engine::project::KnownRun;
+
 use crate::feature::quoted;
 use crate::message::Message;
+use crate::status::state_names;
 
 pub(super) fn unknown_artifact(subject: &str, artifact: &str, known: &[String]) -> Message {
     let listed = if known.is_empty() {
@@ -35,5 +38,16 @@ pub(super) fn unknown_task(subject: &str, task: &str, known: &[String]) -> Messa
     };
     Message::new(format!("{subject} has no task {}", quoted(task)))
         .context(listed)
+        .way("inspect", format!("surt status {subject}"))
+}
+
+pub(super) fn unknown_run(subject: &str, run: u32, runs: &[KnownRun]) -> Message {
+    runs.iter()
+        .fold(
+            Message::new(format!("{subject} has no run {run}")),
+            |message, known| {
+                message.context(format!("run {}  {}", known.run, state_names(&known.states)))
+            },
+        )
         .way("inspect", format!("surt status {subject}"))
 }

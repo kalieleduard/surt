@@ -14,7 +14,9 @@ use super::repository::{commit_file, git, git_succeeds};
 use super::team::{
     Act, INTEGRATED_TASK, Team, assert_valid, builds, built, failures, input, reviews,
 };
-use crate::project::{CONFLICT_SCHEMA, Config, Conflict, DriveOutcome, ItemState, StatusScope};
+use crate::project::{
+    CONFLICT_SCHEMA, Config, Conflict, DriveOutcome, ItemState, RunSelector, StatusScope,
+};
 
 const KEYS: [&str; 2] = ["A", "B"];
 
@@ -249,7 +251,7 @@ async fn a_merge_that_fails_the_checks_sends_the_task_back_and_never_becomes_the
 async fn conflicts_shown(feature: &Feature) -> Vec<(ItemState, Option<Conflict>)> {
     let statuses = feature
         .project
-        .status(StatusScope::Feature(SUBJECT))
+        .status(StatusScope::Feature(SUBJECT, RunSelector::Current))
         .await
         .expect("the status");
     statuses[0]

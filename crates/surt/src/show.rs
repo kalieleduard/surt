@@ -5,6 +5,7 @@ use surt_engine::project::{ArtifactSummary, Project, RevisionOrigin, ShowRequest
 
 use crate::failure::Failure;
 use crate::message::{Mark, Message};
+use crate::status::run_selector;
 use crate::table;
 
 const HEADERS: [&str; 3] = ["ARTIFACT", "REVS", "LATEST"];
@@ -17,12 +18,16 @@ pub(crate) struct ShowArgs {
     rev: Option<u32>,
     #[arg(long, value_name = "key", requires = "artifact")]
     task: Option<String>,
+    #[arg(long, value_name = "N")]
+    run: Option<u32>,
 }
 
 pub(crate) async fn run(cwd: &Path, args: ShowArgs) -> Result<(), Failure> {
     let project = Project::open_read_only(cwd).await?;
     let Some(artifact) = &args.artifact else {
-        let artifacts = project.artifacts(&args.feature).await?;
+        let artifacts = project
+            .artifacts(&args.feature, run_selector(args.run))
+            .await?;
         anstream::print!("{}", index(&artifacts));
         return Ok(());
     };
@@ -30,6 +35,7 @@ pub(crate) async fn run(cwd: &Path, args: ShowArgs) -> Result<(), Failure> {
         artifact,
         revision: args.rev,
         item: args.task.as_deref(),
+        run: run_selector(args.run),
     };
     let shown = project.show(&args.feature, request).await?;
     for file in &shown.edited {

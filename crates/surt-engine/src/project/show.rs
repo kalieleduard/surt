@@ -1,9 +1,9 @@
 use serde_json::Value;
 
 use super::status::origin;
-use super::{Error, Project, Refusal, RevisionOrigin};
+use super::{Error, Project, Refusal, RevisionOrigin, RunSelector};
 use crate::artifacts::working_copy;
-use crate::store::{Store, StoredRevision};
+use crate::store::{ArtifactSummaryRow, Store, StoredRevision};
 
 const HUMAN: &str = "human";
 
@@ -12,6 +12,7 @@ pub struct ShowRequest<'a> {
     pub artifact: &'a str,
     pub revision: Option<u32>,
     pub item: Option<&'a str>,
+    pub run: RunSelector,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -34,10 +35,14 @@ pub struct ArtifactSummary {
 }
 
 impl Project {
-    pub async fn artifacts(&self, reference: &str) -> Result<Vec<ArtifactSummary>, Error> {
+    pub async fn artifacts(
+        &self,
+        reference: &str,
+        run: RunSelector,
+    ) -> Result<Vec<ArtifactSummary>, Error> {
         let subject = self.resolve_subject(reference).await?.name;
         let store = self.reader().await?;
-        let summaries = summaries(&store, &subject).await;
+        let summaries = self.summaries(&store, &subject, run).await;
         store.close().await;
         summaries
     }
@@ -56,7 +61,7 @@ impl Project {
         subject: &str,
         request: ShowRequest<'_>,
     ) -> Result<Shown, Error> {
-        let root = root_run(store, subject).await?;
+        let root = self.select_run(store, subject, request.run).await?.id;
         let run = match request.item {
             None => root.clone(),
             Some(item) => item_run(store, subject, &root, item).await?,
@@ -97,37 +102,36 @@ impl Project {
         working_copy::unrecorded_edits(&dir, &copy.files)
             .map_err(|error| Error::io("read", &dir, error))
     }
+
+    async fn summaries(
+        &self,
+        store: &Store,
+        subject: &str,
+        run: RunSelector,
+    ) -> Result<Vec<ArtifactSummary>, Error> {
+        let root = self.select_run(store, subject, run).await?.id;
+        Ok(store
+            .artifact_summaries(&root)
+            .await?
+            .into_iter()
+            .map(summary)
+            .collect())
+    }
 }
 
-async fn summaries(store: &Store, subject: &str) -> Result<Vec<ArtifactSummary>, Error> {
-    let root = root_run(store, subject).await?;
-    Ok(store
-        .artifact_summaries(&root)
-        .await?
-        .into_iter()
-        .map(|row| ArtifactSummary {
-            name: row.name,
-            revisions: count(row.revisions),
-            latest: count(row.number),
-            origin: if row.origin == HUMAN {
-                RevisionOrigin::Human
-            } else {
-                RevisionOrigin::Agent
-            },
-            approved: row.approved,
-            files: count(row.files),
-        })
-        .collect())
-}
-
-async fn root_run(store: &Store, subject: &str) -> Result<String, Error> {
-    let runs = store.runs_to_show(Some(subject), true).await?;
-    runs.into_iter().next().map(|run| run.id).ok_or_else(|| {
-        Refusal::UnknownSubject {
-            reference: subject.to_owned(),
-        }
-        .into()
-    })
+fn summary(row: ArtifactSummaryRow) -> ArtifactSummary {
+    ArtifactSummary {
+        name: row.name,
+        revisions: count(row.revisions),
+        latest: count(row.number),
+        origin: if row.origin == HUMAN {
+            RevisionOrigin::Human
+        } else {
+            RevisionOrigin::Agent
+        },
+        approved: row.approved,
+        files: count(row.files),
+    }
 }
 
 async fn item_run(store: &Store, subject: &str, root: &str, item: &str) -> Result<String, Error> {
