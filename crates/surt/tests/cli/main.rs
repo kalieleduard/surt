@@ -1,3 +1,5 @@
+#[cfg(unix)]
+mod claude;
 mod discovery;
 mod feature;
 mod init;

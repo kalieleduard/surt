@@ -2,7 +2,7 @@ use std::fs::{self, OpenOptions};
 use std::path::Path;
 use std::sync::atomic::Ordering;
 
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::{self, UnboundedReceiver};
 use uuid::Uuid;
 
 use super::driver::{Driver, known};
@@ -15,10 +15,10 @@ use super::outcome::Progress;
 use super::record::WorkingCopy;
 use crate::artifacts::{AcceptedDelivery, DeliveryContract};
 use crate::context::{Assembly, ContextInput, PreviousIteration};
+use crate::platform;
 use crate::project::Error;
 use crate::runtime::{
-    AgentRuntime, Rejection, RuntimeCompletion, RuntimeError, RuntimeEvent, RuntimeRequest,
-    StepAttempt, StopLevel, Verdict, accept,
+    AgentRuntime, Rejection, RuntimeEvent, RuntimeRequest, StepAttempt, StopLevel, Verdict, accept,
 };
 use crate::store::{
     ExecutionEnd, ExecutionKind, ExecutionStart, RunBranch, StartedExecution, StepRow,
@@ -112,10 +112,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 return self.end(&launch.row, &launch.started, end).await;
             }
         }
-        let ending = self
-            .execute(&launch.started.id, &launch.request, &launch.contract)
-            .await?;
-        match ending {
+        match self.execute(&launch).await? {
             Ending::Accepted(delivery) => match failed(self.prove(&launch, &delivery).await)? {
                 Some(end) => self.end(&launch.row, &launch.started, end).await,
                 None => self.publish(&launch, delivery).await,
@@ -177,62 +174,65 @@ impl<R: AgentRuntime> Driver<'_, R> {
         })
     }
 
-    async fn execute(
-        &self,
-        execution: &str,
-        request: &RuntimeRequest,
-        contract: &DeliveryContract,
-    ) -> Result<Ending, Error> {
+    async fn execute(&self, launch: &Launch) -> Result<Ending, Error> {
         let (events, received) = mpsc::unbounded_channel();
-        let running = self
-            .runtime
-            .execute(request.clone(), events, self.agents.clone());
-        let result = self
-            .tracking(execution, running, received, launched_pid)
-            .await?;
+        let (result, recorded) = tokio::join!(
+            self.runtime
+                .execute(launch.request.clone(), events, self.agents.clone()),
+            self.record_identity(&launch.started.id, received),
+        );
+        recorded?;
         if self.cancelling.load(Ordering::SeqCst) {
             return Ok(Ending::Cancelled);
         }
         if self.agents.level() != StopLevel::None {
             return Ok(Ending::Ended(ExecutionEnd::Interrupted));
         }
-        Ok(self.verdict(request, result, contract))
-    }
-
-    fn verdict(
-        &self,
-        request: &RuntimeRequest,
-        result: Result<RuntimeCompletion, RuntimeError>,
-        contract: &DeliveryContract,
-    ) -> Ending {
         let completion = match result {
             Ok(completion) => completion,
             Err(error) => {
-                return Ending::Ended(ExecutionEnd::Failed {
+                return Ok(Ending::Ended(ExecutionEnd::Failed {
                     class: error.class,
                     code: error.code,
                     message: error.message,
                     resets_at: error.resets_at,
-                });
+                }));
             }
         };
-        match accept(request, &completion, contract) {
-            Verdict::Accepted(delivery) => Ending::Accepted(delivery),
-            Verdict::Interrupted => Ending::Ended(ExecutionEnd::Interrupted),
-            Verdict::Rejected(rejection) => Ending::Ended(ExecutionEnd::Failed {
-                class: rejection.class(),
-                code: rejection_code(&rejection).to_owned(),
-                message: format!("{rejection:?}"),
-                resets_at: None,
-            }),
-        }
+        Ok(
+            match accept(&launch.request, &completion, &launch.contract) {
+                Verdict::Accepted(delivery) => Ending::Accepted(delivery),
+                Verdict::Interrupted => Ending::Ended(ExecutionEnd::Interrupted),
+                Verdict::Rejected(rejection) => Ending::Ended(ExecutionEnd::Failed {
+                    class: rejection.class(),
+                    code: rejection_code(&rejection).to_owned(),
+                    message: format!("{rejection:?}"),
+                    resets_at: None,
+                }),
+            },
+        )
     }
-}
 
-fn launched_pid(event: RuntimeEvent) -> Option<u32> {
-    match event {
-        RuntimeEvent::Launched { pid } => pid,
-        RuntimeEvent::Initialized(_) => None,
+    async fn record_identity(
+        &self,
+        execution: &str,
+        mut events: UnboundedReceiver<RuntimeEvent>,
+    ) -> Result<(), Error> {
+        while let Some(event) = events.recv().await {
+            let store = self.driving.store;
+            match event {
+                RuntimeEvent::Identified { version } => {
+                    store.record_runtime_version(execution, &version).await?;
+                }
+                RuntimeEvent::Launched { pid: Some(pid) } => {
+                    if let Some(identity) = platform::identify(pid) {
+                        store.record_process(execution, &identity).await?;
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(())
     }
 }
 

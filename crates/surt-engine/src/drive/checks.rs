@@ -74,9 +74,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             .join(OUTPUT_LOG);
         let (spawned, pids) = mpsc::unbounded_channel();
         let running = checks::run(&self.frozen.checks, worktree, commit, &log, &spawned);
-        let report = self
-            .tracking(&launch.started.id, running, pids, Some)
-            .await?;
+        let report = self.tracking(&launch.started.id, running, pids).await?;
         report.map_err(|error| {
             Failure::retryable(
                 "checks_unrecorded",
