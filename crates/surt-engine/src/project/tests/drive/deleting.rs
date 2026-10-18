@@ -180,6 +180,18 @@ async fn deleting_keeps_only_the_delivered_integration_branch_and_purges_the_his
     for (run,) in run_locks {
         assert!(!locks.join(format!("{run}.lock")).exists(), "{run}");
     }
+    let mut slots: Vec<String> = fs::read_dir(feature.surt_dir("runtime/slots"))
+        .expect("the project's agent slots are kept")
+        .map(|entry| {
+            entry
+                .expect("a slot")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+    slots.sort();
+    assert_eq!(slots, ["agent-0.lock", "agent-1.lock", "agent-2.lock"]);
 }
 
 #[tokio::test(flavor = "multi_thread")]
