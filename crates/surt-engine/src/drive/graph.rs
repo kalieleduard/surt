@@ -1,3 +1,5 @@
+pub(crate) use crate::runtime::FailureClass;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RunId(pub(crate) String);
 
@@ -48,13 +50,6 @@ pub(crate) enum ExecutionState {
     Failed(FailureClass),
     Interrupted,
     Cancelled,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum FailureClass {
-    Retryable,
-    NotRetryable,
-    Transient,
 }
 
 #[derive(Clone, Debug)]

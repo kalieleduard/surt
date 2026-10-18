@@ -1,6 +1,26 @@
+#[cfg_attr(
+    not(all(test, feature = "test-support")),
+    expect(
+        dead_code,
+        reason = "drive validates deliveries and Working Copy edits from tickets 08 and 10 on"
+    )
+)]
+mod delivery;
+
 use std::fmt::Write;
 
 use sha2::{Digest, Sha256};
+
+#[cfg_attr(
+    not(all(test, feature = "test-support")),
+    expect(
+        unused_imports,
+        reason = "drive validates deliveries and Working Copy edits from tickets 08 and 10 on"
+    )
+)]
+pub(crate) use delivery::{
+    AcceptedDelivery, ConsistencyCheck, DeliveryContract, DeliveryRejection, ItemListProblem,
+};
 
 const SHA256_HEX_LEN: usize = 64;
 
