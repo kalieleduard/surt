@@ -20,6 +20,13 @@ impl Operation {
         REGISTRY.into_iter().find(|operation| operation.id() == id)
     }
 
+    pub(crate) fn is_supported(self) -> bool {
+        matches!(
+            self,
+            Operation::CreateRunBranch | Operation::CreateChildWorktree
+        )
+    }
+
     pub(crate) fn id(self) -> &'static str {
         match self {
             Operation::CreateRunBranch => "git.create_run_branch",

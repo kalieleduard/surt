@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use super::executions::{CONTEXT, Execution, INSTRUCTIONS};
 use crate::runtime::FailureClass;
+use crate::runtime::claude_code::environment::git_config;
 use crate::runtime::claude_code::rules::absolute_pattern;
 
 const BUILDER_AGENT: &str = r#"
@@ -322,6 +323,15 @@ fn the_environment_is_an_allowlist_plus_the_isolation_switches() {
 
     let child = environment(&execution, &parent);
 
+    let long_paths_on_windows: &[(&str, &str)] = if cfg!(windows) {
+        &[
+            ("GIT_CONFIG_KEY_0", "core.longpaths"),
+            ("GIT_CONFIG_VALUE_0", "true"),
+            ("GIT_CONFIG_COUNT", "1"),
+        ]
+    } else {
+        &[]
+    };
     let expected: BTreeMap<String, String> = [
         ("HOME", "/home/dev"),
         ("PATH", "/usr/bin:/bin"),
@@ -336,6 +346,7 @@ fn the_environment_is_an_allowlist_plus_the_isolation_switches() {
         ("CLAUDE_CODE_STARTUP_FAILURE_RESULTS", "1"),
     ]
     .into_iter()
+    .chain(long_paths_on_windows.iter().copied())
     .map(|(name, value)| (name.to_owned(), value.to_owned()))
     .collect();
     assert_eq!(child, expected);
@@ -381,4 +392,41 @@ fn every_execution_writes_its_rules_with_its_own_roots() {
     let rule = edit_rule(&execution.request.delivery_dir);
     assert!(rule.starts_with("Edit(//"), "{rule}");
     assert!(arguments.contains(&rule));
+}
+
+fn owned_pairs(pairs: &[(&str, &str)]) -> Vec<(OsString, OsString)> {
+    pairs
+        .iter()
+        .map(|(name, value)| (OsString::from(name), OsString::from(value)))
+        .collect()
+}
+
+#[test]
+fn surt_git_settings_are_appended_after_the_users_own() {
+    let parent = owned_pairs(&[
+        ("GIT_CONFIG_COUNT", "1"),
+        ("GIT_CONFIG_KEY_0", "user.name"),
+        ("GIT_CONFIG_VALUE_0", "Dev"),
+        ("GIT_CONFIG_KEY_1", "ignored.beyond.count"),
+    ]);
+
+    let settings = git_config(&parent, &[("core.longpaths", "true")]);
+
+    assert_eq!(
+        settings,
+        owned_pairs(&[
+            ("GIT_CONFIG_KEY_0", "user.name"),
+            ("GIT_CONFIG_VALUE_0", "Dev"),
+            ("GIT_CONFIG_KEY_1", "core.longpaths"),
+            ("GIT_CONFIG_VALUE_1", "true"),
+            ("GIT_CONFIG_COUNT", "2"),
+        ])
+    );
+}
+
+#[test]
+fn without_settings_of_either_side_no_git_configuration_is_passed() {
+    let parent = owned_pairs(&[("GIT_CONFIG_COUNT", "not a number")]);
+
+    assert_eq!(git_config(&parent, &[]), []);
 }

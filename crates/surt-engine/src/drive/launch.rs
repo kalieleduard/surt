@@ -6,6 +6,7 @@ use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use super::driver::{Driver, known};
+use super::failure::OperationError;
 use super::frozen::{CorruptSnapshot, FrozenAgent};
 use super::graph::{StepRunId, StepRunState};
 use super::inputs::scoped;
@@ -18,7 +19,9 @@ use crate::project::Error;
 use crate::runtime::{
     AgentRuntime, Rejection, RuntimeRequest, StepAttempt, StopLevel, Verdict, accept,
 };
-use crate::store::{ExecutionEnd, ExecutionStart, StartedExecution, StepRow};
+use crate::store::{
+    ExecutionEnd, ExecutionKind, ExecutionStart, RunBranch, StartedExecution, StepRow,
+};
 use crate::workflow::StepSpec;
 
 const DELIVERY_DIR: &str = "delivery";
@@ -34,6 +37,7 @@ pub(super) struct Launch {
     request: RuntimeRequest,
     contract: DeliveryContract,
     pub(super) working_copy: Option<WorkingCopy>,
+    pub(super) worktree: Option<RunBranch>,
 }
 
 enum Ending {
@@ -58,12 +62,29 @@ impl<R: AgentRuntime> Driver<'_, R> {
         let contract = agent.delivery_contract()?;
         let start = ExecutionStart {
             step: &row.id,
-            agent_snapshot: &agent.snapshot,
-            slot,
-            inputs: self.input_requests(loaded, row, spec, agent)?,
+            kind: ExecutionKind::Agent {
+                snapshot: &agent.snapshot,
+                slot,
+            },
+            inputs: self.input_requests(
+                loaded,
+                row,
+                agent.contract.inputs.keys().map(|input| {
+                    let artifact = spec.inputs.get(input).unwrap_or(input);
+                    (input.as_str(), artifact.as_str())
+                }),
+            )?,
         };
         let started = self.driving.store.start_execution(start).await?;
-        let request = self.prepare(loaded, row, agent, &started).await?;
+        let worktree = self
+            .driving
+            .store
+            .run_branch(&row.run)
+            .await?
+            .filter(|branch| branch.worktree_path.is_some());
+        let request = self
+            .prepare(loaded, row, agent, &started, worktree.as_ref())
+            .await?;
         self.report(Progress::StepStarted {
             step: label(row),
             attempt: started.attempt,
@@ -75,10 +96,25 @@ impl<R: AgentRuntime> Driver<'_, R> {
             request,
             contract,
             working_copy: self.working_copy(loaded, row, definition),
+            worktree,
         })
     }
 
     pub(super) async fn carry(&self, launch: Launch) -> Result<(), Error> {
+        if let Some(branch) = &launch.worktree {
+            match self
+                .prepare_worktree(&launch.row, &launch.started, branch)
+                .await
+            {
+                Ok(()) => {}
+                Err(OperationError::Failed(failure)) => {
+                    return self
+                        .end(&launch.row, &launch.started, failure.into_end())
+                        .await;
+                }
+                Err(OperationError::Fatal(error)) => return Err(error),
+            }
+        }
         match self.execute(&launch.request, &launch.contract).await {
             Ending::Accepted(delivery) => self.publish(&launch, delivery).await,
             Ending::Ended(end) => self.end(&launch.row, &launch.started, end).await,
@@ -92,6 +128,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         row: &StepRow,
         agent: &FrozenAgent,
         started: &StartedExecution,
+        worktree: Option<&RunBranch>,
     ) -> Result<RuntimeRequest, Error> {
         let layout = self.driving.layout;
         let execution_dir = layout.execution(&started.id);
@@ -128,7 +165,12 @@ impl<R: AgentRuntime> Driver<'_, R> {
             delivery_dir,
             log_dir,
             context,
-            launch: agent.launch(layout.root().to_owned(), execution_dir.join(LAUNCH_DIR))?,
+            launch: agent.launch(
+                worktree
+                    .and_then(|branch| branch.worktree_path.clone())
+                    .unwrap_or_else(|| layout.root().to_owned()),
+                execution_dir.join(LAUNCH_DIR),
+            )?,
         })
     }
 

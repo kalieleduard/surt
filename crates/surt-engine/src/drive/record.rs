@@ -8,6 +8,7 @@ use super::launch::Launch;
 use super::load::{Loaded, label};
 use super::outcome::Progress;
 use crate::artifacts::AcceptedDelivery;
+use crate::git;
 use crate::project::Error;
 use crate::runtime::AgentRuntime;
 use crate::store::{Acceptance, ExecutionEnd, PublishedOutput, StartedExecution, StepRow};
@@ -58,10 +59,15 @@ impl<R: AgentRuntime> Driver<'_, R> {
                     .collect(),
             })
             .collect();
+        let tip = match &launch.worktree {
+            Some(branch) => git::commit_sha(self.driving.layout.root(), &branch.ref_name).await?,
+            None => None,
+        };
         let acceptance = Acceptance {
             execution: &launch.started.id,
             outcome: &delivery.outcome,
             outputs: &outputs,
+            tip: tip.as_deref(),
         };
         let published = self.driving.store.accept_execution(acceptance).await?;
         for (output, (name, revision)) in outputs.iter().zip(published) {

@@ -4,6 +4,7 @@ use super::error::{Error, Refusal};
 use super::layout::Layout;
 use crate::git::{self, MainWorktree};
 
+#[derive(Clone)]
 pub(crate) struct SurtHome {
     worktrees: Option<PathBuf>,
 }
@@ -20,6 +21,10 @@ impl SurtHome {
         SurtHome {
             worktrees: Some(worktrees_under(home)),
         }
+    }
+
+    pub(crate) fn worktrees(&self) -> Option<&Path> {
+        self.worktrees.as_deref()
     }
 
     fn manages(&self, path: &Path) -> bool {

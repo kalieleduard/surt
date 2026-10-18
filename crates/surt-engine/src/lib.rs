@@ -11,3 +11,4 @@ mod platform;
 mod reconcile;
 mod store;
 mod workflow;
+mod worktree;

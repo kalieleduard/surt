@@ -1,3 +1,4 @@
+use super::init::supported_git;
 use super::{Error, Project, RunId, open_store};
 use crate::drive::{self, DriveOutcome, Driving, ProgressSink};
 use crate::runtime::{AgentRuntime, StopSignal};
@@ -11,6 +12,7 @@ impl Project {
         stop: StopSignal,
     ) -> Result<DriveOutcome, Error> {
         self.refuse_agent_overrides()?;
+        supported_git().await?;
         let store = open_store(&self.layout).await?;
         let driving = Driving {
             store: &store,
@@ -18,6 +20,10 @@ impl Project {
             root: run.as_str(),
             max_agents: usize::try_from(self.config.max_concurrent_agents.get())
                 .unwrap_or(usize::MAX),
+            worktrees: self
+                .home
+                .worktrees()
+                .map(|worktrees| worktrees.join(&self.id)),
         };
         let outcome = drive::drive(driving, runtime, progress, stop).await;
         store.close().await;

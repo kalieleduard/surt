@@ -10,6 +10,7 @@ use crate::platform::{self, ExclusiveLock};
 
 mod acceptance;
 mod approvals;
+mod branches;
 mod control;
 mod drivers;
 mod executions;
@@ -23,7 +24,10 @@ mod subjects;
 
 pub(crate) use acceptance::{Acceptance, PublishedOutput};
 pub(crate) use approvals::{Decision, DecisionOutcome, GateRow, NewDecision};
-pub(crate) use executions::{ExecutionEnd, ExecutionStart, InputRequest, StartedExecution};
+pub(crate) use branches::{PreviousExecution, RunBranch};
+pub(crate) use executions::{
+    ExecutionEnd, ExecutionKind, ExecutionStart, InputRequest, StartedExecution,
+};
 pub(crate) use frozen::FrozenFile;
 pub(crate) use graph::{RunRows, StepRow};
 pub(crate) use items::{Expansion, ListRevision, NewChild};

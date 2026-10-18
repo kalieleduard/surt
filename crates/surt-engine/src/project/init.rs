@@ -43,14 +43,7 @@ impl Initialized {
 
 pub(crate) async fn run(cwd: &Path, home: &SurtHome) -> Result<Initialized, Error> {
     let cwd = discovery::outside_managed_worktrees(cwd, home).await?;
-    let git = git::version().await?;
-    if git < MIN_VERSION {
-        return Err(Refusal::GitTooOld {
-            found: git,
-            min: MIN_VERSION,
-        }
-        .into());
-    }
+    let git = supported_git().await?;
     let Some(root) = discovery::main_toplevel(&cwd).await? else {
         return Err(Refusal::NotAGitRepository { path: cwd }.into());
     };
@@ -66,6 +59,18 @@ pub(crate) async fn run(cwd: &Path, home: &SurtHome) -> Result<Initialized, Erro
         git,
         identity,
     })
+}
+
+pub(crate) async fn supported_git() -> Result<GitVersion, Error> {
+    let git = git::version().await?;
+    if git < MIN_VERSION {
+        return Err(Refusal::GitTooOld {
+            found: git,
+            min: MIN_VERSION,
+        }
+        .into());
+    }
+    Ok(git)
 }
 
 async fn create_files(layout: &Layout) -> Result<[(InitFile, FileState); 3], Error> {

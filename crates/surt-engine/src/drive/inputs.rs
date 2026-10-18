@@ -1,32 +1,28 @@
 use super::driver::Driver;
 use super::expand::per_item;
-use super::frozen::{CorruptSnapshot, FrozenAgent};
+use super::frozen::CorruptSnapshot;
 use super::load::Loaded;
 use crate::artifacts::item_view;
 use crate::runtime::AgentRuntime;
 use crate::store::{InputRequest, StepRow, StoredRevision};
-use crate::workflow::{AgentStep, PerItemStep};
+use crate::workflow::PerItemStep;
 
 const ITEM: &str = "item";
 
 impl<R: AgentRuntime> Driver<'_, R> {
-    pub(super) fn input_requests(
+    pub(super) fn input_requests<'n>(
         &self,
         loaded: &Loaded,
         row: &StepRow,
-        spec: &AgentStep,
-        agent: &FrozenAgent,
+        inputs: impl IntoIterator<Item = (&'n str, &'n str)>,
     ) -> Result<Vec<InputRequest>, CorruptSnapshot> {
         let parent = self.per_item_parent(loaded, row)?;
-        Ok(agent
-            .contract
-            .inputs
-            .keys()
-            .map(|input| {
-                let artifact = spec.inputs.get(input).unwrap_or(input);
+        Ok(inputs
+            .into_iter()
+            .map(|(input, artifact)| {
                 let own = InputRequest {
-                    input: input.clone(),
-                    artifact: artifact.clone(),
+                    input: input.to_owned(),
+                    artifact: artifact.to_owned(),
                     run: row.run.clone(),
                     item: None,
                 };
@@ -37,7 +33,9 @@ impl<R: AgentRuntime> Driver<'_, R> {
                         item: Some(item.clone()),
                         ..own
                     },
-                    (Some((parent, per_item)), _) if per_item.pass.contains(artifact) => {
+                    (Some((parent, per_item)), _)
+                        if per_item.pass.iter().any(|passed| passed == artifact) =>
+                    {
                         InputRequest {
                             run: parent.run.clone(),
                             ..own

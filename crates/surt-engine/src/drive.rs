@@ -1,15 +1,19 @@
+mod branches;
 mod decide;
 mod driver;
 mod expand;
+mod failure;
 mod flights;
 mod frozen;
 pub(crate) mod graph;
 mod inputs;
 mod launch;
 mod load;
+mod operate;
 mod outcome;
 mod public;
 mod record;
+mod worktrees;
 
 pub(crate) use decide::RunEnd;
 pub(crate) use driver::{Driving, drive};

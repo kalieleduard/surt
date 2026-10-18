@@ -10,9 +10,13 @@ const STEP_RUNNING: &str = "step.running";
 
 pub(crate) struct ExecutionStart<'a> {
     pub(crate) step: &'a str,
-    pub(crate) agent_snapshot: &'a str,
-    pub(crate) slot: usize,
+    pub(crate) kind: ExecutionKind<'a>,
     pub(crate) inputs: Vec<InputRequest>,
+}
+
+pub(crate) enum ExecutionKind<'a> {
+    Agent { snapshot: &'a str, slot: usize },
+    Operation { id: &'a str },
 }
 
 pub(crate) struct InputRequest {
@@ -65,15 +69,26 @@ impl Store {
             record_event(&mut transaction, About::Step(start.step), STEP_RUNNING, now).await?;
         }
         let id = new_id();
+        let (kind, snapshot, operation, slot) = match start.kind {
+            ExecutionKind::Agent { snapshot, slot } => (
+                "agent",
+                Some(snapshot),
+                None,
+                Some(i64::try_from(slot).unwrap_or(i64::MAX)),
+            ),
+            ExecutionKind::Operation { id } => ("operation", None, Some(id), None),
+        };
         sqlx::query(
-            "INSERT INTO execution (id, step_run_id, attempt, kind, agent_snapshot_sha256, state, slot, started_at) \
-             VALUES (?, ?, ?, 'agent', ?, 'running', ?, ?)",
+            "INSERT INTO execution (id, step_run_id, attempt, kind, agent_snapshot_sha256, operation_id, state, slot, started_at) \
+             VALUES (?, ?, ?, ?, ?, ?, 'running', ?, ?)",
         )
         .bind(&id)
         .bind(start.step)
         .bind(attempt)
-        .bind(start.agent_snapshot)
-        .bind(i64::try_from(start.slot).unwrap_or(i64::MAX))
+        .bind(kind)
+        .bind(snapshot)
+        .bind(operation)
+        .bind(slot)
         .bind(now)
         .execute(&mut *transaction)
         .await?;
