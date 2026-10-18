@@ -136,11 +136,17 @@ fn status_shows_a_driven_feature_as_running_with_its_driver_and_running_task() {
 
     assert_eq!(code, Some(INTERRUPTED_EXIT_CODE), "{stderr}");
     assert_eq!(
-        overview.stdout,
-        format!(
-            "FEATURE             RUN  STATE    DRIVER     PROGRESS\n\
-             {name}  1    RUNNING  pid {pid}  0/1 merged · 1 running\n"
-        ),
+        cells(&overview.stdout),
+        [
+            vec!["FEATURE", "RUN", "STATE", "DRIVER", "PROGRESS"],
+            vec![
+                name.as_str(),
+                "1",
+                "RUNNING",
+                &format!("pid {pid}"),
+                "0/1 merged · 1 running"
+            ],
+        ],
         "{}",
         overview.stderr
     );
@@ -158,4 +164,16 @@ fn status_shows_a_driven_feature_as_running_with_its_driver_and_running_task() {
         "{}",
         detail.stdout
     );
+}
+
+fn cells(table: &str) -> Vec<Vec<&str>> {
+    table
+        .lines()
+        .map(|line| {
+            line.split("  ")
+                .map(str::trim)
+                .filter(|cell| !cell.is_empty())
+                .collect()
+        })
+        .collect()
 }
