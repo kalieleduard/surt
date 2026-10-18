@@ -109,6 +109,7 @@ pub enum Problem {
         known: Vec<String>,
     },
     StrayAgentFile,
+    TestOnlyRuntime,
 }
 
 impl InvalidDefinition {

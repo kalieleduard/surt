@@ -6,6 +6,8 @@ use super::agent::AgentContract;
 use super::catalog::Catalog;
 use super::error::Problem;
 
+const TEST_ONLY_RUNTIME: &str = "fake";
+
 pub(crate) struct LocalAgent {
     pub(crate) id: String,
     pub(crate) toml: Option<LocalFile>,
@@ -50,17 +52,26 @@ impl Catalog {
                 continue;
             };
             let merged = merged_toml(builtin, file)?;
-            AgentContract::parse_effective(&local.id, &merged, assets).map_err(|problem| {
-                InvalidOverride::new(
-                    &file.file,
-                    fields::field_of(&problem, &merged),
-                    fields::without_line(problem),
-                )
-            })?;
+            AgentContract::parse_effective(&local.id, &merged, assets)
+                .and_then(production_runtime)
+                .map_err(|problem| {
+                    InvalidOverride::new(
+                        &file.file,
+                        fields::field_of(&problem, &merged),
+                        fields::without_line(problem),
+                    )
+                })?;
             effective = effective.with_effective_toml(&local.id, merged);
         }
         Ok(effective)
     }
+}
+
+fn production_runtime(contract: AgentContract) -> Result<AgentContract, Problem> {
+    if cfg!(feature = "test-support") || contract.runtime() != TEST_ONLY_RUNTIME {
+        return Ok(contract);
+    }
+    Err(Problem::TestOnlyRuntime)
 }
 
 fn merged_toml(mut merged: Table, file: &LocalFile) -> Result<String, Box<InvalidOverride>> {

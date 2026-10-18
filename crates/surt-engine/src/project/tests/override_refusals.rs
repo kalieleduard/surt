@@ -67,3 +67,35 @@ async fn a_local_agent_toml_that_is_not_toml_refuses_with_its_line() {
         "{invalid:?}"
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_local_agent_toml_naming_another_id_refuses() {
+    let dir = ProjectDir::new();
+    dir.write_local("writer", "agent.toml", "id = \"author\"\n");
+
+    let invalid = refused(&dir).await;
+
+    assert_eq!(
+        (invalid.field.as_deref(), invalid.problem),
+        (
+            Some("id"),
+            Problem::NameMismatch {
+                found: "author".to_owned()
+            }
+        )
+    );
+}
+
+#[cfg(not(feature = "test-support"))]
+#[tokio::test(flavor = "multi_thread")]
+async fn a_fake_runtime_in_an_effective_profile_refuses_as_test_only() {
+    let dir = ProjectDir::new();
+    dir.write_local("writer", "agent.toml", "[profile]\nruntime = \"fake\"\n");
+
+    let invalid = refused(&dir).await;
+
+    assert_eq!(
+        (invalid.field.as_deref(), invalid.problem),
+        (Some("profile.runtime"), Problem::TestOnlyRuntime)
+    );
+}
