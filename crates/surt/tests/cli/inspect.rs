@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Path;
 
 use crate::scripts::{build, crash_in, review, ship, spec, tasks};
 use crate::start::feature_name;
@@ -194,7 +195,7 @@ fn inspect_shows_one_execution_by_its_full_id_after_cleanup_without_logs() {
         "{shown}"
     );
     assert!(!shown.contains("turns") && !shown.contains('$'), "{shown}");
-    let worktree = format!("{name}/B");
+    let worktree = Path::new(&name).join("B").display().to_string();
     assert!(
         lines
             .iter()
