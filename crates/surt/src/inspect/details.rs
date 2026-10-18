@@ -67,8 +67,6 @@ fn execution(kind: &str, fields: Fields<'_>, event: &TimelineEvent) -> Vec<Optio
     }
 }
 
-/// The pause on Transient Failure (D. Event data): until when, why, at
-/// which backoff step and how many agents wait; then how long it lasted.
 fn agents(kind: &str, fields: Fields<'_>, at: i64, zone: &TimeZone) -> Vec<Option<String>> {
     match kind {
         "agents.paused" => vec![
@@ -91,8 +89,6 @@ fn agents(kind: &str, fields: Fields<'_>, at: i64, zone: &TimeZone) -> Vec<Optio
     }
 }
 
-/// `seconds` as a time of day, with its date when that is not the day of
-/// the event at `at`.
 fn clock(seconds: i64, at: i64, zone: &TimeZone) -> Option<String> {
     let time = Timestamp::from_second(seconds).ok()?.to_zoned(zone.clone());
     let event = Timestamp::from_second(at).ok()?.to_zoned(zone.clone());

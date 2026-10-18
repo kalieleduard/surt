@@ -9,13 +9,9 @@ use crate::project::error::Error;
 
 const DEFAULT_STOP_GRACE_PERIOD: Duration = Duration::from_secs(10);
 
-/// The machine's `~/.surt/config.toml`: read by each process when it opens
-/// a project, never frozen into runs.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct GlobalConfig {
-    /// How long a graceful stop of an agent process tree waits before a
-    /// forced kill.
     #[serde(deserialize_with = "grace_period")]
     pub stop_grace_period: Duration,
 }

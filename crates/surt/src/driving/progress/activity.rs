@@ -105,8 +105,6 @@ fn still_running(snapshot: &ActivitySnapshot, last_line: i64, now: i64) -> Optio
     Some(format!("{ELLIPSIS} {}", parts.join(SEPARATOR)))
 }
 
-/// `paused until 03:00`, with the backoff delay when no reset time was
-/// reported.
 pub(super) fn paused_until(pause: ActivityPause) -> String {
     let at = local_time(pause.until).unwrap_or_else(|| pause.until.to_string());
     let delay = pause

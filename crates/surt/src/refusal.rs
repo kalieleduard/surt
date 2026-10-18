@@ -298,7 +298,6 @@ fn invalid_config(path: &Path, line: Option<usize>, reason: &str) -> Message {
         .way("fix", format!("edit {location}"))
 }
 
-/// A configuration file, with the line at fault when known.
 pub(crate) fn config_location(path: &Path, line: Option<usize>) -> String {
     match line {
         Some(line) => format!("{}:{line}", path.display()),

@@ -2,9 +2,6 @@ use sqlx::FromRow;
 
 use super::{Store, StoreError};
 
-/// The latest agent Execution of a run that ended, and whether any agent
-/// Execution of the run started after it: what `status` derives the pause
-/// on Transient Failure from.
 #[derive(Clone, Debug, FromRow)]
 pub(crate) struct LastAgentEnd {
     pub(crate) failure_class: Option<String>,

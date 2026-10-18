@@ -23,7 +23,6 @@ pub(super) struct Readiness {
 }
 
 impl Readiness {
-    /// A ready agent of a live Driver waits for a slot or for the pause.
     fn waits_to_launch(self) -> bool {
         self.driven && (self.slots_full || self.paused)
     }

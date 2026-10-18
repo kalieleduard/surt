@@ -45,9 +45,6 @@ agent = "reviewer"
 needs = ["check"]
 "#;
 
-/// Fails the first attempt of `limited` with the Fake's `limit_failure`,
-/// its reset time `delay` seconds after the failure, and holds the first
-/// attempt of `held` until it is released; everything else goes to `inner`.
 struct RateLimited<R> {
     inner: R,
     limited: &'static str,
@@ -131,7 +128,6 @@ async fn two_checked_tasks() -> Feature {
     feature
 }
 
-/// Drives the run, calling `on_pause` when launches pause.
 async fn drive_through_pause(
     feature: &Feature,
     runtime: &impl AgentRuntime,
@@ -265,7 +261,6 @@ struct StoppedOncePaused {
     snapshots: Vec<ActivitySnapshot>,
 }
 
-/// Drives the run, reading its status once launches pause, then stops it.
 async fn stopped_once_paused(
     feature: &Feature,
     runtime: &impl AgentRuntime,

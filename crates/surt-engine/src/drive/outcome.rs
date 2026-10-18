@@ -104,17 +104,12 @@ pub enum Progress {
         driver: Option<u32>,
     },
     StopRequested,
-    /// The project configuration stopped parsing while the Driver ran; it keeps
-    /// running with `limit`, its last valid `max_concurrent_agents`.
     ConfigInvalid {
         path: PathBuf,
         line: Option<usize>,
         reason: String,
         limit: usize,
     },
-    /// Agent launches wait until `until` (Unix seconds) after a Transient
-    /// Failure; `backoff` is the delay in seconds when no reset time was
-    /// reported, and `waiting` counts the agent Step Runs ready to launch.
     Paused {
         until: i64,
         waiting: usize,
@@ -136,8 +131,6 @@ pub struct ActivitySnapshot {
     pub paused: Option<ActivityPause>,
 }
 
-/// Agent launches wait until `until` (Unix seconds); `backoff` is the delay
-/// in seconds when no reset time was reported.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActivityPause {
     pub until: i64,

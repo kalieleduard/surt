@@ -1,9 +1,3 @@
-//! The pause on Transient Failure: when agent launches may start again.
-//!
-//! A pure schedule of `now` (B. Clock): the Driver feeds it every agent
-//! Execution that ends and asks it, before each tick, until when launches
-//! wait.
-
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Pause {
     until: Option<i64>,
@@ -16,14 +10,6 @@ impl Pause {
         self.until.filter(|until| now < *until)
     }
 
-    /// An agent Execution failed `transient` at `now`, reporting `resets_at`
-    /// when the stream knew it.
-    ///
-    /// A reset time later than `now` ends the pause then, unless the pause
-    /// already ends later (the latest reset wins). Without one, a failure
-    /// while launches are paused comes from an agent that was already
-    /// running, so it changes nothing; a failure once launches resumed takes
-    /// the next backoff step.
     pub(crate) fn failed(self, launched_at: i64, resets_at: Option<i64>, now: i64) -> Pause {
         let paused = self.until(now);
         match (resets_at.filter(|reset| now < *reset), paused) {
@@ -49,7 +35,6 @@ impl Pause {
         self.until.is_none_or(|until| until <= launched_at)
     }
 
-    /// An agent Execution ended any other way: the backoff starts over.
     pub(crate) fn ended(self) -> Pause {
         Pause {
             steps_taken: 0,
@@ -62,8 +47,6 @@ impl Pause {
     }
 }
 
-/// Seconds the pause lasts at backoff `step` (1-based): 1, 2, 4, 8, then 15
-/// minutes, with no ceiling on the number of steps.
 pub(crate) fn backoff(step: u32) -> i64 {
     const MINUTES: [i64; 5] = [1, 2, 4, 8, 15];
     let index = usize::try_from(step.saturating_sub(1)).unwrap_or(usize::MAX);

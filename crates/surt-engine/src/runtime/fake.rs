@@ -42,7 +42,6 @@ pub enum Behavior {
     LimitFailure {
         resets_at: Option<i64>,
     },
-    /// A limit failure whose reset time is `seconds` after it happens.
     LimitFailureIn {
         seconds: i64,
     },

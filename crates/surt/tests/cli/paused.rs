@@ -18,7 +18,6 @@ const PAUSED: &str = "⏸ agent launches paused until ";
 const DATABASE_FILES: [&str; 3] = ["surt.db", "surt.db-shm", "surt.db-wal"];
 const LOCKED: &str = "locked";
 
-/// A `surt start` whose agent launches are paused, killed when dropped.
 struct PausedDriver {
     child: Child,
 }
@@ -47,8 +46,6 @@ impl Drop for PausedDriver {
     }
 }
 
-/// What a read could change: every file under `.surt` but the database's,
-/// which the live Driver keeps open, and every row the database holds.
 fn fingerprint(sandbox: &Sandbox) -> (BTreeMap<String, String>, Vec<String>) {
     let mut files = BTreeMap::new();
     walk(&sandbox.dot_surt(), &sandbox.dot_surt(), &mut files);
@@ -63,8 +60,6 @@ fn fingerprint(sandbox: &Sandbox) -> (BTreeMap<String, String>, Vec<String>) {
     (files, rows)
 }
 
-/// Each file's SHA-256, or `locked` for a file the live Driver holds a lock
-/// on (Windows refuses to read those).
 fn walk(root: &Path, directory: &Path, found: &mut BTreeMap<String, String>) {
     for entry in fs::read_dir(directory).expect("a readable directory") {
         let path = entry.expect("a directory entry").path();

@@ -67,9 +67,6 @@ pub(crate) fn load(path: &Path) -> Result<Config, Error> {
     Ok(config)
 }
 
-/// Rereads `max_concurrent_agents` from the project configuration while a
-/// Driver runs; `None` when the file does not exist. Only this key is read
-/// live, so a file that parses is enough, whatever its other keys say.
 pub(crate) fn live_max_concurrent_agents(path: &Path) -> Result<Option<NonZeroU32>, Unreadable> {
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
@@ -85,15 +82,12 @@ pub(crate) fn live_max_concurrent_agents(path: &Path) -> Result<Option<NonZeroU3
     Ok(Some(config.max_concurrent_agents))
 }
 
-/// Why a configuration file gave no values: the line at fault, when known, and the reason.
 #[derive(Debug)]
 pub(crate) struct Unreadable {
     pub(crate) line: Option<usize>,
     pub(crate) reason: String,
 }
 
-/// Reads a configuration file, or its defaults when it does not exist.
-/// A file that does not parse is refused with its path, line and reason.
 fn read<T: DeserializeOwned + Default>(path: &Path) -> Result<T, Error> {
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,

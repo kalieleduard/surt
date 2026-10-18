@@ -7,8 +7,6 @@ use crate::git::{self, MainWorktree};
 const DOT_SURT: &str = ".surt";
 const GLOBAL_CONFIG: &str = "config.toml";
 
-/// The machine's `~/.surt/` (`%USERPROFILE%\.surt\` on Windows), when there
-/// is a home directory: the managed worktrees and the global configuration.
 #[derive(Clone)]
 pub(crate) struct SurtHome {
     worktrees: Option<PathBuf>,

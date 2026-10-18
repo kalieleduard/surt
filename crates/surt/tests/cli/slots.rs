@@ -15,7 +15,7 @@ const CEILING: Duration = Duration::from_secs(60);
 const POLL: Duration = Duration::from_millis(20);
 const ONE_AGENT: &str = "max_concurrent_agents = 1\n";
 const BUILD_STARTED: &str = "● task A build started\n";
-const SQLITE_SHARED_MEMORY: &str = "surt.db-shm";
+const WAL_READ_MARKS: &str = "surt.db-shm";
 
 fn second_feature(sandbox: &Sandbox) -> String {
     let name = feature_name().replace("-add-login", "-fix-cache");
@@ -111,8 +111,7 @@ fn agent_slots(document: &str) -> Vec<Value> {
 
 fn readable_files(sandbox: &Sandbox) -> BTreeMap<String, String> {
     let mut files = hashes(&sandbox.dot_surt());
-    // Readers of a WAL database record read marks in its shared memory.
-    files.remove(SQLITE_SHARED_MEMORY);
+    files.remove(WAL_READ_MARKS);
     files
 }
 

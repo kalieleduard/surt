@@ -15,7 +15,6 @@ use crate::runtime::{
 
 const CEILING: Duration = Duration::from_secs(60);
 
-/// Agents of the `held` steps run until released; the others finish at once.
 struct Gate {
     fake: FakeRuntime,
     held: Vec<String>,
@@ -43,7 +42,6 @@ impl Gate {
             .send_modify(|released| released.push(format!("{item}/build")));
     }
 
-    /// Each started agent with the number of agents running once it started.
     fn started(&self) -> Vec<(String, usize)> {
         self.started.borrow().clone()
     }
@@ -89,7 +87,6 @@ impl AgentRuntime for Gate {
     }
 }
 
-/// The progress of a drive, watched while it runs.
 struct Watched {
     events: mpsc::UnboundedReceiver<Progress>,
     seen: Vec<Progress>,
@@ -136,7 +133,6 @@ fn running(snapshot: &ActivitySnapshot) -> Vec<&str> {
         .collect()
 }
 
-/// Saves the project configuration the way an editor does: whole, in one rename.
 fn save_config(root: &Path, text: &str) {
     let saved = root.join(".surt").join("config.toml.saving");
     fs::write(&saved, text).expect("the configuration is written");

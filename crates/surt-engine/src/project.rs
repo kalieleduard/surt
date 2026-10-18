@@ -161,8 +161,6 @@ impl Project {
         &self.config
     }
 
-    /// How long every graceful stop of an agent process tree waits before a
-    /// forced kill, from the machine's global configuration.
     pub fn stop_grace_period(&self) -> Duration {
         self.global.stop_grace_period
     }

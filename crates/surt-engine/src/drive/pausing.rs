@@ -1,8 +1,3 @@
-//! The Driver's side of the pause on Transient Failure (I): it feeds the
-//! pure schedule every agent ending, gives `decide()` the end of the pause,
-//! and reports when launches pause and resume. The pause lives in memory: a
-//! new driving command starts unpaused.
-
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde_json::{Map, Value, json};
@@ -53,8 +48,6 @@ impl Pausing {
         }
     }
 
-    /// The end of the pause at `now`, and how long it lasted once it is
-    /// over after it was announced.
     fn check(&mut self, now: i64) -> (Option<i64>, Option<u64>) {
         let until = self.schedule.until(now);
         if until.is_some() {
@@ -68,8 +61,6 @@ impl Pausing {
         )
     }
 
-    /// The code and backoff step to announce, unless the pause already was
-    /// announced with this end.
     fn announce(&mut self, until: i64, now: i64) -> Option<(String, Option<u32>)> {
         if self.announced == Some(until) {
             return None;
@@ -81,14 +72,10 @@ impl Pausing {
 }
 
 impl<R: AgentRuntime> Driver<'_, R> {
-    /// Called with every agent Execution that ends, before it is recorded,
-    /// so the next tick already sees the pause.
     pub(super) fn learn(&self, end: &AgentEnd<'_>) {
         self.with_pausing(|pausing| pausing.learn(end, unix_now()));
     }
 
-    /// The end of the pause for this tick, reporting the resume once it is
-    /// over.
     pub(super) async fn paused_until(&self, now: i64) -> Result<Option<i64>, Error> {
         let (until, resumed) = self
             .with_pausing(|pausing| pausing.check(now))
@@ -101,8 +88,6 @@ impl<R: AgentRuntime> Driver<'_, R> {
         Ok(until)
     }
 
-    /// Reports the pause, once agents wait for it, when it starts and
-    /// whenever its end moves later.
     pub(super) async fn announce(&self, ctx: &Ctx, waiting: usize) -> Result<(), Error> {
         let (Some(until), StopLevel::None, 1..) = (ctx.paused_until, ctx.stop, waiting) else {
             return Ok(());
@@ -121,8 +106,6 @@ impl<R: AgentRuntime> Driver<'_, R> {
         Ok(())
     }
 
-    /// The pause as the activity snapshot shows it, while launches wait
-    /// until until.
     pub(super) fn activity_pause(&self, until: Option<i64>) -> Option<ActivityPause> {
         let step = self.with_pausing(|pausing| pausing.schedule.backoff_step())?;
         Some(ActivityPause {
@@ -131,7 +114,6 @@ impl<R: AgentRuntime> Driver<'_, R> {
         })
     }
 
-    /// How long until the pause ends, if launches are paused.
     pub(super) fn pause_left(&self) -> Option<Duration> {
         let until = self.with_pausing(|pausing| pausing.schedule.until(unix_now()))??;
         let end = UNIX_EPOCH + Duration::from_secs(u64::try_from(until).ok()?);
@@ -153,8 +135,6 @@ fn backoff_seconds(step: u32) -> u64 {
     u64::try_from(backoff(step)).unwrap_or_default()
 }
 
-/// D's `agents.paused` data: `backoff_step` only when no reset time was
-/// reported.
 fn paused(until: i64, code: &str, step: Option<u32>, waiting: usize) -> Value {
     let mut data = Map::new();
     data.insert("until".to_owned(), json!(until));
