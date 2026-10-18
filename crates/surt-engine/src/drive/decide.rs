@@ -74,6 +74,14 @@ pub(crate) struct Ctx {
     pub(crate) limits: Limits,
     pub(crate) free_slots: Vec<usize>,
     pub(crate) stop: StopLevel,
+    pub(crate) paused_until: Option<i64>,
+    pub(crate) now: i64,
+}
+
+impl Ctx {
+    pub(super) fn paused(&self) -> bool {
+        self.paused_until.is_some_and(|until| self.now < until)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

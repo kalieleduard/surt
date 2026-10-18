@@ -20,7 +20,7 @@ pub(super) fn next_attempt(attempts: &Attempts, max_attempts: usize) -> NextAtte
         .count();
     match budget.last() {
         Some(ExecutionState::Queued | ExecutionState::Running) => NextAttempt::InProgress,
-        Some(ExecutionState::Failed(FailureClass::NotRetryable | FailureClass::Transient)) => {
+        Some(ExecutionState::Failed(FailureClass::NotRetryable)) => {
             NextAttempt::Exhausted(BlockReason::NotRetryable)
         }
         _ if spent >= max_attempts => NextAttempt::Exhausted(BlockReason::AttemptsExhausted),

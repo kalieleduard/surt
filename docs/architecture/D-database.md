@@ -192,6 +192,8 @@ $ surt inspect 20261017-add-login B
 | `execution.succeeded` | `outcome` |
 | `execution.failed` | `code`, `message` |
 | `execution.orphan_stopped` | `pid` |
+| `agents.paused` | on the root run, once an agent waits for the pause and again whenever its end moves later: `until` (Unix seconds), `code` (the error code of the failure that set `until`), `backoff_step` (1 for the first step; absent when the reset time came from the stream), `waiting` (agent Step Runs ready to launch) |
+| `agents.resumed` | on the root run: `paused_seconds`, from the first `agents.paused` of the pause to the resume |
 | `worktree.repaired` | `path`, `repair` |
 | `worktree.salvaged` | `ref`, the Salvage Ref |
 | `revision.published` | `artifact`, `revision` (its number), `origin` = `execution` |

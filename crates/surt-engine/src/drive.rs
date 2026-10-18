@@ -20,6 +20,8 @@ mod limit;
 mod load;
 mod operate;
 mod outcome;
+mod pause;
+mod pausing;
 mod public;
 mod record;
 mod recovered;

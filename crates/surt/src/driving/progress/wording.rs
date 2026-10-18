@@ -1,10 +1,12 @@
 use surt_engine::project::{Progress, StepLabel};
 
+use super::super::blocked::local_time;
 use super::super::cleanup::summary;
+use super::activity::duration;
 use super::{FIRST, label, short};
 use crate::message::{Mark, Message};
 use crate::refusal::config_location;
-use crate::symbols::{DASH, ELLIPSIS};
+use crate::symbols::{DASH, ELLIPSIS, SEPARATOR};
 
 fn subject(step: &StepLabel) -> String {
     match &step.item {
@@ -146,6 +148,18 @@ pub(super) fn message(progress: &Progress) -> (Mark, Message) {
                 .way("fix", format!("edit {location}")),
             )
         }
+        Progress::Paused {
+            until,
+            waiting,
+            backoff,
+        } => (Mark::Paused, paused(*until, *waiting, *backoff)),
+        Progress::Resumed { paused_seconds } => (
+            Mark::Retry,
+            Message::new(format!(
+                "agent launches resumed after {}",
+                duration(i64::try_from(*paused_seconds).unwrap_or(i64::MAX))
+            )),
+        ),
         Progress::CleanedUp(cleanup) => (Mark::Retry, Message::new(summary(cleanup))),
         Progress::Activity(snapshot) => (
             Mark::Waiting,
@@ -163,6 +177,19 @@ fn cancel_requested(driver: Option<u32>) -> Message {
             "cancel requested; waiting for the driver to stop{ELLIPSIS}"
         )),
     }
+}
+
+fn paused(until: i64, waiting: usize, backoff: Option<u64>) -> Message {
+    let at = local_time(until).unwrap_or_else(|| until.to_string());
+    let delay = backoff
+        .map(|seconds| {
+            let seconds = i64::try_from(seconds).unwrap_or(i64::MAX);
+            format!(" (backoff {})", duration(seconds))
+        })
+        .unwrap_or_default();
+    Message::new(format!(
+        "agent launches paused until {at}{delay} {DASH} {waiting} waiting{SEPARATOR}Ctrl-C to stop (resumable)"
+    ))
 }
 
 fn recovering(driver: Option<u32>) -> Message {

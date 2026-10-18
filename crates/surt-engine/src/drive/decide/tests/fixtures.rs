@@ -9,11 +9,15 @@ pub(super) const LIMITS: Limits = Limits {
     max_iterations: 5,
 };
 
+pub(super) const NOW: i64 = 1_800_000_000;
+
 pub(super) fn ctx() -> Ctx {
     Ctx {
         limits: LIMITS,
         free_slots: vec![0, 1, 2, 3],
         stop: StopLevel::None,
+        paused_until: None,
+        now: NOW,
     }
 }
 

@@ -24,6 +24,7 @@ mod live_limit;
 mod logging;
 mod new_runs;
 mod overrides;
+mod pausing;
 mod phases;
 mod pinning;
 mod planned;

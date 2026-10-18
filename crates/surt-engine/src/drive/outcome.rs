@@ -112,6 +112,17 @@ pub enum Progress {
         reason: String,
         limit: usize,
     },
+    /// Agent launches wait until `until` (Unix seconds) after a Transient
+    /// Failure; `backoff` is the delay in seconds when no reset time was
+    /// reported, and `waiting` counts the agent Step Runs ready to launch.
+    Paused {
+        until: i64,
+        waiting: usize,
+        backoff: Option<u64>,
+    },
+    Resumed {
+        paused_seconds: u64,
+    },
     CleanedUp(Cleanup),
     Activity(ActivitySnapshot),
 }
