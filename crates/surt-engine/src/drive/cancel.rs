@@ -41,9 +41,7 @@ impl Cancel<'_> {
                 RunEnd::Succeeded => Cancellation::AlreadySucceeded,
             },
         };
-        if let Some(cleanup) = cleanup::clean_up(self.store, self.layout, self.root).await? {
-            let _ = progress.send(Progress::CleanedUp(cleanup));
-        }
+        cleanup::finish(self.store, self.layout, self.root, progress).await?;
         Ok(cancellation)
     }
 

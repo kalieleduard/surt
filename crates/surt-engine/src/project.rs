@@ -41,11 +41,11 @@ pub use crate::platform::{console_outputs_utf8, stderr_columns};
 pub use crate::runtime::LogFiles;
 pub use crate::workflow::{
     AgentAssets, Catalog, DefinitionFile, DeliveryCheck, InvalidDefinition, InvalidOverride,
-    Problem, StepField,
+    OnSuccess, Problem, StepField,
 };
 pub use blocked::{BlockedStep, LastFailure};
 pub use cancelling::CancelImpact;
-pub use config::{Check, Config, GitConfig, GlobalConfig, MergeIntoBase};
+pub use config::{Check, CleanupConfig, Config, GitConfig, GlobalConfig, MergeIntoBase};
 pub(crate) use config::{live_max_concurrent_agents, parse_timeout};
 pub use create_run::{ArtifactFile, CreatedRun, InitialArtifact, LocalFiles, NewRun, RunId};
 pub use deleting::{BranchFate, DeleteImpact, DeletedRun, Deletion, Directory};

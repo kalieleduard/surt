@@ -6,9 +6,11 @@ use crate::git;
 use crate::platform;
 use crate::project::{Commit, Error};
 use crate::store::{RootRunRow, Store};
+use crate::workflow::OnSuccess;
 
 const BASE_ARTIFACT: &str = "base";
 const ACTIVE: &str = "active";
+const SUCCEEDED: &str = "succeeded";
 
 #[derive(Default, Deserialize)]
 struct CleanupData {
@@ -83,9 +85,13 @@ pub(super) async fn integrating(
 pub(super) async fn cleanup(
     store: &Store,
     run: &RootRunRow,
+    on_success: OnSuccess,
 ) -> Result<Option<CleanupState>, Error> {
     if run.state == ACTIVE {
         return Ok(None);
+    }
+    if run.state == SUCCEEDED && !run.cleaned && on_success == OnSuccess::Keep {
+        return Ok(Some(CleanupState::Kept));
     }
     let data: CleanupData = store
         .last_cleanup(&run.id)
