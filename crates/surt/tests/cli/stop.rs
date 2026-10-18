@@ -78,6 +78,14 @@ fn stop_from_another_terminal_ends_the_driver_with_130_and_start_resumes_the_run
         "{stderr}"
     );
     assert_ne!(stop_requested(&sandbox), ["none"]);
+    let timeline = sandbox.surt(&sandbox.repo(), &["inspect", &name]).stdout;
+    assert!(
+        timeline
+            .lines()
+            .any(|line| line.contains("  run.stop_requested  ")
+                && line.ends_with("  by tester@example.com")),
+        "{timeline}"
+    );
 
     let resumed = sandbox.surt(&sandbox.repo(), &["start", &name]);
 

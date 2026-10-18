@@ -14,7 +14,7 @@ Spec: [Milestone 2](../spec.md) (stories 32–39) · Slice: R4 Stop · Plan: [J.
 - [x] Stopped Executions don't count toward `max_attempts`
 - [x] Every driving command clears `stop_requested_at/by` in the transaction where it records itself as the Driver, so a stale request never stops the next Driver
 - [x] `surt stop` asks no confirmation, reports the Driver's pid and how many Executions it is stopping, waits for the lock with no timeout, then prints the resume command; Ctrl-C on `surt stop` leaves the request in place
-- [ ] The stop request appears in `surt inspect <feature>`
+- [x] The stop request appears in `surt inspect <feature>`
 - [x] `Project` tests: refusal without a Driver, leftover request cleared on lock, no Attempt spent
 - [x] Binary test: a stop from a second process against a Fake Execution that waits until stopped ends the Driver with `130`, and `surt start` resumes the run
 - [x] J records that the wait has no timeout
