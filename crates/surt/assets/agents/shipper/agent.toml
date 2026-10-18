@@ -1,0 +1,25 @@
+schema = 1
+id = "shipper"
+
+[inputs.manifest]
+format = "item_list"
+json_schema = "schemas/manifest.schema.json"
+
+[inputs.integration]
+format = "json"
+
+[outputs.delivery]
+format = "json"
+json_schema = "schemas/delivery.schema.json"
+
+[profile]
+runtime = "claude-code"
+model = "claude-sonnet-5-5"
+effort = "high"
+
+[profile.claude]
+auth = "subscription"
+permission_mode = "dontAsk"
+tools = ["Read", "Glob", "Grep", "Write", "Bash"]
+allowed_tools = ["Read", "Glob", "Grep", "Bash(git status *)", "Bash(git diff *)", "Bash(git show *)", "Bash(git log *)", "Bash(git rev-parse *)"]
+disallowed_tools = ["mcp__*"]

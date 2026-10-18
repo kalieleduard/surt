@@ -1,0 +1,41 @@
+schema = 1
+id = "reviewer"
+outcomes = ["approved", "changes_requested"]
+
+[inputs.item]
+format = "json"
+
+[inputs.spec]
+format = "markdown"
+
+[inputs.commit]
+format = "json"
+json_schema = "schemas/commit.schema.json"
+
+[inputs.check-report]
+format = "json"
+
+[inputs.feedback]
+format = "json"
+json_schema = "schemas/feedback.schema.json"
+optional = true
+
+[inputs.conflict]
+format = "json"
+optional = true
+
+[outputs.feedback]
+format = "json"
+json_schema = "schemas/feedback.schema.json"
+
+[profile]
+runtime = "claude-code"
+model = "claude-sonnet-5-5"
+effort = "high"
+
+[profile.claude]
+auth = "subscription"
+permission_mode = "dontAsk"
+tools = ["Read", "Glob", "Grep", "Write", "Bash"]
+allowed_tools = ["Read", "Glob", "Grep", "Bash(git status *)", "Bash(git diff *)", "Bash(git show *)", "Bash(git log *)", "Bash(git rev-parse *)"]
+disallowed_tools = ["mcp__*"]

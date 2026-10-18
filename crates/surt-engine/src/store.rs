@@ -9,6 +9,7 @@ use sqlx::{Sqlite, SqlitePool, Transaction};
 use crate::platform::{self, ExclusiveLock};
 
 mod runs;
+mod subjects;
 
 pub(crate) use runs::{NewInitialArtifact, NewRunRows, RunCreation};
 

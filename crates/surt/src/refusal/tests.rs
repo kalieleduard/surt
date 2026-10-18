@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+mod problems;
+
 use surt_engine::project::{DefinitionFile, GitVersion, InvalidDefinition, Problem, Refusal};
 
 use super::message;
@@ -76,6 +78,9 @@ fn every_refusal() -> Vec<Refusal> {
             step: None,
             problem: Problem::MissingClaudeProfile,
         })),
+        Refusal::ActiveRunExists {
+            subject: "20261017-add-login".to_owned(),
+        },
     ]
 }
 
@@ -147,5 +152,33 @@ fn an_invalid_definition_names_the_file_and_the_step() {
         text(refusal).starts_with("✖ invalid built-in definition: workflow feature [steps.ship]\n"),
         "{}",
         text(refusal)
+    );
+}
+
+#[test]
+fn an_invalid_definition_says_in_words_what_is_wrong() {
+    let refusal = Refusal::InvalidDefinition(Box::new(InvalidDefinition {
+        file: DefinitionFile::Workflow("task-cycle".to_owned()),
+        step: Some("cycle".to_owned()),
+        problem: Problem::UnknownOutcome {
+            step: "integrate".to_owned(),
+            outcome: "merge".to_owned(),
+            declared: vec!["merged".to_owned(), "conflict".to_owned()],
+        },
+    }));
+
+    assert_eq!(
+        text(&refusal),
+        "✖ invalid built-in definition: workflow task-cycle [steps.cycle]\n  expects outcome \"merge\" of \"integrate\", which declares: merged, conflict\n  fix: reinstall surt\n"
+    );
+}
+
+#[test]
+fn an_active_run_points_at_resuming_the_feature() {
+    let refusal = every_refusal().pop().expect("a refusal");
+
+    assert_eq!(
+        text(&refusal),
+        "✖ 20261017-add-login already has an active run\n  resume: surt feature 20261017-add-login\n"
     );
 }

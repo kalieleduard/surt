@@ -10,6 +10,7 @@ test-support = []
 
 [dependencies]
 dunce.workspace = true
+jiff.workspace = true
 serde.workspace = true
 sha2.workspace = true
 sqlx.workspace = true

@@ -69,13 +69,14 @@ impl Project {
             actor: new.actor,
             now: unix_now(),
         };
+        let subject = rows.subject.clone();
         let store = open_store(&self.layout).await?;
         let created = store.create_run(rows).await;
         store.close().await;
         match created? {
             RunCreation::Created(run) => Ok(RunId(run)),
-            RunCreation::ActiveRunExists(run) => {
-                Err(Error::Refused(Refusal::ActiveRunExists { run: RunId(run) }))
+            RunCreation::ActiveRunExists(_) => {
+                Err(Error::Refused(Refusal::ActiveRunExists { subject }))
             }
         }
     }

@@ -1,11 +1,11 @@
-use super::fixtures::{ProjectDir, default_config, draft_catalog, new_run};
+use super::fixtures::{ProjectDir, SUBJECT, default_config, draft_catalog, new_run};
 use crate::project::{Error, Refusal};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_second_active_root_run_for_the_same_subject_is_refused_and_writes_nothing() {
     let dir = ProjectDir::new();
     let project = dir.project(draft_catalog(), default_config()).await;
-    let first = project
+    project
         .create_run(new_run("draft"))
         .await
         .expect("the first run is created");
@@ -13,7 +13,7 @@ async fn a_second_active_root_run_for_the_same_subject_is_refused_and_writes_not
     let second = project.create_run(new_run("draft")).await;
 
     assert!(
-        matches!(&second, Err(Error::Refused(Refusal::ActiveRunExists { run })) if *run == first),
+        matches!(&second, Err(Error::Refused(Refusal::ActiveRunExists { subject })) if subject == SUBJECT),
         "{second:?}"
     );
     let counts: Vec<(i64, i64, i64, i64)> = dir
