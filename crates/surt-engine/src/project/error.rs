@@ -2,7 +2,6 @@ use std::error::Error as StdError;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::resolving::Candidate;
 use crate::git::{GitError, GitVersion};
 use crate::store::StoreError;
 use crate::workflow::{FreezeError, InvalidDefinition};
@@ -13,6 +12,29 @@ pub enum Error {
     Refused(Refusal),
     #[error(transparent)]
     Internal(#[from] InternalError),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RunState {
+    Running,
+    AwaitingApproval,
+    Blocked,
+    Interrupted,
+    Succeeded,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Candidate {
+    pub name: String,
+    pub states: Vec<RunState>,
+    pub awaiting: Option<AwaitedRevision>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AwaitedRevision {
+    pub artifact: String,
+    pub revision: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

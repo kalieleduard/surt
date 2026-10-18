@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use super::{
     BlockedStep, Commit, Error, GateStatus, IntegrationBranch, MergeIntoBase, Project,
-    RevisionOrigin,
+    RevisionOrigin, RunState,
 };
 use crate::cleanup::{Kept, Left};
 use crate::drive::{Frozen, StepLabel};
@@ -42,16 +42,6 @@ pub struct RunStatus {
     pub unattended: Vec<Unattended>,
     pub integrating: Vec<PendingIntegration>,
     pub cleanup: Option<CleanupState>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RunState {
-    Running,
-    AwaitingApproval,
-    Blocked,
-    Interrupted,
-    Succeeded,
-    Cancelled,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

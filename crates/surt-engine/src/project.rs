@@ -35,17 +35,17 @@ pub(crate) use config::parse_timeout;
 pub use config::{Check, Config, GitConfig, MergeIntoBase};
 pub use create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};
 pub use delivery::IntegrationBranch;
-pub use error::{Error, InternalError, Refusal};
+pub use error::{AwaitedRevision, Candidate, Error, InternalError, Refusal, RunState};
 pub use gate_status::GateStatus;
 pub use gates::{Decided, RevisionOrigin};
 pub use init::{FileState, InitFile, Initialized};
 pub use naming::Slug;
 pub use repository::Commit;
-pub use resolving::{AwaitedRevision, Candidate, Subject};
+pub use resolving::Subject;
 pub use show::{ArtifactSummary, ShowRequest, Shown};
 pub use status::{
     AgentSlots, CleanupState, Conflict, Driver, GateView, PendingIntegration, RevisionSummary,
-    RunState, RunStatus, StatusScope, TaskState, TaskStatus, Unattended,
+    RunStatus, StatusScope, TaskState, TaskStatus, Unattended,
 };
 pub use subjects::FreeName;
 

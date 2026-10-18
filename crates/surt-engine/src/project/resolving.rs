@@ -1,5 +1,5 @@
 use super::naming::without_date;
-use super::{Error, GateStatus, Project, Refusal, RunId, RunState, RunStatus};
+use super::{AwaitedRevision, Candidate, Error, GateStatus, Project, Refusal, RunId, RunStatus};
 use crate::store::{Store, SubjectRow};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -7,19 +7,6 @@ pub struct Subject {
     pub name: String,
     pub active_run: Option<RunId>,
     pub pending_cleanup: Option<RunId>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Candidate {
-    pub name: String,
-    pub states: Vec<RunState>,
-    pub awaiting: Option<AwaitedRevision>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AwaitedRevision {
-    pub artifact: String,
-    pub revision: u32,
 }
 
 impl Project {
