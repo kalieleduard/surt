@@ -31,7 +31,9 @@ mod revisions;
 mod runs;
 mod runtime_info;
 mod steps;
+mod stopping;
 mod subjects;
+mod timeline;
 mod working_copy;
 
 pub(crate) use acceptance::{Acceptance, Integrated, PublishedOutput};
@@ -55,6 +57,7 @@ pub(crate) use restoring::RestoreTarget;
 pub(crate) use revisions::{Producer, StoredRevision};
 pub(crate) use runs::{NewInitialArtifact, NewRunRows, RunCreation};
 pub(crate) use subjects::SubjectRow;
+pub(crate) use timeline::EventRow;
 pub(crate) use working_copy::{BaselineFile, EditRecord, PendingFile, WorkingCopyArtifact};
 
 static MIGRATOR: Migrator = sqlx::migrate!();

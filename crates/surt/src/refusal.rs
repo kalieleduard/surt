@@ -8,7 +8,7 @@ use surt_engine::project::{Candidate, DefinitionFile, InvalidDefinition, Refusal
 
 use crate::feature::quoted;
 use crate::message::Message;
-use crate::status::{STATE_SEPARATOR, state_name};
+use crate::status::{STATE_SEPARATOR, state_name, state_names};
 
 const GIT_DOWNLOADS: &str = "https://git-scm.com/downloads";
 const SHORT_SHA_CHARS: usize = 7;
@@ -82,6 +82,11 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             candidates,
         } => ambiguous(reference, candidates),
         Refusal::DriverLive { subject, pid, .. } => driver_live(subject, *pid),
+        Refusal::NoLiveDriver { subject, states } => Message::new(format!(
+            "{subject} has no live driver, nothing to stop ({})",
+            state_names(states)
+        ))
+        .way("inspect", format!("surt status {subject}")),
         Refusal::NoGateWaiting { subject } => {
             Message::new(format!("{subject} has no approval gate waiting"))
                 .way("run", format!("surt status {subject}"))
@@ -231,8 +236,10 @@ fn driver_live(subject: &str, pid: Option<u32>) -> Message {
         Some(pid) => format!("pid {pid}"),
         None => "another surt process".to_owned(),
     };
-    Message::new(format!("{subject} is being driven by {driver}"))
-        .way("fix", "stop it with Ctrl-C in its terminal, then rerun")
+    Message::new(format!("{subject} is being driven by {driver}")).way(
+        "fix",
+        format!("surt stop {subject}, or Ctrl-C in its terminal, then rerun"),
+    )
 }
 
 fn invalid_definition(invalid: &InvalidDefinition) -> Message {

@@ -4,6 +4,7 @@ mod claude;
 mod discovery;
 mod feature;
 mod init;
+mod inspect;
 #[cfg(unix)]
 mod interrupt;
 mod kill;
@@ -15,5 +16,6 @@ mod scripts;
 mod show;
 mod start;
 mod status;
+mod stop;
 mod support;
 mod usage;

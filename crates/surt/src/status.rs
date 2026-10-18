@@ -68,7 +68,7 @@ pub(crate) fn state_names(states: &[RunState]) -> String {
         .join(STATE_SEPARATOR)
 }
 
-fn resume_command(status: &RunStatus) -> String {
+pub(crate) fn resume_command(status: &RunStatus) -> String {
     phase::current_command(&status.subject, |gate| {
         status
             .gates

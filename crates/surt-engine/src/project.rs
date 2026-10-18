@@ -9,6 +9,7 @@ mod error;
 mod gate_status;
 mod gates;
 mod init;
+mod inspect;
 mod layout;
 mod naming;
 mod repository;
@@ -16,6 +17,7 @@ mod resolving;
 mod restoring;
 mod show;
 mod status;
+mod stopping;
 mod subjects;
 
 use std::path::Path;
@@ -44,6 +46,7 @@ pub use error::{AwaitedRevision, Candidate, Error, InternalError, KnownRun, Refu
 pub use gate_status::GateStatus;
 pub use gates::{Decided, RevisionOrigin};
 pub use init::{FileState, InitFile, Initialized};
+pub use inspect::{InspectRequest, Timeline, TimelineEvent};
 pub use naming::Slug;
 pub use repository::Commit;
 pub use resolving::{RunSelector, Subject};
@@ -53,6 +56,7 @@ pub use status::{
     AgentSlots, CleanupState, Conflict, Driver, GateView, ItemState, ItemStatus,
     PendingIntegration, RevisionSummary, RunStatus, StatusScope, Unattended,
 };
+pub use stopping::StopRequest;
 pub use subjects::FreeName;
 
 #[cfg(feature = "test-support")]

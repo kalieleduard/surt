@@ -31,19 +31,19 @@ impl Driven<'_> {
         let (sink, events) = mpsc::unbounded_channel();
         let stop = StopSignal::new();
         let relay = tokio::spawn(interruption::relay(Interruptions::listen()?, stop.clone()));
-        let (outcome, cleaned) = tokio::join!(
+        let (outcome, printed) = tokio::join!(
             self.project.drive(self.run, runtime, sink, stop),
             progress::print(events)
         );
         relay.abort();
-        let concluded = self.conclude(outcome?).await;
-        if let Some(cleanup) = cleaned {
+        let concluded = self.conclude(outcome?, printed.stop_requested).await;
+        if let Some(cleanup) = printed.cleaned {
             cleanup::report(&cleanup, self.resume_command());
         }
         concluded
     }
 
-    async fn conclude(&self, outcome: DriveOutcome) -> Result<(), Failure> {
+    async fn conclude(&self, outcome: DriveOutcome, stopped: bool) -> Result<(), Failure> {
         match outcome {
             DriveOutcome::AtGate { gates } => self.awaiting(&gates).await,
             DriveOutcome::Succeeded => self.succeeded().await,
@@ -63,7 +63,7 @@ impl Driven<'_> {
                 Ok(())
             }
             DriveOutcome::Interrupted => Err(Failure::Interrupted(
-                Message::new("interrupted").way("resume", self.resume_command()),
+                Message::new(interruption(stopped)).way("resume", self.resume_command()),
             )),
             DriveOutcome::Halted(refusal) => Err(Failure::Refused(refusal::message(&refusal))),
         }
@@ -102,5 +102,13 @@ impl Driven<'_> {
             .print(Mark::Paused);
         }
         Ok(())
+    }
+}
+
+fn interruption(stopped: bool) -> &'static str {
+    if stopped {
+        "stopped by surt stop (from another terminal)"
+    } else {
+        "interrupted"
     }
 }

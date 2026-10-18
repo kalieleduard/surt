@@ -179,7 +179,7 @@ $ surt inspect 20261017-add-login B
 | Kind | `data` |
 |---|---|
 | `run.created` | root run: `base` (the `base` Initial Artifact's JSON, e.g. `{"ref", "sha"}`), `actor`; child run: `item` |
-| `run.cancel_requested` | `actor` |
+| `run.cancel_requested`, `run.stop_requested` | `actor` |
 | `driver.started`, `driver.stopped` | `pid`. `driver.stopped` is written on every Driver exit that returns normally after `driver.started`; a crash or a kill writes none |
 | `driver.recovered` | `previous_pid`, `found`: one object per finding, each with `kind`, `step`, `item`, `iteration` plus `attempt` and `pid` (`orphan_stopped`), `attempt` (`discarded`, `interrupted_with_driver`), `branch` and `merge` (`integration_recorded`), `attempt` and `code` (`attempt_failed`). Written only when reconciliation found something |
 | `ref_move.intended`, `intention.confirmed`, `intention.discarded` for a ref move | `intention` = `ref_move`, `ref`, `old_sha`, `new_sha`. Confirmed when the Operation's result deletes the row, discarded when the row is deleted because the move did not happen or happened elsewhere |

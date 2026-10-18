@@ -53,12 +53,7 @@ impl Cancel<'_> {
         let driver = self.store.driver(self.root).await?.pid;
         let driver = driver.and_then(|pid| u32::try_from(pid).ok());
         let _ = progress.send(Progress::CancelRequested { driver });
-        loop {
-            tokio::time::sleep(LOCK_POLL).await;
-            if let Some(lock) = try_lock(path)? {
-                return Ok(lock);
-            }
-        }
+        wait_for_lock(path).await
     }
 
     async fn cancel_directly(&self, progress: &ProgressSink) -> Result<Cancellation, Error> {
@@ -72,6 +67,15 @@ impl Cancel<'_> {
         }
         self.store.cancel_run(self.root).await?;
         Ok(Cancellation::Cancelled)
+    }
+}
+
+pub(crate) async fn wait_for_lock(path: &Path) -> Result<ExclusiveLock, Error> {
+    loop {
+        tokio::time::sleep(LOCK_POLL).await;
+        if let Some(lock) = try_lock(path)? {
+            return Ok(lock);
+        }
     }
 }
 
