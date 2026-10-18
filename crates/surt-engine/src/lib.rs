@@ -2,6 +2,7 @@ pub mod project;
 pub mod runtime;
 
 mod artifacts;
+mod cancel;
 mod checks;
 mod cleanup;
 mod context;

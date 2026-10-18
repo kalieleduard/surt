@@ -1,4 +1,5 @@
 mod blocked;
+mod cancelling;
 mod config;
 mod create_run;
 mod delivery;
@@ -18,6 +19,7 @@ mod subjects;
 
 use std::path::Path;
 
+pub use crate::cancel::Cancellation;
 pub use crate::checks::REPORT_SCHEMA as CHECK_REPORT_SCHEMA;
 pub use crate::cleanup::{Cleanup, Kept, Left};
 pub use crate::drive::graph::BlockReason;
@@ -28,6 +30,7 @@ pub use crate::workflow::{
     AgentAssets, Catalog, DefinitionFile, DeliveryCheck, InvalidDefinition, Problem, StepField,
 };
 pub use blocked::{BlockedStep, LastFailure};
+pub use cancelling::CancelImpact;
 pub(crate) use config::parse_timeout;
 pub use config::{Check, Config, GitConfig, MergeIntoBase};
 pub use create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};
@@ -46,6 +49,10 @@ pub use status::{
 };
 pub use subjects::FreeName;
 
+#[cfg(feature = "test-support")]
+pub use crate::store::Checkpoint;
+#[cfg(feature = "test-support")]
+use crate::store::Faults;
 use crate::store::Store;
 pub(crate) use discovery::SurtHome;
 pub(crate) use layout::Layout;
@@ -57,6 +64,8 @@ pub struct Project {
     catalog: Catalog,
     home: SurtHome,
     access: Access,
+    #[cfg(feature = "test-support")]
+    faults: Faults,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -100,6 +109,8 @@ impl Project {
             catalog,
             home: home.clone(),
             access,
+            #[cfg(feature = "test-support")]
+            faults: Faults::default(),
         })
     }
 
@@ -117,6 +128,18 @@ impl Project {
 
     pub fn config(&self) -> &Config {
         &self.config
+    }
+
+    #[cfg(feature = "test-support")]
+    pub fn crash_after(&self, checkpoint: Checkpoint) {
+        self.faults.arm(checkpoint);
+    }
+
+    async fn store(&self) -> Result<Store, Error> {
+        let store = open_store(&self.layout).await?;
+        #[cfg(feature = "test-support")]
+        let store = store.with_faults(self.faults.clone());
+        Ok(store)
     }
 
     fn refuse_agent_overrides(&self) -> Result<(), Error> {

@@ -5,7 +5,7 @@ use crate::message::{Mark, Message};
 const NOTHING_LEFT: &str = "done";
 const SEPARATOR: &str = " · ";
 
-pub(super) fn report(cleanup: &Cleanup, retry: String) {
+pub(crate) fn report(cleanup: &Cleanup, retry: String) {
     if cleanup.is_complete() {
         Message::new(summary(cleanup)).print(Mark::Retry);
     }

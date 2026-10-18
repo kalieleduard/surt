@@ -10,7 +10,9 @@ use tokio::sync::mpsc;
 use crate::failure::Failure;
 use crate::message::{Mark, Message};
 use crate::refusal;
+pub(crate) use cleanup::report as report_cleanup;
 use interruption::Interruptions;
+pub(crate) use progress::print as print_progress;
 
 pub(crate) use blocked::{last_error, local_time, reason};
 pub(crate) use cleanup::kept_line;
@@ -52,7 +54,7 @@ impl Driven<'_> {
                 )))
             }
             DriveOutcome::Cancelled => Err(Failure::Cancelled(
-                Message::new(format!("{} was cancelled while driving", self.subject))
+                Message::new("cancelled by surt cancel (from another terminal)")
                     .way("inspect", format!("surt status {}", self.subject)),
             )),
             DriveOutcome::Interrupted => Err(Failure::Interrupted(

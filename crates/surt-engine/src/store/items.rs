@@ -1,7 +1,7 @@
 use sqlx::SqliteConnection;
 
 use super::runs::new_id;
-use super::{About, Store, StoreError, record_event, unix_now};
+use super::{About, Checkpoint, Store, StoreError, record_event, unix_now};
 
 const RUN_CREATED: &str = "run.created";
 
@@ -87,7 +87,8 @@ impl Store {
             let about = About::Step(expansion.step);
             record_event(&mut transaction, about, "revision.pinned", now).await?;
         }
-        Ok(transaction.commit().await?)
+        transaction.commit().await?;
+        self.reached(Checkpoint::IterationOrExpansion)
     }
 
     async fn list_revision(

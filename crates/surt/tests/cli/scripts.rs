@@ -66,6 +66,10 @@ pub fn ship() -> String {
     )
 }
 
+pub fn wait_until_stopped(step: &str) -> String {
+    format!("[[on]]\nstep = \"{step}\"\nwait_until_stopped = {{}}\n\n")
+}
+
 pub fn limit_failure(step: &str, resets_at: i64) -> String {
     format!("[[on]]\nstep = \"{step}\"\nlimit_failure = {{ resets_at = {resets_at} }}\n\n")
 }

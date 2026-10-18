@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::{Notify, mpsc};
 
 use super::fixtures::{Feature, draft, label};
-use crate::project::{DriveOutcome, Progress, RunState, StatusScope, Unattended};
+use crate::project::{Cancellation, DriveOutcome, Progress, RunState, StatusScope, Unattended};
 use crate::runtime::{
     AgentRuntime, Behavior, FakeRuntime, RuntimeCompletion, RuntimeError, RuntimeEvent,
     RuntimeEventSink, RuntimeRequest, Script, StopSignal,
@@ -15,9 +15,9 @@ const RECORDING_TIMEOUT: Duration = Duration::from_secs(10);
 const RECORDING_POLL: Duration = Duration::from_millis(10);
 const EXIT_TIMEOUT: Duration = Duration::from_secs(10);
 
-struct Started {
-    fake: FakeRuntime,
-    launched: Notify,
+pub(super) struct Started {
+    pub(super) fake: FakeRuntime,
+    pub(super) launched: Notify,
 }
 
 impl AgentRuntime for Started {
@@ -32,9 +32,9 @@ impl AgentRuntime for Started {
     }
 }
 
-struct Orphaning {
-    fake: FakeRuntime,
-    pid: u32,
+pub(super) struct Orphaning {
+    pub(super) fake: FakeRuntime,
+    pub(super) pid: u32,
 }
 
 impl AgentRuntime for Orphaning {
@@ -51,7 +51,7 @@ impl AgentRuntime for Orphaning {
     }
 }
 
-fn agent_process() -> Child {
+pub(super) fn agent_process() -> Child {
     let mut command = Command::new("git");
     command
         .args(["hash-object", "--stdin"])
@@ -64,7 +64,7 @@ fn agent_process() -> Child {
     command.spawn().expect("the agent process starts")
 }
 
-fn exited(child: &mut Child) -> bool {
+pub(super) fn exited(child: &mut Child) -> bool {
     let deadline = Instant::now() + EXIT_TIMEOUT;
     while Instant::now() < deadline {
         if child
@@ -103,31 +103,7 @@ impl Feature {
             .await
     }
 
-    async fn orphaned_by_a_forced_driver(&self) -> Child {
-        let orphan = agent_process();
-        let orphaning = Orphaning {
-            fake: FakeRuntime::new(Script::new().on("write", 1, 1, Behavior::WaitUntilStopped)),
-            pid: orphan.id(),
-        };
-        let stop = StopSignal::new();
-        let (sink, _events) = mpsc::unbounded_channel();
-        let forcing = async {
-            self.until_a_process_is_recorded().await;
-            stop.force();
-        };
-        let (killed, ()) = tokio::join!(
-            self.project
-                .drive(&self.run, &orphaning, sink, stop.clone()),
-            forcing
-        );
-        assert_eq!(
-            killed.expect("the forced driver returns"),
-            DriveOutcome::Interrupted
-        );
-        orphan
-    }
-
-    async fn dropped_mid_execution(&self) {
+    pub(super) async fn dropped_mid_execution(&self) {
         let runtime = Started {
             fake: FakeRuntime::new(Script::new().on("write", 1, 1, Behavior::WaitUntilStopped)),
             launched: Notify::new(),
@@ -206,10 +182,59 @@ async fn an_execution_whose_end_was_never_recorded_is_discarded_even_with_a_vali
     assert_eq!(drafts, [(b"# Draft 1\n".to_vec(),)]);
 }
 
+impl Feature {
+    async fn orphaned(&self) -> Child {
+        let orphan = agent_process();
+        let orphaning = Orphaning {
+            fake: FakeRuntime::new(Script::new().on("write", 1, 1, Behavior::WaitUntilStopped)),
+            pid: orphan.id(),
+        };
+        let stop = StopSignal::new();
+        let (sink, _events) = mpsc::unbounded_channel();
+        let forcing = async {
+            self.until_a_process_is_recorded().await;
+            stop.force();
+        };
+        let (killed, ()) = tokio::join!(
+            self.project
+                .drive(&self.run, &orphaning, sink, stop.clone()),
+            forcing
+        );
+        assert_eq!(
+            killed.expect("the forced driver returns"),
+            DriveOutcome::Interrupted
+        );
+        orphan
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn cancel_stops_an_agent_left_running_by_a_dead_driver() {
+    let feature = Feature::review().await;
+    let mut orphan = feature.orphaned().await;
+
+    let cancelled = feature.cancel().await;
+
+    assert!(exited(&mut orphan), "the orphan was stopped");
+    assert_eq!(
+        cancelled.outcome.expect("cancel returns"),
+        Cancellation::Cancelled
+    );
+    assert_eq!(
+        cancelled.progress[0],
+        Progress::OrphanStopped {
+            step: label("write", Some(1)),
+            attempt: 1,
+            pid: orphan.id()
+        }
+    );
+    assert_eq!(feature.attempts().await, [(1, "interrupted".to_owned())]);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn an_agent_left_running_by_a_dead_driver_is_stopped_never_adopted_and_retried() {
     let feature = Feature::review().await;
-    let mut orphan = feature.orphaned_by_a_forced_driver().await;
+    let mut orphan = feature.orphaned().await;
     assert!(orphan.try_wait().expect("inspectable").is_none());
 
     let resumed = feature
@@ -248,7 +273,7 @@ async fn an_agent_left_running_by_a_dead_driver_is_stopped_never_adopted_and_ret
 #[tokio::test(flavor = "multi_thread")]
 async fn status_warns_about_an_agent_still_running_with_no_driver_and_leaves_it_alone() {
     let feature = Feature::review().await;
-    let mut orphan = feature.orphaned_by_a_forced_driver().await;
+    let mut orphan = feature.orphaned().await;
     feature
         .dir
         .execute("UPDATE workflow_run SET driver_pid = NULL")

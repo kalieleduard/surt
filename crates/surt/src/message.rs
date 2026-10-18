@@ -10,6 +10,7 @@ pub(crate) enum Mark {
     Started,
     Retry,
     Warning,
+    Waiting,
 }
 
 impl Mark {
@@ -23,6 +24,7 @@ impl Mark {
             Mark::Started => "●",
             Mark::Retry => "↻",
             Mark::Warning => "⚠",
+            Mark::Waiting => "⏳",
         }
     }
 
@@ -30,7 +32,7 @@ impl Mark {
         match self {
             Mark::Success => AnsiColor::Green.on_default().bold(),
             Mark::Error | Mark::Blocked => AnsiColor::Red.on_default().bold(),
-            Mark::Paused | Mark::Stopped | Mark::Retry | Mark::Warning => {
+            Mark::Paused | Mark::Stopped | Mark::Retry | Mark::Warning | Mark::Waiting => {
                 AnsiColor::Yellow.on_default().bold()
             }
             Mark::Started => AnsiColor::Cyan.on_default().bold(),

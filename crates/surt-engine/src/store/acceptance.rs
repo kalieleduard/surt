@@ -1,7 +1,7 @@
 use sqlx::SqliteConnection;
 
 use super::revisions::{Origin, Published, artifact_id, publish};
-use super::{About, Store, StoreError, record_event, unix_now};
+use super::{About, Checkpoint, Store, StoreError, record_event, unix_now};
 
 pub(crate) struct Acceptance<'a> {
     pub(crate) execution: &'a str,
@@ -83,6 +83,7 @@ impl Store {
         record_event(&mut transaction, about, "execution.succeeded", now).await?;
         record_event(&mut transaction, About::Step(&step), "step.done", now).await?;
         transaction.commit().await?;
+        self.reached(Checkpoint::ExecutionAccepted)?;
         Ok(published)
     }
 
@@ -113,7 +114,8 @@ impl Store {
             unix_now(),
         )
         .await?;
-        Ok(transaction.commit().await?)
+        transaction.commit().await?;
+        self.reached(Checkpoint::WorkingCopyWritten)
     }
 
     pub(crate) async fn superseded_working_copy_files(

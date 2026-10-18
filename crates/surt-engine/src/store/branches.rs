@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use sqlx::FromRow;
 
 use super::graph::execution_state;
-use super::{Store, StoreError, unix_now};
+use super::{Checkpoint, Store, StoreError, unix_now};
 use crate::drive::graph::ExecutionState;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -74,7 +74,8 @@ impl Store {
         .bind(unix_now())
         .execute(&mut *transaction)
         .await?;
-        Ok(transaction.commit().await?)
+        transaction.commit().await?;
+        self.reached(Checkpoint::Intention)
     }
 
     pub(crate) async fn previous_execution(

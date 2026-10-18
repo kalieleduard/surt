@@ -11,6 +11,8 @@ use crate::project::{
     AgentAssets, ArtifactFile, Catalog, Config, DefinitionFile, Error, InitialArtifact,
     InvalidDefinition, NewRun, Problem, Project, Refusal,
 };
+#[cfg(feature = "test-support")]
+use crate::store::Faults;
 
 pub(super) const DRAFT_WORKFLOW: &str = r#"
 schema = 1
@@ -202,6 +204,8 @@ impl ProjectDir {
             catalog,
             home: SurtHome::at(&self.home()),
             access: Access::ReadWrite,
+            #[cfg(feature = "test-support")]
+            faults: Faults::default(),
         }
     }
 

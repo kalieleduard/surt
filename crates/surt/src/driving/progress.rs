@@ -7,7 +7,7 @@ use crate::message::{Mark, Message};
 const FIRST: u32 = 1;
 const SHORT_SHA_CHARS: usize = 7;
 
-pub(super) async fn print(mut events: UnboundedReceiver<Progress>) -> Option<Cleanup> {
+pub(crate) async fn print(mut events: UnboundedReceiver<Progress>) -> Option<Cleanup> {
     let mut cleaned = None;
     while let Some(event) = events.recv().await {
         if let Progress::CleanedUp(cleanup) = event {
@@ -145,7 +145,17 @@ fn message(progress: &Progress) -> (Mark, Message) {
                 short(merge)
             )),
         ),
+        Progress::CancelRequested { driver } => (Mark::Waiting, cancel_requested(*driver)),
         Progress::CleanedUp(cleanup) => (Mark::Retry, Message::new(summary(cleanup))),
+    }
+}
+
+fn cancel_requested(driver: Option<u32>) -> Message {
+    match driver {
+        Some(pid) => Message::new(format!(
+            "cancel requested; driver pid {pid} is stopping it…"
+        )),
+        None => Message::new("cancel requested; waiting for the driver to stop…"),
     }
 }
 

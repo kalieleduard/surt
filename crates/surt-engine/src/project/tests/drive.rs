@@ -1,10 +1,13 @@
 mod blocked;
 mod branches;
+mod cancelling;
 mod checks;
 mod cleanup;
 mod conflicts;
 mod drivers;
 mod evidence;
+mod fault_intentions;
+mod faults;
 mod fixtures;
 mod gates;
 mod integration;

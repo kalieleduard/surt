@@ -8,8 +8,8 @@ Spec: [Milestone 1](../spec.md) (stories 79–82) · Slice: S5 Recovery and endi
 
 **Status:** ready-for-agent
 
-- [ ] `surt cancel` shows what will be stopped and what stays, and asks for confirmation; the CLI asks, the engine's `cancel` acts when called
-- [ ] Without a TTY and without `--yes`, it refuses with exit `3`
-- [ ] With no live Driver: takes the lock, stops orphans, settles pending Intentions so history says where the branch really is, records the Cancellation, then runs the `cancelled` cleanup
-- [ ] With a live Driver: writes the cancel request; that Driver stops and exits `5`
-- [ ] Binary tests: refusal without TTY, cancel of a crashed run, cancel across two processes with exit `5`; afterwards `surt feature "<same description>"` creates a `-2` Feature
+- [x] `surt cancel` shows what will be stopped and what stays, and asks for confirmation; the CLI asks, the engine's `cancel` acts when called
+- [x] Without a TTY and without `--yes`, it refuses with exit `3`
+- [x] With no live Driver: takes the lock, stops orphans, settles pending Intentions so history says where the branch really is, records the Cancellation, then runs the `cancelled` cleanup
+- [x] With a live Driver: writes the cancel request; that Driver stops and exits `5`
+- [x] Binary tests: refusal without TTY, cancel of a crashed run, cancel across two processes with exit `5`; afterwards `surt feature "<same description>"` creates a `-2` Feature
