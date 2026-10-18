@@ -49,3 +49,21 @@ fn recovery_reports_what_it_found_line_by_line() {
          ⚠ previous driver is gone — recovering\n"
     );
 }
+
+#[test]
+fn a_cancel_request_says_which_driver_is_stopping_the_run() {
+    let requested = [
+        Progress::CancelRequested {
+            driver: Some(48213),
+        },
+        Progress::CancelRequested { driver: None },
+    ];
+
+    let lines: String = requested.iter().map(line).collect();
+
+    assert_eq!(
+        lines,
+        "⏳ cancel requested; driver pid 48213 is stopping it…\n\
+         ⏳ cancel requested; waiting for the driver to stop…\n"
+    );
+}

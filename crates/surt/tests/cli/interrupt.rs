@@ -11,14 +11,14 @@ const FORCE_CEILING: Duration = Duration::from_secs(20);
 const STOPPING: &str = "⏹ stopping — press Ctrl-C again to force\n";
 const SLOW_CHECK: &str = "[[checks]]\nname = \"slow\"\nrun = [\"sleep\", \"60\"]\n";
 
-struct Driving {
+pub struct Driving {
     child: Child,
     stderr: BufReader<ChildStderr>,
     seen: String,
 }
 
 impl Driving {
-    fn start(sandbox: &Sandbox, name: &str) -> Driving {
+    pub fn start(sandbox: &Sandbox, name: &str) -> Driving {
         let mut child = sandbox.spawn(&["start", name]);
         let stderr = BufReader::new(child.stderr.take().expect("the piped stderr"));
         Driving {
@@ -28,7 +28,11 @@ impl Driving {
         }
     }
 
-    fn wait_for(&mut self, line: &str) {
+    pub fn pid(&self) -> u32 {
+        self.child.id()
+    }
+
+    pub fn wait_for(&mut self, line: &str) {
         while !self.seen.ends_with(line) {
             let read = self
                 .stderr
@@ -38,7 +42,7 @@ impl Driving {
         }
     }
 
-    fn signal(&self, name: &str) {
+    pub fn signal(&self, name: &str) {
         let status = Command::new("kill")
             .args([&format!("-{name}"), &self.child.id().to_string()])
             .status()
@@ -46,7 +50,7 @@ impl Driving {
         assert!(status.success(), "kill -{name} failed");
     }
 
-    fn finish(mut self) -> (Option<i32>, String) {
+    pub fn finish(mut self) -> (Option<i32>, String) {
         self.stderr
             .read_to_string(&mut self.seen)
             .expect("stderr is readable");
@@ -63,7 +67,7 @@ fn interrupted(name: &str) -> String {
     format!("⏹ interrupted\n  resume: surt start {name}\n")
 }
 
-fn waiting_builder(name: &str) -> Sandbox {
+pub fn waiting_builder(name: &str) -> Sandbox {
     planned(name, &[tasks(1, &["A"]), wait_until_stopped("A/build")])
 }
 

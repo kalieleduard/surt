@@ -1,5 +1,6 @@
 mod blocked;
 mod branches;
+mod cancelling;
 mod checks;
 mod cleanup;
 mod conflicts;

@@ -95,6 +95,9 @@ pub enum Progress {
         branch: String,
         merge: String,
     },
+    CancelRequested {
+        driver: Option<u32>,
+    },
     CleanedUp(Cleanup),
 }
 

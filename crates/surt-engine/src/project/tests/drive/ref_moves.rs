@@ -5,7 +5,7 @@ use super::fixtures::{Feature, label};
 use super::integration::{integration_branch, login, task_branch_of};
 use super::repository::git;
 use super::team::{INTEGRATED_TASK, Team, builds, built, failures, reviews};
-use crate::project::{Config, DriveOutcome, Progress, Refusal, StepLabel};
+use crate::project::{Cancellation, Config, DriveOutcome, Progress, Refusal, StepLabel};
 
 fn moving_the_integration_branch(worktree: &Path) -> String {
     let sha = login(worktree);
@@ -189,4 +189,41 @@ async fn an_intended_move_found_elsewhere_blocks_the_integration_and_the_drive_r
     assert_eq!(states, [("blocked".to_owned(),)]);
     assert_eq!(feature.sha(&integration_branch()), Some(feature.reviewed()));
     assert!(feature.pending_moves().await.is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn cancel_records_an_intended_move_found_done_so_history_says_where_the_branch_is() {
+    let feature = blocked_by_a_moved_branch().await;
+    let merge = feature.hand_made_merge();
+    feature.intend_move(&feature.base(), &merge).await;
+    feature.git(&["update-ref", &integration_branch(), &merge]);
+
+    let cancelled = feature.cancel().await;
+
+    assert_eq!(
+        cancelled.outcome.expect("cancel returns"),
+        Cancellation::Cancelled
+    );
+    assert_eq!(
+        cancelled.progress[0],
+        Progress::IntegrationRecorded {
+            step: integrate_of_a(),
+            branch: format!("surt/{SUBJECT}"),
+            merge: merge.clone(),
+        }
+    );
+    assert_eq!(
+        feature.integrate_attempts().await,
+        [(2, "merged".to_owned())]
+    );
+    let tips = feature.recorded_tips().await;
+    assert_eq!(tips[0], (None, merge.clone(), None));
+    assert_eq!(tips[1].2, Some(merge.clone()));
+    assert_eq!(feature.sha(&integration_branch()), Some(merge));
+    assert!(feature.pending_moves().await.is_empty());
+    let runs: Vec<(String,)> = feature
+        .dir
+        .rows("SELECT DISTINCT state FROM workflow_run")
+        .await;
+    assert_eq!(runs, [("cancelled".to_owned(),)]);
 }
