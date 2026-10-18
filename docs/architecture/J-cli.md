@@ -175,8 +175,8 @@ T1     resume: surt start 20261017-add-login
 
 `surt restore <feature> <artifact>` discards an unrecorded Working Copy edit ([H](H-artifact-storage.md#editing-an-item-list)).
 
-- It acts only on the Subject's **active** run. It takes that root run's lock with `try_lock`; a live Driver refuses with exit `3`, naming its pid. A terminal run refuses with I's `fix: move or delete the file` ([I. Cleanup](I-cleanup.md#unrecorded-working-copy-edits)).
-- It shows what will be lost, per file: changed with added and removed line counts, a new file (removed), or a missing file (recreated), then asks `[y/N]` ([Confirmations](#confirmations)) The line counts come from a small line-based count in the engine, not a diff library.
+- It acts only on the Subject's **active** run. It takes that root run's lock with `try_lock` before showing anything; a live Driver refuses with exit `3`, naming its pid, without asking. Under the lock it first finishes pending Working Copy writes, so the impact it shows is what the restore does. A terminal run refuses with I's `fix: move or delete the file` ([I. Cleanup](I-cleanup.md#unrecorded-working-copy-edits)).
+- It shows what will be lost, per file: changed with added and removed line counts, a new file (removed), or a missing file (recreated), then asks `[y/N]` ([Confirmations](#confirmations)). The line counts come from a small line-based count in the engine, not a diff library.
 - When nothing differs it says so and exits `0`:
   ```
   $ surt restore 20261017-add-login spec

@@ -153,7 +153,7 @@ delete feature 20261017-add-login and all its history?
 
 ### Order
 
-1. **Locks.** `try_lock` on the run lock of every root run of the Subject. A busy lock (for example `surt start` finishing a pending cleanup) refuses with exit `3`.
+1. **Locks.** `try_lock` on the run lock of every root run of the Subject, also before the confirmation shows the impact, so a busy lock refuses without asking. A busy lock (for example `surt start` finishing a pending cleanup) refuses with exit `3`.
 2. **Git and disk**, each step idempotent:
    - worktrees: `unlock`, `remove --force`; a missing directory is pruned for that entry only;
    - refs: one `git update-ref --stdin` transaction;

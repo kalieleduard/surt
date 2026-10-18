@@ -32,6 +32,7 @@ impl Project {
 
     async fn read_impact(&self, store: &Store, subject: &str) -> Result<DeleteImpact, Error> {
         let runs = deletable_runs(store, subject).await?;
+        let _locks = RunLocks::take(&self.layout, subject, &runs).await?;
         let targets = Targets::gather(store, &self.layout, subject, runs).await?;
         impact::read(store, &self.layout, subject, &targets).await
     }

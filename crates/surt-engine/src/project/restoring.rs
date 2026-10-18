@@ -29,7 +29,7 @@ impl Project {
         subject: &str,
         artifact: &str,
     ) -> Result<RestoreImpact, Error> {
-        let store = self.reader().await?;
+        let store = self.store().await?;
         let restoring = Restoring {
             store: &store,
             layout: &self.layout,
@@ -58,19 +58,16 @@ impl Project {
 impl Restoring<'_> {
     async fn impact(&self) -> Result<RestoreImpact, Error> {
         let root = self.active_root().await?;
-        Ok(self.compare(&root.id).await?.0)
+        let _lock = self.lock(root.id.clone()).await?;
+        Ok(self.settled(&root.id).await?.0)
     }
 
     async fn restore(&self) -> Result<RestoreImpact, Error> {
         let root = self.active_root().await?;
-        let path = self.layout.run_lock(&root.id);
-        let Some(_lock) = try_lock(&path)? else {
-            return Err(self.driver_live(root.id).await);
-        };
-        let dir = self.layout.working_copy(self.subject);
-        finish_pending_writes(self.store, &dir, &root.id).await?;
-        let (impact, target) = self.compare(&root.id).await?;
+        let _lock = self.lock(root.id.clone()).await?;
+        let (impact, target) = self.settled(&root.id).await?;
         if !impact.changes.is_empty() {
+            let dir = self.layout.working_copy(self.subject);
             restoring::rewrite(self.store, &dir, &target.files, &impact.changes).await?;
             let details = restoring::details(self.artifact, impact.revision, &impact.changes);
             self.store
@@ -78,6 +75,19 @@ impl Restoring<'_> {
                 .await?;
         }
         Ok(impact)
+    }
+
+    async fn lock(&self, root: String) -> Result<platform::ExclusiveLock, Error> {
+        match try_lock(&self.layout.run_lock(&root))? {
+            Some(lock) => Ok(lock),
+            None => Err(self.driver_live(root).await),
+        }
+    }
+
+    async fn settled(&self, root: &str) -> Result<(RestoreImpact, RestoreTarget), Error> {
+        let dir = self.layout.working_copy(self.subject);
+        finish_pending_writes(self.store, &dir, root).await?;
+        self.compare(root).await
     }
 
     async fn compare(&self, root: &str) -> Result<(RestoreImpact, RestoreTarget), Error> {
