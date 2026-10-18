@@ -90,14 +90,8 @@ impl Sweep<'_> {
     }
 
     fn leave_path(&mut self, path: &Path, reason: impl Display) {
-        let shown = self.relative(path);
+        let shown = self.layout.relative(path);
         self.leave(shown.display(), reason);
-    }
-
-    fn relative(&self, path: &Path) -> PathBuf {
-        path.strip_prefix(self.layout.root())
-            .unwrap_or(path)
-            .to_path_buf()
     }
 }
 

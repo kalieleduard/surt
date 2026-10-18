@@ -77,9 +77,3 @@ async fn deletable_runs(store: &Store, subject: &str) -> Result<Vec<SubjectRun>,
     }
     Ok(runs)
 }
-
-fn relative(layout: &Layout, path: &std::path::Path) -> std::path::PathBuf {
-    path.strip_prefix(layout.root())
-        .unwrap_or(path)
-        .to_path_buf()
-}

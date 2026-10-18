@@ -36,7 +36,7 @@ impl Sweep<'_> {
             }
         }
         for rel_path in edited {
-            let path = self.relative(&dir.join(rel_path));
+            let path = self.layout.relative(&dir.join(rel_path));
             self.report.kept.push(Kept::UnrecordedEdit { path });
         }
     }
