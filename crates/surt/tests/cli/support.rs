@@ -10,6 +10,8 @@ pub const REFUSED_EXIT_CODE: i32 = 3;
 pub const INTERNAL_ERROR_EXIT_CODE: i32 = 1;
 
 const RUNTIME_VARIABLE: &str = "SURT_RUNTIME";
+#[cfg(unix)]
+const SYSTEM_DIRECTORIES: [&str; 2] = ["/usr/bin", "/bin"];
 
 const IDENTITY_CONFIG: &str = "[user]\n\tname = Surt Tester\n\temail = tester@example.com\n";
 const NO_IDENTITY_CONFIG: &str = "[user]\n\tuseConfigOnly = true\n";
@@ -159,6 +161,33 @@ impl Sandbox {
             .into()
     }
 
+    #[cfg(unix)]
+    pub fn tools(&self) -> PathBuf {
+        self.root.path().join("tools")
+    }
+
+    #[cfg(unix)]
+    pub fn surt_on_claude(&self, args: &[&str]) -> Run {
+        assert_no_real_claude();
+        let tools = self.tools();
+        fs::create_dir_all(&tools).expect("the tools directory");
+        let git = tools.join("git");
+        if !git.exists() {
+            std::os::unix::fs::symlink(on_parent_path("git"), git).expect("a git link");
+        }
+        let path = std::env::join_paths(
+            std::iter::once(tools).chain(SYSTEM_DIRECTORIES.iter().map(PathBuf::from)),
+        )
+        .expect("a joinable PATH");
+        self.command(Path::new(env!("CARGO_BIN_EXE_surt")), &self.repo())
+            .args(args)
+            .env_remove(RUNTIME_VARIABLE)
+            .env("PATH", path)
+            .output()
+            .expect("the surt binary runs")
+            .into()
+    }
+
     pub fn spawn(&self, args: &[&str]) -> Child {
         self.command(Path::new(env!("CARGO_BIN_EXE_surt")), &self.repo())
             .args(args)
@@ -223,4 +252,23 @@ fn block_on<T>(future: impl Future<Output = T>) -> T {
         .build()
         .expect("a runtime")
         .block_on(future)
+}
+
+#[cfg(unix)]
+fn on_parent_path(program: &str) -> PathBuf {
+    let path = std::env::var_os("PATH").expect("a PATH");
+    std::env::split_paths(&path)
+        .map(|directory| directory.join(program))
+        .find(|candidate| candidate.is_file())
+        .unwrap_or_else(|| panic!("{program} is not on PATH"))
+}
+
+#[cfg(unix)]
+fn assert_no_real_claude() {
+    for directory in SYSTEM_DIRECTORIES {
+        assert!(
+            !Path::new(directory).join("claude").exists(),
+            "a real Claude Code in {directory} would run instead of the stub"
+        );
+    }
 }

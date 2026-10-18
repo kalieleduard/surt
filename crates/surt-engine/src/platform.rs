@@ -2,6 +2,10 @@ use std::fs::{self, File, Metadata, OpenOptions, TryLockError};
 use std::io;
 use std::path::Path;
 
+mod process;
+
+pub(crate) use process::{ProcessIdentity, identify, stop};
+
 pub(crate) struct ExclusiveLock {
     _file: File,
 }

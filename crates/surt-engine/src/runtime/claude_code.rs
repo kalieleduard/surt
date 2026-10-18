@@ -2,9 +2,11 @@ mod classification;
 mod environment;
 mod initialization;
 mod invocation;
+mod process_tree;
 mod rules;
 mod supervision;
 mod transcript;
+mod version;
 
 use std::ffi::OsString;
 use std::fs;
@@ -62,6 +64,12 @@ impl AgentRuntime for ClaudeCodeRuntime {
         stop: StopSignal,
     ) -> Result<RuntimeCompletion, RuntimeError> {
         let invocation = Invocation::assemble(&request, &self.environment)?;
+        supervision::require_working_dir(&invocation)?;
+        let version = version::probe(&self.executable, &invocation.environment).await?;
+        let _ = events.send(RuntimeEvent::Identified {
+            version: version.clone(),
+        });
+        version::require_supported(&version)?;
         write_launch_files(&invocation)?;
         let stream_log = open_log(&request.log_dir, STREAM_LOG).await?;
         let stderr_log = open_log(&request.log_dir, STDERR_LOG).await?;

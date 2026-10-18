@@ -3,33 +3,33 @@ use std::path::Path;
 use std::process::{ExitStatus, Stdio};
 use std::time::Duration;
 
-#[cfg(windows)]
-use process_wrap::tokio::JobObject;
-#[cfg(unix)]
-use process_wrap::tokio::ProcessGroup;
-use process_wrap::tokio::{ChildWrapper, CommandWrap, KillOnDrop};
+use process_wrap::tokio::{ChildWrapper, CommandWrap};
 use tokio::time::{Instant, sleep_until};
 
 use super::invocation::Invocation;
+use super::process_tree;
+use super::version::MINIMUM_TEXT;
 use crate::runtime::{Exit, FailureClass, RuntimeError, StopLevel, StopSignal};
 
 #[cfg(unix)]
-const SIGTERM: i32 = 15;
-#[cfg(unix)]
 const SIGNALLED_EXIT_BASE: i32 = 128;
 const UNKNOWN_EXIT_CODE: i32 = -1;
+
+pub(super) fn require_working_dir(invocation: &Invocation) -> Result<(), RuntimeError> {
+    if invocation.working_dir.is_dir() {
+        return Ok(());
+    }
+    Err(RuntimeError::new(
+        FailureClass::Retryable,
+        "missing_working_dir",
+        format!("{} is not a directory", invocation.working_dir.display()),
+    ))
+}
 
 pub(super) fn spawn(
     executable: &Path,
     invocation: &Invocation,
 ) -> Result<Box<dyn ChildWrapper>, RuntimeError> {
-    if !invocation.working_dir.is_dir() {
-        return Err(RuntimeError::new(
-            FailureClass::Retryable,
-            "missing_working_dir",
-            format!("{} is not a directory", invocation.working_dir.display()),
-        ));
-    }
     let mut command = CommandWrap::with_new(executable, |command| {
         command
             .args(&invocation.arguments)
@@ -40,11 +40,7 @@ pub(super) fn spawn(
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
     });
-    #[cfg(unix)]
-    command.wrap(ProcessGroup::leader());
-    #[cfg(windows)]
-    command.wrap(JobObject);
-    command.wrap(KillOnDrop);
+    process_tree::contain(&mut command);
     command
         .spawn()
         .map_err(|error| launch_failure(executable, &error))
@@ -102,7 +98,7 @@ impl Escalation {
             self.kill(child);
             return;
         }
-        terminate(child);
+        process_tree::interrupt(child);
         self.deadline = Some(Instant::now() + grace);
     }
 
@@ -116,16 +112,6 @@ impl Escalation {
             let _ = child.start_kill();
         }
     }
-}
-
-#[cfg(unix)]
-fn terminate(child: &mut dyn ChildWrapper) {
-    let _ = child.signal(SIGTERM);
-}
-
-#[cfg(not(unix))]
-fn terminate(child: &mut dyn ChildWrapper) {
-    let _ = child.start_kill();
 }
 
 #[cfg(unix)]
@@ -143,17 +129,17 @@ fn exit_code(status: ExitStatus) -> i32 {
     status.code().unwrap_or(UNKNOWN_EXIT_CODE)
 }
 
-fn launch_failure(executable: &Path, error: &io::Error) -> RuntimeError {
-    let (class, code) = match error.kind() {
-        io::ErrorKind::NotFound => (FailureClass::NotRetryable, "missing_executable"),
-        _ => (FailureClass::Retryable, "launch_failed"),
-    };
-    RuntimeError::new(
-        class,
-        code,
-        format!(
-            "cannot run Claude Code at {}: {error}",
-            executable.display()
+pub(super) fn launch_failure(executable: &Path, error: &io::Error) -> RuntimeError {
+    let cannot_run = format!(
+        "cannot run Claude Code at {}: {error}",
+        executable.display()
+    );
+    match error.kind() {
+        io::ErrorKind::NotFound => RuntimeError::new(
+            FailureClass::NotRetryable,
+            "missing_executable",
+            format!("{cannot_run}; install Claude Code {MINIMUM_TEXT} or newer"),
         ),
-    )
+        _ => RuntimeError::new(FailureClass::Retryable, "launch_failed", cannot_run),
+    }
 }

@@ -78,6 +78,23 @@ pub enum Progress {
         path: String,
         revision: u32,
     },
+    Recovering {
+        driver: Option<u32>,
+    },
+    OrphanStopped {
+        step: StepLabel,
+        attempt: u32,
+        pid: u32,
+    },
+    Discarded {
+        step: StepLabel,
+        attempt: u32,
+    },
+    IntegrationRecorded {
+        step: StepLabel,
+        branch: String,
+        merge: String,
+    },
     CleanedUp(Cleanup),
 }
 

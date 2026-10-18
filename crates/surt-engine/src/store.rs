@@ -22,6 +22,7 @@ mod items;
 mod ref_moves;
 mod revisions;
 mod runs;
+mod runtime_info;
 mod steps;
 mod subjects;
 mod working_copy;
@@ -31,17 +32,18 @@ pub(crate) use approvals::{Decision, DecisionOutcome, GateRow, NewDecision, Wait
 pub(crate) use blocked::{BlockedRow, FailureRow};
 pub(crate) use branches::{PreviousExecution, RunBranch};
 pub(crate) use cleanup::{CleanupRecord, TaskBranch};
+pub(crate) use drivers::StaleExecution;
 pub(crate) use executions::{
     ExecutionEnd, ExecutionKind, ExecutionStart, InputRequest, StartedExecution,
 };
 pub(crate) use frozen::FrozenFile;
 pub(crate) use graph::{RunRows, StepRow};
 pub(crate) use items::{Expansion, ListRevision, NewChild};
-pub(crate) use ref_moves::RefMove;
+pub(crate) use ref_moves::{PendingRefMove, RefMove};
 pub(crate) use revisions::{Producer, StoredRevision};
 pub(crate) use runs::{NewInitialArtifact, NewRunRows, RunCreation};
 pub(crate) use subjects::SubjectRow;
-pub(crate) use working_copy::{BaselineFile, EditRecord, WorkingCopyArtifact};
+pub(crate) use working_copy::{BaselineFile, EditRecord, PendingFile, WorkingCopyArtifact};
 
 static MIGRATOR: Migrator = sqlx::migrate!();
 

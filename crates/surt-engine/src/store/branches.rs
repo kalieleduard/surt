@@ -97,7 +97,22 @@ impl Store {
         }))
     }
 
-    pub(crate) async fn record_worktree_event(
+    pub(crate) async fn operation_succeeded(
+        &self,
+        run: &str,
+        operation: &str,
+    ) -> Result<bool, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT EXISTS (SELECT 1 FROM execution e JOIN step_run s ON s.id = e.step_run_id \
+             WHERE s.workflow_run_id = ? AND e.operation_id = ? AND e.state = 'succeeded')",
+        )
+        .bind(run)
+        .bind(operation)
+        .fetch_one(&self.pool)
+        .await?)
+    }
+
+    pub(crate) async fn record_execution_event(
         &self,
         execution: &str,
         kind: &str,

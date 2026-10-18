@@ -1,9 +1,11 @@
 use sqlx::FromRow;
 
+use super::revisions::number;
 use super::{About, Store, StoreError, record_event, unix_now};
+use crate::drive::StepLabel;
+use crate::platform::ProcessIdentity;
 
 const DRIVER_STARTED: &str = "driver.started";
-const EXECUTION_INTERRUPTED: &str = "execution.interrupted";
 
 #[derive(Clone, Debug, PartialEq, Eq, FromRow)]
 pub(crate) struct DriverRecord {
@@ -12,16 +14,45 @@ pub(crate) struct DriverRecord {
     pub(crate) since: Option<i64>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct StaleExecution {
+    pub(crate) id: String,
+    pub(crate) attempt: u32,
+    pub(crate) running: bool,
+    pub(crate) step: StepLabel,
+    pub(crate) identity: Option<ProcessIdentity>,
+}
+
+#[derive(FromRow)]
+struct StaleRow {
+    id: String,
+    attempt: i64,
+    state: String,
+    pid: Option<i64>,
+    process_start_time: Option<i64>,
+    process_boot_id: Option<String>,
+    step_key: String,
+    item_key: Option<String>,
+    iteration: Option<i64>,
+}
+
 impl Store {
-    pub(crate) async fn record_driver(&self, root: &str, pid: u32) -> Result<(), StoreError> {
+    pub(crate) async fn record_driver(
+        &self,
+        root: &str,
+        pid: u32,
+        identity: Option<&ProcessIdentity>,
+    ) -> Result<(), StoreError> {
         let now = unix_now();
         let mut transaction = self.begin_write().await?;
         sqlx::query(
-            "UPDATE workflow_run SET driver_pid = ?, driver_since = ?, driver_start_time = NULL, \
-             driver_boot_id = NULL WHERE id = ?",
+            "UPDATE workflow_run SET driver_pid = ?, driver_since = ?, driver_start_time = ?, \
+             driver_boot_id = ? WHERE id = ?",
         )
         .bind(i64::from(pid))
         .bind(now)
+        .bind(identity.map(|identity| identity.start_time))
+        .bind(identity.map(|identity| identity.boot_id.as_str()))
         .bind(root)
         .execute(&mut *transaction)
         .await?;
@@ -39,31 +70,65 @@ impl Store {
         .await?)
     }
 
-    pub(crate) async fn interrupt_stale(&self, root: &str) -> Result<(), StoreError> {
-        let now = unix_now();
+    pub(crate) async fn record_process(
+        &self,
+        execution: &str,
+        identity: &ProcessIdentity,
+    ) -> Result<(), StoreError> {
         let mut transaction = self.begin_write().await?;
-        let live: Vec<String> = sqlx::query_scalar(
-            "SELECT e.id FROM execution e JOIN step_run s ON s.id = e.step_run_id \
-             JOIN workflow_run w ON w.id = s.workflow_run_id \
-             WHERE w.root_run_id = ? AND e.state IN ('queued', 'running')",
+        sqlx::query(
+            "UPDATE execution SET pid = ?, process_start_time = ?, process_boot_id = ? \
+             WHERE id = ? AND state IN ('queued', 'running')",
+        )
+        .bind(i64::from(identity.pid))
+        .bind(identity.start_time)
+        .bind(&identity.boot_id)
+        .bind(execution)
+        .execute(&mut *transaction)
+        .await?;
+        Ok(transaction.commit().await?)
+    }
+
+    pub(crate) async fn stale_executions(
+        &self,
+        root: &str,
+    ) -> Result<Vec<StaleExecution>, StoreError> {
+        let rows: Vec<StaleRow> = sqlx::query_as(
+            "SELECT e.id, e.attempt, e.state, e.pid, e.process_start_time, e.process_boot_id, \
+             s.step_key, w.item_key, s.iteration FROM execution e \
+             JOIN step_run s ON s.id = e.step_run_id JOIN workflow_run w ON w.id = s.workflow_run_id \
+             WHERE w.root_run_id = ? AND e.state IN ('queued', 'running') \
+             ORDER BY e.started_at, e.id",
         )
         .bind(root)
-        .fetch_all(&mut *transaction)
+        .fetch_all(&self.pool)
         .await?;
-        for execution in &live {
-            sqlx::query("UPDATE execution SET state = 'interrupted', finished_at = ? WHERE id = ?")
-                .bind(now)
-                .bind(execution)
-                .execute(&mut *transaction)
-                .await?;
-            record_event(
-                &mut transaction,
-                About::Execution(execution),
-                EXECUTION_INTERRUPTED,
-                now,
-            )
-            .await?;
+        Ok(rows.into_iter().map(StaleExecution::from).collect())
+    }
+}
+
+impl From<StaleRow> for StaleExecution {
+    fn from(row: StaleRow) -> StaleExecution {
+        let identity = match (row.pid, row.process_start_time, row.process_boot_id) {
+            (Some(pid), Some(start_time), Some(boot_id)) => {
+                u32::try_from(pid).ok().map(|pid| ProcessIdentity {
+                    pid,
+                    start_time,
+                    boot_id,
+                })
+            }
+            _ => None,
+        };
+        StaleExecution {
+            id: row.id,
+            attempt: number(row.attempt),
+            running: row.state == "running",
+            step: StepLabel {
+                key: row.step_key,
+                item: row.item_key,
+                iteration: row.iteration.map(number),
+            },
+            identity,
         }
-        Ok(transaction.commit().await?)
     }
 }

@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use tokio::sync::mpsc;
+
 use super::driver::Driver;
 use super::failure::{Failure, OperationError};
 use super::operate::{Finished, OperationLaunch};
@@ -64,19 +66,21 @@ impl<R: AgentRuntime> Driver<'_, R> {
         launch: &OperationLaunch,
         worktree: &Path,
         commit: &str,
-    ) -> Result<CheckReport, Failure> {
+    ) -> Result<CheckReport, OperationError> {
         let log = self
             .driving
             .layout
             .execution_logs(&launch.subject, &launch.started.id)
             .join(OUTPUT_LOG);
-        checks::run(&self.frozen.checks, worktree, commit, &log)
-            .await
-            .map_err(|error| {
-                Failure::retryable(
-                    "checks_unrecorded",
-                    format!("cannot record the checks in {}: {error}", log.display()),
-                )
-            })
+        let (spawned, pids) = mpsc::unbounded_channel();
+        let running = checks::run(&self.frozen.checks, worktree, commit, &log, &spawned);
+        let report = self.tracking(&launch.started.id, running, pids).await?;
+        report.map_err(|error| {
+            Failure::retryable(
+                "checks_unrecorded",
+                format!("cannot record the checks in {}: {error}", log.display()),
+            )
+            .into()
+        })
     }
 }

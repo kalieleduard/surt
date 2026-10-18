@@ -1,10 +1,11 @@
 use std::path::Path;
 
+use super::super::fixtures::SUBJECT;
 use super::fixtures::{Feature, label};
 use super::integration::{integration_branch, login, task_branch_of};
 use super::repository::git;
 use super::team::{INTEGRATED_TASK, Team, builds, built, failures, reviews};
-use crate::project::{Config, DriveOutcome, StepLabel};
+use crate::project::{Config, DriveOutcome, Progress, Refusal, StepLabel};
 
 fn moving_the_integration_branch(worktree: &Path) -> String {
     let sha = login(worktree);
@@ -44,6 +45,15 @@ impl Feature {
             integration_branch()
         );
         self.dir.execute(&sql).await;
+    }
+
+    async fn integrate_attempts(&self) -> Vec<(i64, String)> {
+        self.dir
+            .rows(
+                "SELECT e.attempt, e.outcome FROM execution e JOIN step_run s ON s.id = e.step_run_id \
+                 WHERE s.step_key = 'integrate' AND e.state = 'succeeded'",
+            )
+            .await
     }
 
     async fn pending_moves(&self) -> Vec<(String,)> {
@@ -107,6 +117,19 @@ async fn an_intended_move_found_done_is_confirmed_without_merging_again() {
         driven.outcome.expect("drive returns"),
         DriveOutcome::Succeeded
     );
+    assert!(
+        driven.progress.contains(&Progress::IntegrationRecorded {
+            step: integrate_of_a(),
+            branch: format!("surt/{SUBJECT}"),
+            merge: merge.clone(),
+        }),
+        "{:?}",
+        driven.progress
+    );
+    assert_eq!(
+        feature.integrate_attempts().await,
+        [(2, "merged".to_owned())]
+    );
     assert_eq!(feature.sha(&integration_branch()), Some(merge.clone()));
     let tips = feature.recorded_tips().await;
     assert_eq!(tips[0], (None, merge.clone(), None));
@@ -140,7 +163,7 @@ async fn an_intended_move_found_undone_is_redone_from_the_start() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn an_intended_move_found_elsewhere_blocks_the_integration() {
+async fn an_intended_move_found_elsewhere_blocks_the_integration_and_the_drive_refuses() {
     let feature = blocked_by_a_moved_branch().await;
     let merge = feature.hand_made_merge();
     feature.intend_move(&feature.base(), &merge).await;
@@ -149,13 +172,21 @@ async fn an_intended_move_found_elsewhere_blocks_the_integration() {
 
     assert_eq!(
         driven.outcome.expect("drive returns"),
-        DriveOutcome::Blocked {
-            steps: vec![integrate_of_a()]
-        }
+        DriveOutcome::Halted(Refusal::IntegrationBranchMoved {
+            subject: SUBJECT.to_owned(),
+            branch: format!("surt/{SUBJECT}"),
+            expected: feature.base(),
+            found: Some(feature.reviewed()),
+        })
     );
     let refused = failures(&feature, "integrate").await;
     assert_eq!(refused.len(), 2, "{refused:?}");
     assert_eq!(refused[1].2, "integration_branch_moved");
+    let states: Vec<(String,)> = feature
+        .dir
+        .rows("SELECT state FROM step_run WHERE step_key = 'integrate'")
+        .await;
+    assert_eq!(states, [("blocked".to_owned(),)]);
     assert_eq!(feature.sha(&integration_branch()), Some(feature.reviewed()));
     assert!(feature.pending_moves().await.is_empty());
 }

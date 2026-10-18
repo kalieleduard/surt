@@ -4,9 +4,9 @@ use std::sync::Mutex;
 
 use super::super::fixtures::SUBJECT;
 use super::fixtures::{ACTOR, Feature, Recording, agent};
-use super::planned::{BUILDER, PLANNER, plan};
+use super::planned::{BUILDER, PLANNER, plan, work};
 use super::repository::{commit_file, git, git_succeeds};
-use crate::project::{Catalog, Config, DriveOutcome, Progress, StepLabel};
+use crate::project::{Catalog, Config, DriveOutcome, Progress, Refusal, StepLabel};
 use crate::runtime::{
     AgentRuntime, Behavior, Delivery, FakeRuntime, RuntimeCompletion, RuntimeError,
     RuntimeEventSink, RuntimeRequest, Script, StopSignal,
@@ -455,51 +455,55 @@ async fn setup_failures(feature: &Feature) -> Vec<(String, String, String)> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn setup_blocks_when_the_integration_branch_moved_outside_surt() {
+async fn a_driving_command_refuses_while_the_integration_branch_moved_and_resumes_once_restored() {
     let feature = tracked(&[("A", &[])], Config::default()).await;
     let base = feature.base();
     let moved = commit_file(&feature.root(), "moved.txt", "moved\n");
-    feature.git(&["branch", "--force", &format!("surt/{SUBJECT}"), &moved]);
+    let branch = format!("surt/{SUBJECT}");
+    feature.git(&["branch", "--force", &branch, &moved]);
 
-    let driven = feature.drive(Script::new()).await;
+    let refused = feature.drive(Script::new()).await;
 
-    assert!(matches!(
-        driven.outcome.expect("drive returns"),
-        DriveOutcome::Blocked { .. }
-    ));
     assert_eq!(
-        setup_failures(&feature).await,
-        [(
-            "not_retryable".to_owned(),
-            "integration_branch_moved".to_owned(),
-            format!("surt/{SUBJECT} moved outside surt (expected {base}, found {moved})")
-        )]
+        refused.outcome.expect("drive returns"),
+        DriveOutcome::Halted(Refusal::IntegrationBranchMoved {
+            subject: SUBJECT.to_owned(),
+            branch: branch.clone(),
+            expected: base.clone(),
+            found: Some(moved),
+        })
     );
+    assert!(setup_failures(&feature).await.is_empty());
     assert!(!feature.worktree("A").exists());
+
+    feature.git(&["branch", "--force", &branch, &base]);
+    let restored = feature
+        .drive(Script::new().on("A/build", 1, 1, work("a")))
+        .await;
+
+    assert_eq!(
+        restored.outcome.expect("drive returns"),
+        DriveOutcome::Succeeded
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn setup_blocks_while_the_integration_branch_is_checked_out() {
+async fn a_driving_command_refuses_while_the_integration_branch_is_checked_out() {
     let feature = tracked(&[("A", &[])], Config::default()).await;
-    feature.git(&["checkout", "--quiet", &format!("surt/{SUBJECT}")]);
+    let branch = format!("surt/{SUBJECT}");
+    feature.git(&["checkout", "--quiet", &branch]);
 
     let driven = feature.drive(Script::new()).await;
 
-    assert!(matches!(
-        driven.outcome.expect("drive returns"),
-        DriveOutcome::Blocked { .. }
-    ));
     assert_eq!(
-        setup_failures(&feature).await,
-        [(
-            "not_retryable".to_owned(),
-            "integration_branch_checked_out".to_owned(),
-            format!(
-                "surt/{SUBJECT} is checked out in {}",
-                feature.root().display()
-            )
-        )]
+        driven.outcome.expect("drive returns"),
+        DriveOutcome::Halted(Refusal::IntegrationBranchCheckedOut {
+            subject: SUBJECT.to_owned(),
+            branch,
+            path: feature.root(),
+        })
     );
+    assert!(setup_failures(&feature).await.is_empty());
 }
 
 #[tokio::test(flavor = "multi_thread")]

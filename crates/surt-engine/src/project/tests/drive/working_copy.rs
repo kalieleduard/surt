@@ -351,3 +351,100 @@ async fn a_driving_command_records_the_edit_before_it_drives() {
         GateStatus::Waiting { revision: 2 }
     );
 }
+
+async fn crashed_before_draft_2_was_written(on_disk: Option<&str>) -> Feature {
+    let feature = at_gate().await;
+    feature
+        .project
+        .reject(&feature.run, Some(1), "shorter", ACTOR)
+        .await
+        .expect("the draft is rejected");
+    feature
+        .drive(Script::new().on("write", 2, 1, draft("# Draft 2\n")))
+        .await
+        .outcome
+        .expect("draft 2 reaches the gate");
+    feature
+        .dir
+        .execute(
+            "UPDATE working_copy_file SET pending_sha256 = sha256, pending_revision_id = revision_id, \
+             sha256 = (SELECT f.blob_sha256 FROM revision_file f \
+               JOIN artifact_revision r ON r.id = f.revision_id \
+               JOIN artifact a ON a.id = r.artifact_id WHERE a.name = 'draft' AND r.number = 1), \
+             revision_id = (SELECT r.id FROM artifact_revision r \
+               JOIN artifact a ON a.id = r.artifact_id WHERE a.name = 'draft' AND r.number = 1) \
+             WHERE artifact_id = (SELECT id FROM artifact WHERE name = 'draft')",
+        )
+        .await;
+    match on_disk {
+        Some(text) => feature.edit("draft.md", text),
+        None => fs::remove_file(feature.working_copy("draft.md")).expect("the file is removed"),
+    }
+    feature
+}
+
+async fn pending_rows(feature: &Feature) -> Vec<(String,)> {
+    feature
+        .dir
+        .rows("SELECT rel_path FROM working_copy_file WHERE pending_revision_id IS NOT NULL")
+        .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_crash_before_the_agents_revision_was_written_is_finished_never_taken_for_an_edit() {
+    for on_disk in [Some("# Draft 1\n"), None, Some("# Draft 2\n")] {
+        let feature = crashed_before_draft_2_was_written(on_disk).await;
+
+        let driven = feature.drive(Script::new()).await;
+
+        assert!(matches!(
+            driven.outcome.expect("drive returns"),
+            DriveOutcome::AtGate { .. }
+        ));
+        assert_eq!(
+            fs::read_to_string(feature.working_copy("draft.md")).expect("the draft"),
+            "# Draft 2\n"
+        );
+        assert_eq!(revisions(&feature).await.len(), 2, "{on_disk:?}");
+        assert!(pending_rows(&feature).await.is_empty());
+        assert!(
+            !driven
+                .progress
+                .iter()
+                .any(|progress| matches!(progress, Progress::EditRecorded { .. })),
+            "{:?}",
+            driven.progress
+        );
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_hand_edit_made_in_the_crash_window_is_recorded_after_the_agents_revision() {
+    let feature = crashed_before_draft_2_was_written(Some("# Mine\n")).await;
+
+    let driven = feature.drive(Script::new()).await;
+
+    assert!(matches!(
+        driven.outcome.expect("drive returns"),
+        DriveOutcome::AtGate { .. }
+    ));
+    let recorded = revisions(&feature).await;
+    assert_eq!(
+        recorded[2],
+        (
+            3,
+            "human".to_owned(),
+            Some("edit".to_owned()),
+            b"# Mine\n".to_vec()
+        )
+    );
+    assert_eq!(
+        fs::read_to_string(feature.working_copy("draft.md")).expect("the draft"),
+        "# Mine\n"
+    );
+    assert!(driven.progress.contains(&Progress::EditRecorded {
+        artifact: "draft".to_owned(),
+        revision: 3
+    }));
+    assert!(pending_rows(&feature).await.is_empty());
+}

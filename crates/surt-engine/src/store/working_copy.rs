@@ -30,6 +30,15 @@ pub(crate) struct EditRecord<'a> {
     pub(crate) actor: &'a str,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, FromRow)]
+pub(crate) struct PendingFile {
+    pub(crate) run: String,
+    pub(crate) rel_path: String,
+    pub(crate) sha256: String,
+    pub(crate) pending_sha256: String,
+    pub(crate) pending_revision: String,
+}
+
 #[derive(FromRow)]
 struct BaselineRow {
     name: String,
@@ -90,6 +99,22 @@ impl Store {
             });
         }
         Ok(artifacts.into_values().collect())
+    }
+
+    pub(crate) async fn pending_working_copy(
+        &self,
+        root: &str,
+    ) -> Result<Vec<PendingFile>, StoreError> {
+        Ok(sqlx::query_as(
+            "SELECT a.workflow_run_id AS run, w.rel_path, w.sha256, w.pending_sha256, \
+             w.pending_revision_id AS pending_revision FROM working_copy_file w \
+             JOIN artifact a ON a.id = w.artifact_id \
+             WHERE a.workflow_run_id = ? AND w.pending_revision_id IS NOT NULL \
+             ORDER BY w.pending_revision_id, w.rel_path",
+        )
+        .bind(root)
+        .fetch_all(&self.pool)
+        .await?)
     }
 
     pub(crate) async fn blob(&self, sha256: &str) -> Result<Vec<u8>, StoreError> {

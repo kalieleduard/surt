@@ -121,10 +121,65 @@ fn every_refusal() -> Vec<Refusal> {
             problem: "manifest.json: tasks/C.md is not referenced by any item".to_owned(),
             files: vec!["tasks/C.md".to_owned()],
         },
+        Refusal::IntegrationBranchMoved {
+            subject: "20261017-add-login".to_owned(),
+            branch: "surt/20261017-add-login".to_owned(),
+            expected: "9e04b7d0c1a2b3c4d5e6f708192a3b4c5d6e7f80".to_owned(),
+            found: Some("71aa0c2f00000000000000000000000000000000".to_owned()),
+        },
+        Refusal::IntegrationBranchMoved {
+            subject: "20261017-add-login".to_owned(),
+            branch: "surt/20261017-add-login".to_owned(),
+            expected: "9e04b7d0c1a2b3c4d5e6f708192a3b4c5d6e7f80".to_owned(),
+            found: None,
+        },
+        Refusal::IntegrationBranchCheckedOut {
+            subject: "20261017-add-login".to_owned(),
+            branch: "surt/20261017-add-login".to_owned(),
+            path: path.clone(),
+        },
         Refusal::ActiveRunExists {
             subject: "20261017-add-login".to_owned(),
         },
     ]
+}
+
+fn named(predicate: fn(&Refusal) -> bool) -> Vec<String> {
+    every_refusal()
+        .iter()
+        .filter(|refusal| predicate(refusal))
+        .map(text)
+        .collect()
+}
+
+#[test]
+fn a_moved_integration_branch_names_both_commits_and_the_exact_command_to_restore_it() {
+    let moved = named(|refusal| matches!(refusal, Refusal::IntegrationBranchMoved { .. }));
+
+    assert_eq!(
+        moved,
+        [
+            "✖ surt/20261017-add-login moved outside surt (expected 9e04b7d, found 71aa0c2)\n  \
+             fix: git branch -f surt/20261017-add-login 9e04b7d0c1a2b3c4d5e6f708192a3b4c5d6e7f80\n  \
+             resume: surt start 20261017-add-login\n",
+            "✖ surt/20261017-add-login moved outside surt (expected 9e04b7d, found no branch)\n  \
+             fix: git branch -f surt/20261017-add-login 9e04b7d0c1a2b3c4d5e6f708192a3b4c5d6e7f80\n  \
+             resume: surt start 20261017-add-login\n",
+        ]
+    );
+}
+
+#[test]
+fn a_checked_out_integration_branch_says_where_and_how_to_switch_away() {
+    let checked_out =
+        named(|refusal| matches!(refusal, Refusal::IntegrationBranchCheckedOut { .. }));
+
+    assert_eq!(
+        checked_out,
+        ["✖ surt/20261017-add-login is checked out in /work/app\n  \
+          fix: git -C /work/app switch --detach\n  \
+          resume: surt start 20261017-add-login\n"]
+    );
 }
 
 #[test]
