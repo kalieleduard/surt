@@ -195,10 +195,7 @@ impl Project {
         let waiting = !store.waiting_gates(root).await?.is_empty();
         let frozen = Frozen::from_files(store.frozen_files(root).await?)?;
         let slots = AgentSlots {
-            in_use: match driver {
-                Some(_) => store.running_agents(root).await?,
-                None => 0,
-            },
+            in_use: slots_in_use(store).await?,
             total: self.config.max_concurrent_agents.get(),
         };
         let readiness = items::Readiness {
@@ -230,6 +227,23 @@ impl Project {
             blocked,
         })
     }
+}
+
+/// The Agent Slots in use across the whole project: running agent
+/// Executions holding a slot in every run whose Driver is live. Counted from
+/// SQLite, never by probing the slot lock files, so reading takes no slot.
+async fn slots_in_use(store: &Store) -> Result<u32, Error> {
+    Ok(store
+        .slot_holders()
+        .await?
+        .iter()
+        .filter(|holders| {
+            holders
+                .driver()
+                .is_some_and(|driver| platform::is_alive(&driver))
+        })
+        .map(|holders| holders.agents())
+        .sum())
 }
 
 fn states(stored: &str, driven: bool, waiting: bool, blocked: bool) -> Vec<RunState> {
