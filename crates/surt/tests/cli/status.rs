@@ -88,7 +88,7 @@ fn status_of_a_feature_at_a_gate_lists_every_covered_file_and_each_unrecorded_ed
             "{name} · run 1   AWAITING APPROVAL   (no driver)\n  \
              base     {branch} @ {head}\n  \
              spec     rev 1 (agent) ✔ approved by tester@example.com {approved_at}\n  \
-             manifest rev 1 (agent) ⏸ awaiting approval — approving covers:\n           \
+             tasks    manifest rev 1 (agent) ⏸ awaiting approval — approving covers the manifest and all 2 task files:\n           \
              .surt/features/{name}/manifest.json\n           \
              .surt/features/{name}/tasks/A.md\n           \
              .surt/features/{name}/tasks/B.md\n           \
@@ -158,7 +158,8 @@ fn status_of_a_blocked_feature_shows_each_task_and_how_to_resume_each_blocked_st
         overview,
         format!(
             "FEATURE             RUN  STATE    DRIVER  PROGRESS\n\
-             {name}  1    BLOCKED  —       1/2 merged · 1 blocked\n"
+             {name}  1    BLOCKED  —       1/2 merged · 1 blocked\n\
+             agent slots: 0/3 in use\n"
         )
     );
     assert_eq!(
@@ -166,10 +167,10 @@ fn status_of_a_blocked_feature_shows_each_task_and_how_to_resume_each_blocked_st
         format!(
             "{name} · run 1   BLOCKED   (no driver)\n  \
              base     {branch} @ {head}\n  \
-             branch   surt/{name} @ {tip}\n  \
+             branch   surt/{name} @ {tip} · merge into base: never\n  \
              spec     rev 1 (agent) ✔ approved by tester@example.com {spec_at}\n  \
-             manifest rev 1 (agent) ✔ approved by tester@example.com {manifest_at}\n  \
-             tasks\n    \
+             tasks    manifest rev 1 (agent) ✔ approved by tester@example.com {manifest_at} · 2 tasks\n  \
+             implement\n    \
              A  ✔ merged    iter 1 · as {}\n    \
              B  ⛔ blocked   build iter 1 · attempt 3\n  \
              ⛔ task B build blocked: attempts exhausted\n     \
@@ -225,14 +226,16 @@ fn status_all_adds_terminal_runs_and_shows_a_pending_cleanup_with_how_to_retry_i
         cleaned,
         format!(
             "FEATURE             RUN  STATE      DRIVER  PROGRESS\n\
-             {name}  1    SUCCEEDED  —       1/1 merged\n"
+             {name}  1    SUCCEEDED  —       1/1 merged\n\
+             agent slots: 0/3 in use\n"
         )
     );
     assert_eq!(
         pending,
         format!(
             "FEATURE             RUN  STATE      DRIVER  PROGRESS\n\
-             {name}  1    SUCCEEDED  —       1/1 merged · cleanup pending\n"
+             {name}  1    SUCCEEDED  —       1/1 merged · cleanup pending\n\
+             agent slots: 0/3 in use\n"
         )
     );
     assert!(
@@ -326,7 +329,8 @@ fn status_lists_a_feature_awaiting_approval_with_no_driver_and_its_gate() {
         stdout,
         format!(
             "FEATURE             RUN  STATE              DRIVER  PROGRESS\n\
-             {name}  1    AWAITING APPROVAL  —       spec rev 1\n"
+             {name}  1    AWAITING APPROVAL  —       spec rev 1\n\
+             agent slots: 0/3 in use\n"
         )
     );
 }

@@ -7,6 +7,7 @@ use crate::message::Message;
 use crate::runtime;
 
 pub(crate) struct Phase {
+    name: &'static str,
     command: &'static str,
     gate: &'static str,
     artifact: &'static str,
@@ -16,6 +17,7 @@ pub(crate) struct Phase {
 }
 
 pub(crate) const SPEC: Phase = Phase {
+    name: "spec",
     command: "feature",
     gate: "approve-spec",
     artifact: "spec",
@@ -25,6 +27,7 @@ pub(crate) const SPEC: Phase = Phase {
 };
 
 pub(crate) const TASKS: Phase = Phase {
+    name: "tasks",
     command: "plan",
     gate: "approve-tasks",
     artifact: "manifest",
@@ -35,6 +38,7 @@ pub(crate) const TASKS: Phase = Phase {
 
 const PHASES: [&Phase; 2] = [&SPEC, &TASKS];
 const NEXT: &str = "next";
+pub(crate) const TASK_STEP: &str = "implement";
 
 pub(crate) fn current_command(subject: &str, approved: impl Fn(&str) -> bool) -> String {
     PHASES
@@ -50,6 +54,10 @@ pub(crate) fn current_command(subject: &str, approved: impl Fn(&str) -> bool) ->
 impl Phase {
     pub(crate) fn of_gate(gate: &str) -> Option<&'static Phase> {
         PHASES.into_iter().find(|phase| phase.gate == gate)
+    }
+
+    pub(crate) fn name(&self) -> &'static str {
+        self.name
     }
 
     pub(crate) fn agent(&self) -> &'static str {

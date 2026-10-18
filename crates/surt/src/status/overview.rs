@@ -17,7 +17,15 @@ const COUNTED: [(TaskState, &str); 3] = [
 pub(super) fn render(statuses: &[RunStatus]) -> String {
     let mut rows = vec![HEADERS.map(str::to_owned)];
     rows.extend(statuses.iter().map(row));
-    table::render(&rows)
+    let mut text = table::render(&rows);
+    if let Some(first) = statuses.first() {
+        let in_use: u32 = statuses.iter().map(|status| status.slots.in_use).sum();
+        text.push_str(&format!(
+            "agent slots: {in_use}/{} in use\n",
+            first.slots.total
+        ));
+    }
+    text
 }
 
 fn row(status: &RunStatus) -> [String; 5] {

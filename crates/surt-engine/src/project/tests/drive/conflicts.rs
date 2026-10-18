@@ -14,7 +14,7 @@ use super::repository::{commit_file, git, git_succeeds};
 use super::team::{
     Act, INTEGRATED_TASK, Team, assert_valid, builds, built, failures, input, reviews,
 };
-use crate::project::{CONFLICT_SCHEMA, Config, DriveOutcome};
+use crate::project::{CONFLICT_SCHEMA, Config, Conflict, DriveOutcome, StatusScope, TaskState};
 
 const KEYS: [&str; 2] = ["A", "B"];
 
@@ -244,4 +244,78 @@ async fn a_merge_that_fails_the_checks_sends_the_task_back_and_never_becomes_the
         .merge_of(&resolved)
         .expect("the resolution is merged");
     assert_eq!((merge.sha, merge.first_parent), (tip, first_merge));
+}
+
+async fn conflicts_shown(feature: &Feature) -> Vec<(TaskState, Option<Conflict>)> {
+    let statuses = feature
+        .project
+        .status(StatusScope::Feature(SUBJECT))
+        .await
+        .expect("the status");
+    statuses[0]
+        .tasks
+        .iter()
+        .map(|task| (task.state, task.conflict.clone()))
+        .collect()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn status_shows_why_a_task_sent_back_by_a_merge_conflict_did_not_merge() {
+    let feature = built(
+        INTEGRATED_TASK,
+        &[("A", &[]), ("B", &[])],
+        Config::default(),
+    )
+    .await;
+
+    let driven = feature
+        .drive_with(&rivals([shared_login, shared_logout], &[]))
+        .await;
+
+    assert!(matches!(
+        driven.outcome.expect("drive returns"),
+        DriveOutcome::Blocked { .. }
+    ));
+    let mut shown = conflicts_shown(&feature).await;
+    shown.sort_by_key(|(state, _)| *state == TaskState::Blocked);
+    assert_eq!(
+        shown,
+        [
+            (TaskState::Succeeded, None),
+            (
+                TaskState::Blocked,
+                Some(Conflict::Merge {
+                    paths: vec!["shared.txt".to_owned()]
+                })
+            ),
+        ]
+    );
+}
+
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn status_shows_which_checks_failed_on_the_merge_of_a_task_sent_back() {
+    let alone = check(
+        "alone",
+        &["sh", "-c", "test ! -f login.txt || test ! -f logout.txt"],
+    );
+    let feature = built(
+        INTEGRATED_TASK,
+        &[("A", &[]), ("B", &[])],
+        with_checks(vec![alone]),
+    )
+    .await;
+
+    feature.drive_with(&rivals([login, logout], &[])).await;
+
+    let shown = conflicts_shown(&feature).await;
+    assert!(
+        shown.contains(&(
+            TaskState::Blocked,
+            Some(Conflict::Checks {
+                failed: vec!["alone".to_owned()]
+            })
+        )),
+        "{shown:?}"
+    );
 }

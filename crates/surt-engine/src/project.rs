@@ -41,11 +41,11 @@ pub use gates::{Decided, RevisionOrigin};
 pub use init::{FileState, InitFile, Initialized};
 pub use naming::Slug;
 pub use repository::Commit;
-pub use resolving::Subject;
+pub use resolving::{AwaitedRevision, Candidate, Subject};
 pub use show::{ArtifactSummary, ShowRequest, Shown};
 pub use status::{
-    CleanupState, Driver, GateView, PendingIntegration, RevisionSummary, RunState, RunStatus,
-    StatusScope, TaskState, TaskStatus, Unattended,
+    AgentSlots, CleanupState, Conflict, Driver, GateView, PendingIntegration, RevisionSummary,
+    RunState, RunStatus, StatusScope, TaskState, TaskStatus, Unattended,
 };
 pub use subjects::FreeName;
 

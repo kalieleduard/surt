@@ -37,19 +37,25 @@ pub(crate) async fn run(cwd: &Path, args: StatusArgs) -> Result<(), Failure> {
     Ok(())
 }
 
+pub(crate) const STATE_SEPARATOR: &str = " + ";
+
+pub(crate) fn state_name(state: RunState) -> &'static str {
+    match state {
+        RunState::Running => "RUNNING",
+        RunState::AwaitingApproval => "AWAITING APPROVAL",
+        RunState::Blocked => "BLOCKED",
+        RunState::Interrupted => "INTERRUPTED",
+        RunState::Succeeded => "SUCCEEDED",
+        RunState::Cancelled => "CANCELLED",
+    }
+}
+
 fn state_names(states: &[RunState]) -> String {
     states
         .iter()
-        .map(|state| match state {
-            RunState::Running => "RUNNING",
-            RunState::AwaitingApproval => "AWAITING APPROVAL",
-            RunState::Blocked => "BLOCKED",
-            RunState::Interrupted => "INTERRUPTED",
-            RunState::Succeeded => "SUCCEEDED",
-            RunState::Cancelled => "CANCELLED",
-        })
+        .map(|state| state_name(*state))
         .collect::<Vec<_>>()
-        .join(" + ")
+        .join(STATE_SEPARATOR)
 }
 
 fn resume_command(status: &RunStatus) -> String {

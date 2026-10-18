@@ -241,7 +241,10 @@ fn an_ambiguous_prefix_refuses_listing_the_candidates() {
     assert_eq!(
         ambiguous,
         format!(
-            "✖ \"{prefix}\" matches 2 features:\n    {name}\n    {name}-2\n  use the full name\n"
+            "✖ \"{prefix}\" matches 2 features:\n    \
+             {name}    AWAITING APPROVAL (spec rev 1)\n    \
+             {name}-2  AWAITING APPROVAL (spec rev 1)\n  \
+             use the full name\n"
         )
     );
     assert_eq!(

@@ -2,7 +2,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::process::{Child, ChildStderr, Command};
 use std::time::{Duration, Instant};
 
-use crate::scripts::{build, tasks, wait_until_stopped};
+use crate::scripts::{build, tasks, tasks_needing, wait_until_stopped};
 use crate::start::{feature_name, planned};
 use crate::support::Sandbox;
 
@@ -33,7 +33,7 @@ impl Driving {
     }
 
     pub fn wait_for(&mut self, line: &str) {
-        while !self.seen.ends_with(line) {
+        while !self.seen.contains(line) {
             let read = self
                 .stderr
                 .read_line(&mut self.seen)
@@ -146,6 +146,7 @@ fn status_shows_a_driven_feature_as_running_with_its_driver_and_running_task() {
                 &format!("pid {pid}"),
                 "0/1 merged · 1 running"
             ],
+            vec!["agent slots: 1/3 in use"],
         ],
         "{}",
         overview.stderr
@@ -160,7 +161,7 @@ fn status_shows_a_driven_feature_as_running_with_its_driver_and_running_task() {
     assert!(
         detail
             .stdout
-            .contains("\n  tasks\n    A  ● build     iter 1 · attempt 1 · since "),
+            .contains("\n  implement\n    A  ● build     iter 1 · attempt 1 · since "),
         "{}",
         detail.stdout
     );
@@ -176,4 +177,43 @@ fn cells(table: &str) -> Vec<Vec<&str>> {
                 .collect()
         })
         .collect()
+}
+
+#[test]
+fn status_shows_a_task_queued_for_an_agent_slot_and_one_waiting_for_its_needs() {
+    let name = feature_name();
+    let sandbox = planned(
+        &name,
+        &[
+            tasks_needing(1, &[("A", &[]), ("B", &[]), ("C", &["A"])]),
+            wait_until_stopped("A/build"),
+        ],
+    );
+    sandbox.write_config("max_concurrent_agents = 1\n");
+    let mut driving = Driving::start(&sandbox, &name);
+    driving.wait_for("● task A build started\n");
+    driving.wait_for("✔ task B setup done\n");
+
+    let overview = sandbox.surt(&sandbox.repo(), &["status"]);
+    let detail = sandbox.surt(&sandbox.repo(), &["status", &name]);
+    driving.signal("INT");
+    let (code, stderr) = driving.finish();
+
+    assert_eq!(code, Some(INTERRUPTED_EXIT_CODE), "{stderr}");
+    assert!(
+        overview
+            .stdout
+            .ends_with("0/3 merged · 1 running · 1 queued\nagent slots: 1/1 in use\n"),
+        "{}{}",
+        overview.stdout,
+        detail.stdout
+    );
+    for line in [
+        "\n  implement\n    A  ● build     iter 1 · attempt 1 · since ",
+        "\n    B  ⏳ queued    ",
+        "waiting for agent slot (1/1 in use)\n",
+        "\n    C  ⏸ pending   waits for A\n",
+    ] {
+        assert!(detail.stdout.contains(line), "{line}\n{}", detail.stdout);
+    }
 }

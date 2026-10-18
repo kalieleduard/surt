@@ -2,6 +2,7 @@ use std::error::Error as StdError;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use super::resolving::Candidate;
 use crate::git::{GitError, GitVersion};
 use crate::store::StoreError;
 use crate::workflow::{FreezeError, InvalidDefinition};
@@ -89,7 +90,7 @@ pub enum Refusal {
     },
     AmbiguousSubject {
         reference: String,
-        candidates: Vec<String>,
+        candidates: Vec<Candidate>,
     },
     UnknownArtifact {
         subject: String,

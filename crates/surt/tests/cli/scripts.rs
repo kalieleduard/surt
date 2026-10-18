@@ -10,7 +10,16 @@ pub fn spec(iteration: u32, text: &str) -> String {
 }
 
 pub fn tasks(iteration: u32, keys: &[&str]) -> String {
-    let items: Vec<String> = keys.iter().map(|key| item(key)).collect();
+    let independent: Vec<(&str, &[&str])> = keys.iter().map(|key| (*key, &[][..])).collect();
+    tasks_needing(iteration, &independent)
+}
+
+pub fn tasks_needing(iteration: u32, needing: &[(&str, &[&str])]) -> String {
+    let keys: Vec<&str> = needing.iter().map(|(key, _)| *key).collect();
+    let items: Vec<String> = needing
+        .iter()
+        .map(|(key, needs)| item(key, needs))
+        .collect();
     let manifest = format!("[{}]", items.join(", "));
     let task_files: String = keys
         .iter()
@@ -74,10 +83,10 @@ pub fn limit_failure(step: &str, resets_at: i64) -> String {
     format!("[[on]]\nstep = \"{step}\"\nlimit_failure = {{ resets_at = {resets_at} }}\n\n")
 }
 
-fn item(key: &str) -> String {
+fn item(key: &str, needs: &[&str]) -> String {
     json!({
         "key": key,
-        "needs": [],
+        "needs": needs,
         "title": format!("Task {key}"),
         "description": format!("Do {key}."),
         "acceptance_criteria": [format!("{key} works")],

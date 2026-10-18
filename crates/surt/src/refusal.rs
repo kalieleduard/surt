@@ -4,10 +4,11 @@ mod reading;
 
 use std::path::Path;
 
-use surt_engine::project::{DefinitionFile, InvalidDefinition, Refusal};
+use surt_engine::project::{Candidate, DefinitionFile, InvalidDefinition, Refusal, RunState};
 
 use crate::feature::quoted;
 use crate::message::Message;
+use crate::status::{STATE_SEPARATOR, state_name};
 
 const GIT_DOWNLOADS: &str = "https://git-scm.com/downloads";
 const SHORT_SHA_CHARS: usize = 7;
@@ -152,18 +153,41 @@ fn short(sha: &str) -> &str {
     sha.get(..SHORT_SHA_CHARS).unwrap_or(sha)
 }
 
-fn ambiguous(reference: &str, candidates: &[String]) -> Message {
+fn ambiguous(reference: &str, candidates: &[Candidate]) -> Message {
     let headline = format!(
         "{} matches {} features:",
         quoted(reference),
         candidates.len()
     );
+    let width = candidates
+        .iter()
+        .map(|candidate| candidate.name.chars().count())
+        .max()
+        .unwrap_or_default();
     candidates
         .iter()
         .fold(Message::new(headline), |message, candidate| {
-            message.context(format!("  {candidate}"))
+            let line = format!("  {:<width$}  {}", candidate.name, derived_state(candidate));
+            message.context(line.trim_end())
         })
         .context("use the full name")
+}
+
+fn derived_state(candidate: &Candidate) -> String {
+    candidate
+        .states
+        .iter()
+        .map(|state| {
+            let name = state_name(*state);
+            match (state, &candidate.awaiting) {
+                (RunState::AwaitingApproval, Some(awaited)) => {
+                    format!("{name} ({} rev {})", awaited.artifact, awaited.revision)
+                }
+                _ => name.to_owned(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(STATE_SEPARATOR)
 }
 
 fn driver_live(subject: &str, pid: Option<u32>) -> Message {

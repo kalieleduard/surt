@@ -1,18 +1,20 @@
 use std::fmt::Write;
 
-use surt_engine::project::{TaskState, TaskStatus};
+use surt_engine::project::{AgentSlots, Conflict, TaskState, TaskStatus};
 
 use super::line;
 use crate::driving::{local_time, short};
+use crate::phase::TASK_STEP;
 
 const SEPARATOR: &str = " · ";
+const LIST_SEPARATOR: &str = ", ";
 const WORD_WIDTH: usize = 9;
 
-pub(super) fn render(text: &mut String, tasks: &[TaskStatus]) {
+pub(super) fn render(text: &mut String, tasks: &[TaskStatus], slots: AgentSlots) {
     if tasks.is_empty() {
         return;
     }
-    line(text, "tasks");
+    line(text, TASK_STEP);
     let width = tasks
         .iter()
         .map(|task| task.key.chars().count())
@@ -23,7 +25,7 @@ pub(super) fn render(text: &mut String, tasks: &[TaskStatus]) {
         let entry = format!(
             "    {:<width$}  {mark} {word:<WORD_WIDTH$} {}",
             task.key,
-            details(task)
+            details(task, slots)
         );
         let _ = writeln!(text, "{}", entry.trim_end());
     }
@@ -42,7 +44,7 @@ fn look(task: &TaskStatus) -> (&'static str, String) {
     }
 }
 
-fn details(task: &TaskStatus) -> String {
+fn details(task: &TaskStatus, slots: AgentSlots) -> String {
     let mut parts = Vec::new();
     let iteration = task.iteration.map(|iteration| format!("iter {iteration}"));
     match task.state {
@@ -64,18 +66,34 @@ fn details(task: &TaskStatus) -> String {
             );
         }
         TaskState::Queued | TaskState::Interrupted | TaskState::Blocked => {
-            let step = task.step.clone().unwrap_or_default();
-            parts.push(match iteration {
+            parts.extend(task.step.as_deref().map(|step| match &iteration {
                 Some(iteration) => format!("{step} {iteration}"),
-                None => step,
-            });
+                None => step.to_owned(),
+            }));
             parts.extend(attempt(task));
+        }
+        TaskState::Pending if !task.waits_for.is_empty() => {
+            parts.push(format!("waits for {}", task.waits_for.join(LIST_SEPARATOR)));
         }
         TaskState::Pending | TaskState::Cancelled => {}
     }
+    if task.state == TaskState::Queued {
+        parts.push(format!(
+            "waiting for agent slot ({}/{} in use)",
+            slots.in_use, slots.total
+        ));
+    }
+    parts.extend(task.conflict.as_ref().map(conflict));
     parts.join(SEPARATOR)
 }
 
 fn attempt(task: &TaskStatus) -> Option<String> {
     task.attempt.map(|attempt| format!("attempt {attempt}"))
+}
+
+fn conflict(conflict: &Conflict) -> String {
+    match conflict {
+        Conflict::Merge { paths } => format!("merge: {}", paths.join(LIST_SEPARATOR)),
+        Conflict::Checks { failed } => format!("checks: {}", failed.join(LIST_SEPARATOR)),
+    }
 }

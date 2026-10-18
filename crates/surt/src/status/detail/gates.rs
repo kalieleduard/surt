@@ -4,20 +4,33 @@ use surt_engine::project::{GateStatus, GateView, RunStatus};
 
 use super::{CONTINUATION, field, line};
 use crate::driving::local_time;
+use crate::phase::Phase;
 use crate::show::origin;
+
+const INDEX_FILES: usize = 1;
 
 pub(super) fn render(text: &mut String, status: &RunStatus) {
     for gate in &status.gates {
         let Some(revision) = &gate.revision else {
             continue;
         };
+        let phase = Phase::of_gate(&gate.step);
+        let label = phase.map_or(gate.artifact.as_str(), |phase| phase.name());
+        let artifact = if label == gate.artifact {
+            String::new()
+        } else {
+            format!("{} ", gate.artifact)
+        };
+        let covered = phase
+            .filter(|phase| phase.covers_item_files())
+            .map(|_| revision.files.len().saturating_sub(INDEX_FILES));
         let summary = format!(
-            "rev {} ({}){}",
+            "{artifact}rev {} ({}){}",
             revision.number,
             origin(revision.origin),
-            decision(gate)
+            decision(gate, covered)
         );
-        field(text, &gate.artifact, &summary);
+        field(text, label, &summary);
         if matches!(gate.status, GateStatus::Waiting { .. }) {
             for file in &revision.files {
                 let path = gate.working_copy.join(file);
@@ -39,7 +52,7 @@ pub(super) fn render(text: &mut String, status: &RunStatus) {
     }
 }
 
-fn decision(gate: &GateView) -> String {
+fn decision(gate: &GateView, covered: Option<usize>) -> String {
     let by = |verb: &str| {
         let actor = gate
             .decided_by
@@ -53,11 +66,16 @@ fn decision(gate: &GateView) -> String {
             .unwrap_or_default();
         format!("{verb}{actor}{at}")
     };
-    match gate.status {
-        GateStatus::Approved { .. } => by(" ✔ approved"),
-        GateStatus::Rejected { .. } => by(" ✖ rejected"),
-        GateStatus::Waiting { .. } => " ⏸ awaiting approval — approving covers:".to_owned(),
-        GateStatus::NotReached => String::new(),
+    let items = covered.map(tasks).unwrap_or_default();
+    match (gate.status, covered) {
+        (GateStatus::Approved { .. }, _) => format!("{}{items}", by(" ✔ approved")),
+        (GateStatus::Rejected { .. }, _) => format!("{}{items}", by(" ✖ rejected")),
+        (GateStatus::Waiting { .. }, Some(count)) => format!(
+            " ⏸ awaiting approval — approving covers the {} and all {count} task files:",
+            gate.artifact
+        ),
+        (GateStatus::Waiting { .. }, None) => " ⏸ awaiting approval — approving covers:".to_owned(),
+        (GateStatus::NotReached, _) => String::new(),
     }
 }
 
@@ -73,5 +91,12 @@ fn changes(text: &mut String, gate: &GateView, revision: u32) {
     }
     for file in &gate.missing {
         let _ = writeln!(text, "{CONTINUATION}⚠ {file} missing from the Working Copy");
+    }
+}
+
+fn tasks(count: usize) -> String {
+    match count {
+        1 => " · 1 task".to_owned(),
+        _ => format!(" · {count} tasks"),
     }
 }

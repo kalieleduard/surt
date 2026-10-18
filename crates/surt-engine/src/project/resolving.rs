@@ -1,12 +1,25 @@
 use super::naming::without_date;
-use super::{Error, Project, Refusal, RunId};
-use crate::store::SubjectRow;
+use super::{Error, GateStatus, Project, Refusal, RunId, RunState, RunStatus};
+use crate::store::{Store, SubjectRow};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Subject {
     pub name: String,
     pub active_run: Option<RunId>,
     pub pending_cleanup: Option<RunId>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Candidate {
+    pub name: String,
+    pub states: Vec<RunState>,
+    pub awaiting: Option<AwaitedRevision>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AwaitedRevision {
+    pub artifact: String,
+    pub revision: u32,
 }
 
 impl Project {
@@ -34,10 +47,30 @@ impl Project {
             [only] => Ok((*only).clone()),
             many => Err(Refusal::AmbiguousSubject {
                 reference: reference.to_owned(),
-                candidates: many.iter().map(|subject| subject.name.clone()).collect(),
+                candidates: self.candidates(many).await?,
             }
             .into()),
         }
+    }
+
+    async fn candidates(&self, subjects: &[&Subject]) -> Result<Vec<Candidate>, Error> {
+        let store = self.reader().await?;
+        let candidates = self.read_candidates(&store, subjects).await;
+        store.close().await;
+        candidates
+    }
+
+    async fn read_candidates(
+        &self,
+        store: &Store,
+        subjects: &[&Subject],
+    ) -> Result<Vec<Candidate>, Error> {
+        let mut candidates = Vec::new();
+        for subject in subjects {
+            let mut statuses = self.read_statuses(store, Some(&subject.name), true).await?;
+            candidates.push(candidate(&subject.name, statuses.pop()));
+        }
+        Ok(candidates)
     }
 
     async fn subjects(&self) -> Result<Vec<Subject>, Error> {
@@ -45,6 +78,22 @@ impl Project {
         let rows = store.subjects().await;
         store.close().await;
         Ok(rows?.into_iter().map(Subject::from).collect())
+    }
+}
+
+fn candidate(name: &str, status: Option<RunStatus>) -> Candidate {
+    Candidate {
+        name: name.to_owned(),
+        awaiting: status.as_ref().and_then(|status| {
+            status.gates.iter().find_map(|gate| match gate.status {
+                GateStatus::Waiting { revision } => Some(AwaitedRevision {
+                    artifact: gate.artifact.clone(),
+                    revision,
+                }),
+                _ => None,
+            })
+        }),
+        states: status.map(|status| status.states).unwrap_or_default(),
     }
 }
 
