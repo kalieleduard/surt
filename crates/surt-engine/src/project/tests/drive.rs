@@ -14,6 +14,7 @@ mod faults;
 mod fixtures;
 mod gates;
 mod inspecting;
+mod inspecting_executions;
 mod integration;
 mod item_lists;
 mod items;

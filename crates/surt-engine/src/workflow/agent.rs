@@ -7,6 +7,7 @@ use super::catalog::AgentAssets;
 use super::error::{DefinitionFile, InvalidDefinition, Problem};
 
 mod checks;
+mod names;
 
 const DEFAULT_OUTCOME: &str = "done";
 

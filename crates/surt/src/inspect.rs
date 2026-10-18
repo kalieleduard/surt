@@ -1,10 +1,11 @@
 mod details;
+mod execution;
 mod fields;
 
 use std::path::Path;
 
 use jiff::{Timestamp, Zoned};
-use surt_engine::project::{InspectRequest, Project, Timeline, TimelineEvent};
+use surt_engine::project::{InspectRequest, Project, Reference, Timeline, TimelineEvent};
 
 use crate::failure::Failure;
 use crate::status::run_selector;
@@ -24,6 +25,14 @@ pub(crate) struct InspectArgs {
 
 pub(crate) async fn run(cwd: &Path, args: InspectArgs) -> Result<(), Failure> {
     let project = Project::open_read_only(cwd).await?;
+    if let (None, None) = (&args.task, args.run)
+        && let Reference::Execution(id) = project.reference(&args.feature).await?
+    {
+        let detail = project.inspect_execution(&id).await?;
+        let now = Timestamp::now().as_second();
+        anstream::print!("{}", printable(&execution::render(&detail, now)));
+        return Ok(());
+    }
     let request = InspectRequest {
         item: args.task.as_deref(),
         run: run_selector(args.run),
@@ -62,25 +71,32 @@ fn stamp(at: i64, now: &Zoned) -> String {
 }
 
 fn describe(timeline: &Timeline, event: &TimelineEvent) -> String {
-    let mut parts = scope(timeline, event);
+    let mut parts = describe_scope(timeline, event);
     parts.extend(details::of(event));
     parts.join(SEPARATOR)
 }
 
-fn scope(timeline: &Timeline, event: &TimelineEvent) -> Vec<String> {
+fn describe_scope(timeline: &Timeline, event: &TimelineEvent) -> Vec<String> {
+    let item = match &timeline.item {
+        None => event.item.as_deref(),
+        Some(_) => None,
+    };
+    scope(item, event.step.as_deref(), event.iteration, event.attempt)
+}
+
+pub(crate) fn scope(
+    item: Option<&str>,
+    step: Option<&str>,
+    iteration: Option<u32>,
+    attempt: Option<u32>,
+) -> Vec<String> {
     let mut parts = Vec::new();
-    if let (None, Some(item)) = (&timeline.item, &event.item) {
-        parts.push(format!("task {item}"));
-    }
-    if let Some(step) = &event.step {
-        parts.push(match event.iteration {
-            Some(iteration) => format!("{step} iter {iteration}"),
-            None => step.clone(),
-        });
-    }
-    if let Some(attempt) = event.attempt {
-        parts.push(format!("attempt {attempt}"));
-    }
+    parts.extend(item.map(|item| format!("task {item}")));
+    parts.extend(step.map(|step| match iteration {
+        Some(iteration) => format!("{step} iter {iteration}"),
+        None => step.to_owned(),
+    }));
+    parts.extend(attempt.map(|attempt| format!("attempt {attempt}")));
     parts
 }
 

@@ -8,9 +8,9 @@ Spec: [Milestone 2](../spec.md) (stories 3, 4, 6) · Slice: R1 History · Plan: 
 
 **Status:** ready-for-agent
 
-- [ ] Execution reference resolution lives in the engine next to Subject resolution: full id or unique prefix of 8+ characters
-- [ ] A prefix shorter than 8 or matching several Executions is a `Refusal` with candidates; the CLI lists them and exits `3`
-- [ ] Values not reported by the runtime are left out, never printed as `0`
-- [ ] The Salvage Ref is read with a read-only `git for-each-ref`; nothing else outside SQLite is needed
-- [ ] The log line names `surt logs <id>` (the command lands in 06; the hint is just text)
-- [ ] Binary tests: full id, 8-character prefix, too-short and ambiguous prefixes, an Execution after cleanup
+- [x] Execution reference resolution lives in the engine next to Subject resolution: full id or unique prefix of 8+ characters
+- [x] A prefix shorter than 8 or matching several Executions is a `Refusal` with candidates; the CLI lists them and exits `3`
+- [x] Values not reported by the runtime are left out, never printed as `0`
+- [x] The Salvage Ref is read with a read-only `git for-each-ref`; nothing else outside SQLite is needed
+- [x] The log line names `surt logs <id>` (the command lands in 06; the hint is just text)
+- [x] Binary tests: full id, 8-character prefix, too-short and ambiguous prefixes, an Execution after cleanup

@@ -1,5 +1,6 @@
 mod definition;
 mod edits;
+mod executions;
 mod reading;
 
 use std::path::Path;
@@ -93,6 +94,16 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             reference,
             candidates,
         } => ambiguous(reference, candidates),
+        Refusal::UnknownExecution { reference } => executions::unknown(reference),
+        Refusal::ExecutionPrefixTooShort {
+            reference,
+            minimum,
+            candidates,
+        } => executions::too_short(reference, *minimum, candidates),
+        Refusal::AmbiguousExecution {
+            reference,
+            candidates,
+        } => executions::ambiguous(reference, candidates),
         Refusal::DriverLive { subject, pid, .. } => driver_live(subject, *pid),
         Refusal::NoLiveDriver { subject, states } => Message::new(format!(
             "{subject} has no live driver, nothing to stop ({})",

@@ -50,7 +50,10 @@ fn object(value: Value) -> Map<String, Value> {
 }
 
 async fn rejected_once() -> Feature {
-    let feature = Feature::review().await;
+    rejected(Feature::review().await).await
+}
+
+pub(super) async fn rejected(feature: Feature) -> Feature {
     let script =
         Script::new()
             .on("write", 1, 1, draft("# Draft\n"))
@@ -69,7 +72,7 @@ fn rework(worktree: &Path) -> String {
     commit_file(worktree, "feature.txt", "the reworked feature\n")
 }
 
-async fn reworked() -> Feature {
+pub(super) async fn reworked() -> Feature {
     let feature = built(REVIEWED_TASK, &[("A", &[])], Config::default()).await;
     let team = Team::new()
         .on("A/build", 1, 1, builds(change))
