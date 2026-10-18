@@ -54,7 +54,8 @@ impl Feature {
         let run = project
             .create_run(new_run)
             .await
-            .expect("the run is created");
+            .expect("the run is created")
+            .run;
         Feature { dir, project, run }
     }
 

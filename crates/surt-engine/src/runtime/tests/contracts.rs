@@ -23,7 +23,8 @@ fn build(schemas: &'static [(&'static str, &'static str)]) -> Result<String, Str
         instructions: "Write.",
         schemas,
     };
-    let agent = AgentContract::parse("writer", &assets).expect("a valid agent contract");
+    let agent =
+        AgentContract::parse("writer", assets.toml, &assets).expect("a valid agent contract");
     DeliveryContract::new(&agent, |path| assets.schema(path))
         .map(|_| String::new())
         .map_err(|invalid| invalid.path)

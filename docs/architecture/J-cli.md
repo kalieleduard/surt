@@ -113,7 +113,9 @@ $ surt init
 
    $ surt feature 20261017-add-login --new-run
    ✔ run 2 of 20261017-add-login   base main @ b22e310   branch surt/20261017-add-login.2
+     local agents: builder (agent.toml)
    ```
+   The `local agents:` line, here and under `✔ created …`, lists the Agents whose files under `.surt/agents/` the new run froze ([F](F-agent-contract.md#built-in-defaults-and-local-overrides)); it is absent when there are none.
    It refuses with exit `3` while the Working Copy holds an unrecorded edit left by the previous run ([I](I-cleanup.md#unrecorded-working-copy-edits)). Run `N+1` takes the Subject's latest `request` Revision as a new human-origin Initial Artifact. Its Base is the current `HEAD`, or `--base`. It freezes the definitions, agents and configuration again. A `succeeded` Subject works the same way. A cleanup the previous run left pending is finished first, under that run's lock: the command drives the previous root run, which cleans and returns at once because it is terminal, then creates run `N+1` ([I. Cleanup](I-cleanup.md#when-cleanup-runs)).
 
 `--base <ref>` resolves `<ref>` to a commit when the run is created; the default is `HEAD`. `--merge` and `--no-merge` override `[git] merge_into_base` for this run only, as `ff-only` and `never`, before the configuration is frozen. They exist on no other command.

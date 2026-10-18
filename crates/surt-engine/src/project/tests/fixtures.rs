@@ -9,7 +9,7 @@ use crate::project::layout::Layout;
 use crate::project::{Access, SurtHome, open_store};
 use crate::project::{
     AgentAssets, ArtifactFile, Catalog, Config, DefinitionFile, Error, GlobalConfig,
-    InitialArtifact, InvalidDefinition, NewRun, Problem, Project, Refusal,
+    InitialArtifact, InvalidDefinition, InvalidOverride, NewRun, Problem, Project, Refusal,
 };
 #[cfg(feature = "test-support")]
 use crate::store::Faults;
@@ -141,6 +141,25 @@ pub(super) async fn refusal(catalog: Catalog) -> InvalidDefinition {
     }
 }
 
+pub(super) async fn override_refusal(
+    dir: &ProjectDir,
+    catalog: Catalog,
+    workflow: &str,
+) -> InvalidOverride {
+    let project = dir.project(catalog, default_config()).await;
+
+    let result = project.create_run(new_run(workflow)).await;
+
+    let written: Vec<(i64, i64)> = dir
+        .rows("SELECT (SELECT count(*) FROM subject), (SELECT count(*) FROM snapshot)")
+        .await;
+    assert_eq!(written, [(0, 0)]);
+    match result {
+        Err(Error::Refused(Refusal::InvalidAgentOverride(invalid))) => *invalid,
+        other => panic!("expected an invalid override, got {other:?}"),
+    }
+}
+
 pub(super) async fn workflow_refusal(text: &'static str) -> InvalidDefinition {
     refusal(
         Catalog::new()
@@ -238,6 +257,21 @@ impl ProjectDir {
             .expect("the rows are readable");
         pool.close().await;
         rows
+    }
+
+    pub(super) fn write_local(&self, agent: &str, rel_path: &str, text: &str) {
+        let path = self.layout().agents().join(agent).join(rel_path);
+        fs::create_dir_all(path.parent().expect("a parent")).expect("the agent directory");
+        fs::write(path, text).expect("the local file");
+    }
+
+    pub(super) async fn frozen_agent(&self, agent: &str) -> toml::Table {
+        let sql = format!(
+            "SELECT b.bytes FROM snapshot s JOIN snapshot_file f ON f.snapshot_sha256 = s.sha256 JOIN blob b ON b.sha256 = f.blob_sha256 WHERE s.kind = 'agent' AND s.name = '{agent}' AND f.rel_path = 'agent.toml'"
+        );
+        let stored: Vec<(Vec<u8>,)> = self.rows(&sql).await;
+        let text = String::from_utf8(stored[0].0.clone()).expect("the agent is UTF-8");
+        toml::from_str(&text).expect("the frozen agent is TOML")
     }
 
     pub(super) async fn event_data(&self, kind: &str) -> Vec<serde_json::Value> {

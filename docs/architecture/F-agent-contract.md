@@ -71,6 +71,24 @@ Project-local files are optional:
 
 The binary contains complete defaults for `spec`, `tasks`, `builder`, `reviewer` and `shipper`. Local files replace or override those defaults; Surt does not overwrite them on upgrade. A schema path is relative to its agent's asset directory. Only local schema assets are supported: no network references. Freeze the transitive closure of local schema references too. Revisions are stored as content-addressed blobs in SQLite ([H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md)); the physical tables, including agent snapshots, are in [D. Database Schema](D-database.md#snapshots).
 
+**When they are read.** `Project::create_run` reads `.surt/agents/` when a root run is created (`surt feature "<description>"`, `surt feature <feature> --new-run`) and nowhere else; driving commands never look at the directory, and a run keeps the Agents it froze whatever happens to the files afterwards. The merged `agent.toml` must satisfy the complete schema with `deny_unknown_fields` at every level and the profile checks of [Model and effort validation](#model-and-effort-validation) and [Effective `agent.toml`](#effective-agenttoml). Any failure refuses the creation with `InvalidAgentOverride` (exit `3`, no row written), which carries the project-relative file, the field path when one applies (`profile.limits.max_turns`) and the reason:
+
+```
+$ surt feature "add login"
+✖ .surt/agents/builder/agent.toml: profile.effort: unknown variant `huge`, expected one of `low`, `medium`, `high`, `xhigh`, `max`
+  fix: edit .surt/agents/builder/agent.toml
+```
+
+A local `agent.toml` with CRLF line endings freezes to the same identity as its LF version, because the snapshot stores the canonical effective TOML.
+
+**The creation line.** `create_run` reports which Agents used local files and which ones. The creation line of `surt feature "<description>"` and of `--new-run` lists them, and prints nothing when there are none:
+
+```
+$ surt feature "add login"
+✔ created 20261017-add-login   base: main @ a11c9d0
+  local agents: builder (agent.toml)
+```
+
 ## Agent Profile
 
 An Agent has exactly one Agent Profile, the `[profile]` table of its `agent.toml`. It describes how to execute the Agent: runtime, model, effort, permissions and optional limits. There are no named profiles, no default-profile selection and no escalation:

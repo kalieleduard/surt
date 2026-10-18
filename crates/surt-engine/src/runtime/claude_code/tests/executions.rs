@@ -61,7 +61,8 @@ impl Execution {
             instructions: INSTRUCTIONS,
             schemas: &[],
         };
-        let agent = AgentContract::parse("noter", &assets).expect("a valid agent contract");
+        let agent =
+            AgentContract::parse("noter", assets.toml, &assets).expect("a valid agent contract");
         let contract =
             DeliveryContract::new(&agent, |path| assets.schema(path)).expect("compilable schemas");
         let launch = AgentLaunch::new(&agent, INSTRUCTIONS, working_dir, root.join("launch"));

@@ -158,7 +158,8 @@ fn writer_launch(dir: &Path) -> AgentLaunch {
         instructions: "Write.",
         schemas: &[("schemas/data.schema.json", DATA_SCHEMA)],
     };
-    let agent = AgentContract::parse("writer", &assets).expect("a valid agent contract");
+    let agent =
+        AgentContract::parse("writer", assets.toml, &assets).expect("a valid agent contract");
     AgentLaunch::new(
         &agent,
         assets.instructions,
@@ -185,6 +186,6 @@ pub(super) fn contract(
         instructions: "Write.",
         schemas,
     };
-    let agent = AgentContract::parse(id, &assets).expect("a valid agent contract");
+    let agent = AgentContract::parse(id, assets.toml, &assets).expect("a valid agent contract");
     DeliveryContract::new(&agent, |path| assets.schema(path)).expect("compilable schemas")
 }

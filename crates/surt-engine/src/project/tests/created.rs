@@ -8,7 +8,8 @@ async fn create_run_commits_the_subject_an_active_root_run_and_its_top_level_ste
     let run = project
         .create_run(new_run("draft"))
         .await
-        .expect("the run is created");
+        .expect("the run is created")
+        .run;
 
     let runs: Vec<(String, String, String, i64)> = dir
         .rows("SELECT w.id, s.name, w.state, w.ordinal FROM workflow_run w JOIN subject s ON s.id = w.subject_id WHERE w.id = w.root_run_id")

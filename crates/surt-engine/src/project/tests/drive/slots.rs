@@ -97,7 +97,8 @@ impl TwoFeatures {
                     ..new_run("review")
                 })
                 .await
-                .expect("the run is created");
+                .expect("the run is created")
+                .run;
             projects.push(project);
             runs.push(run);
             runtimes.push(Counted {

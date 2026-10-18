@@ -8,6 +8,7 @@ use super::flow::Available;
 pub struct Catalog {
     workflows: BTreeMap<String, &'static str>,
     agents: BTreeMap<String, AgentAssets>,
+    effective_tomls: BTreeMap<String, String>,
     checks: BTreeMap<String, Vec<(String, DeliveryCheck)>>,
 }
 
@@ -70,6 +71,22 @@ impl Catalog {
 
     pub(crate) fn agent_assets(&self, id: &str) -> Option<&AgentAssets> {
         self.agents.get(id)
+    }
+
+    pub(crate) fn agent_ids(&self) -> impl Iterator<Item = &str> {
+        self.agents.keys().map(String::as_str)
+    }
+
+    pub(crate) fn agent_toml(&self, id: &str) -> Option<&str> {
+        self.effective_tomls
+            .get(id)
+            .map(String::as_str)
+            .or_else(|| self.agents.get(id).map(|assets| assets.toml))
+    }
+
+    pub(super) fn with_effective_toml(mut self, id: &str, toml: String) -> Catalog {
+        self.effective_tomls.insert(id.to_owned(), toml);
+        self
     }
 }
 

@@ -4,8 +4,8 @@ mod executions;
 mod problems;
 
 use surt_engine::project::{
-    AwaitedRevision, Candidate, DefinitionFile, GitVersion, InvalidDefinition, Problem, Refusal,
-    RunState,
+    AwaitedRevision, Candidate, DefinitionFile, GitVersion, InvalidDefinition, InvalidOverride,
+    Problem, Refusal, RunState,
 };
 
 use super::message;
@@ -107,9 +107,7 @@ fn every_refusal() -> Vec<Refusal> {
         Refusal::UnknownSubject {
             reference: "login".to_owned(),
         },
-        Refusal::AgentOverrides {
-            path: path.join(".surt/agents"),
-        },
+        invalid_override(Some("profile.effort")),
         Refusal::UnapprovedRevision {
             subject: "20261017-add-login".to_owned(),
             artifact: "spec".to_owned(),
@@ -195,6 +193,37 @@ fn every_refusal() -> Vec<Refusal> {
             subject: "20261017-add-login".to_owned(),
         },
     ]
+}
+
+fn invalid_override(field: Option<&str>) -> Refusal {
+    Refusal::InvalidAgentOverride(Box::new(InvalidOverride {
+        file: ".surt/agents/builder/agent.toml".to_owned(),
+        field: field.map(str::to_owned),
+        problem: Problem::Syntax {
+            line: None,
+            detail:
+                "unknown variant `huge`, expected one of `low`, `medium`, `high`, `xhigh`, `max`"
+                    .to_owned(),
+        },
+    }))
+}
+
+#[test]
+fn an_invalid_agent_override_names_the_file_the_field_and_the_reason() {
+    let texts = [
+        text(&invalid_override(Some("profile.effort"))),
+        text(&invalid_override(None)),
+    ];
+
+    assert_eq!(
+        texts,
+        [
+            "✖ .surt/agents/builder/agent.toml: profile.effort: unknown variant `huge`, expected one of `low`, `medium`, `high`, `xhigh`, `max`\n  \
+             fix: edit .surt/agents/builder/agent.toml\n",
+            "✖ .surt/agents/builder/agent.toml: unknown variant `huge`, expected one of `low`, `medium`, `high`, `xhigh`, `max`\n  \
+             fix: edit .surt/agents/builder/agent.toml\n",
+        ]
+    );
 }
 
 fn not_restorable(artifact: &str, restorable: &[&str]) -> Refusal {

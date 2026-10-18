@@ -1,6 +1,6 @@
 use surt_engine::project::{Commit, NewRun, Project, RunSelector, RunStatus, StatusScope};
 
-use super::{DEFAULT_BASE, base_artifact, short_base};
+use super::{DEFAULT_BASE, base_artifact, short_base, with_local_agents};
 use crate::builtin::{FEATURE_WORKFLOW, REQUEST_ARTIFACT};
 use crate::driving::local_time;
 use crate::failure::Failure;
@@ -25,12 +25,12 @@ pub(super) async fn start(
         .ok_or_else(|| Failure::Refused(no_base(&name, base)))?;
     let new_run = next_run(&name, &commit, project.actor().await?);
     let runtime = runtime::select(project)?;
-    let run = project.create_run(new_run).await?;
+    let created = project.create_run(new_run).await?;
     let ordinal = current(project, &name)
         .await?
         .map_or(0, |status| status.run);
-    started(&name, ordinal, &commit).print_success();
-    SPEC.drive(project, &name, &run, &runtime).await
+    with_local_agents(started(&name, ordinal, &commit), &created.local_agents).print_success();
+    SPEC.drive(project, &name, &created.run, &runtime).await
 }
 
 pub(super) async fn suggested(project: &Project, subject: &str) -> Failure {
