@@ -57,6 +57,37 @@ fn show_lists_the_artifacts_of_a_feature_with_their_latest_revision() {
 }
 
 #[test]
+fn run_1_of_a_single_run_feature_is_the_run_shown_by_default() {
+    let name = feature_name();
+    let sandbox = with_two_specs(&name);
+
+    let spec = ok(surt(&sandbox, &["show", &name, "spec", "--run", "1"]));
+    let index = ok(surt(&sandbox, &["show", &name, "--run", "1"]));
+
+    assert_eq!(spec.stdout, SPEC_2);
+    assert_eq!(index.stdout, ok(surt(&sandbox, &["show", &name])).stdout);
+}
+
+#[test]
+fn an_unknown_run_is_refused_listing_the_runs_of_the_feature() {
+    let name = feature_name();
+    let sandbox = with_two_specs(&name);
+
+    let by_show = refused(surt(&sandbox, &["show", &name, "spec", "--run", "2"]));
+    let by_index = refused(surt(&sandbox, &["show", &name, "--run", "2"]));
+    let by_status = refused(surt(&sandbox, &["status", &name, "--run", "2"]));
+
+    let expected = format!(
+        "✖ {name} has no run 2\n  \
+         run 1  AWAITING APPROVAL\n  \
+         inspect: surt status {name}\n"
+    );
+    assert_eq!(by_show, expected);
+    assert_eq!(by_index, expected);
+    assert_eq!(by_status, expected);
+}
+
+#[test]
 fn show_prints_any_revision_byte_for_byte_on_stdout_and_nothing_else() {
     let name = feature_name();
     let sandbox = with_two_specs(&name);
