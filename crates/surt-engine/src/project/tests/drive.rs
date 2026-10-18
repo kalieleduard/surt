@@ -27,6 +27,7 @@ mod planned;
 mod recovery;
 mod ref_moves;
 mod repository;
+mod restoring;
 mod reviews;
 mod runtime_info;
 mod shipping;

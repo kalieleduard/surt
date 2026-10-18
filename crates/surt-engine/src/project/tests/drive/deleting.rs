@@ -100,13 +100,13 @@ impl Feature {
         self.root().join(".surt").join(path)
     }
 
-    async fn count(&self, sql: &str) -> i64 {
+    async fn scalar(&self, sql: &str) -> i64 {
         let rows: Vec<(i64,)> = self.dir.rows(sql).await;
         rows[0].0
     }
 
     async fn roots(&self) -> i64 {
-        self.count("SELECT count(*) FROM workflow_run WHERE parent_step_run_id IS NULL")
+        self.scalar("SELECT count(*) FROM workflow_run WHERE parent_step_run_id IS NULL")
             .await
     }
 }
@@ -174,9 +174,9 @@ async fn deleting_keeps_only_the_delivered_integration_branch_and_purges_the_his
          AND sha256 NOT IN (SELECT definition_sha256 FROM workflow_run)",
         "SELECT count(*) FROM event WHERE root_run_id NOT IN (SELECT id FROM workflow_run)",
     ] {
-        assert_eq!(feature.count(unreferenced).await, 0, "{unreferenced}");
+        assert_eq!(feature.scalar(unreferenced).await, 0, "{unreferenced}");
     }
-    assert!(feature.count("SELECT count(*) FROM blob").await > 0);
+    assert!(feature.scalar("SELECT count(*) FROM blob").await > 0);
     for (run,) in run_locks {
         assert!(!locks.join(format!("{run}.lock")).exists(), "{run}");
     }
@@ -257,11 +257,11 @@ async fn the_delete_impact_lists_runs_refs_directories_edits_and_history() {
     assert_eq!(impact.unrecorded_edits, Vec::<PathBuf>::new());
     assert_eq!(
         impact.executions,
-        usize::try_from(feature.count("SELECT count(*) FROM execution").await).expect("a count")
+        usize::try_from(feature.scalar("SELECT count(*) FROM execution").await).expect("a count")
     );
     assert_eq!(
         impact.events,
-        usize::try_from(feature.count("SELECT count(*) FROM event").await).expect("a count")
+        usize::try_from(feature.scalar("SELECT count(*) FROM event").await).expect("a count")
     );
     assert!(impact.revisions > 0);
 }
@@ -362,7 +362,7 @@ async fn a_removal_failure_leaves_the_rows_and_a_rerun_finishes_the_delete() {
 
     assert_eq!(rerun.expect("the rerun"), Deletion::Deleted);
     assert!(!logs.exists());
-    assert_eq!(feature.count("SELECT count(*) FROM subject").await, 0);
+    assert_eq!(feature.scalar("SELECT count(*) FROM subject").await, 0);
     assert!(!lock.exists());
 }
 
@@ -385,7 +385,7 @@ async fn a_run_created_while_deleting_rolls_the_purge_back() {
         "{deleted:?}"
     );
     assert_eq!(feature.roots().await, 2);
-    assert!(feature.count("SELECT count(*) FROM event").await > 0);
+    assert!(feature.scalar("SELECT count(*) FROM event").await > 0);
 }
 
 #[tokio::test(flavor = "multi_thread")]

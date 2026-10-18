@@ -1,15 +1,14 @@
 mod question;
 
-use std::io::{self, IsTerminal};
 use std::path::Path;
 
 use surt_engine::project::{Deletion, Left, Project};
 
 use crate::builtin;
-use crate::cancel::ask;
+use crate::confirmation::confirmed;
 use crate::failure::Failure;
 use crate::message::Message;
-use crate::symbols::{DASH, printable};
+use crate::symbols::DASH;
 
 #[derive(clap::Args)]
 pub(crate) struct DeleteArgs {
@@ -35,14 +34,8 @@ pub(crate) async fn run(cwd: &Path, args: DeleteArgs) -> Result<(), Failure> {
 
 async fn confirm(project: &Project, subject: &str) -> Result<(), Failure> {
     let impact = project.delete_impact(subject).await?;
-    if !io::stdin().is_terminal() {
-        return Err(Failure::Refused(
-            Message::new("delete asks for a confirmation and there is no terminal to ask")
-                .way("fix", format!("surt delete {subject} --yes")),
-        ));
-    }
-    let question = question::question(&impact);
-    if ask(&printable(&question), io::stdin().lock(), io::stderr())? {
+    let retry = format!("surt delete {subject} --yes");
+    if confirmed("delete", retry, &question::question(&impact))? {
         return Ok(());
     }
     Err(Failure::Refused(Message::new(format!(

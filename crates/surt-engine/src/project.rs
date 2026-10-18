@@ -15,6 +15,7 @@ mod layout;
 mod naming;
 mod repository;
 mod resolving;
+mod restoring;
 mod show;
 mod status;
 mod stopping;
@@ -22,6 +23,7 @@ mod subjects;
 
 use std::path::Path;
 
+pub use crate::artifacts::working_copy::restoring::{Change, FileChange};
 pub use crate::cleanup::{Cleanup, Kept, Left};
 pub use crate::drive::cancel::Cancellation;
 pub use crate::drive::graph::BlockReason;
@@ -50,6 +52,7 @@ pub use inspect::{InspectRequest, Timeline, TimelineEvent};
 pub use naming::Slug;
 pub use repository::Commit;
 pub use resolving::{RunSelector, Subject};
+pub use restoring::RestoreImpact;
 pub use show::{ArtifactSummary, ShowRequest, Shown};
 pub use status::{
     AgentSlots, CleanupState, Conflict, Driver, GateView, ItemState, ItemStatus,

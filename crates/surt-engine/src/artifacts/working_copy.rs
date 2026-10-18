@@ -1,7 +1,9 @@
 mod candidate;
 mod disk;
+mod lines;
 mod pending;
 mod refusal;
+pub(crate) mod restoring;
 mod revalidation;
 
 use std::io;
