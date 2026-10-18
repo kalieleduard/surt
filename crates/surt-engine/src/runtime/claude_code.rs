@@ -25,8 +25,6 @@ use crate::platform;
 use invocation::Invocation;
 use transcript::{Observation, Transcript};
 
-const STOP_GRACE_PERIOD: Duration = Duration::from_secs(10);
-
 #[derive(Clone, Debug)]
 pub struct ClaudeCodeRuntime {
     executable: PathBuf,
@@ -35,22 +33,18 @@ pub struct ClaudeCodeRuntime {
 }
 
 impl ClaudeCodeRuntime {
+    /// `stop_grace_period` is how long a graceful stop waits for the process
+    /// tree to exit before killing it: the project's
+    /// [`stop_grace_period`](crate::project::Project::stop_grace_period).
     pub fn new(
         executable: impl Into<PathBuf>,
         environment: impl IntoIterator<Item = (OsString, OsString)>,
+        stop_grace_period: Duration,
     ) -> ClaudeCodeRuntime {
         ClaudeCodeRuntime {
             executable: executable.into(),
             environment: environment.into_iter().collect(),
-            stop_grace_period: STOP_GRACE_PERIOD,
-        }
-    }
-
-    #[cfg(all(test, unix, feature = "test-support"))]
-    pub(crate) fn with_stop_grace_period(self, stop_grace_period: Duration) -> ClaudeCodeRuntime {
-        ClaudeCodeRuntime {
             stop_grace_period,
-            ..self
         }
     }
 }

@@ -35,6 +35,7 @@ pub(crate) struct Driving<'a> {
     pub(crate) worktrees: Option<PathBuf>,
     pub(crate) actor: &'a str,
     pub(crate) catalog: &'a Catalog,
+    pub(crate) stop_grace_period: Duration,
 }
 
 pub(super) struct Driver<'a, R> {
@@ -78,6 +79,7 @@ pub(crate) async fn drive<R: AgentRuntime>(
         store,
         repository: driving.layout.root(),
         root: root.as_str(),
+        stop_grace_period: driving.stop_grace_period,
     };
     recover(&driving, &reconcile, &progress).await?;
     let outcome = drive_recovered(driving, &reconcile, runtime, progress, stop).await?;
