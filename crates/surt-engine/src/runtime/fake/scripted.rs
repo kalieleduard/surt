@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
-use super::{Behavior, Delivery, FinalJson, Script};
+use super::{Behavior, Delivery, FinalJson, Script, WorktreeCommit};
 
 const FIRST: u32 = 1;
 
@@ -56,6 +56,14 @@ struct ScriptedDelivery {
     #[serde(default)]
     files: BTreeMap<String, String>,
     final_json: Option<String>,
+    commit: Option<ScriptedCommit>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ScriptedCommit {
+    message: String,
+    files: BTreeMap<String, String>,
 }
 
 fn first() -> u32 {
@@ -96,15 +104,22 @@ impl From<ScriptedDelivery> for Delivery {
         Delivery {
             outcome: scripted.outcome,
             outputs: scripted.outputs,
-            files: scripted
-                .files
-                .into_iter()
-                .map(|(path, contents)| (path, contents.into_bytes()))
-                .collect(),
+            files: bytes(scripted.files),
             final_json: match scripted.final_json {
                 Some(text) => FinalJson::Text(Some(text)),
                 None => FinalJson::Envelope,
             },
+            commit: scripted.commit.map(|commit| WorktreeCommit {
+                message: commit.message,
+                files: bytes(commit.files),
+            }),
         }
     }
+}
+
+fn bytes(files: BTreeMap<String, String>) -> Vec<(String, Vec<u8>)> {
+    files
+        .into_iter()
+        .map(|(path, contents)| (path, contents.into_bytes()))
+        .collect()
 }

@@ -4,6 +4,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use crate::message::{Mark, Message};
 
 const FIRST: u32 = 1;
+const SHORT_SHA_CHARS: usize = 7;
 
 pub(super) async fn print(mut events: UnboundedReceiver<Progress>) {
     while let Some(event) = events.recv().await {
@@ -23,6 +24,17 @@ pub(super) fn label(step: &StepLabel) -> String {
     text
 }
 
+pub(super) fn short(sha: &str) -> &str {
+    sha.get(..SHORT_SHA_CHARS).unwrap_or(sha)
+}
+
+fn subject(step: &StepLabel) -> String {
+    match &step.item {
+        Some(item) => format!("task {item}"),
+        None => step.key.clone(),
+    }
+}
+
 fn message(progress: &Progress) -> (Mark, Message) {
     match progress {
         Progress::StepStarted { step, attempt } if *attempt == FIRST => (
@@ -36,6 +48,10 @@ fn message(progress: &Progress) -> (Mark, Message) {
         Progress::StepFinished { step, outcome } => (
             Mark::Success,
             Message::new(format!("{} {outcome}", label(step))),
+        ),
+        Progress::Merged { step, merge } => (
+            Mark::Success,
+            Message::new(format!("{} merged ({})", subject(step), short(merge))),
         ),
         Progress::AttemptFailed {
             step,

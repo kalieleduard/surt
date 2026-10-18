@@ -1,4 +1,5 @@
 mod scripted;
+mod worktree;
 
 use std::collections::BTreeMap;
 use std::fs::{self, OpenOptions};
@@ -13,6 +14,7 @@ use super::{
 };
 
 pub use scripted::InvalidScript;
+use worktree::{WorktreeCommit, resolve_head};
 
 const SUCCESS_EXIT_CODE: i32 = 0;
 const STREAM_LOG: &str = "stream.jsonl";
@@ -49,6 +51,7 @@ pub struct Delivery {
     outputs: Map<String, Value>,
     files: Vec<(String, Vec<u8>)>,
     final_json: FinalJson,
+    commit: Option<WorktreeCommit>,
 }
 
 #[derive(Clone, Debug)]
@@ -82,6 +85,7 @@ impl Delivery {
             outputs: Map::new(),
             files: Vec::new(),
             final_json: FinalJson::Envelope,
+            commit: None,
         }
     }
 
@@ -119,14 +123,18 @@ impl Delivery {
         Value::Object(envelope).to_string()
     }
 
-    fn write(&self, delivery_dir: &Path) -> Result<(), RuntimeError> {
-        self.files.iter().try_for_each(|(path, contents)| {
+    async fn write(&self, delivery_dir: &Path, worktree: &Path) -> Result<(), RuntimeError> {
+        if let Some(commit) = &self.commit {
+            commit.make(worktree).await?;
+        }
+        for (path, contents) in &self.files {
             let target = delivery_dir.join(path);
             if let Some(parent) = target.parent() {
                 fs::create_dir_all(parent).map_err(write_failure)?;
             }
-            fs::write(&target, contents).map_err(write_failure)
-        })
+            fs::write(&target, resolve_head(contents, worktree).await?).map_err(write_failure)?;
+        }
+        Ok(())
     }
 }
 
@@ -155,9 +163,7 @@ impl AgentRuntime for FakeRuntime {
             log(&request.log_dir, &event)?;
             let _ = events.send(event);
         }
-        behavior
-            .play(&request.delivery_dir, initialization, &stop)
-            .await
+        behavior.play(&request, initialization, &stop).await
     }
 }
 
@@ -171,7 +177,7 @@ impl Behavior {
 
     async fn play(
         &self,
-        delivery_dir: &Path,
+        request: &RuntimeRequest,
         initialization: Initialization,
         stop: &StopSignal,
     ) -> Result<RuntimeCompletion, RuntimeError> {
@@ -182,7 +188,9 @@ impl Behavior {
         };
         match self {
             Behavior::Deliver(delivery) | Behavior::ModelMismatch { delivery, .. } => {
-                delivery.write(delivery_dir)?;
+                delivery
+                    .write(&request.delivery_dir, &request.launch.working_dir)
+                    .await?;
                 let result = FinalResult {
                     succeeded: true,
                     structured_output: delivery.final_text(),

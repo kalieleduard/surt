@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Child, Command, Output, Stdio};
 
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{AssertSqlSafe, SqlitePool};
@@ -157,6 +157,16 @@ impl Sandbox {
             .output()
             .expect("the surt binary runs")
             .into()
+    }
+
+    pub fn spawn(&self, args: &[&str]) -> Child {
+        self.command(Path::new(env!("CARGO_BIN_EXE_surt")), &self.repo())
+            .args(args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("the surt binary starts")
     }
 
     pub fn init(&self) -> Run {

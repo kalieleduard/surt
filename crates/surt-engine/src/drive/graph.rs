@@ -36,7 +36,7 @@ pub(crate) enum StepRunState {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum BlockReason {
+pub enum BlockReason {
     AttemptsExhausted,
     NotRetryable,
     IterationsExhausted,

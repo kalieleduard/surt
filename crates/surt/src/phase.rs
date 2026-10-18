@@ -1,13 +1,10 @@
-mod progress;
+use surt_engine::project::{GateStatus, Project, RunId, Subject};
+use surt_engine::runtime::AgentRuntime;
 
-use surt_engine::project::{DriveOutcome, Gate, GateStatus, Project, RunId, Subject};
-use surt_engine::runtime::{AgentRuntime, StopSignal};
-use tokio::sync::mpsc;
-
+use crate::driving::Driven;
 use crate::failure::Failure;
-use crate::message::{Mark, Message};
-use crate::{refusal, runtime};
-use progress::label;
+use crate::message::Message;
+use crate::runtime;
 
 pub(crate) struct Phase {
     command: &'static str,
@@ -111,33 +108,13 @@ impl Phase {
         run: &RunId,
         runtime: &impl AgentRuntime,
     ) -> Result<(), Failure> {
-        let (sink, events) = mpsc::unbounded_channel();
-        let (outcome, ()) = tokio::join!(
-            project.drive(run, runtime, sink, StopSignal::new()),
-            progress::print(events)
-        );
-        match outcome? {
-            DriveOutcome::AtGate { gates } => awaiting(project, subject, run, &gates).await,
-            DriveOutcome::Succeeded => {
-                Message::new(format!("{subject} succeeded")).print_success();
-                Ok(())
-            }
-            DriveOutcome::Blocked { steps } => {
-                let steps: Vec<String> = steps.iter().map(label).collect();
-                Err(Failure::Blocked(
-                    Message::new(format!("{} blocked", steps.join(", ")))
-                        .way("resume", self.resume_command(subject)),
-                ))
-            }
-            DriveOutcome::Cancelled => Err(Failure::Cancelled(
-                Message::new(format!("{subject} was cancelled while driving"))
-                    .way("inspect", format!("surt status {subject}")),
-            )),
-            DriveOutcome::Interrupted => Err(Failure::Interrupted(
-                Message::new("interrupted").way("resume", self.resume_command(subject)),
-            )),
-            DriveOutcome::Halted(refusal) => Err(Failure::Refused(refusal::message(&refusal))),
-        }
+        let driven = Driven {
+            project,
+            subject,
+            run,
+            command: self.command,
+        };
+        driven.drive(runtime).await
     }
 }
 
@@ -148,26 +125,4 @@ pub(crate) fn active_run(subject: &Subject) -> Result<&RunId, Failure> {
                 .way("inspect", format!("surt status {}", subject.name)),
         )
     })
-}
-
-async fn awaiting(
-    project: &Project,
-    subject: &str,
-    run: &RunId,
-    gates: &[Gate],
-) -> Result<(), Failure> {
-    for gate in gates {
-        let revision = match project.gate_status(run, &gate.step.key).await? {
-            GateStatus::Waiting { revision } => format!(" rev {revision}"),
-            _ => String::new(),
-        };
-        Message::new(format!(
-            "{}{revision} awaiting approval in .surt/features/{subject}",
-            gate.artifact
-        ))
-        .way("approve", format!("surt approve {subject}"))
-        .way("reject", format!("surt reject {subject} -m \"<reason>\""))
-        .print(Mark::Paused);
-    }
-    Ok(())
 }

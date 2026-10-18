@@ -37,6 +37,10 @@ pub enum Progress {
         step: StepLabel,
         outcome: String,
     },
+    Merged {
+        step: StepLabel,
+        merge: String,
+    },
     AttemptFailed {
         step: StepLabel,
         attempt: u32,

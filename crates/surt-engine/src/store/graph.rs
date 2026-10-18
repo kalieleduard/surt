@@ -196,7 +196,7 @@ impl From<String> for RunState {
     }
 }
 
-fn block_reason(reason: &str) -> BlockReason {
+pub(super) fn block_reason(reason: &str) -> BlockReason {
     match reason {
         "not_retryable" => BlockReason::NotRetryable,
         "iterations_exhausted" => BlockReason::IterationsExhausted,
