@@ -6,6 +6,7 @@ use std::num::NonZeroU32;
 use serde::Serialize;
 
 use super::{Check, Config, Error, GitConfig, Project, Refusal};
+use crate::cleanup::clear_kept_working_copy;
 pub use crate::drive::graph::RunId;
 use crate::store::{NewInitialArtifact, NewRunRows, RunCreation, Store, unix_now};
 use crate::workflow::{Catalog, CleanupPolicy, FrozenRun, OnSuccess, freeze};
@@ -70,7 +71,7 @@ impl Project {
         mut new: NewRun,
     ) -> Result<RunId, Error> {
         let carried = previous::carried(store, &self.layout, &new.subject, &new.carried).await?;
-        new.initial_artifacts.extend(carried);
+        new.initial_artifacts.extend(carried.artifacts);
         let names = new
             .initial_artifacts
             .iter()
@@ -78,6 +79,9 @@ impl Project {
         let frozen = freeze(catalog, &new.workflow, names, |root| {
             frozen_config(&self.config, root)
         })?;
+        if let Some(previous) = &carried.previous {
+            clear_kept_working_copy(store, &self.layout, previous).await?;
+        }
         let subject = new.subject.clone();
         match store.create_run(rows(new, frozen)).await? {
             RunCreation::Created(run) => Ok(RunId(run)),

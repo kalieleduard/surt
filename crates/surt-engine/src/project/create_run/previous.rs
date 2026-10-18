@@ -1,4 +1,4 @@
-use super::{ArtifactFile, InitialArtifact};
+use super::{ArtifactFile, InitialArtifact, RunId};
 use crate::artifacts::working_copy::unrecorded_edits;
 use crate::project::{Error, Layout, Refusal};
 use crate::store::{RootRunRow, Store};
@@ -6,16 +6,24 @@ use crate::store::{RootRunRow, Store};
 const ACTIVE: &str = "active";
 const CHECKING: &str = "check the working copy of";
 
+pub(super) struct Carried {
+    pub(super) artifacts: Vec<InitialArtifact>,
+    pub(super) previous: Option<RunId>,
+}
+
 pub(super) async fn carried(
     store: &Store,
     layout: &Layout,
     subject: &str,
     names: &[String],
-) -> Result<Vec<InitialArtifact>, Error> {
+) -> Result<Carried, Error> {
     let runs = store.root_runs(subject).await?;
     let Some(latest) = runs.last() else {
         return match names {
-            [] => Ok(Vec::new()),
+            [] => Ok(Carried {
+                artifacts: Vec::new(),
+                previous: None,
+            }),
             _ => Err(Refusal::UnknownSubject {
                 reference: subject.to_owned(),
             }
@@ -33,7 +41,10 @@ pub(super) async fn carried(
     for name in names {
         artifacts.push(latest_revision(store, latest, name).await?);
     }
-    Ok(artifacts)
+    Ok(Carried {
+        artifacts,
+        previous: Some(RunId(latest.id.clone())),
+    })
 }
 
 async fn refuse_unrecorded_edits(

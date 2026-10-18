@@ -11,7 +11,7 @@ use crate::project::{
     RunSelector, StatusScope,
 };
 
-const ITEMS: &[(&str, &[&str])] = &[("A", &[]), ("B", &[])];
+pub(super) const ITEMS: &[(&str, &[&str])] = &[("A", &[]), ("B", &[])];
 
 fn keeping() -> Config {
     Config {
@@ -30,7 +30,7 @@ fn kept_endings(driven: &Driven) -> usize {
         .count()
 }
 
-async fn kept() -> Feature {
+pub(super) async fn kept() -> Feature {
     let feature = shipped(ITEMS, keeping()).await;
     let team = delivered_team()
         .on("A/build", 1, 1, leaves_leftovers_and_crashes())
