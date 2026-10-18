@@ -28,6 +28,10 @@ impl FreeSlots {
         Ok(FreeSlots(free))
     }
 
+    pub(super) fn len(&self) -> usize {
+        self.0.len()
+    }
+
     pub(super) fn indices(&self) -> Vec<usize> {
         self.0.iter().map(Slot::index).collect()
     }

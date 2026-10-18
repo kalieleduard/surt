@@ -4,11 +4,20 @@ use super::load::{Loaded, label};
 use super::outcome::{ActivityPause, ActivitySnapshot, Progress, RunningStep};
 use crate::runtime::AgentRuntime;
 
-/// The agent slots of the project as this Driver sees them.
 #[derive(Clone, Copy)]
-pub(super) struct Slots {
+pub(super) struct SlotUsage {
     pub(super) in_use: usize,
     pub(super) limit: usize,
+}
+
+impl SlotUsage {
+    pub(super) fn counted(limit: usize, free: usize, held: &[usize]) -> SlotUsage {
+        let held_beyond_limit = held.iter().filter(|index| **index >= limit).count();
+        SlotUsage {
+            in_use: limit.saturating_sub(free) + held_beyond_limit,
+            limit,
+        }
+    }
 }
 
 impl<R: AgentRuntime> Driver<'_, R> {
@@ -16,7 +25,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         &self,
         loaded: &Loaded,
         queued: usize,
-        slots: Slots,
+        slots: SlotUsage,
         paused: Option<ActivityPause>,
     ) {
         let snapshot = ActivitySnapshot {

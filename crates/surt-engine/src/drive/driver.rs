@@ -6,7 +6,7 @@ use std::time::Duration;
 use serde_json::json;
 use tokio::sync::Mutex;
 
-use super::activity::Slots;
+use super::activity::SlotUsage;
 use super::decide::{self, Action, Ctx, RunEnd};
 use super::ending;
 use super::flights::Flights;
@@ -186,8 +186,10 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 return Ok(DriveOutcome::Interrupted);
             }
             let limit = live.reread(|warning| self.report(warning));
-            let mut free = FreeSlots::take(self.driving.layout, limit, &flights.held())?;
-            let (tick, landed) = flights.alongside(self.tick(free.indices(), limit)).await;
+            let held = flights.held();
+            let mut free = FreeSlots::take(self.driving.layout, limit, &held)?;
+            let slots = SlotUsage::counted(limit, free.len(), &held);
+            let (tick, landed) = flights.alongside(self.tick(free.indices(), slots)).await;
             let stale = !landed.is_empty();
             settle(landed)?;
             match tick? {
@@ -237,7 +239,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         Ok(self.driving.store.cancel_run(self.driving.root).await?)
     }
 
-    async fn tick(&self, free_slots: Vec<usize>, limit: usize) -> Result<Tick, Error> {
+    async fn tick(&self, free_slots: Vec<usize>, slots: SlotUsage) -> Result<Tick, Error> {
         let rows = self.driving.store.run_rows(self.driving.root).await?;
         self.read_stop_request(rows.stop_requested);
         let lists = self.item_lists(&rows).await?;
@@ -274,10 +276,6 @@ impl<R: AgentRuntime> Driver<'_, R> {
                     ..
                 } => return Ok(Tick::Cancel),
                 Action::Wait => {
-                    let slots = Slots {
-                        in_use: limit.saturating_sub(ctx.free_slots.len()),
-                        limit,
-                    };
                     let paused = self.activity_pause(ctx.paused_until);
                     self.observe(&loaded, decision.queued, slots, paused);
                     return Ok(Tick::Wait);

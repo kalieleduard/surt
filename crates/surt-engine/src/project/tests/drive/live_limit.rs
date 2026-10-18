@@ -6,8 +6,8 @@ use std::time::Duration;
 use tokio::sync::{mpsc, watch};
 
 use super::items::limited;
-use super::planned::{TASK_WORKFLOW, approved_with, work};
-use crate::project::{ActivitySnapshot, DriveOutcome, Progress};
+use super::planned::{TASK_WORKFLOW, approved_with, planned_catalog, work};
+use crate::project::{ActivitySnapshot, AgentSlots, DriveOutcome, Progress, StatusScope};
 use crate::runtime::{
     AgentRuntime, FakeRuntime, RuntimeCompletion, RuntimeError, RuntimeEventSink, RuntimeRequest,
     Script, StopSignal,
@@ -181,6 +181,62 @@ async fn lowering_the_limit_mid_run_lets_the_running_agents_finish_then_launches
             ("C/build".to_owned(), 1),
             ("D/build".to_owned(), 1),
         ]
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn after_lowering_the_limit_the_footer_counts_every_running_agent_as_status_does() {
+    let items: &[(&str, &[&str])] = &[("A", &[]), ("B", &[]), ("C", &[])];
+    let feature = approved_with(TASK_WORKFLOW, items, limited(3)).await;
+    let runtime = Gate::new(&["A", "B", "C"], &["A", "B", "C"]);
+    let (sink, events) = mpsc::unbounded_channel();
+    let mut watched = Watched {
+        events,
+        seen: Vec::new(),
+    };
+
+    let drive = feature
+        .project
+        .drive(&feature.run, &runtime, sink, StopSignal::new());
+    let scenario = async {
+        runtime.until_started(3).await;
+        save_config(&feature.dir.path(), "max_concurrent_agents = 1\n");
+        let footer = watched
+            .until(|event| {
+                matches!(event, Progress::Activity(snapshot)
+                    if running(snapshot).len() == 3 && snapshot.slots_limit == 1)
+            })
+            .await;
+        let reader = feature
+            .dir
+            .project(planned_catalog(TASK_WORKFLOW), limited(1))
+            .await;
+        let status: Vec<AgentSlots> = reader
+            .status(StatusScope::Active)
+            .await
+            .expect("the status reads")
+            .into_iter()
+            .map(|status| status.slots)
+            .collect();
+        for item in ["A", "B", "C"] {
+            runtime.release(item);
+        }
+        watched.rest().await;
+        (footer, status)
+    };
+    let (outcome, (footer, status)) = tokio::join!(drive, scenario);
+
+    assert_eq!(outcome.expect("drive returns"), DriveOutcome::Succeeded);
+    let Progress::Activity(footer) = footer else {
+        unreachable!("an activity snapshot");
+    };
+    assert_eq!((footer.slots_in_use, footer.slots_limit), (3, 1));
+    assert_eq!(
+        status,
+        [AgentSlots {
+            in_use: 3,
+            total: 1
+        }]
     );
 }
 
