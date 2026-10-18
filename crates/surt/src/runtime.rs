@@ -1,25 +1,21 @@
 #[cfg(feature = "test-support")]
 use surt_engine::runtime::FakeRuntime;
 use surt_engine::runtime::{
-    AgentRuntime, RuntimeCompletion, RuntimeError, RuntimeEventSink, RuntimeRequest, StopSignal,
+    AgentRuntime, ClaudeCodeRuntime, RuntimeCompletion, RuntimeError, RuntimeEventSink,
+    RuntimeRequest, StopSignal,
 };
 
 use crate::failure::Failure;
-use crate::message::Message;
+
+const CLAUDE_CODE: &str = "claude";
 
 pub(crate) enum Selected {
+    Claude(ClaudeCodeRuntime),
     #[cfg(feature = "test-support")]
     Fake(FakeRuntime),
 }
 
 impl AgentRuntime for Selected {
-    #[cfg_attr(
-        not(feature = "test-support"),
-        expect(
-            unused_variables,
-            reason = "a build without test-support has no agent runtime to hand the request to"
-        )
-    )]
     async fn execute(
         &self,
         request: RuntimeRequest,
@@ -27,6 +23,7 @@ impl AgentRuntime for Selected {
         stop: StopSignal,
     ) -> Result<RuntimeCompletion, RuntimeError> {
         match *self {
+            Selected::Claude(ref claude) => claude.execute(request, events, stop).await,
             #[cfg(feature = "test-support")]
             Selected::Fake(ref fake) => fake.execute(request, events, stop).await,
         }
@@ -38,9 +35,10 @@ pub(crate) fn select() -> Result<Selected, Failure> {
     if let Some(script) = std::env::var_os(fake::VARIABLE) {
         return fake::load(std::path::Path::new(&script)).map(Selected::Fake);
     }
-    Err(Failure::Refused(
-        Message::new("this surt has no agent runtime").way("fix", "install a release of surt"),
-    ))
+    Ok(Selected::Claude(ClaudeCodeRuntime::new(
+        CLAUDE_CODE,
+        std::env::vars_os(),
+    )))
 }
 
 #[cfg(feature = "test-support")]

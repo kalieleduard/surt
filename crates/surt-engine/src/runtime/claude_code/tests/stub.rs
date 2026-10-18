@@ -16,6 +16,8 @@ const PROMPT_STOP: Duration = Duration::from_secs(5);
 const REAP_WAIT: Duration = Duration::from_millis(50);
 const REAP_ATTEMPTS: u32 = 100;
 
+const SUPPORTED_VERSION: &str = "2.1.301";
+
 struct Stub {
     executable: PathBuf,
     record: PathBuf,
@@ -36,6 +38,16 @@ impl Stub {
     }
 
     fn around(execution: &Execution, stream: &Stream, head: &str, tail: &str) -> Stub {
+        Stub::answering(execution, stream, SUPPORTED_VERSION, head, tail)
+    }
+
+    fn answering(
+        execution: &Execution,
+        stream: &Stream,
+        version: &str,
+        head: &str,
+        tail: &str,
+    ) -> Stub {
         let root = execution.root();
         let record = root.join("record");
         fs::create_dir(&record).expect("the record directory");
@@ -44,6 +56,7 @@ impl Stub {
         let record_text = record.display();
         let script = format!(
             "#!/bin/sh\n\
+             if [ \"$1\" = --version ]; then echo '{version} (Claude Code)'; exit 0; fi\n\
              {head}\n\
              printf '%s\\n' \"$@\" > '{record_text}/argv'\n\
              env > '{record_text}/env'\n\
@@ -115,9 +128,10 @@ async fn a_replayed_success_is_followed_until_the_process_ends_and_accepted() {
     assert!(matches!(
         run.events.as_slice(),
         [
+            RuntimeEvent::Identified { version },
             RuntimeEvent::Launched { pid: Some(_) },
             RuntimeEvent::Initialized(_)
-        ]
+        ] if version == SUPPORTED_VERSION
     ));
 }
 
@@ -293,4 +307,49 @@ async fn an_incompatible_initialization_stops_the_process_and_fails() {
     assert_eq!(error.code, "model_mismatch");
     assert_eq!(error.class, FailureClass::NotRetryable);
     assert!(started.elapsed() < PROMPT_STOP, "{:?}", started.elapsed());
+}
+
+#[tokio::test]
+async fn an_outdated_claude_code_is_refused_before_launch_and_its_version_reported() {
+    let stream = delivered_note();
+    let execution = Execution::new(stream.session_id());
+    let stub = Stub::answering(&execution, &stream, "2.1.300", "", "");
+
+    let run = run(&stub.runtime(&[]), &execution, |_| {}).await;
+
+    let error = run.outcome.expect_err("an outdated Claude Code");
+    assert_eq!(error.class, FailureClass::NotRetryable);
+    assert_eq!(error.code, "unsupported_version");
+    assert_eq!(
+        error.message,
+        "Claude Code 2.1.300 is older than the supported 2.1.301; upgrade it with `claude update`"
+    );
+    assert_eq!(
+        run.events,
+        [RuntimeEvent::Identified {
+            version: "2.1.300".to_owned()
+        }]
+    );
+    assert!(!stub.record.join("argv").exists());
+}
+
+#[tokio::test]
+async fn a_version_answer_without_a_version_is_refused_with_an_install_message() {
+    let stream = delivered_note();
+    let execution = Execution::new(stream.session_id());
+    let stub = Stub::answering(&execution, &stream, "unknown", "", "");
+
+    let run = run(&stub.runtime(&[]), &execution, |_| {}).await;
+
+    let error = run.outcome.expect_err("an unreadable version");
+    assert_eq!(error.class, FailureClass::NotRetryable);
+    assert_eq!(error.code, "unsupported_version");
+    assert!(
+        error
+            .message
+            .ends_with("install Claude Code 2.1.301 or newer"),
+        "{}",
+        error.message
+    );
+    assert!(run.events.is_empty());
 }
