@@ -1,10 +1,11 @@
+mod follow;
 pub(crate) mod source;
 pub(crate) mod stream;
 
 use std::io::{self, Write};
 use std::path::{Component, Path};
 
-use surt_engine::project::{LogRequest, LogSource, Project, Reference};
+use surt_engine::project::{LogRequest, LogSource, Logs, Project, Reference, RunSelector};
 
 use crate::failure::Failure;
 use crate::message::{Mark, Message};
@@ -18,25 +19,84 @@ pub(crate) struct LogsArgs {
     task: Option<String>,
     #[arg(long, value_name = "N")]
     run: Option<u32>,
+    #[arg(short = 'f', long)]
+    follow: bool,
     #[arg(long)]
     raw: bool,
 }
 
+pub(crate) enum Target {
+    Execution(String),
+    Run {
+        subject: String,
+        item: Option<String>,
+        run: RunSelector,
+    },
+}
+
+impl Target {
+    async fn select(
+        project: &Project,
+        reference: &str,
+        item: Option<&str>,
+        run: Option<u32>,
+    ) -> Result<Target, Failure> {
+        if let (None, None) = (item, run)
+            && let Reference::Execution(id) = project.reference(reference).await?
+        {
+            return Ok(Target::Execution(id));
+        }
+        Ok(Target::Run {
+            subject: reference.to_owned(),
+            item: item.map(str::to_owned),
+            run: run_selector(run),
+        })
+    }
+
+    fn pinned(self, logs: &Logs) -> Target {
+        match self {
+            Target::Run { item, .. } => Target::Run {
+                subject: logs.subject.clone(),
+                item,
+                run: RunSelector::Ordinal(logs.run),
+            },
+            execution @ Target::Execution(_) => execution,
+        }
+    }
+
+    async fn logs(&self, project: &Project) -> Result<Logs, Failure> {
+        Ok(match self {
+            Target::Execution(id) => project.execution_logs(id).await?,
+            Target::Run { subject, item, run } => {
+                let request = LogRequest {
+                    item: item.as_deref(),
+                    run: *run,
+                };
+                project.logs(subject, request).await?
+            }
+        })
+    }
+}
+
 pub(crate) async fn run(cwd: &Path, args: LogsArgs) -> Result<(), Failure> {
     let project = Project::open_read_only(cwd).await?;
-    let sources = select(&project, &args.feature, args.task.as_deref(), args.run).await?;
-    let found = read(&project, &sources)?;
+    let target = Target::select(&project, &args.feature, args.task.as_deref(), args.run).await?;
+    let logs = target.logs(&project).await?;
+    if args.follow && logs.live {
+        return follow::follow(&project, target, logs, args.raw).await;
+    }
+    print(&project, &logs.sources, args.raw)
+}
+
+fn print(project: &Project, sources: &[LogSource], raw: bool) -> Result<(), Failure> {
+    let found = read(project, sources)?;
     let shown: Vec<&LogSource> = found.iter().map(|(source, _)| *source).collect();
     let text: String = found
         .iter()
         .zip(prefixes(&shown))
-        .map(|((_, files), prefix)| render(files, &prefix, args.raw))
+        .map(|((_, files), prefix)| render(files, &prefix, raw))
         .collect();
-    if args.raw {
-        write(text.as_bytes())
-    } else {
-        write(printable(&text).as_bytes())
-    }
+    emit(&text, raw).map(|_| ())
 }
 
 fn read<'a>(
@@ -52,24 +112,6 @@ fn read<'a>(
         }
     }
     Ok(found)
-}
-
-pub(crate) async fn select(
-    project: &Project,
-    reference: &str,
-    task: Option<&str>,
-    run: Option<u32>,
-) -> Result<Vec<LogSource>, Failure> {
-    if let (None, None) = (task, run)
-        && let Reference::Execution(id) = project.reference(reference).await?
-    {
-        return Ok(vec![project.execution_logs(&id).await?]);
-    }
-    let request = LogRequest {
-        item: task,
-        run: run_selector(run),
-    };
-    Ok(project.logs(reference, request).await?.sources)
 }
 
 pub(crate) fn missing(project: &Project, source: &LogSource) -> Message {
@@ -96,11 +138,20 @@ fn slashed(path: &Path) -> String {
     parts.join("/")
 }
 
-fn write(bytes: &[u8]) -> Result<(), Failure> {
+fn emit(text: &str, raw: bool) -> Result<bool, Failure> {
+    if raw {
+        write(text.as_bytes())
+    } else {
+        write(printable(text).as_bytes())
+    }
+}
+
+fn write(bytes: &[u8]) -> Result<bool, Failure> {
     let mut stdout = io::stdout().lock();
     match stdout.write_all(bytes).and_then(|()| stdout.flush()) {
-        Err(error) if error.kind() != io::ErrorKind::BrokenPipe => Err(error.into()),
-        _ => Ok(()),
+        Ok(()) => Ok(true),
+        Err(error) if error.kind() == io::ErrorKind::BrokenPipe => Ok(false),
+        Err(error) => Err(error.into()),
     }
 }
 

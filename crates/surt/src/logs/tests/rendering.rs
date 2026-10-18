@@ -1,8 +1,10 @@
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::PathBuf;
 
 use surt_engine::project::LogSource;
 
-use super::super::source::{Files, prefixes, render};
+use super::super::source::{Files, Offsets, prefixes, render};
 use super::super::stream::Stream;
 
 const INIT: &str = r#"{"type":"system","subtype":"init","cwd":"/work/tree","model":"m"}"#;
@@ -176,4 +178,36 @@ fn raw_prints_only_the_original_stream_lines() {
         render(&files, "B build#1 │ ", true),
         format!("{INIT}\nnot json\n")
     );
+}
+
+#[test]
+fn appended_files_hold_back_an_unfinished_line_until_the_last_read() {
+    let directory = tempfile::tempdir().expect("a directory");
+    let stream = directory.path().join("stream.jsonl");
+    fs::write(&stream, "first\nsecond").expect("a stream");
+    fs::write(directory.path().join("output.log"), "=== test\n").expect("an output");
+    let mut offsets = Offsets::default();
+
+    let started = Files::appended(directory.path(), &mut offsets, false).expect("read");
+    let mut file = OpenOptions::new().append(true).open(&stream).expect("open");
+    write!(file, " half\nthird").expect("append");
+    let continued = Files::appended(directory.path(), &mut offsets, false).expect("read");
+    let last = Files::appended(directory.path(), &mut offsets, true).expect("read");
+
+    let read = |files: &Files| {
+        (
+            files.stream.clone(),
+            files.stderr.clone(),
+            files.output.clone(),
+        )
+    };
+    assert_eq!(
+        read(&started),
+        ("first\n".into(), String::new(), "=== test\n".into())
+    );
+    assert_eq!(
+        read(&continued),
+        ("second half\n".into(), String::new(), String::new())
+    );
+    assert_eq!(read(&last), ("third".into(), String::new(), String::new()));
 }
