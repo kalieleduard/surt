@@ -22,6 +22,7 @@ use crate::store::{ExecutionEnd, ExecutionStart, StartedExecution, StepRow};
 use crate::workflow::StepSpec;
 
 const DELIVERY_DIR: &str = "delivery";
+const LAUNCH_DIR: &str = "launch";
 const LOG_FILES: [&str; 2] = ["stream.jsonl", "stderr.log"];
 const SKIPPED: &str = "SKIPPED";
 const FIRST_ITERATION: u32 = 1;
@@ -127,6 +128,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             delivery_dir,
             log_dir,
             context,
+            launch: agent.launch(layout.root().to_owned(), execution_dir.join(LAUNCH_DIR))?,
         })
     }
 

@@ -24,6 +24,7 @@ tempfile = "3"
 tracing = "0.1"
 dunce = "1"
 jiff = "0.2"
+process-wrap = { version = "10", default-features = false, features = ["tokio1", "process-group", "job-object", "kill-on-drop"] }
 anstream = "1"
 anstyle = "1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "std"] }

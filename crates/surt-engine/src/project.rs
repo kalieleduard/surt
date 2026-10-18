@@ -3,11 +3,13 @@ mod create_run;
 mod discovery;
 mod driving;
 mod error;
+mod gate_status;
 mod gates;
 mod init;
 mod layout;
 mod naming;
 mod repository;
+mod resolving;
 mod subjects;
 
 use std::path::Path;
@@ -20,10 +22,12 @@ pub use crate::workflow::{
 pub use config::{Check, Config, GitConfig, MergeIntoBase};
 pub use create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};
 pub use error::{Error, InternalError, Refusal};
+pub use gate_status::GateStatus;
 pub use gates::{Decided, RevisionOrigin};
 pub use init::{FileState, InitFile, Initialized};
 pub use naming::Slug;
 pub use repository::Commit;
+pub use resolving::Subject;
 pub use subjects::FreeName;
 
 use crate::store::Store;
@@ -70,6 +74,14 @@ impl Project {
 
     pub fn config(&self) -> &Config {
         &self.config
+    }
+
+    fn refuse_agent_overrides(&self) -> Result<(), Error> {
+        let agents = self.layout.agents();
+        if agents.exists() {
+            return Err(Refusal::AgentOverrides { path: agents }.into());
+        }
+        Ok(())
     }
 }
 

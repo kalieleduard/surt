@@ -1,3 +1,5 @@
+mod scripted;
+
 use std::collections::BTreeMap;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -9,6 +11,8 @@ use super::{
     AgentRuntime, Exit, FailureClass, FinalResult, Initialization, RuntimeCompletion, RuntimeError,
     RuntimeEvent, RuntimeEventSink, RuntimeRequest, StepAttempt, StopSignal,
 };
+
+pub use scripted::InvalidScript;
 
 const SUCCESS_EXIT_CODE: i32 = 0;
 const STREAM_LOG: &str = "stream.jsonl";

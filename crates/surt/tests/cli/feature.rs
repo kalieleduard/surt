@@ -1,5 +1,6 @@
 use jiff::Zoned;
 
+use crate::scripts::spec;
 use crate::support::{REFUSED_EXIT_CODE, Sandbox};
 
 const BRANCH: &str = "trunk";
@@ -9,6 +10,7 @@ fn project() -> Sandbox {
     sandbox.git(&sandbox.repo(), &["checkout", "--quiet", "-b", BRANCH]);
     sandbox.commit_something();
     sandbox.init();
+    sandbox.script(&[spec(1, "# Spec\n")]);
     sandbox
 }
 
@@ -37,7 +39,7 @@ fn initial_artifact(sandbox: &Sandbox, name: &str) -> String {
 }
 
 #[test]
-fn a_description_creates_a_dated_feature_with_a_pending_run_and_stops() {
+fn a_description_creates_a_dated_feature_and_drives_it_to_the_spec_gate() {
     let sandbox = project();
     let name = format!("{}-add-login", today());
 
@@ -58,8 +60,10 @@ fn a_description_creates_a_dated_feature_with_a_pending_run_and_stops() {
         ["active"]
     );
     assert_eq!(
-        sandbox.texts("SELECT DISTINCT state FROM step_run"),
-        ["pending"]
+        sandbox.texts(
+            "SELECT step_key || ' ' || state FROM step_run WHERE state <> 'pending' ORDER BY step_key"
+        ),
+        ["approve-spec running", "spec done", "spec-loop running"]
     );
     assert_eq!(initial_artifact(&sandbox, "request"), "Add Login");
     let base: serde_json::Value =

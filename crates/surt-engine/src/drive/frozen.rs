@@ -1,17 +1,20 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroU32;
+use std::path::PathBuf;
 
 use serde::Deserialize;
 
 use super::decide::Limits;
 use crate::artifacts::DeliveryContract;
 use crate::project::Error;
+use crate::runtime::AgentLaunch;
 use crate::store::FrozenFile;
 use crate::workflow::{AgentContract, Definition, StepSpec};
 
 const WORKFLOW_FILE: &str = "workflow.toml";
 const AGENT_FILE: &str = "agent.toml";
 const CONFIG_FILE: &str = "config.toml";
+const INSTRUCTIONS_FILE: &str = "instructions.md";
 
 pub(crate) struct Frozen {
     definitions: BTreeMap<String, Definition>,
@@ -119,6 +122,23 @@ impl Frozen {
 }
 
 impl FrozenAgent {
+    pub(crate) fn launch(
+        &self,
+        working_dir: PathBuf,
+        launch_dir: PathBuf,
+    ) -> Result<AgentLaunch, CorruptSnapshot> {
+        let instructions = self
+            .files
+            .get(INSTRUCTIONS_FILE)
+            .ok_or_else(|| CorruptSnapshot::new(&self.snapshot, "no instructions"))?;
+        Ok(AgentLaunch::new(
+            &self.contract,
+            instructions,
+            working_dir,
+            launch_dir,
+        ))
+    }
+
     pub(crate) fn delivery_contract(&self) -> Result<DeliveryContract, CorruptSnapshot> {
         DeliveryContract::new(&self.contract, |path| {
             self.files.get(path).map(String::as_str)

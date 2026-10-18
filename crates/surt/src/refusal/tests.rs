@@ -97,6 +97,12 @@ fn every_refusal() -> Vec<Refusal> {
             expected: 1,
             latest: 2,
         },
+        Refusal::UnknownSubject {
+            reference: "login".to_owned(),
+        },
+        Refusal::AgentOverrides {
+            path: path.join(".surt/agents"),
+        },
         Refusal::ActiveRunExists {
             subject: "20261017-add-login".to_owned(),
         },
@@ -219,5 +225,31 @@ fn an_active_run_points_at_resuming_the_feature() {
     assert_eq!(
         text(&refusal),
         "✖ 20261017-add-login already has an active run\n  resume: surt feature 20261017-add-login\n"
+    );
+}
+
+#[test]
+fn an_unknown_feature_points_at_the_list_of_features() {
+    let refusal = &every_refusal()[18];
+
+    assert_eq!(
+        text(refusal),
+        "✖ no feature matches \"login\"\n  inspect: surt status\n"
+    );
+}
+
+#[test]
+fn an_ambiguous_feature_lists_every_candidate_and_asks_for_the_full_name() {
+    let refusal = Refusal::AmbiguousSubject {
+        reference: "add-login".to_owned(),
+        candidates: vec![
+            "20261015-add-login".to_owned(),
+            "20261017-add-login".to_owned(),
+        ],
+    };
+
+    assert_eq!(
+        text(&refusal),
+        "✖ \"add-login\" matches 2 features:\n    20261015-add-login\n    20261017-add-login\n  use the full name\n"
     );
 }

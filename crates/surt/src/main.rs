@@ -1,10 +1,14 @@
 mod builtin;
+mod decide;
 mod diagnostics;
 mod failure;
 mod feature;
 mod init;
 mod message;
+mod phase;
+mod plan;
 mod refusal;
+mod runtime;
 mod status;
 
 use std::process::ExitCode;
@@ -24,6 +28,9 @@ struct Cli {
 enum Command {
     Init,
     Feature(feature::FeatureArgs),
+    Plan(plan::PlanArgs),
+    Approve(decide::ApproveArgs),
+    Reject(decide::RejectArgs),
     Status,
 }
 
@@ -42,6 +49,9 @@ async fn run(command: Command) -> Result<(), Failure> {
     match command {
         Command::Init => init::run(&cwd).await,
         Command::Feature(args) => feature::run(&cwd, args).await,
+        Command::Plan(args) => plan::run(&cwd, args).await,
+        Command::Approve(args) => decide::approve(&cwd, args).await,
+        Command::Reject(args) => decide::reject(&cwd, args).await,
         Command::Status => status::run(&cwd).await,
     }
 }

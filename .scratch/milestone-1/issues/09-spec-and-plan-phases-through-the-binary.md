@@ -8,10 +8,10 @@ Spec: [Milestone 1](../spec.md) (stories 16–20, 24–28, 35–37, 40, 94, 104)
 
 **Status:** ready-for-agent
 
-- [ ] With `test-support`, `SURT_RUNTIME` selects the Fake with the path to a TOML script; release builds cannot select it
-- [ ] `surt feature "<description>"` drives the Spec Agent and exits `0` at the spec gate; `surt feature <full-name>` resumes (regenerating after a rejection) and, on an approved spec, points at `surt plan` without changing anything
-- [ ] `surt approve` prints what it approved, its SHA-256 and author, and the next command from the gate → next-command table; `surt reject -m` prints the command that regenerates; neither drives
-- [ ] `surt plan` refuses unless the spec is approved, then drives the Task Agent to the manifest gate; the manifest and one Markdown file per Task appear in the Feature's folder
-- [ ] A `<feature>` argument accepts the full name, a unique slug or a unique prefix; an ambiguous one refuses listing candidates
-- [ ] Driving commands refuse with exit `3` when `.surt/agents/` exists
-- [ ] Binary test of the full S3 "done" flow, plus refusals (plan before approval, ambiguous name, `--rev` mismatch)
+- [x] With `test-support`, `SURT_RUNTIME` selects the Fake with the path to a TOML script; release builds cannot select it
+- [x] `surt feature "<description>"` drives the Spec Agent and exits `0` at the spec gate; `surt feature <full-name>` resumes (regenerating after a rejection) and, on an approved spec, points at `surt plan` without changing anything
+- [x] `surt approve` prints what it approved, its SHA-256 and author, and the next command from the gate → next-command table; `surt reject -m` prints the command that regenerates; neither drives
+- [x] `surt plan` refuses unless the spec is approved, then drives the Task Agent to the manifest gate; the manifest and one Markdown file per Task appear in the Feature's folder
+- [x] A `<feature>` argument accepts the full name, a unique slug or a unique prefix; an ambiguous one refuses listing candidates
+- [x] Driving commands refuse with exit `3` when `.surt/agents/` exists
+- [x] Binary test of the full S3 "done" flow, plus refusals (plan before approval, ambiguous name, `--rev` mismatch)

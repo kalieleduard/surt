@@ -35,6 +35,7 @@ pub(crate) enum Decision<'a> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum DecisionOutcome {
     Recorded {
+        revision_id: String,
         number: u32,
         identity: String,
         from_execution: bool,
@@ -71,7 +72,56 @@ impl Decision<'_> {
     }
 }
 
+#[derive(Clone, Debug, FromRow)]
+pub(crate) struct GateRow {
+    pub(crate) state: String,
+    pub(crate) outcome: Option<String>,
+    pub(crate) definition: String,
+    decided: Option<i64>,
+}
+
+impl GateRow {
+    pub(crate) fn decided(&self) -> Option<u32> {
+        self.decided.map(number)
+    }
+}
+
 impl Store {
+    pub(crate) async fn latest_gate(
+        &self,
+        root: &str,
+        key: &str,
+    ) -> Result<Option<GateRow>, StoreError> {
+        Ok(sqlx::query_as(
+            "SELECT s.state, s.outcome, w.definition_sha256 AS definition, r.number AS decided \
+             FROM step_run s JOIN workflow_run w ON w.id = s.workflow_run_id \
+             LEFT JOIN approval a ON a.gate_step_run_id = s.id \
+             LEFT JOIN artifact_revision r ON r.id = a.revision_id \
+             WHERE s.workflow_run_id = ? AND s.step_key = ? AND s.kind = 'approval' \
+             ORDER BY s.iteration DESC, s.created_at DESC LIMIT 1",
+        )
+        .bind(root)
+        .bind(key)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
+    pub(crate) async fn latest_revision_number(
+        &self,
+        run: &str,
+        artifact: &str,
+    ) -> Result<Option<u32>, StoreError> {
+        let latest: Option<i64> = sqlx::query_scalar(
+            "SELECT max(r.number) FROM artifact a JOIN artifact_revision r ON r.artifact_id = a.id \
+             WHERE a.workflow_run_id = ? AND a.name = ?",
+        )
+        .bind(run)
+        .bind(artifact)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(latest.map(number))
+    }
+
     pub(crate) async fn waiting_gates(&self, root: &str) -> Result<Vec<WaitingGate>, StoreError> {
         Ok(sqlx::query_as(
             "SELECT s.id, s.workflow_run_id AS run, s.step_key AS key, w.definition_sha256 AS definition \
@@ -168,6 +218,7 @@ impl Store {
         record_event(&mut transaction, About::Step(gate), "step.done", now).await?;
         transaction.commit().await?;
         Ok(DecisionOutcome::Recorded {
+            revision_id: latest.id,
             number: latest_number,
             identity: latest.identity_sha256,
             from_execution: latest.origin == "execution",

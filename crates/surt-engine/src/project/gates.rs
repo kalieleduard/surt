@@ -11,6 +11,7 @@ pub struct Decided {
     pub sha256: String,
     pub origin: RevisionOrigin,
     pub actor: String,
+    pub files: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -71,11 +72,7 @@ async fn record(store: &Store, request: &Request<'_>) -> Result<Decided, Error> 
     let Some(gate) = gates.first() else {
         return Err(no_gate(store, request.root).await?);
     };
-    let frozen = Frozen::from_files(store.frozen_files(request.root).await?)?;
-    let definition = frozen.definition(&gate.definition)?;
-    let Some(StepSpec::Approval(spec)) = definition.step(&gate.key).map(|step| &step.spec) else {
-        return Err(CorruptSnapshot::new(&gate.key, "not an approval step").into());
-    };
+    let spec = approval_step(store, request.root, &gate.definition, &gate.key).await?;
     let decision = match request.reason {
         None => Decision::Approve,
         Some(reason) => Decision::Reject {
@@ -94,6 +91,7 @@ async fn record(store: &Store, request: &Request<'_>) -> Result<Decided, Error> 
         .await?;
     match outcome {
         DecisionOutcome::Recorded {
+            revision_id,
             number,
             identity,
             from_execution,
@@ -108,6 +106,7 @@ async fn record(store: &Store, request: &Request<'_>) -> Result<Decided, Error> 
                 RevisionOrigin::Human
             },
             actor: request.actor.to_owned(),
+            files: store.revision_paths(&revision_id).await?,
         }),
         DecisionOutcome::Stale { expected, latest } => Err(Refusal::StaleRevision {
             subject: store.subject_of_run(request.root).await?,
@@ -127,4 +126,26 @@ async fn no_gate(store: &Store, root: &str) -> Result<Error, Error> {
         subject: store.subject_of_run(root).await?,
     }
     .into())
+}
+
+pub(super) struct GateArtifacts {
+    pub(super) artifact: String,
+    rejection_artifact: String,
+}
+
+pub(super) async fn approval_step(
+    store: &Store,
+    root: &str,
+    definition: &str,
+    key: &str,
+) -> Result<GateArtifacts, Error> {
+    let frozen = Frozen::from_files(store.frozen_files(root).await?)?;
+    let definition = frozen.definition(definition)?;
+    let Some(StepSpec::Approval(spec)) = definition.step(key).map(|step| &step.spec) else {
+        return Err(CorruptSnapshot::new(key, "not an approval step").into());
+    };
+    Ok(GateArtifacts {
+        artifact: spec.artifact.clone(),
+        rejection_artifact: spec.rejection_artifact.clone(),
+    })
 }

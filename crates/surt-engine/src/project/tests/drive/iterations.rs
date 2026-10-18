@@ -48,6 +48,7 @@ async fn a_rejection_records_the_decision_on_the_reviewed_revision_without_drivi
             sha256: revision[0].0.clone(),
             origin: RevisionOrigin::Agent,
             actor: ACTOR.to_owned(),
+            files: vec!["draft.md".to_owned()],
         }
     );
     assert_eq!(

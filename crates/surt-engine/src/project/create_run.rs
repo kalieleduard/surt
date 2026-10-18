@@ -27,7 +27,7 @@ pub struct ArtifactFile {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct RunId(String);
+pub struct RunId(pub(crate) String);
 
 impl RunId {
     pub fn as_str(&self) -> &str {
@@ -45,6 +45,7 @@ struct FrozenConfig<'a> {
 
 impl Project {
     pub async fn create_run(&self, new: NewRun) -> Result<RunId, Error> {
+        self.refuse_agent_overrides()?;
         let names = new
             .initial_artifacts
             .iter()

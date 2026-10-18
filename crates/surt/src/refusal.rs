@@ -4,6 +4,7 @@ use std::path::Path;
 
 use surt_engine::project::{DefinitionFile, InvalidDefinition, Refusal};
 
+use crate::feature::quoted;
 use crate::message::Message;
 
 const GIT_DOWNLOADS: &str = "https://git-scm.com/downloads";
@@ -57,6 +58,20 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
                 .way("resume", format!("surt feature {subject}"))
         }
         Refusal::InvalidDefinition(invalid) => invalid_definition(invalid),
+        Refusal::AgentOverrides { path } => Message::new(format!(
+            "local agent overrides in {} are not supported yet",
+            path.display()
+        ))
+        .context("this surt runs only its built-in agents")
+        .way("fix", format!("move {} out of the project", path.display())),
+        Refusal::UnknownSubject { reference } => {
+            Message::new(format!("no feature matches {}", quoted(reference)))
+                .way("inspect", "surt status")
+        }
+        Refusal::AmbiguousSubject {
+            reference,
+            candidates,
+        } => ambiguous(reference, candidates),
         Refusal::DriverLive { subject, pid, .. } => driver_live(subject, *pid),
         Refusal::NoGateWaiting { subject } => {
             Message::new(format!("{subject} has no approval gate waiting"))
@@ -76,6 +91,20 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             format!("surt show {subject} {artifact} --rev {latest}"),
         ),
     }
+}
+
+fn ambiguous(reference: &str, candidates: &[String]) -> Message {
+    let headline = format!(
+        "{} matches {} features:",
+        quoted(reference),
+        candidates.len()
+    );
+    candidates
+        .iter()
+        .fold(Message::new(headline), |message, candidate| {
+            message.context(format!("  {candidate}"))
+        })
+        .context("use the full name")
 }
 
 fn driver_live(subject: &str, pid: Option<u32>) -> Message {

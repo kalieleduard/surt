@@ -30,7 +30,7 @@ impl Retry {
     }
 }
 
-pub(super) fn quoted(text: &str) -> String {
+pub(crate) fn quoted(text: &str) -> String {
     let mut quoted = String::with_capacity(text.len() + 2);
     quoted.push('"');
     for character in text.chars() {
