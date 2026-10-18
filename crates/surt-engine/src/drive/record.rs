@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -8,8 +8,8 @@ use super::guard::refused;
 use super::launch::Launch;
 use super::load::{Loaded, label};
 use super::outcome::Progress;
-use crate::artifacts::AcceptedDelivery;
 use crate::artifacts::working_copy::RecordedEdit;
+use crate::artifacts::{AcceptedDelivery, ValidatedOutput};
 use crate::git;
 use crate::project::Error;
 use crate::runtime::AgentRuntime;
@@ -42,25 +42,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         launch: &Launch,
         delivery: AcceptedDelivery,
     ) -> Result<(), Error> {
-        let gated = |name: &str| {
-            launch
-                .working_copy
-                .as_ref()
-                .is_some_and(|copy| copy.artifacts.contains(name))
-        };
-        let outputs: Vec<PublishedOutput> = delivery
-            .outputs
-            .into_iter()
-            .map(|(name, output)| PublishedOutput {
-                working_copy: gated(&name),
-                name,
-                files: output
-                    .files
-                    .into_iter()
-                    .map(|file| (file.path, file.bytes))
-                    .collect(),
-            })
-            .collect();
+        let outputs = published_outputs(launch, delivery.outputs);
         let Ok(saved) = refused(self.save_edits(&outputs).await)? else {
             return self
                 .end(&launch.row, &launch.started, ExecutionEnd::Interrupted)
@@ -150,6 +132,30 @@ impl<R: AgentRuntime> Driver<'_, R> {
         });
         Ok(())
     }
+}
+
+fn published_outputs(
+    launch: &Launch,
+    outputs: BTreeMap<String, ValidatedOutput>,
+) -> Vec<PublishedOutput> {
+    let gated = |name: &str| {
+        launch
+            .working_copy
+            .as_ref()
+            .is_some_and(|copy| copy.artifacts.contains(name))
+    };
+    outputs
+        .into_iter()
+        .map(|(name, output)| PublishedOutput {
+            working_copy: gated(&name),
+            name,
+            files: output
+                .files
+                .into_iter()
+                .map(|file| (file.path, file.bytes))
+                .collect(),
+        })
+        .collect()
 }
 
 fn remove_files(root: &Path, rel_paths: &[String]) -> std::io::Result<()> {
