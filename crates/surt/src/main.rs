@@ -9,6 +9,7 @@ mod failure;
 mod feature;
 mod init;
 mod inspect;
+mod json;
 mod message;
 mod phase;
 mod plan;

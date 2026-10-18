@@ -13,6 +13,7 @@ const SUBJECT: &str = "20261017-add-login";
 const BASE: &str = "a11c9d0e5f60718293a4b5c6d7e8f90112233445";
 const OLD_TIP: &str = "9e04b7d0c1a2b3c4d5e6f708192a3b4c5d6e7f80";
 const NEW_TIP: &str = "3c1aa20000000000000000000000000000000000";
+const SHA256: &str = "5d41402abc4b2a76b9719d911017c592ae2fe96f0c2a4b5e2f0d9a1c3b4e5f60";
 
 fn step(key: &str, item: Option<&str>, iteration: Option<u32>) -> StepLabel {
     StepLabel {
@@ -42,6 +43,7 @@ fn gate_over(
             _ => Some(RevisionSummary {
                 number: 1,
                 origin: RevisionOrigin::Human,
+                sha256: SHA256.to_owned(),
                 files: files.iter().map(|file| (*file).to_owned()).collect(),
             }),
         },
