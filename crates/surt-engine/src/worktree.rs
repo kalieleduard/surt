@@ -1,11 +1,14 @@
+mod evidence;
 mod locate;
 mod salvage;
+mod state;
 
 use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::git::{self, GitError};
 
+pub(crate) use evidence::{Claim, EvidenceError, prove};
 pub(crate) use locate::{Located, Repair};
 
 pub(crate) struct Target<'a> {
@@ -47,9 +50,7 @@ pub(crate) enum PrepareError {
 
 impl Target<'_> {
     pub(crate) fn short_branch(&self) -> &str {
-        self.branch
-            .strip_prefix(git::BRANCH_NAMESPACE)
-            .unwrap_or(self.branch)
+        git::short_branch(self.branch)
     }
 }
 

@@ -3,59 +3,20 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
+use super::state::{MARKERS, State};
 use super::{PrepareError, Salvage, Target, io_error};
-use crate::git::{self, GitError};
+use crate::git;
 
 const LOCK_EXTENSION: &str = "lock";
 const SALVAGE_INDEX: &str = "surt-salvage-index";
 const INDEX_VARIABLE: &str = "GIT_INDEX_FILE";
 
-const MARKERS: [(&str, &[&str]); 8] = [
-    ("MERGE_HEAD", &["merge", "--quit"]),
-    ("rebase-merge", &["rebase", "--quit"]),
-    ("rebase-apply/applying", &["am", "--quit"]),
-    ("rebase-apply", &["rebase", "--quit"]),
-    ("CHERRY_PICK_HEAD", &["cherry-pick", "--quit"]),
-    ("REVERT_HEAD", &["revert", "--quit"]),
-    ("sequencer", &["cherry-pick", "--quit"]),
-    ("BISECT_LOG", &["bisect", "reset", "HEAD"]),
-];
-
-struct State {
-    head_branch: Option<String>,
-    head: Option<String>,
-    branch_tip: Option<String>,
-    dirty: bool,
-    in_progress: bool,
-}
-
-impl State {
-    async fn read(target: &Target<'_>, admin: &Path) -> Result<State, GitError> {
-        let worktree = target.path;
-        Ok(State {
-            head_branch: head_branch(worktree).await?,
-            head: git::commit_sha(worktree, "HEAD").await?,
-            branch_tip: git::commit_sha(worktree, target.branch).await?,
-            dirty: !status(worktree).await?.is_empty(),
-            in_progress: MARKERS
-                .iter()
-                .any(|(marker, _)| admin.join(marker).exists()),
-        })
-    }
-
-    fn off_target(&self, target: &Target<'_>) -> bool {
-        self.head_branch.as_deref() != Some(target.branch)
-            || self.head.as_deref() != Some(target.tip)
-            || self.branch_tip.as_deref() != Some(target.tip)
-    }
-}
-
 pub(super) async fn reset(target: &Target<'_>) -> Result<Option<Salvage>, PrepareError> {
     let worktree = target.path;
     let admin = git::absolute_git_dir(worktree).await?;
     remove_own_locks(target, &admin).await?;
-    let state = State::read(target, &admin).await?;
-    let off_target = state.off_target(target);
+    let state = State::read(worktree, target.branch, &admin).await?;
+    let off_target = !state.at(target.branch, target.tip);
     let salvage = if off_target || state.dirty || state.in_progress {
         save(target, &admin, &state).await?;
         Some(Salvage {
@@ -122,8 +83,8 @@ async fn save(target: &Target<'_>, admin: &Path, state: &State) -> Result<(), Pr
 }
 
 async fn verify(target: &Target<'_>, admin: &Path) -> Result<(), PrepareError> {
-    let state = State::read(target, admin).await?;
-    let detail = if state.off_target(target) {
+    let state = State::read(target.path, target.branch, admin).await?;
+    let detail = if !state.at(target.branch, target.tip) {
         format!("HEAD is not {} at {}", target.short_branch(), target.tip)
     } else if state.dirty {
         "changes remain".to_owned()
@@ -136,27 +97,6 @@ async fn verify(target: &Target<'_>, admin: &Path) -> Result<(), PrepareError> {
         path: target.path.to_path_buf(),
         detail,
     })
-}
-
-async fn head_branch(worktree: &Path) -> Result<Option<String>, GitError> {
-    match git::run(worktree, &["symbolic-ref", "--quiet", "HEAD"]).await {
-        Ok(branch) => Ok(Some(branch.trim().to_owned())),
-        Err(GitError::Failed { .. }) => Ok(None),
-        Err(error) => Err(error),
-    }
-}
-
-async fn status(worktree: &Path) -> Result<String, GitError> {
-    git::run(
-        worktree,
-        &[
-            "--no-optional-locks",
-            "status",
-            "--porcelain=v2",
-            "--untracked-files=all",
-        ],
-    )
-    .await
 }
 
 fn remove_if_present(path: &Path) -> Result<(), PrepareError> {

@@ -14,11 +14,13 @@ mod subjects;
 
 use std::path::Path;
 
+pub use crate::checks::REPORT_SCHEMA as CHECK_REPORT_SCHEMA;
 pub use crate::drive::{DriveOutcome, Gate, Progress, ProgressSink, StepLabel};
 pub use crate::git::GitVersion;
 pub use crate::workflow::{
-    AgentAssets, Catalog, DefinitionFile, InvalidDefinition, Problem, StepField,
+    AgentAssets, Catalog, DefinitionFile, DeliveryCheck, InvalidDefinition, Problem, StepField,
 };
+pub(crate) use config::parse_timeout;
 pub use config::{Check, Config, GitConfig, MergeIntoBase};
 pub use create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};
 pub use error::{Error, InternalError, Refusal};

@@ -1,10 +1,12 @@
-use surt_engine::project::{AgentAssets, Catalog};
+use surt_engine::project::{AgentAssets, CHECK_REPORT_SCHEMA, Catalog, DeliveryCheck};
 
 pub(crate) const FEATURE_WORKFLOW: &str = "feature";
 pub(crate) const REQUEST_ARTIFACT: &str = "request";
 pub(crate) const BASE_ARTIFACT: &str = "base";
 
 const TASK_CYCLE_WORKFLOW: &str = "task-cycle";
+const BUILDER: &str = "builder";
+const COMMIT_OUTPUT: &str = "commit";
 
 const MANIFEST_SCHEMA: (&str, &str) = (
     "schemas/manifest.schema.json",
@@ -41,11 +43,11 @@ const AGENTS: [(&str, AgentAssets); 5] = [
         },
     ),
     (
-        "builder",
+        BUILDER,
         AgentAssets {
             toml: include_str!("../assets/agents/builder/agent.toml"),
             instructions: include_str!("../assets/agents/builder/instructions.md"),
-            schemas: &[COMMIT_SCHEMA, FEEDBACK_SCHEMA],
+            schemas: &[COMMIT_SCHEMA, FEEDBACK_SCHEMA, CHECK_REPORT_SCHEMA],
         },
     ),
     (
@@ -53,7 +55,7 @@ const AGENTS: [(&str, AgentAssets); 5] = [
         AgentAssets {
             toml: include_str!("../assets/agents/reviewer/agent.toml"),
             instructions: include_str!("../assets/agents/reviewer/instructions.md"),
-            schemas: &[FEEDBACK_SCHEMA, COMMIT_SCHEMA],
+            schemas: &[FEEDBACK_SCHEMA, COMMIT_SCHEMA, CHECK_REPORT_SCHEMA],
         },
     ),
     (
@@ -75,7 +77,8 @@ pub(crate) fn catalog() -> Catalog {
         .workflow(
             TASK_CYCLE_WORKFLOW,
             include_str!("../assets/workflows/task-cycle.toml"),
-        );
+        )
+        .delivery_check(BUILDER, COMMIT_OUTPUT, DeliveryCheck::CommitEvidence);
     AGENTS
         .into_iter()
         .fold(workflows, |catalog, (id, assets)| catalog.agent(id, assets))

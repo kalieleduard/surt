@@ -6,7 +6,8 @@ use serde::Deserialize;
 
 use super::decide::Limits;
 use crate::artifacts::DeliveryContract;
-use crate::project::Error;
+use crate::checks::CheckSpec;
+use crate::project::{Check, Error, parse_timeout};
 use crate::runtime::AgentLaunch;
 use crate::store::FrozenFile;
 use crate::workflow::{AgentContract, Definition, StepSpec};
@@ -20,6 +21,7 @@ pub(crate) struct Frozen {
     definitions: BTreeMap<String, Definition>,
     agents: BTreeMap<String, FrozenAgent>,
     pub(crate) limits: Limits,
+    pub(crate) checks: Vec<CheckSpec>,
 }
 
 pub(crate) struct FrozenAgent {
@@ -36,9 +38,11 @@ pub(crate) struct CorruptSnapshot {
 }
 
 #[derive(Deserialize)]
-struct FrozenLimits {
+struct FrozenConfig {
     max_attempts: NonZeroU32,
     max_iterations: NonZeroU32,
+    #[serde(default)]
+    checks: Vec<Check>,
 }
 
 struct Files {
@@ -66,7 +70,7 @@ impl Frozen {
     pub(crate) fn from_files(rows: Vec<FrozenFile>) -> Result<Frozen, CorruptSnapshot> {
         let mut definitions = BTreeMap::new();
         let mut agents = BTreeMap::new();
-        let mut limits = None;
+        let mut config = None;
         for (snapshot, files) in group(rows)? {
             match files.kind.as_str() {
                 "workflow" => {
@@ -86,14 +90,16 @@ impl Frozen {
                     };
                     agents.insert(files.name, agent);
                 }
-                _ => limits = Some(frozen_limits(&files)?),
+                _ => config = Some(frozen_config(&files)?),
             }
         }
-        let limits = limits.ok_or_else(|| CorruptSnapshot::new(CONFIG_FILE, "missing"))?;
+        let (limits, checks) =
+            config.ok_or_else(|| CorruptSnapshot::new(CONFIG_FILE, "missing"))?;
         Ok(Frozen {
             definitions,
             agents,
             limits,
+            checks,
         })
     }
 
@@ -186,12 +192,34 @@ fn group(rows: Vec<FrozenFile>) -> Result<BTreeMap<String, Files>, CorruptSnapsh
     Ok(grouped)
 }
 
-fn frozen_limits(files: &Files) -> Result<Limits, CorruptSnapshot> {
-    let limits: FrozenLimits = toml::from_str(files.text(CONFIG_FILE)?)
+fn frozen_config(files: &Files) -> Result<(Limits, Vec<CheckSpec>), CorruptSnapshot> {
+    let config: FrozenConfig = toml::from_str(files.text(CONFIG_FILE)?)
         .map_err(|error| CorruptSnapshot::new(&files.name, error))?;
-    Ok(Limits {
-        max_attempts: count(limits.max_attempts),
-        max_iterations: count(limits.max_iterations),
+    let limits = Limits {
+        max_attempts: count(config.max_attempts),
+        max_iterations: count(config.max_iterations),
+    };
+    let checks = config
+        .checks
+        .into_iter()
+        .map(|check| frozen_check(&files.name, check))
+        .collect::<Result<_, _>>()?;
+    Ok((limits, checks))
+}
+
+fn frozen_check(snapshot: &str, check: Check) -> Result<CheckSpec, CorruptSnapshot> {
+    let timeout = check
+        .timeout
+        .as_deref()
+        .map(|text| {
+            parse_timeout(text)
+                .ok_or_else(|| CorruptSnapshot::new(snapshot, format!("timeout {text:?}")))
+        })
+        .transpose()?;
+    Ok(CheckSpec {
+        name: check.name,
+        run: check.run,
+        timeout,
     })
 }
 

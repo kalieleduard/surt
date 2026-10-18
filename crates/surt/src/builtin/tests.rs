@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use surt_engine::project::{CHECK_REPORT_SCHEMA, DeliveryCheck};
 use toml::{Table, Value};
 
 use super::{AGENTS, BASE_ARTIFACT, FEATURE_WORKFLOW, REQUEST_ARTIFACT, catalog};
@@ -102,6 +103,40 @@ fn each_role_gets_the_tools_and_approvals_of_its_row_in_the_agent_contract() {
 
         assert_eq!(strings(&claude["tools"]), tools, "{id}");
         assert_eq!(strings(&claude["allowed_tools"]), approvals, "{id}");
+    }
+}
+
+#[test]
+fn only_the_builders_commit_must_be_proven_by_git() {
+    let catalog = catalog();
+
+    for (id, _) in AGENTS {
+        let expected: &[(String, DeliveryCheck)] = if id == "builder" {
+            &[("commit".to_owned(), DeliveryCheck::CommitEvidence)]
+        } else {
+            &[]
+        };
+        assert_eq!(catalog.delivery_checks(id), expected, "{id}");
+    }
+}
+
+#[test]
+fn agents_reading_a_check_report_validate_it_with_the_engines_schema() {
+    let (path, text) = CHECK_REPORT_SCHEMA;
+
+    for id in ["builder", "reviewer"] {
+        let agent = agent(id);
+        let (_, assets) = AGENTS
+            .iter()
+            .find(|(candidate, _)| *candidate == id)
+            .expect("the agent");
+
+        assert_eq!(
+            agent["inputs"]["check-report"]["json_schema"].as_str(),
+            Some(path),
+            "{id}"
+        );
+        assert!(assets.schemas.contains(&(path, text)), "{id}");
     }
 }
 

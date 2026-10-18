@@ -11,7 +11,9 @@ use crate::operations::Operation;
 use crate::platform::{self, ExclusiveLock};
 use crate::project::Error;
 use crate::runtime::AgentRuntime;
-use crate::store::{Acceptance, ExecutionKind, ExecutionStart, StartedExecution, StepRow};
+use crate::store::{
+    Acceptance, ExecutionKind, ExecutionStart, PublishedOutput, StartedExecution, StepRow,
+};
 
 const GIT_LOCK_POLL: Duration = Duration::from_millis(10);
 
@@ -29,10 +31,24 @@ pub(super) struct OperationLaunch {
     pub(super) root: String,
 }
 
+pub(super) struct Finished {
+    pub(super) outcome: &'static str,
+    pub(super) outputs: Vec<PublishedOutput>,
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("step {step} needs a capability this surt does not have yet")]
 struct Unsupported {
     step: String,
+}
+
+impl From<&'static str> for Finished {
+    fn from(outcome: &'static str) -> Finished {
+        Finished {
+            outcome,
+            outputs: Vec::new(),
+        }
+    }
 }
 
 impl Flight {
@@ -92,16 +108,20 @@ impl<R: AgentRuntime> Driver<'_, R> {
 
     async fn operate(&self, launch: OperationLaunch) -> Result<(), Error> {
         let result = match launch.operation {
-            Operation::CreateRunBranch => self.create_run_branch(&launch).await,
-            Operation::CreateChildWorktree => self.create_child_worktree(&launch).await,
-            Operation::RunChecks | Operation::Integrate | Operation::SnapshotRunBranch => {
+            Operation::CreateRunBranch => self.create_run_branch(&launch).await.map(Finished::from),
+            Operation::CreateChildWorktree => self
+                .create_child_worktree(&launch)
+                .await
+                .map(Finished::from),
+            Operation::RunChecks => self.run_checks(&launch).await,
+            Operation::Integrate | Operation::SnapshotRunBranch => {
                 Err(OperationError::Fatal(Error::internal(Unsupported {
                     step: launch.row.key.clone(),
                 })))
             }
         };
         match result {
-            Ok(outcome) => self.finish_operation(&launch, outcome).await,
+            Ok(finished) => self.finish_operation(&launch, finished).await,
             Err(OperationError::Failed(failure)) => {
                 self.end(&launch.row, &launch.started, failure.into_end())
                     .await
@@ -110,17 +130,27 @@ impl<R: AgentRuntime> Driver<'_, R> {
         }
     }
 
-    async fn finish_operation(&self, launch: &OperationLaunch, outcome: &str) -> Result<(), Error> {
+    async fn finish_operation(
+        &self,
+        launch: &OperationLaunch,
+        finished: Finished,
+    ) -> Result<(), Error> {
         let acceptance = Acceptance {
             execution: &launch.started.id,
-            outcome,
-            outputs: &[],
+            outcome: finished.outcome,
+            outputs: &finished.outputs,
             tip: None,
         };
-        self.driving.store.accept_execution(acceptance).await?;
+        let published = self.driving.store.accept_execution(acceptance).await?;
+        for (artifact, revision) in published {
+            self.report(Progress::RevisionPublished {
+                artifact,
+                revision: revision.number,
+            });
+        }
         self.report(Progress::StepFinished {
             step: label(&launch.row),
-            outcome: outcome.to_owned(),
+            outcome: finished.outcome.to_owned(),
         });
         Ok(())
     }

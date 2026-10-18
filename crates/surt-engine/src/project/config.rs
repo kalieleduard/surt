@@ -6,6 +6,11 @@ use serde::{Deserialize, Serialize};
 
 use super::error::{Error, Refusal};
 
+mod check;
+
+pub use check::Check;
+pub(crate) use check::parse_timeout;
+
 pub(crate) const TEMPLATE: &str = include_str!("../../assets/config.toml");
 
 const DEFAULT_MAX_CONCURRENT_AGENTS: NonZeroU32 = NonZeroU32::new(3).unwrap();
@@ -34,15 +39,6 @@ pub enum MergeIntoBase {
     #[default]
     Never,
     FfOnly,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Check {
-    pub name: String,
-    pub run: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub timeout: Option<String>,
 }
 
 impl Default for Config {
