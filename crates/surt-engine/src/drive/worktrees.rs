@@ -1,18 +1,13 @@
-use std::path::Path;
-
-use serde_json::json;
+mod preparation;
 
 use super::branches::{CONFIRMED, DISCARDED, moved, run_stem};
 use super::driver::Driver;
 use super::failure::{Failure, OperationError};
-use super::graph::ExecutionState;
-use super::load::label;
 use super::operate::OperationLaunch;
-use super::outcome::Progress;
 use crate::git::{self, worktrees};
-use crate::reconcile::worktree::{self, Located, PrepareError, Prepared, Repair, Target};
+use crate::reconcile::worktree::{self, PrepareError, Target};
 use crate::runtime::AgentRuntime;
-use crate::store::{PreviousExecution, RunBranch, StartedExecution, StepRow};
+use crate::store::{RunBranch, StartedExecution, StepRow};
 
 const DONE: &str = "done";
 const SALVAGE_REFS: &str = "refs/surt/salvage/";
@@ -137,61 +132,6 @@ impl<R: AgentRuntime> Driver<'_, R> {
         };
         self.record_preparation(row, started, path, previous.as_ref(), prepared)
             .await
-    }
-
-    async fn record_preparation(
-        &self,
-        row: &StepRow,
-        started: &StartedExecution,
-        path: &Path,
-        previous: Option<&PreviousExecution>,
-        prepared: Prepared,
-    ) -> Result<(), OperationError> {
-        let store = self.driving.store;
-        let repair = match prepared.located {
-            Located::Repaired(repair) => Some(repair),
-            Located::Added if previous.is_some() => Some(Repair::Missing),
-            Located::Added | Located::Present => None,
-        };
-        if let Some(repair) = repair {
-            let data = json!({ "path": path, "repair": repair_name(&repair) });
-            store
-                .record_execution_event(&started.id, "worktree.repaired", &data)
-                .await?;
-            self.report(Progress::WorktreeRepaired {
-                step: label(row),
-                path: path.to_path_buf(),
-            });
-        }
-        let Some(salvage) = prepared.salvage else {
-            return Ok(());
-        };
-        let data = json!({ "ref": salvage.reference });
-        store
-            .record_execution_event(&started.id, "worktree.salvaged", &data)
-            .await?;
-        if salvage.off_target || previous.is_some_and(ended_badly) {
-            self.report(Progress::Salvaged {
-                step: label(row),
-                reference: salvage.reference,
-            });
-        }
-        Ok(())
-    }
-}
-
-fn ended_badly(previous: &PreviousExecution) -> bool {
-    matches!(
-        previous.state,
-        ExecutionState::Failed(_) | ExecutionState::Interrupted
-    )
-}
-
-fn repair_name(repair: &Repair) -> &'static str {
-    match repair {
-        Repair::HalfCreated => "half_created",
-        Repair::Missing => "missing",
-        Repair::Orphaned { .. } => "orphaned",
     }
 }
 
