@@ -19,6 +19,7 @@ mod launch;
 mod load;
 mod operate;
 mod outcome;
+mod pause;
 mod public;
 mod record;
 mod recovered;
