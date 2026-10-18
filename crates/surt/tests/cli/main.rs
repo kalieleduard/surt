@@ -19,6 +19,7 @@ mod phases;
 mod restore;
 mod scripts;
 mod show;
+mod slots;
 mod start;
 mod status;
 mod stop;

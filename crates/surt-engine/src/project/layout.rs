@@ -39,6 +39,12 @@ impl Layout {
         self.locks().join(format!("{run}.lock"))
     }
 
+    pub(crate) fn slot(&self, index: usize) -> PathBuf {
+        self.runtime()
+            .join("slots")
+            .join(format!("agent-{index}.lock"))
+    }
+
     pub(crate) fn execution(&self, execution: &str) -> PathBuf {
         self.runtime().join("executions").join(execution)
     }

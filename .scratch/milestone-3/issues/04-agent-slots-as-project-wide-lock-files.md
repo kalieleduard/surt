@@ -8,13 +8,13 @@ Spec: [Milestone 3](../spec.md) (stories 26–28, 35–39) · Plan: [A. Agent co
 
 **Status:** ready-for-agent
 
-- [ ] Slots use the same separate-file lock primitive as the run locks, on macOS, Linux and Windows; the slots directory is created on first use; lock files are never deleted, and `surt delete` leaves them alone
-- [ ] On each tick the Driver `try_lock`s the slot indices below the limit that it does not hold; the slots it gets are the free slots passed to `decide()`, which already gives one slot to each `Launch`
-- [ ] A slot taken for a launch is held until that Execution's flight lands; slots tried but not used are released in the same tick
-- [ ] With no free slot, ready agents stay queued and the Driver retries on its next tick (about one second); queued agents of one Driver go in deterministic order (manifest order for Tasks)
-- [ ] `execution.slot` records the index, for display only; recovery does not read it
-- [ ] The footer's `slots N/M` is `M` minus the Driver's free slots, so it includes other Drivers
-- [ ] The per-Driver semaphore is gone, and with it B's rule exception for `Flights` counting slots inside one Driver
-- [ ] `Project::drive` test: two `Project` handles on one project directory drive two Features with `max_concurrent_agents = 1` and Fake Executions that wait until stopped; two agents never run at once; dropping one Driver lets the other launch
-- [ ] Binary test: two `surt start` processes on two Features with a limit of 1 never have two agent Executions running at once
-- [ ] A records the tick cadence in place of "~500 ms"; K's "Agent slots across processes" row says it is implemented
+- [x] Slots use the same separate-file lock primitive as the run locks, on macOS, Linux and Windows; the slots directory is created on first use; lock files are never deleted, and `surt delete` leaves them alone
+- [x] On each tick the Driver `try_lock`s the slot indices below the limit that it does not hold; the slots it gets are the free slots passed to `decide()`, which already gives one slot to each `Launch`
+- [x] A slot taken for a launch is held until that Execution's flight lands; slots tried but not used are released in the same tick
+- [x] With no free slot, ready agents stay queued and the Driver retries on its next tick (about one second); queued agents of one Driver go in deterministic order (manifest order for Tasks)
+- [x] `execution.slot` records the index, for display only; recovery does not read it
+- [x] The footer's `slots N/M` is `M` minus the Driver's free slots, so it includes other Drivers
+- [x] The per-Driver semaphore is gone, and with it B's rule exception for `Flights` counting slots inside one Driver
+- [x] `Project::drive` test: two `Project` handles on one project directory drive two Features with `max_concurrent_agents = 1` and Fake Executions that wait until stopped; two agents never run at once; dropping one Driver lets the other launch
+- [x] Binary test: two `surt start` processes on two Features with a limit of 1 never have two agent Executions running at once
+- [x] A records the tick cadence in place of "~500 ms"; K's "Agent slots across processes" row says it is implemented

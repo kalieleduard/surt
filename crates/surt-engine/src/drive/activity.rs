@@ -5,12 +5,11 @@ use super::outcome::{ActivitySnapshot, Progress, RunningStep};
 use crate::runtime::AgentRuntime;
 
 impl<R: AgentRuntime> Driver<'_, R> {
-    pub(super) fn observe(&self, loaded: &Loaded, queued: usize, free_slots: usize) {
-        let limit = self.driving.max_agents;
+    pub(super) fn observe(&self, loaded: &Loaded, queued: usize, in_use: usize, limit: usize) {
         let snapshot = ActivitySnapshot {
             running: running(loaded),
             queued,
-            slots_in_use: limit.saturating_sub(free_slots),
+            slots_in_use: in_use,
             slots_limit: limit,
         };
         let Ok(mut last) = self.activity.lock() else {

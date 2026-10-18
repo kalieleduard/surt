@@ -7,7 +7,7 @@ use super::planned::{Gauge, TASK_WORKFLOW, approved, approved_with, work};
 use crate::project::{Config, DriveOutcome};
 use crate::runtime::Script;
 
-fn limited(agents: u32) -> Config {
+pub(super) fn limited(agents: u32) -> Config {
     Config {
         max_concurrent_agents: NonZeroU32::new(agents).expect("a positive limit"),
         ..Config::default()
