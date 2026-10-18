@@ -582,6 +582,9 @@ merge_into_base = "never"   # "never" | "ff-only"
 # name = "test"
 # run = ["cargo", "test", "--workspace"]
 # timeout = "10m"           # optional
+
+# [cleanup]
+# on_success = "keep"       # optional: a succeeded run keeps its worktrees and branches until surt delete
 ```
 
 | Key | Default | When it applies | Decided in |
@@ -591,6 +594,7 @@ merge_into_base = "never"   # "never" | "ff-only"
 | `max_iterations` | `5` | frozen at root run creation | [G](G-state-machines.md#limits) |
 | `[git] merge_into_base` | `"never"` | frozen; `surt feature --merge`/`--no-merge` override it per run | [A. Git Integration](A-git-integration.md) |
 | `[[checks]]` | none | frozen | [A. Git Integration](A-git-integration.md) |
+| `[cleanup] on_success` | absent: the root Workflow Definition's (`"clean"`) | `"clean"` or `"keep"`; the effective policy is frozen | [I. Cleanup](I-cleanup.md#when-cleanup-runs), [E](E-workflow-schema.md#file-layout) |
 
 The frozen keys and the per-run override form the `config` snapshot of [D](D-database.md#snapshots).
 

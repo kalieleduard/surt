@@ -133,7 +133,7 @@ A snapshot is a set of files with an identity hash, shared by every run that fro
 |---|---|---|
 | `workflow` | the canonical definition | SHA-256 of the canonical form ([E](E-workflow-schema.md#freezing-and-identity)) |
 | `agent` | effective `agent.toml`, instructions and every local schema it references | as in [F](F-agent-contract.md) |
-| `config` | the effective project configuration frozen at root run creation: `[[checks]]`, `max_attempts`, `max_iterations`, `[git] merge_into_base` and any per-run override | SHA-256 of its canonical form |
+| `config` | the effective project configuration frozen at root run creation: `[[checks]]`, `max_attempts`, `max_iterations`, `[git] merge_into_base`, the effective `[cleanup] on_success` ([I](I-cleanup.md#when-cleanup-runs)) and any per-run override | SHA-256 of its canonical form |
 
 `run_snapshot` lists what a root run froze. `workflow_run.definition_sha256`, `workflow_run.config_sha256` and `execution.agent_snapshot_sha256` point at snapshots. The engine guarantees they belong to their root's `run_snapshot` set; a foreign key cannot express that.
 
