@@ -2,6 +2,10 @@ use super::fixtures::{ProjectDir, default_config, draft_catalog, new_run};
 
 const LOCAL_INSTRUCTIONS: &str = "Follow the project's style guide.\r\n";
 
+const NOTES: &str = "schemas/notes.schema.json";
+
+const STRICT_NOTES: &str = r#"{"type": "object", "required": ["status"]}"#;
+
 async fn create(dir: &ProjectDir) {
     dir.project(draft_catalog(), default_config())
         .await
@@ -22,5 +26,18 @@ async fn a_local_instructions_md_replaces_the_built_in_text_and_is_frozen_as_rea
             .await
             .as_deref(),
         Some(LOCAL_INSTRUCTIONS)
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_local_schema_overlays_the_built_in_schema_of_the_same_path() {
+    let dir = ProjectDir::new();
+    dir.write_local("writer", NOTES, STRICT_NOTES);
+
+    create(&dir).await;
+
+    assert_eq!(
+        dir.frozen_agent_file("writer", NOTES).await.as_deref(),
+        Some(STRICT_NOTES)
     );
 }

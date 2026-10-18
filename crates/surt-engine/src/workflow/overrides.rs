@@ -13,6 +13,7 @@ pub(crate) struct LocalAgent {
     pub(crate) id: String,
     pub(crate) toml: Option<LocalFile>,
     pub(crate) instructions: Option<LocalFile>,
+    pub(crate) schemas: BTreeMap<String, LocalFile>,
 }
 
 pub(crate) struct LocalFile {
@@ -72,7 +73,11 @@ impl LocalAgent {
     fn assets(&self) -> LocalAssets {
         LocalAssets {
             instructions: self.instructions.as_ref().map(|file| file.text.clone()),
-            schemas: BTreeMap::new(),
+            schemas: self
+                .schemas
+                .iter()
+                .map(|(path, file)| (path.clone(), file.text.clone()))
+                .collect(),
         }
     }
 }

@@ -1,3 +1,5 @@
+mod schemas;
+
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -21,11 +23,13 @@ pub(super) fn read(layout: &Layout, catalog: &Catalog) -> Result<Vec<LocalAgent>
     catalog
         .agent_ids()
         .map(|id| {
-            let read_named = |name: &str| read_file(&agents.join(id).join(name), &shown(id, name));
+            let dir = agents.join(id);
+            let read_named = |name: &str| read_file(&dir.join(name), &shown(id, name));
             Ok(LocalAgent {
                 id: id.to_owned(),
                 toml: read_named(AGENT_FILE)?,
                 instructions: read_named(INSTRUCTIONS_FILE)?,
+                schemas: schemas::read(&dir, id)?,
             })
         })
         .collect()
