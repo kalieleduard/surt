@@ -32,6 +32,12 @@ pub struct Candidate {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KnownRun {
+    pub run: u32,
+    pub states: Vec<RunState>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AwaitedRevision {
     pub artifact: String,
     pub revision: u32,
@@ -124,6 +130,11 @@ pub enum Refusal {
         artifact: String,
         revision: u32,
         latest: u32,
+    },
+    UnknownRun {
+        subject: String,
+        run: u32,
+        runs: Vec<KnownRun>,
     },
     UnknownItem {
         subject: String,
