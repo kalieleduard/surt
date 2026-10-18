@@ -1,7 +1,13 @@
 pub(crate) use crate::runtime::FailureClass;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct RunId(pub(crate) String);
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct RunId(pub(crate) String);
+
+impl RunId {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct StepRunId(pub(crate) String);
