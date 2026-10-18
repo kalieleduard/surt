@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
+use super::AgentLaunch;
+
 #[derive(Clone, Debug)]
 pub struct RuntimeRequest {
     #[cfg_attr(
@@ -16,6 +18,7 @@ pub struct RuntimeRequest {
     pub(crate) session_id: Uuid,
     pub(crate) model: String,
     pub(crate) delivery_dir: PathBuf,
+    pub(crate) launch: AgentLaunch,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]

@@ -11,6 +11,7 @@ test-support = []
 [dependencies]
 dunce.workspace = true
 jiff.workspace = true
+process-wrap.workspace = true
 jsonschema.workspace = true
 serde.workspace = true
 serde_json.workspace = true

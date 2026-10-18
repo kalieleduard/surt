@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use tempfile::TempDir;
 use tokio::sync::mpsc;
@@ -6,8 +6,9 @@ use uuid::Uuid;
 
 use crate::artifacts::{DeliveryContract, DeliveryRejection};
 use crate::runtime::{
-    AgentRuntime, Behavior, Delivery, FailureClass, FakeRuntime, Rejection, RuntimeCompletion,
-    RuntimeError, RuntimeRequest, Script, StepAttempt, StopSignal, Verdict, accept,
+    AgentLaunch, AgentRuntime, Behavior, Delivery, FailureClass, FakeRuntime, Rejection,
+    RuntimeCompletion, RuntimeError, RuntimeRequest, Script, StepAttempt, StopSignal, Verdict,
+    accept,
 };
 use crate::workflow::{AgentAssets, AgentContract};
 
@@ -61,6 +62,7 @@ impl Execution {
             step: StepAttempt::new(STEP, 1, 1),
             session_id: Uuid::now_v7(),
             model: MODEL.to_owned(),
+            launch: writer_launch(dir.path()),
             delivery_dir,
         };
         Execution {
@@ -131,6 +133,22 @@ pub(super) fn valid(outcome: &str) -> Delivery {
 
 pub(super) async fn rejection(delivery: Delivery) -> DeliveryRejection {
     Execution::new().delivery_rejection(delivery).await
+}
+
+fn writer_launch(dir: &Path) -> AgentLaunch {
+    let assets = AgentAssets {
+        toml: WRITER_AGENT,
+        instructions: "Write.",
+        schemas: &[("schemas/data.schema.json", DATA_SCHEMA)],
+    };
+    let agent = AgentContract::parse("writer", &assets).expect("a valid agent contract");
+    AgentLaunch::new(
+        &agent,
+        assets.instructions,
+        "",
+        dir.to_owned(),
+        dir.join("launch"),
+    )
 }
 
 pub(super) fn writer_contract() -> DeliveryContract {

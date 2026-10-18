@@ -9,7 +9,10 @@ mod outcomes;
 mod steps;
 mod structure;
 
-pub(crate) use agent::{AgentContract, Format, ItemFileSpec, OutputSpec};
+pub(crate) use agent::{
+    AgentContract, Auth, ClaudeProfile, Effort, Format, ItemFileSpec, OutputSpec, PermissionMode,
+    Profile,
+};
 pub use catalog::{AgentAssets, Catalog};
 pub use error::{DefinitionFile, InvalidDefinition, Problem, StepField};
 pub(crate) use freeze::{FreezeError, FrozenRun, Snapshot, freeze};

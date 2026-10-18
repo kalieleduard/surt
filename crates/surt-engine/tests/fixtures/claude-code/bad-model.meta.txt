@@ -1,0 +1,7 @@
+scenario=bad-model
+exit_code=1
+model=claude-nonexistent-0-0
+session_id=45c2ea83-2948-473b-8e9c-4735b6150fd7
+claude_version=2.1.301 (Claude Code)
+delivery_files=
+argv=claude -p --session-id 45c2ea83-2948-473b-8e9c-4735b6150fd7 --no-session-persistence --output-format stream-json --verbose --model claude-nonexistent-0-0 --effort low --permission-mode dontAsk --permission-prompts none --tools Read\,Write --allowedTools Edit\(//tmp/surt-fixture/delivery/\*\*\) Read --disallowedTools Bash --json-schema \{\"type\":\"object\"\,\"additionalProperties\":false\,\"required\":\[\"outcome\"\,\"outputs\"\]\,\"properties\":\{\"outcome\":\{\"enum\":\[\"done\"\]\}\,\"outputs\":\{\"type\":\"object\"\,\"additionalProperties\":false\,\"required\":\[\"note\"\]\,\"properties\":\{\"note\":\{\"type\":\"string\"\}\}\}\}\} --append-system-prompt-file instructions.md --settings settings.json --strict-mcp-config --mcp-config mcp.json --disable-slash-commands --safe-mode --setting-sources user 
