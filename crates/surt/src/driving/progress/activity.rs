@@ -1,9 +1,12 @@
 use surt_engine::project::{ActivitySnapshot, RunningStep};
 
+use crate::symbols::{ELLIPSIS, HORIZONTAL, SEPARATOR};
+
 const QUIET_LIMIT: i64 = 5 * 60;
 const SECONDS_PER_MINUTE: i64 = 60;
 const SECONDS_PER_HOUR: i64 = 3600;
 const FIRST: u32 = 1;
+const RULE_WIDTH: usize = 2;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Terminal {
@@ -49,7 +52,8 @@ fn footer(snapshot: &ActivitySnapshot, started: i64, now: i64) -> String {
         snapshot.slots_in_use, snapshot.slots_limit
     ));
     parts.push(duration(now - started));
-    format!("── {} ──", parts.join(" · "))
+    let rule = HORIZONTAL.repeat(RULE_WIDTH);
+    format!("{rule} {} {rule}", parts.join(SEPARATOR))
 }
 
 fn still_running(snapshot: &ActivitySnapshot, last_line: i64, now: i64) -> Option<String> {
@@ -61,7 +65,7 @@ fn still_running(snapshot: &ActivitySnapshot, last_line: i64, now: i64) -> Optio
         .iter()
         .map(|step| format!("{} ({})", name(step), duration(now - step.started_at)))
         .collect();
-    Some(format!("… still running: {}", running.join(", ")))
+    Some(format!("{ELLIPSIS} still running: {}", running.join(", ")))
 }
 
 fn name(running: &RunningStep) -> String {

@@ -1,5 +1,7 @@
 use surt_engine::project::{Problem, StepField};
 
+use crate::symbols::ARROW;
+
 pub(super) fn describe(problem: &Problem) -> String {
     match problem {
         Problem::Syntax {
@@ -27,7 +29,10 @@ pub(super) fn describe(problem: &Problem) -> String {
         }
         Problem::SharedBodyStep { name } => format!("\"{name}\" is in the body of two loops"),
         Problem::NestedLoop { name } => format!("loop \"{name}\" is inside another loop"),
-        Problem::Cycle { path } => format!("the steps form a cycle: {}", path.join(" → ")),
+        Problem::Cycle { path } => format!(
+            "the steps form a cycle: {}",
+            path.join(&format!(" {ARROW} "))
+        ),
         Problem::UntilOutsideBody { name } => {
             format!("until names \"{name}\", which is not in the loop's body")
         }

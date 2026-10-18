@@ -1,6 +1,7 @@
 use surt_engine::project::{ActivitySnapshot, RunningStep, StepLabel};
 
 use super::{Activity, Output, Terminal, on_tick};
+use crate::symbols::Symbols;
 
 const STARTED: i64 = 1_000_000;
 const MINUTE: i64 = 60;
@@ -115,4 +116,24 @@ fn without_a_tty_nothing_fires_when_nothing_runs() {
         ),
         None
     );
+}
+
+fn ascii(output: Option<Output>) -> String {
+    match output.expect("an output") {
+        Output::Footer(text) | Output::Line(text) => Symbols::Ascii.render(&text).into_owned(),
+    }
+}
+
+#[test]
+fn the_footer_and_the_heartbeat_line_print_only_ascii_in_ascii_mode() {
+    let now = STARTED + 32 * MINUTE + 10;
+
+    let footer = ascii(on_tick(&activity(busy(), STARTED), now, Terminal::Tty));
+    let heartbeat = ascii(on_tick(&activity(busy(), STARTED), now, Terminal::Plain));
+
+    assert_eq!(
+        footer,
+        "-- 2 running (B build 6m, C review 1m) | 1 queued | slots 3/3 | 32m --"
+    );
+    assert_eq!(heartbeat, "... still running: B build (6m), C review (1m)");
 }

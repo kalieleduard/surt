@@ -4,6 +4,7 @@ use surt_engine::project::ActivitySnapshot;
 
 use super::activity::{Activity, Output, Terminal, on_tick};
 use crate::message::{Mark, Message};
+use crate::symbols::printable;
 
 const ERASE_LINE: &str = "\r\x1b[2K";
 
@@ -75,6 +76,6 @@ impl Screen {
 
 fn write(text: &str) {
     let mut stderr = std::io::stderr().lock();
-    let _ = stderr.write_all(text.as_bytes());
+    let _ = stderr.write_all(printable(text).as_bytes());
     let _ = stderr.flush();
 }

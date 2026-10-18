@@ -11,6 +11,7 @@ use crate::driving::{print_progress, report_cleanup};
 use crate::failure::Failure;
 use crate::message::Message;
 use crate::phase::active_run;
+use crate::symbols::{DASH, printable};
 
 #[derive(clap::Args)]
 pub(crate) struct CancelArgs {
@@ -50,7 +51,7 @@ async fn confirm(project: &Project, subject: &str, run: &RunId, yes: bool) -> Re
         ));
     }
     let question = confirmation::question(subject, &project.cancel_impact(run).await?);
-    if confirmation::ask(&question, io::stdin().lock(), io::stderr())? {
+    if confirmation::ask(&printable(&question), io::stdin().lock(), io::stderr())? {
         return Ok(());
     }
     Err(Failure::Refused(Message::new(format!(
@@ -63,7 +64,7 @@ fn ended(subject: &str, cancellation: Cancellation) -> Message {
         Cancellation::Cancelled => Message::new("run cancelled"),
         Cancellation::AlreadyCancelled => Message::new(format!("{subject} was already cancelled")),
         Cancellation::AlreadySucceeded => Message::new(format!(
-            "{subject} had already succeeded — nothing to cancel"
+            "{subject} had already succeeded {DASH} nothing to cancel"
         )),
     }
 }

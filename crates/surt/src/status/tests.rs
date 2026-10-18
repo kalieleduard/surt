@@ -7,6 +7,7 @@ use surt_engine::project::{
 };
 
 use super::{detail, overview};
+use crate::symbols::Symbols;
 
 const SUBJECT: &str = "20261017-add-login";
 const BASE: &str = "a11c9d0e5f60718293a4b5c6d7e8f90112233445";
@@ -228,4 +229,42 @@ fn the_overview_joins_simultaneous_states_and_falls_back_to_the_blocked_step() {
              agent slots: 3/3 in use\n"
         )
     );
+}
+
+#[test]
+fn the_detail_in_ascii_mode_replaces_every_glyph() {
+    let text = detail::render(&stopped_with_everything_pending());
+
+    assert_eq!(
+        Symbols::Ascii.render(&text),
+        format!(
+            "{SUBJECT} | run 2   AWAITING APPROVAL + BLOCKED   (no driver)\n  \
+             base     HEAD @ a11c9d0\n  \
+             spec     rev 1 (human) [ok] approved\n           \
+             [edited] spec.md edited - not recorded\n  \
+             plan     rev 1 (human) [error] rejected\n  \
+             implement\n    \
+             A  [waiting] queued    build iter 2 | attempt 1 | waiting for agent slot (3/3 in use)\n    \
+             B  [stopped] stopped   build iter 2 | attempt 1 | merge: src/auth.rs, src/user.rs\n    \
+             C  [error] cancelled\n    \
+             D  [paused] pending   waits for B, C\n    \
+             E  * build     iter 2 | attempt 1 | checks: test\n  \
+             [blocked] task B check iter 2 blocked: iterations exhausted\n  \
+             resume: surt plan {SUBJECT}\n  \
+             [warn] task A build iter 2 still running unattended (pid 50122) - stopped on next: surt plan {SUBJECT}\n  \
+             [integrating] task B integrate   surt/{SUBJECT}: 9e04b7d -> 3c1aa20 (pending)\n"
+        )
+    );
+}
+
+#[test]
+fn the_overview_and_a_cleaned_detail_print_only_ascii_in_ascii_mode() {
+    let texts = [
+        overview::render(&[stopped_with_everything_pending(), cancelled_and_cleaned()]),
+        detail::render(&cancelled_and_cleaned()),
+    ];
+
+    for text in texts {
+        assert!(Symbols::Ascii.render(&text).is_ascii(), "{text}");
+    }
 }

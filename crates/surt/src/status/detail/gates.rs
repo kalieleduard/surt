@@ -6,6 +6,7 @@ use super::{CONTINUATION, field, line};
 use crate::driving::local_time;
 use crate::phase::Phase;
 use crate::show::origin;
+use crate::symbols::{DASH, EDITED, ELLIPSIS, ERROR, PAUSED, SEPARATOR, SUCCESS, WARNING};
 
 const INDEX_FILES: usize = 1;
 
@@ -47,7 +48,9 @@ pub(super) fn render(text: &mut String, status: &RunStatus) {
         let subject = &status.subject;
         line(
             text,
-            &format!("approve: surt approve {subject}    reject: surt reject {subject} -m \"…\""),
+            &format!(
+                "approve: surt approve {subject}    reject: surt reject {subject} -m \"{ELLIPSIS}\""
+            ),
         );
     }
 }
@@ -68,13 +71,17 @@ fn decision(gate: &GateView, covered: Option<usize>) -> String {
     };
     let items = covered.map(tasks).unwrap_or_default();
     match (gate.status, covered) {
-        (GateStatus::Approved { .. }, _) => format!("{}{items}", by(" ✔ approved")),
-        (GateStatus::Rejected { .. }, _) => format!("{}{items}", by(" ✖ rejected")),
+        (GateStatus::Approved { .. }, _) => {
+            format!("{}{items}", by(&format!(" {SUCCESS} approved")))
+        }
+        (GateStatus::Rejected { .. }, _) => format!("{}{items}", by(&format!(" {ERROR} rejected"))),
         (GateStatus::Waiting { .. }, Some(count)) => format!(
-            " ⏸ awaiting approval — approving covers the {} and all {count} task files:",
+            " {PAUSED} awaiting approval {DASH} approving covers the {} and all {count} task files:",
             gate.artifact
         ),
-        (GateStatus::Waiting { .. }, None) => " ⏸ awaiting approval — approving covers:".to_owned(),
+        (GateStatus::Waiting { .. }, None) => {
+            format!(" {PAUSED} awaiting approval {DASH} approving covers:")
+        }
         (GateStatus::NotReached, _) => String::new(),
     }
 }
@@ -87,16 +94,19 @@ fn changes(text: &mut String, gate: &GateView, revision: u32) {
         } else {
             "not recorded".to_owned()
         };
-        let _ = writeln!(text, "{CONTINUATION}✎ {file} edited — {effect}");
+        let _ = writeln!(text, "{CONTINUATION}{EDITED} {file} edited {DASH} {effect}");
     }
     for file in &gate.missing {
-        let _ = writeln!(text, "{CONTINUATION}⚠ {file} missing from the Working Copy");
+        let _ = writeln!(
+            text,
+            "{CONTINUATION}{WARNING} {file} missing from the Working Copy"
+        );
     }
 }
 
 fn tasks(count: usize) -> String {
     match count {
-        1 => " · 1 task".to_owned(),
-        _ => format!(" · {count} tasks"),
+        1 => format!("{SEPARATOR}1 task"),
+        _ => format!("{SEPARATOR}{count} tasks"),
     }
 }

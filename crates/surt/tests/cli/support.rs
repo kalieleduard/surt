@@ -16,7 +16,7 @@ const SYSTEM_DIRECTORIES: [&str; 2] = ["/usr/bin", "/bin"];
 const IDENTITY_CONFIG: &str = "[user]\n\tname = Surt Tester\n\temail = tester@example.com\n";
 const NO_IDENTITY_CONFIG: &str = "[user]\n\tuseConfigOnly = true\n";
 
-const INHERITED_VARIABLES: [&str; 11] = [
+const INHERITED_VARIABLES: [&str; 14] = [
     "EMAIL",
     "GIT_AUTHOR_NAME",
     "GIT_AUTHOR_EMAIL",
@@ -28,6 +28,9 @@ const INHERITED_VARIABLES: [&str; 11] = [
     "NO_COLOR",
     "CLICOLOR",
     "CLICOLOR_FORCE",
+    "LC_ALL",
+    "LC_CTYPE",
+    "LANG",
 ];
 
 pub struct Sandbox {

@@ -8,6 +8,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 
 use super::cleanup::summary;
 use crate::message::{Mark, Message};
+use crate::symbols::{DASH, ELLIPSIS};
 use screen::{Screen, now};
 
 const FIRST: u32 = 1;
@@ -99,7 +100,7 @@ fn message(progress: &Progress) -> (Mark, Message) {
         Progress::Salvaged { step, reference } => (
             Mark::Warning,
             Message::new(format!(
-                "{} worktree had leftovers — saved to {reference}",
+                "{} worktree had leftovers {DASH} saved to {reference}",
                 label(step)
             ))
             .way("inspect", format!("git log -p {reference}")),
@@ -107,7 +108,7 @@ fn message(progress: &Progress) -> (Mark, Message) {
         Progress::WorktreeRepaired { step, path } => (
             Mark::Warning,
             Message::new(format!(
-                "worktree for {} was missing — recreated at {}",
+                "worktree for {} was missing {DASH} recreated at {}",
                 label(step),
                 path.display()
             )),
@@ -138,21 +139,21 @@ fn message(progress: &Progress) -> (Mark, Message) {
         Progress::OrphanStopped { step, attempt, pid } => (
             Mark::Warning,
             Message::new(format!(
-                "{} attempt {attempt} (pid {pid}, alive) — stopped",
+                "{} attempt {attempt} (pid {pid}, alive) {DASH} stopped",
                 label(step)
             )),
         ),
         Progress::Discarded { step, attempt } => (
             Mark::Error,
             Message::new(format!(
-                "{} attempt {attempt} exited but was never recorded — discarded",
+                "{} attempt {attempt} exited but was never recorded {DASH} discarded",
                 label(step)
             )),
         ),
         Progress::InterruptedWithDriver { step, attempt } => (
             Mark::Warning,
             Message::new(format!(
-                "{} attempt {attempt} was interrupted with the previous driver — discarded",
+                "{} attempt {attempt} was interrupted with the previous driver {DASH} discarded",
                 label(step)
             )),
         ),
@@ -163,7 +164,7 @@ fn message(progress: &Progress) -> (Mark, Message) {
         } => (
             Mark::Success,
             Message::new(format!(
-                "{} had completed ({branch} @ {}) — recorded",
+                "{} had completed ({branch} @ {}) {DASH} recorded",
                 label(step),
                 short(merge)
             )),
@@ -180,16 +181,20 @@ fn message(progress: &Progress) -> (Mark, Message) {
 fn cancel_requested(driver: Option<u32>) -> Message {
     match driver {
         Some(pid) => Message::new(format!(
-            "cancel requested; driver pid {pid} is stopping it…"
+            "cancel requested; driver pid {pid} is stopping it{ELLIPSIS}"
         )),
-        None => Message::new("cancel requested; waiting for the driver to stop…"),
+        None => Message::new(format!(
+            "cancel requested; waiting for the driver to stop{ELLIPSIS}"
+        )),
     }
 }
 
 fn recovering(driver: Option<u32>) -> Message {
     match driver {
-        Some(pid) => Message::new(format!("previous driver (pid {pid}) is gone — recovering")),
-        None => Message::new("previous driver is gone — recovering"),
+        Some(pid) => Message::new(format!(
+            "previous driver (pid {pid}) is gone {DASH} recovering"
+        )),
+        None => Message::new(format!("previous driver is gone {DASH} recovering")),
     }
 }
 
