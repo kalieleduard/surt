@@ -48,7 +48,8 @@ fn a_killed_driver_frees_the_run_and_the_next_start_finishes_it_with_a_new_attem
     assert_eq!(resumed.code, Some(0), "{}", resumed.stderr);
     for line in [
         format!("previous driver (pid {killed}) is gone — recovering\n"),
-        "task A build attempt 1 exited but was never recorded — discarded\n".to_owned(),
+        "⚠ task A build attempt 1 was interrupted with the previous driver — discarded\n"
+            .to_owned(),
         "↻ task A build attempt 2\n".to_owned(),
         "✔ run succeeded\n".to_owned(),
     ] {

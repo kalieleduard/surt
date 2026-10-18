@@ -217,7 +217,7 @@ async fn cancelling_a_crashed_run_settles_what_its_driver_left_then_cancels_and_
     );
     assert_eq!(
         cancelled.progress[0],
-        Progress::Discarded {
+        Progress::InterruptedWithDriver {
             step: label("write", Some(1)),
             attempt: 1
         }

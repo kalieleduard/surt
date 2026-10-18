@@ -88,7 +88,7 @@ fn cancel_of_a_crashed_run_settles_it_and_a_new_description_starts_a_second_feat
     assert_eq!(cancelled.code, Some(0), "{}", cancelled.stderr);
     assert!(
         cancelled.stderr.starts_with(
-            "✖ task A build attempt 1 exited but was never recorded — discarded\n✔ run cancelled\n↻ cleanup 1 worktree · working copy\n"
+            "⚠ task A build attempt 1 was interrupted with the previous driver — discarded\n✔ run cancelled\n↻ cleanup 1 worktree · working copy\n"
         ),
         "{}",
         cancelled.stderr

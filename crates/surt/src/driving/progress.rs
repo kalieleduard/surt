@@ -133,6 +133,13 @@ fn message(progress: &Progress) -> (Mark, Message) {
                 label(step)
             )),
         ),
+        Progress::InterruptedWithDriver { step, attempt } => (
+            Mark::Warning,
+            Message::new(format!(
+                "{} attempt {attempt} was interrupted with the previous driver — discarded",
+                label(step)
+            )),
+        ),
         Progress::IntegrationRecorded {
             step,
             branch,

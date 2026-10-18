@@ -30,6 +30,10 @@ fn recovery_reports_what_it_found_line_by_line() {
             step: task("C", "build"),
             attempt: 1,
         },
+        Progress::InterruptedWithDriver {
+            step: task("D", "build"),
+            attempt: 2,
+        },
         Progress::IntegrationRecorded {
             step: task("A", "integrate"),
             branch: "surt/20261017-add-login".to_owned(),
@@ -45,6 +49,7 @@ fn recovery_reports_what_it_found_line_by_line() {
         "⚠ previous driver (pid 48213) is gone — recovering\n\
          ⚠ task B build attempt 1 (pid 50122, alive) — stopped\n\
          ✖ task C build attempt 1 exited but was never recorded — discarded\n\
+         ⚠ task D build attempt 2 was interrupted with the previous driver — discarded\n\
          ✔ task A integrate had completed (surt/20261017-add-login @ 3c1aa20) — recorded\n\
          ⚠ previous driver is gone — recovering\n"
     );

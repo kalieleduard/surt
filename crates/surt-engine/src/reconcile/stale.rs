@@ -36,11 +36,18 @@ impl Reconcile<'_> {
         self.store
             .end_execution(&stale.id, &ExecutionEnd::Interrupted)
             .await?;
-        let StaleExecution { step, attempt, .. } = stale;
-        Ok(match stopped {
-            Some(pid) => Some(Progress::OrphanStopped { step, attempt, pid }),
-            None if stale.running => Some(Progress::Discarded { step, attempt }),
-            None => None,
+        let StaleExecution {
+            step,
+            attempt,
+            running,
+            identity,
+            ..
+        } = stale;
+        Ok(match (stopped, identity) {
+            (Some(pid), _) => Some(Progress::OrphanStopped { step, attempt, pid }),
+            _ if !running => None,
+            (None, Some(_)) => Some(Progress::Discarded { step, attempt }),
+            (None, None) => Some(Progress::InterruptedWithDriver { step, attempt }),
         })
     }
 }

@@ -91,6 +91,10 @@ pub enum Progress {
         step: StepLabel,
         attempt: u32,
     },
+    InterruptedWithDriver {
+        step: StepLabel,
+        attempt: u32,
+    },
     IntegrationRecorded {
         step: StepLabel,
         branch: String,
