@@ -1,7 +1,7 @@
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 
-use super::{Store, StoreError};
+use super::{Checkpoint, Store, StoreError};
 use crate::workflow::FrozenRun;
 
 mod content;
@@ -64,6 +64,7 @@ impl Store {
         .execute(&mut *transaction)
         .await?;
         transaction.commit().await?;
+        self.reached(Checkpoint::RunCreated)?;
         Ok(RunCreation::Created(run))
     }
 }

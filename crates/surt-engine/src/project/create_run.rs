@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 
 use serde::Serialize;
 
-use super::{Check, Config, Error, GitConfig, Project, Refusal, open_store};
+use super::{Check, Config, Error, GitConfig, Project, Refusal};
 use crate::store::{NewInitialArtifact, NewRunRows, RunCreation, unix_now};
 use crate::workflow::{FreezeError, freeze};
 
@@ -71,7 +71,7 @@ impl Project {
             now: unix_now(),
         };
         let subject = rows.subject.clone();
-        let store = open_store(&self.layout).await?;
+        let store = self.store().await?;
         let created = store.create_run(rows).await;
         store.close().await;
         match created? {

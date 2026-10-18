@@ -1,7 +1,7 @@
 use sqlx::FromRow;
 
 use super::revisions::number;
-use super::{About, Store, StoreError, record_event, unix_now};
+use super::{About, Checkpoint, Store, StoreError, record_event, unix_now};
 use crate::drive::StepLabel;
 
 #[derive(Clone, Debug, PartialEq, Eq, FromRow)]
@@ -95,7 +95,8 @@ impl Store {
             now,
         )
         .await?;
-        Ok(transaction.commit().await?)
+        transaction.commit().await?;
+        self.reached(Checkpoint::Intention)
     }
 
     pub(crate) async fn forget_ref_move(&self, step: &str) -> Result<(), StoreError> {
