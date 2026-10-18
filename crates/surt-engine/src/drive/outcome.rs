@@ -111,12 +111,11 @@ pub enum Progress {
         limit: usize,
     },
     Paused {
-        until: i64,
+        pause: ActivityPause,
         waiting: usize,
-        backoff: Option<u64>,
     },
     Resumed {
-        paused_seconds: u64,
+        paused_seconds: i64,
     },
     CleanedUp(Cleanup),
     Activity(ActivitySnapshot),
@@ -134,7 +133,7 @@ pub struct ActivitySnapshot {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActivityPause {
     pub until: i64,
-    pub backoff: Option<u64>,
+    pub backoff: Option<i64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

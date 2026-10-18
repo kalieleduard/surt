@@ -162,7 +162,7 @@ fn a_footer_wider_than_the_terminal_is_cut_to_stay_on_one_line() {
 
 const RESET: i64 = 1_792_900_800;
 
-fn paused(running: Vec<RunningStep>, waiting: usize, backoff: Option<u64>) -> ActivitySnapshot {
+fn paused(running: Vec<RunningStep>, waiting: usize, backoff: Option<i64>) -> ActivitySnapshot {
     ActivitySnapshot {
         running,
         queued: waiting,

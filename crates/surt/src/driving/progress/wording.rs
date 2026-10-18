@@ -148,16 +148,12 @@ pub(super) fn message(progress: &Progress) -> (Mark, Message) {
                 .way("fix", format!("edit {location}")),
             )
         }
-        Progress::Paused {
-            until,
-            waiting,
-            backoff,
-        } => (Mark::Paused, paused(*until, *waiting, *backoff)),
+        Progress::Paused { pause, waiting } => (Mark::Paused, paused(*pause, *waiting)),
         Progress::Resumed { paused_seconds } => (
             Mark::Retry,
             Message::new(format!(
                 "agent launches resumed after {}",
-                rounded(i64::try_from(*paused_seconds).unwrap_or(i64::MAX))
+                rounded(*paused_seconds)
             )),
         ),
         Progress::CleanedUp(cleanup) => (Mark::Retry, Message::new(summary(cleanup))),
@@ -179,8 +175,8 @@ fn cancel_requested(driver: Option<u32>) -> Message {
     }
 }
 
-fn paused(until: i64, waiting: usize, backoff: Option<u64>) -> Message {
-    let until = paused_until(ActivityPause { until, backoff });
+fn paused(pause: ActivityPause, waiting: usize) -> Message {
+    let until = paused_until(pause);
     Message::new(format!(
         "agent launches {until} {DASH} {waiting} waiting{SEPARATOR}Ctrl-C to stop (resumable)"
     ))

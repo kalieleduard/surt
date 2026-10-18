@@ -16,7 +16,7 @@ use super::limit::LiveLimit;
 use super::load::Loaded;
 use super::operate::Flight;
 use super::outcome::{ActivitySnapshot, DriveOutcome, Progress, ProgressSink};
-use super::pausing::{Pausing, unix_now};
+use super::pausing::{PauseTracker, unix_now};
 use super::recovered;
 use super::slots::FreeSlots;
 use crate::artifacts::working_copy::{WorkingCopy, finish_pending_writes};
@@ -53,7 +53,7 @@ pub(super) struct Driver<'a, R> {
     pub(super) cancelling: AtomicBool,
     pub(super) branches: Mutex<()>,
     pub(super) activity: std::sync::Mutex<Option<ActivitySnapshot>>,
-    pub(super) pausing: std::sync::Mutex<Pausing>,
+    pub(super) pause: std::sync::Mutex<PauseTracker>,
 }
 
 enum Tick {
@@ -117,7 +117,7 @@ async fn drive_recovered<R: AgentRuntime>(
         cancelling: AtomicBool::new(false),
         branches: Mutex::new(()),
         activity: std::sync::Mutex::new(None),
-        pausing: std::sync::Mutex::new(Pausing::default()),
+        pause: std::sync::Mutex::new(PauseTracker::default()),
     };
     if let Some(refusal) = driver.guard().await? {
         return Ok(DriveOutcome::Halted(refusal));
@@ -192,24 +192,23 @@ impl<R: AgentRuntime> Driver<'_, R> {
             let (tick, landed) = flights.alongside(self.tick(free.indices(), slots)).await;
             let stale = !landed.is_empty();
             settle(landed)?;
-            match tick? {
-                Tick::Again => {}
-                Tick::Wait | Tick::Return(_) if stale => {}
+            let tick = match tick? {
                 Tick::Launched(launches) => {
                     for flight in launches {
                         let slot = flight.slot().and_then(|index| free.claim(index));
                         flights.push(slot, self.fly(flight));
                     }
+                    continue;
                 }
+                unlaunched => unlaunched,
+            };
+            drop(free);
+            match tick {
+                Tick::Again | Tick::Launched(_) => {}
+                Tick::Wait | Tick::Return(_) if stale => {}
                 Tick::Return(outcome) if flights.is_empty() => return Ok(outcome),
-                Tick::Return(_) | Tick::Wait => {
-                    drop(free);
-                    self.wait(&mut flights, level).await?;
-                }
-                Tick::Cancel => {
-                    drop(free);
-                    self.cancel(&mut flights).await?;
-                }
+                Tick::Return(_) | Tick::Wait => self.wait(&mut flights, level).await?,
+                Tick::Cancel => self.cancel(&mut flights).await?,
             }
         }
     }

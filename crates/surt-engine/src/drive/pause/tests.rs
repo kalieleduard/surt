@@ -1,4 +1,4 @@
-use super::Pause;
+use super::PauseSchedule;
 
 const NOW: i64 = 1_800_000_000;
 const MINUTE: i64 = 60;
@@ -29,15 +29,16 @@ fn limited(launched_at: i64, resets_at: i64) -> Ending {
 }
 
 fn after(endings: &[(i64, Ending)]) -> (Option<i64>, Option<u32>) {
-    let pause = endings
-        .iter()
-        .fold(Pause::default(), |pause, &(at, ending)| match ending {
+    let pause = endings.iter().fold(
+        PauseSchedule::default(),
+        |pause, &(at, ending)| match ending {
             Ending::Transient {
                 launched_at,
                 resets_at,
             } => pause.failed(launched_at, resets_at, at),
             Other => pause.ended(),
-        });
+        },
+    );
     let last = endings.last().map_or(NOW, |&(at, _)| at);
     (pause.until(last), pause.backoff_step())
 }
@@ -205,7 +206,7 @@ fn an_agent_ending_otherwise_during_the_pause_does_not_end_it() {
 
 #[test]
 fn the_pause_is_over_once_its_end_is_reached() {
-    let pause = Pause::default().failed(NOW, Some(NOW + 30), NOW);
+    let pause = PauseSchedule::default().failed(NOW, Some(NOW + 30), NOW);
 
     assert_eq!(pause.until(NOW + 29), Some(NOW + 30));
     assert_eq!(pause.until(NOW + 30), None);

@@ -108,10 +108,7 @@ pub(super) fn paused_until(pause: ActivityPause) -> String {
     let at = local_time(pause.until).unwrap_or_else(|| pause.until.to_string());
     let delay = pause
         .backoff
-        .map(|seconds| {
-            let seconds = i64::try_from(seconds).unwrap_or(i64::MAX);
-            format!(" (backoff {})", rounded(seconds))
-        })
+        .map(|seconds| format!(" (backoff {})", rounded(seconds)))
         .unwrap_or_default();
     format!("paused until {at}{delay}")
 }

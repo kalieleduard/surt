@@ -243,9 +243,11 @@ async fn a_transient_failure_pauses_agent_launches_until_the_reset_and_spends_no
             pause.as_slice(),
             [
                 Progress::Paused {
-                    until,
+                    pause: ActivityPause {
+                        until,
+                        backoff: None,
+                    },
                     waiting: 1,
-                    backoff: None,
                 },
                 Progress::Resumed { .. },
                 Progress::StepStarted { attempt: 2, .. },
