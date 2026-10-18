@@ -1,5 +1,6 @@
 mod builtin;
 mod cancel;
+mod confirmation;
 mod decide;
 mod diagnostics;
 mod driving;
@@ -10,6 +11,7 @@ mod message;
 mod phase;
 mod plan;
 mod refusal;
+mod restore;
 mod runtime;
 mod show;
 mod start;
@@ -39,6 +41,7 @@ enum Command {
     Approve(decide::ApproveArgs),
     Reject(decide::RejectArgs),
     Cancel(cancel::CancelArgs),
+    Restore(restore::RestoreArgs),
     Status(status::StatusArgs),
     Show(show::ShowArgs),
 }
@@ -63,6 +66,7 @@ async fn run(command: Command) -> Result<(), Failure> {
         Command::Approve(args) => decide::approve(&cwd, args).await,
         Command::Reject(args) => decide::reject(&cwd, args).await,
         Command::Cancel(args) => cancel::run(&cwd, args).await,
+        Command::Restore(args) => restore::run(&cwd, args).await,
         Command::Status(args) => status::run(&cwd, args).await,
         Command::Show(args) => show::run(&cwd, args).await,
     }

@@ -417,7 +417,7 @@ fn an_edit_to_a_pinned_spec_is_refused_until_the_edited_file_is_removed() {
     let approved = ok(surt(&sandbox, &["approve", &name]));
 
     let refusal = format!(
-        "✖ spec.md changed, but spec rev 1 is pinned (a later step already read it)\n  the edit was not recorded\n  fix: rm .surt/features/{name}/spec.md, then rerun\n"
+        "✖ spec.md changed, but spec rev 1 is pinned (a later step already read it)\n  the edit was not recorded\n  undo: surt restore {name} spec\n"
     );
     assert_eq!(approve, refusal);
     assert_eq!(plan, refusal);

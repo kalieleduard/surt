@@ -10,6 +10,7 @@ mod kill;
 mod new_run;
 mod output;
 mod phases;
+mod restore;
 mod scripts;
 mod show;
 mod start;

@@ -168,7 +168,7 @@ $ surt inspect 20261017-add-login B
 16:10:00  step.unblocked      budget_base 3
 ```
 
-- `kind` is an open set, not a CHECK, so a new kind needs no table rebuild. Initial kinds: `run.created`, `run.cancel_requested`, `run.stop_requested`, `run.cancelled`, `run.succeeded`, `driver.started`, `driver.stopped`, `driver.recovered`, `intention.confirmed`, `intention.discarded`, `worktree.salvaged`, `worktree.repaired`, `agents.paused`, `agents.resumed`, `iteration.started`, `step.running`, `step.done`, `step.skipped`, `step.blocked`, `step.unblocked`, `step.cancelled`, `execution.queued`, `execution.started`, `execution.succeeded`, `execution.failed`, `execution.interrupted`, `execution.cancelled`, `execution.orphan_stopped`, `revision.published`, `revision.pinned`, `working_copy.edit_detected`, `working_copy.edit_refused`, `working_copy.written`, `ref_move.intended`, `approval.recorded`, `cleanup.finished`, `cleanup.incomplete`.
+- `kind` is an open set, not a CHECK, so a new kind needs no table rebuild. Initial kinds: `run.created`, `run.cancel_requested`, `run.stop_requested`, `run.cancelled`, `run.succeeded`, `driver.started`, `driver.stopped`, `driver.recovered`, `intention.confirmed`, `intention.discarded`, `worktree.salvaged`, `worktree.repaired`, `agents.paused`, `agents.resumed`, `iteration.started`, `step.running`, `step.done`, `step.skipped`, `step.blocked`, `step.unblocked`, `step.cancelled`, `execution.queued`, `execution.started`, `execution.succeeded`, `execution.failed`, `execution.interrupted`, `execution.cancelled`, `execution.orphan_stopped`, `revision.published`, `revision.pinned`, `working_copy.edit_detected`, `working_copy.edit_refused`, `working_copy.restored`, `working_copy.written`, `ref_move.intended`, `approval.recorded`, `cleanup.finished`, `cleanup.incomplete`.
 - A trigger aborts any `UPDATE`. Rows leave only with their Subject.
 - Every insert goes through one store helper that takes the kind and its `data`.
 
@@ -197,6 +197,7 @@ $ surt inspect 20261017-add-login B
 | `revision.published` | `artifact`, `revision` (its number), `origin` = `execution` |
 | `working_copy.edit_detected` | `artifact`, `revision`, `origin` = `human`, `actor` |
 | `working_copy.edit_refused` | `artifact`, `files`, `reason`: `pinned` with `revision`, or `invalid` with `problem` |
+| `working_copy.restored` | `artifact`, `revision` restored, and the paths it rewrote: `changed`, `new` (removed), `missing` (recreated) |
 | `approval.recorded` | `decision` (`approve`, `reject`), `artifact`, `revision`, `actor`, `reason` (first line of a rejection's reason, else `null`) |
 | `cleanup.finished`, `cleanup.incomplete` | `kept`, and `left` when incomplete |
 
