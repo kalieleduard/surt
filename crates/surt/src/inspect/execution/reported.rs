@@ -70,7 +70,7 @@ pub(super) fn denied(reported: &RuntimeInfo) -> Option<String> {
     (!tools.is_empty()).then(|| tools.join(LIST_SEPARATOR))
 }
 
-fn duration(seconds: i64) -> String {
+pub(in crate::inspect) fn duration(seconds: i64) -> String {
     let seconds = seconds.max(0);
     let (hours, minutes, rest) = (seconds / HOUR, seconds % HOUR / MINUTE, seconds % MINUTE);
     if hours > 0 {

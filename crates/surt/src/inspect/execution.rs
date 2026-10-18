@@ -1,8 +1,11 @@
 mod reported;
 
+pub(super) use reported::duration;
+
 use surt_engine::project::{ExecutionDetail, ExecutionInput, Performer};
 
 use super::scope;
+use crate::driving::local_time;
 use crate::states::execution_state_name;
 use crate::symbols::{DASH, ELLIPSIS, SEPARATOR};
 use crate::table;
@@ -101,7 +104,12 @@ fn state(detail: &ExecutionDetail) -> String {
             .collect();
         (!parts.is_empty()).then(|| parts.join(&format!(" {DASH} ")))
     });
-    [Some(headline), error]
+    let resets = detail
+        .reported
+        .resets_at
+        .and_then(local_time)
+        .map(|time| format!("resets {time}"));
+    [Some(headline), error, resets]
         .into_iter()
         .flatten()
         .collect::<Vec<_>>()
