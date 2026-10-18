@@ -6,7 +6,7 @@ Spec: [Milestone 3](../spec.md) (stories 29–32) · Plan: [A. Agent concurrency
 
 **Blocked by:** 04 (Agent Slots as project-wide lock files)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The Driver rereads the project configuration before each tick; only `max_concurrent_agents` is applied live, and the frozen keys of the `config` snapshot stay frozen
 - [x] Lowering the limit never stops a running agent; raising it offers the new slot indices on the next tick
@@ -14,3 +14,7 @@ Spec: [Milestone 3](../spec.md) (stories 29–32) · Plan: [A. Agent concurrency
 - [x] The CLI prints the warning through the symbol table
 - [x] `Project::drive` tests: lowering the limit from 2 to 1 mid-run lets the running agents finish and then launches one at a time; raising it from 1 to 2 launches a second agent without restarting; an invalid file mid-run keeps the limit and warns once
 - [x] A records the live-limit warning
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on Windows. Merged into `integration/milestone-3` at 876824d; code-review fixes at 5e84027 (the footer counts the Driver's own slots at or above a lowered limit, so it agrees with `status`). A missing `.surt/config.toml` mid-run keeps the current limit (recorded in A). Resolved.

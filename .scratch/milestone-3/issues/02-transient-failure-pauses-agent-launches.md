@@ -13,7 +13,7 @@ Spec: [Milestone 3](../spec.md) (stories 1–11, 14–18, 23–25) · Plan: [I. 
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `decide()` no longer blocks a Step Run whose last Execution failed `transient`; `not_retryable` still blocks at once, `retryable` still spends an Attempt, and an unknown category stays `retryable`
 - [x] The scheduler context takes `paused_until` and `now`; while paused, `decide()` emits no agent `Launch` but still emits `RunOperation`; it stays free of `sqlx` and `git`
@@ -28,3 +28,7 @@ Spec: [Milestone 3](../spec.md) (stories 1–11, 14–18, 23–25) · Plan: [I. 
 - [x] `Project::drive` tests with the Fake (`limit_failure` with a reset a few seconds ahead): pause then resume with no Attempt spent and the run `succeeded`; no agent starts during the pause while a ready Operation runs; an agent already running finishes and is accepted; a graceful stop during the pause interrupts, and driving again launches at once
 - [x] The binary test that expected a rate-limited Task to block with exit `4` now expects the pause and resume lines and the Task merged
 - [x] I records the "decided here" points (latest reset wins, a past reset counts as none, the step advances per failed resume, no probe); G's Transient Failure line matches; K's "Pause on Transient Failure" row says it is implemented
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on Windows. Merged into `integration/milestone-3` at 5e422f7; code-review fixes at 5e84027 (the backoff step now advances only for agents launched after the pause ended; a worktree-preparation failure resets the backoff; I restates the spec's rule). Resolved.

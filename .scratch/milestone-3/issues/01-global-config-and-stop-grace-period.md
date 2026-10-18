@@ -6,7 +6,7 @@ Spec: [Milestone 3](../spec.md) (stories 40–46) · Plan: [J. Global configurat
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 - [x] `Project::open` loads the global configuration next to the project configuration, using the same home-directory lookup as the worktrees
 - [x] `stop_grace_period` uses the Check `timeout` duration format (positive amount with a unit suffix); unknown keys are errors (`deny_unknown_fields`), including project keys such as `max_concurrent_agents`
@@ -17,3 +17,7 @@ Spec: [Milestone 3](../spec.md) (stories 40–46) · Plan: [J. Global configurat
 - [x] Binary test (with `HOME`/`USERPROFILE` pointing at the sandbox): an invalid global file makes a command exit `3` naming the file and line
 - [x] Claude Code stub-process test: a stub that ignores the graceful stop is force-killed after the configured grace period, not after 10 s
 - [x] J records the refusal behaviour; K's "Global `~/.surt/config.toml`" row says it is implemented
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on Windows. Merged into `integration/milestone-3` at afa2856; code-review fixes at 5e84027. Open criterion: the Claude Code stub-process test (force-kill after the configured grace period) is Unix-only and was not run locally — waits for the first macOS/Linux CI run (needs the branch pushed).

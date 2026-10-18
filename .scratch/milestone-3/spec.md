@@ -2,7 +2,7 @@
 
 Labels: ready-for-agent
 Type: spec
-Status: open (0 of 7 tickets resolved; tickets in [issues/](issues/))
+Status: open (5 of 7 tickets resolved; 01 awaits the first macOS/Linux CI run, 07 awaits CI on three OSes and the manual Claude Code smoke; tickets in [issues/](issues/))
 Map: [Surt — Architecture and implementation plan](../surt-architecture/map.md)
 Plan: [K. Roadmap](../../docs/architecture/K-roadmap.md#after-milestone-1), [I. Recovery — Transient Failures](../../docs/architecture/I-recovery.md#transient-failures-network-and-rate-limits), [A. Process Model — agent concurrency limit](../../docs/architecture/A-process-model.md#agent-concurrency-limit), [J. Configuration](../../docs/architecture/J-cli.md#configuration)
 Previous: [Milestone 2](../milestone-2/spec.md)

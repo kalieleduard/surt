@@ -6,7 +6,7 @@ Spec: [Milestone 3](../spec.md) (stories 12, 13, 19–22) · Plan: [J. `surt sta
 
 **Blocked by:** 02 (A Transient Failure pauses agent launches)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The pause is derived on every read: a run with a live Driver whose latest ended agent Execution failed `transient`, with no agent Execution started after it, is paused; nothing new is stored
 - [x] `status <feature>` keeps the `RUNNING` headline and adds one line naming the error code and the reset time from `runtime_info.resets_at`, or `retrying with backoff` when there is none
@@ -17,3 +17,7 @@ Spec: [Milestone 3](../spec.md) (stories 12, 13, 19–22) · Plan: [J. `surt sta
 - [x] Pure render tests in the `surt` crate for the status line, the footer and the inspect lines
 - [x] Binary test: while a Fake Driver is paused, `surt status` and `surt status --json` from a second process show the pause, and reads still write nothing
 - [x] J records the paused status line
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on Windows. Merged into `integration/milestone-3` at ebc0a49; code-review fixes at 5e84027 (only Tasks queued for an agent launch name their step while paused). Resolved.

@@ -6,7 +6,7 @@ Spec: [Milestone 3](../spec.md) (stories 26–28, 35–39) · Plan: [A. Agent co
 
 **Blocked by:** None (can start immediately). It changes the same Driver loop as 02, so landing it after 02 avoids a merge.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Slots use the same separate-file lock primitive as the run locks, on macOS, Linux and Windows; the slots directory is created on first use; lock files are never deleted, and `surt delete` leaves them alone
 - [x] On each tick the Driver `try_lock`s the slot indices below the limit that it does not hold; the slots it gets are the free slots passed to `decide()`, which already gives one slot to each `Launch`
@@ -18,3 +18,7 @@ Spec: [Milestone 3](../spec.md) (stories 26–28, 35–39) · Plan: [A. Agent co
 - [x] `Project::drive` test: two `Project` handles on one project directory drive two Features with `max_concurrent_agents = 1` and Fake Executions that wait until stopped; two agents never run at once; dropping one Driver lets the other launch
 - [x] Binary test: two `surt start` processes on two Features with a limit of 1 never have two agent Executions running at once
 - [x] A records the tick cadence in place of "~500 ms"; K's "Agent slots across processes" row says it is implemented
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on Windows. Merged into `integration/milestone-3` at 8c4b8b3; code-review fixes at 5e84027. Resolved.
