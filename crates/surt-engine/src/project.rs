@@ -4,6 +4,9 @@ mod discovery;
 mod error;
 mod init;
 mod layout;
+mod naming;
+mod repository;
+mod subjects;
 
 use std::path::Path;
 
@@ -15,6 +18,9 @@ pub use config::{Check, Config, GitConfig, MergeIntoBase};
 pub use create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};
 pub use error::{Error, InternalError, Refusal};
 pub use init::{FileState, InitFile, Initialized};
+pub use naming::Slug;
+pub use repository::Commit;
+pub use subjects::FreeName;
 
 use crate::store::Store;
 use discovery::SurtHome;

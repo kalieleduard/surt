@@ -2,7 +2,6 @@ use std::error::Error as StdError;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::RunId;
 use crate::git::{GitError, GitVersion};
 use crate::store::StoreError;
 use crate::workflow::{FreezeError, InvalidDefinition};
@@ -49,7 +48,7 @@ pub enum Refusal {
         path: PathBuf,
     },
     ActiveRunExists {
-        run: RunId,
+        subject: String,
     },
     InvalidDefinition(Box<InvalidDefinition>),
 }

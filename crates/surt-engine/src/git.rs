@@ -13,6 +13,8 @@ pub(crate) const MIN_VERSION: GitVersion = GitVersion {
 
 const PORCELAIN_WORKTREE_PREFIX: &str = "worktree ";
 const PORCELAIN_BARE: &str = "bare";
+const PEEL_TO_COMMIT: &str = "^{commit}";
+const BRANCH_NAMESPACE: &str = "refs/heads/";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct GitVersion {
@@ -88,6 +90,31 @@ pub(crate) async fn main_worktree(cwd: &Path) -> Result<Option<MainWorktree>, Gi
     parse_main_worktree(&output)
         .map(Some)
         .ok_or_else(|| unexpected(&args, output))
+}
+
+pub(crate) async fn commit_sha(cwd: &Path, reference: &str) -> Result<Option<String>, GitError> {
+    let peeled = format!("{reference}{PEEL_TO_COMMIT}");
+    let args = [
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        "--end-of-options",
+        &peeled,
+    ];
+    match run(cwd, &args).await {
+        Ok(sha) => Ok(Some(sha.trim().to_owned())),
+        Err(GitError::Failed { .. }) => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+pub(crate) async fn branch_name(cwd: &Path, reference: &str) -> Result<Option<String>, GitError> {
+    let args = ["rev-parse", "--symbolic-full-name", reference];
+    let full_name = run(cwd, &args).await?;
+    Ok(full_name
+        .trim()
+        .strip_prefix(BRANCH_NAMESPACE)
+        .map(str::to_owned))
 }
 
 fn parse_main_worktree(output: &str) -> Option<MainWorktree> {

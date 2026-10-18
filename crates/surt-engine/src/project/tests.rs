@@ -1,5 +1,6 @@
 mod active;
 mod agents;
+mod checked;
 mod created;
 mod edits;
 mod fixtures;
@@ -8,7 +9,9 @@ mod frozen;
 mod parsing;
 mod per_item;
 mod references;
+mod repository;
 mod shapes;
+mod subjects;
 
 use std::fs;
 use std::path::{Path, PathBuf};

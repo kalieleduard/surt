@@ -1,5 +1,7 @@
+mod builtin;
 mod diagnostics;
 mod failure;
+mod feature;
 mod init;
 mod message;
 mod refusal;
@@ -21,6 +23,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     Init,
+    Feature(feature::FeatureArgs),
     Status,
 }
 
@@ -38,6 +41,7 @@ async fn run(command: Command) -> Result<(), Failure> {
     let cwd = std::env::current_dir()?;
     match command {
         Command::Init => init::run(&cwd).await,
+        Command::Feature(args) => feature::run(&cwd, args).await,
         Command::Status => status::run(&cwd).await,
     }
 }

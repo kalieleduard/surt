@@ -2,7 +2,7 @@ use std::error::Error as StdError;
 use std::io;
 use std::process::ExitCode;
 
-use surt_engine::project::{Error, Refusal};
+use surt_engine::project::Error;
 
 use crate::message::Message;
 
@@ -10,15 +10,15 @@ const REFUSED: u8 = 3;
 const INTERNAL: u8 = 1;
 
 pub(crate) enum Failure {
-    Refused(Refusal),
+    Refused(Message),
     Internal(Box<dyn StdError>),
 }
 
 impl Failure {
     pub(crate) fn report(self) -> ExitCode {
         match self {
-            Failure::Refused(refusal) => {
-                crate::refusal::message(&refusal).print_error();
+            Failure::Refused(message) => {
+                message.print_error();
                 ExitCode::from(REFUSED)
             }
             Failure::Internal(error) => {
@@ -45,7 +45,7 @@ fn chain(error: &dyn StdError) -> String {
 impl From<Error> for Failure {
     fn from(error: Error) -> Failure {
         match error {
-            Error::Refused(refusal) => Failure::Refused(refusal),
+            Error::Refused(refusal) => Failure::Refused(crate::refusal::message(&refusal)),
             Error::Internal(internal) => Failure::Internal(Box::new(internal)),
         }
     }

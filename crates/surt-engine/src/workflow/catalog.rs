@@ -1,5 +1,9 @@
 use std::collections::BTreeMap;
 
+use super::closure;
+use super::error::InvalidDefinition;
+use super::flow::Available;
+
 #[derive(Clone, Debug, Default)]
 pub struct Catalog {
     workflows: BTreeMap<String, &'static str>,
@@ -26,6 +30,18 @@ impl Catalog {
     pub fn agent(mut self, id: &str, assets: AgentAssets) -> Catalog {
         self.agents.insert(id.to_owned(), assets);
         self
+    }
+
+    pub fn check(
+        &self,
+        workflow: &str,
+        initial_artifacts: &[&str],
+    ) -> Result<(), Box<InvalidDefinition>> {
+        let external: Available = initial_artifacts
+            .iter()
+            .map(|name| ((*name).to_owned(), None))
+            .collect();
+        closure::resolve(self, workflow, &external).map(|_| ())
     }
 
     pub(crate) fn workflow_text(&self, name: &str) -> Option<&'static str> {

@@ -2,6 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+use sqlx::sqlite::SqliteConnectOptions;
+use sqlx::{AssertSqlSafe, SqlitePool};
 use tempfile::TempDir;
 
 pub const REFUSED_EXIT_CODE: i32 = 3;
@@ -150,5 +152,33 @@ impl Sandbox {
         let run = self.surt(&self.repo(), &["init"]);
         assert_eq!(run.code, Some(0), "surt init failed: {}", run.stderr);
         run
+    }
+
+    pub fn feature(&self, args: &[&str]) -> Run {
+        let mut all = vec!["feature"];
+        all.extend_from_slice(args);
+        self.surt(&self.repo(), &all)
+    }
+
+    pub fn texts(&self, sql: &str) -> Vec<String> {
+        let database = self.dot_surt().join("surt.db");
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime")
+            .block_on(async {
+                let options = SqliteConnectOptions::new()
+                    .filename(database)
+                    .read_only(true);
+                let pool = SqlitePool::connect_with(options)
+                    .await
+                    .expect("the database opens read-only");
+                let rows = sqlx::query_scalar::<_, String>(AssertSqlSafe(sql.to_owned()))
+                    .fetch_all(&pool)
+                    .await
+                    .expect("the rows are readable");
+                pool.close().await;
+                rows
+            })
     }
 }

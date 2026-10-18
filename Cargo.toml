@@ -23,6 +23,7 @@ uuid = { version = "1", features = ["v7"] }
 tempfile = "3"
 tracing = "0.1"
 dunce = "1"
+jiff = "0.2"
 anstream = "1"
 anstyle = "1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "std"] }
