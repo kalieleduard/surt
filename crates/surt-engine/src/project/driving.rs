@@ -1,5 +1,5 @@
 use super::init::supported_git;
-use super::{Error, Project, RunId, open_store};
+use super::{Error, Project, RunId};
 use crate::drive::{self, DriveOutcome, Driving, ProgressSink};
 use crate::runtime::{AgentRuntime, StopSignal};
 
@@ -14,7 +14,7 @@ impl Project {
         self.refuse_agent_overrides()?;
         supported_git().await?;
         let actor = self.actor().await?;
-        let store = open_store(&self.layout).await?;
+        let store = self.store().await?;
         let driving = Driving {
             store: &store,
             layout: &self.layout,

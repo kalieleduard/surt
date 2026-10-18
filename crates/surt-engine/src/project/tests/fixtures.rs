@@ -11,6 +11,8 @@ use crate::project::{
     InvalidDefinition, NewRun, Problem, Project, Refusal,
 };
 use crate::project::{SurtHome, open_store};
+#[cfg(feature = "test-support")]
+use crate::store::Faults;
 
 pub(super) const DRAFT_WORKFLOW: &str = r#"
 schema = 1
@@ -201,6 +203,8 @@ impl ProjectDir {
             config,
             catalog,
             home: SurtHome::at(&self.home()),
+            #[cfg(feature = "test-support")]
+            faults: Faults::default(),
         }
     }
 

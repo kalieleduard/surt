@@ -32,9 +32,9 @@ impl AgentRuntime for Started {
     }
 }
 
-struct Orphaning {
-    fake: FakeRuntime,
-    pid: u32,
+pub(super) struct Orphaning {
+    pub(super) fake: FakeRuntime,
+    pub(super) pid: u32,
 }
 
 impl AgentRuntime for Orphaning {
@@ -51,7 +51,7 @@ impl AgentRuntime for Orphaning {
     }
 }
 
-fn agent_process() -> Child {
+pub(super) fn agent_process() -> Child {
     let mut command = Command::new("git");
     command
         .args(["hash-object", "--stdin"])
@@ -64,7 +64,7 @@ fn agent_process() -> Child {
     command.spawn().expect("the agent process starts")
 }
 
-fn exited(child: &mut Child) -> bool {
+pub(super) fn exited(child: &mut Child) -> bool {
     let deadline = Instant::now() + EXIT_TIMEOUT;
     while Instant::now() < deadline {
         if child

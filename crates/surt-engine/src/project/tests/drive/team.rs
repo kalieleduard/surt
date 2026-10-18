@@ -398,7 +398,7 @@ pub(super) fn assert_valid(schema: (&str, &str), instance: &Value) {
     assert!(validator.is_valid(instance), "{path}: {instance}");
 }
 
-fn team_catalog(task: &'static str) -> Catalog {
+pub(super) fn team_catalog(task: &'static str) -> Catalog {
     Catalog::new()
         .workflow("built", BUILT_WORKFLOW)
         .workflow("shipped", SHIPPED_WORKFLOW)

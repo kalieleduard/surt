@@ -1,7 +1,7 @@
 use sqlx::FromRow;
 
 use super::revisions::number;
-use super::{About, Store, StoreError, record_event, unix_now};
+use super::{About, Checkpoint, Store, StoreError, record_event, unix_now};
 use crate::drive::StepLabel;
 use crate::platform::ProcessIdentity;
 
@@ -86,7 +86,8 @@ impl Store {
         .bind(execution)
         .execute(&mut *transaction)
         .await?;
-        Ok(transaction.commit().await?)
+        transaction.commit().await?;
+        self.reached(Checkpoint::ProcessSpawned)
     }
 
     pub(crate) async fn stale_executions(
