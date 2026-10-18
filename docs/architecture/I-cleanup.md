@@ -121,12 +121,12 @@ Logs are history, not scratch space. They live outside `runtime/`, grouped by Su
 - Cleanup never removes logs; `surt delete` removes the Subject's directory. There is no rotation, size limit or redaction in v1.
 - `.surt/runtime/executions/<id>/` holds only `inputs/` and `delivery/`, which can be rebuilt from blobs.
 
-**Without the log.** When a log file is missing (removed by hand), `logs` says so and points at `inspect`:
+**Without the log.** When an Execution's log directory is missing (removed by hand), `logs` says so and points at `inspect`. For a single Execution it refuses (exit `3`); among several sources it warns on stderr and prints the others. A missing file inside an existing directory reads as empty:
 
 ```
 $ surt logs 0192f3a8
-✖ no log for execution 0192f3a8 (.surt/logs/20261017-add-login/0192f3a8-…/ is missing)
-    inspect: surt inspect 0192f3a8
+✖ no log for execution 0192f3a8-7b1c-7000-8000-4a1f0c3e9b21 (.surt/logs/20261017-add-login/0192f3a8-7b1c-7000-8000-4a1f0c3e9b21/ is missing)
+  inspect: surt inspect 0192f3a8-7b1c-7000-8000-4a1f0c3e9b21
 ```
 
 `inspect` needs no stream. It reads the Execution row: state, Outcome, `error_code`/`error_message`, timestamps, process identity, and `runtime_info` (Claude Code version, session id, model, effort, exit code, turn count, usage, cost, permission denials; [D](D-database.md#executions)). The Check summary is in the `check-report` artifact ([A](A-git-integration.md#checks)).

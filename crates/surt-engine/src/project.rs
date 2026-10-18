@@ -12,6 +12,7 @@ mod gates;
 mod init;
 mod inspect;
 mod layout;
+mod logs;
 mod naming;
 mod repository;
 mod resolving;
@@ -55,6 +56,7 @@ pub use inspect::{
     AgentProfile, ExecutionDetail, ExecutionFailure, ExecutionInput, InspectRequest, Performer,
     RuntimeInfo, Timeline, TimelineEvent, Usage,
 };
+pub use logs::{LogRequest, LogSource, Logs};
 pub use naming::Slug;
 pub use repository::Commit;
 pub use resolving::{Reference, RunSelector, Subject};

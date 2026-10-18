@@ -103,7 +103,7 @@ fn short(sha: &str) -> &str {
     &sha[..SHORT_SHA_CHARS]
 }
 
-fn with_a_blocked_task(name: &str) -> Sandbox {
+pub fn with_a_blocked_task(name: &str) -> Sandbox {
     let sandbox = planned(
         name,
         &[
@@ -175,7 +175,8 @@ fn status_of_a_blocked_feature_shows_each_task_and_how_to_resume_each_blocked_st
              B  ⛔ blocked   build iter 1 · attempt 3\n  \
              ⛔ task B build blocked: attempts exhausted\n     \
              attempt 3 failed (exit_code): the agent exited with code 1\n     \
-             inspect: .surt/logs/{name}/{execution}/stream.jsonl\n  \
+             inspect: surt inspect {execution}\n     \
+             logs: surt logs {execution}\n  \
              resume: surt start {name}\n",
             short(&merged)
         )
@@ -306,6 +307,9 @@ fn status_and_show_write_nothing_to_the_database_or_the_working_copy() {
         vec!["show", &name, "--run", "1"],
         vec!["inspect", &name],
         vec!["inspect", &name, "--run", "1"],
+        vec!["logs", &name],
+        vec!["logs", &name, "--run", "1"],
+        vec!["logs", &name, "--raw"],
         vec!["show", &name, "manifest", "--run", "1"],
         vec!["show", &name, "manifest", "--file", "tasks/A.md"],
         vec![

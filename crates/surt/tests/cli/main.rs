@@ -9,6 +9,7 @@ mod inspect;
 #[cfg(unix)]
 mod interrupt;
 mod kill;
+mod logs;
 mod new_run;
 mod output;
 mod phases;

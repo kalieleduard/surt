@@ -8,12 +8,12 @@ Spec: [Milestone 2](../spec.md) (stories 9, 10, 12, 13, 14, 15, 17, 77) · Slice
 
 **Status:** ready-for-agent
 
-- [ ] The engine exposes each Execution's log directory path and the Execution selection (latest per Task, a Task, an Execution); the CLI opens and renders the files
-- [ ] The renderer is a pure function in the `surt` crate; tool results, unknown event types and unknown fields render nothing and never error
-- [ ] `output.log` and `stderr.log` lines pass through; process-running Operations (Checks, the integration re-check) show combined output with one header per Check
-- [ ] The source prefix (`B build#2 │`) appears only when more than one source is printed
-- [ ] `--raw` prints the original `stream.jsonl` lines untouched
-- [ ] A missing log directory says so and points at `surt inspect <id>`
-- [ ] `--run N` selects the run
-- [ ] A blocked step in `surt status` prints `inspect: surt inspect <execution>` and `logs: surt logs <execution>` instead of a file path
-- [ ] Renderer tests over the real Claude Code fixtures plus synthetic unknown lines; binary tests for the three targets, `--raw` and the missing directory; "reads never write" covers `logs`
+- [x] The engine exposes each Execution's log directory path and the Execution selection (latest per Task, a Task, an Execution); the CLI opens and renders the files
+- [x] The renderer is a pure function in the `surt` crate; tool results, unknown event types and unknown fields render nothing and never error
+- [x] `output.log` and `stderr.log` lines pass through; process-running Operations (Checks, the integration re-check) show combined output with one header per Check
+- [x] The source prefix (`B build#2 │`) appears only when more than one source is printed
+- [x] `--raw` prints the original `stream.jsonl` lines untouched
+- [x] A missing log directory says so and points at `surt inspect <id>`
+- [x] `--run N` selects the run
+- [x] A blocked step in `surt status` prints `inspect: surt inspect <execution>` and `logs: surt logs <execution>` instead of a file path
+- [x] Renderer tests over the real Claude Code fixtures plus synthetic unknown lines; binary tests for the three targets, `--raw` and the missing directory; "reads never write" covers `logs`
