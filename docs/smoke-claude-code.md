@@ -289,3 +289,75 @@ Add a line to the "Smoke results" section of ticket 07 (`.scratch/milestone-3/is
 ```
 
 A failure is still a result: record it with the step that failed and the command's output, and open a ticket for it.
+
+# Milestone 4: fit the project with the real Claude Code
+
+This part makes "Milestone 4 done" a repeatable check ([Milestone 4 spec](../.scratch/milestone-4/spec.md), "Shipping"). It covers what only the real `claude` and a real checked-out `main` show: a Builder override that reaches Claude Code as another model, a fast-forward of `main` inside the user's own worktree, and a successful run whose worktrees stay until `surt delete`. The refusals of invalid overrides, every row of the fast-forward table and the interrupted fast-forward are covered by the automated suite with the Fake Runtime and real Git.
+
+It reuses sections 1–3 above and spends about two Milestone 1 runs: two Features, without the rejection step. Use a **fresh** toy repository: run section 3 again. Choose a model your subscription can use other than the built-in `claude-sonnet-5-5`; the steps below say `claude-opus-5-5`.
+
+## M4.1 A Builder override to another model
+
+- [ ] Override the Builder's model and commit it, so `main` stays clean:
+
+  ```sh
+  mkdir -p .surt/agents/builder
+  printf '[profile]\nmodel = "claude-opus-5-5"\n' > .surt/agents/builder/agent.toml
+  git add .surt/agents && git commit --quiet -m "surt: builder on another model"
+  git status --short
+  ```
+
+  `git status --short` prints nothing.
+
+## M4.2 `surt feature … --merge` fast-forwards a checked-out, clean `main`
+
+- [ ] `git branch --show-current` prints `main`: the toy repository's own worktree holds the Base branch.
+- [ ] Create the Feature with the per-run flag. Call it `<one>`:
+
+  ```sh
+  "$SURT" feature --merge "Add greet.sh, which prints 'Hello, <name>!' for its first argument, with its own test under tests/."
+  ```
+
+  Under `✔ created <one>   base: main @ <base7>` it prints `local agents: builder (agent.toml)`, then `merge into base: ff-only (--merge)`. Exit `0`.
+- [ ] Approve and plan as in sections 4 and 5, without the rejection step: `"$SURT" approve <one>`, `"$SURT" plan <one>`, `"$SURT" approve <one>`.
+- [ ] `"$SURT" start <one>` ends with `✔ shipper delivered — surt/<one> @ <tip7>`, then `✔ merged into main (fast-forward <base7> → <tip7>)`, then `✔ run succeeded`. Exit `0`.
+- [ ] `main` is at the delivered tip and its files moved with it:
+
+  ```sh
+  git rev-parse --short main surt/<one>
+  git status --short
+  sh test.sh && sh greet.sh Ada
+  git reflog -1 main
+  ```
+
+  Both SHAs are `<tip7>`; `git status --short` prints nothing; the tests print `all tests passed` and the script `Hello, Ada!`; the reflog entry reads `surt: fast-forward main to surt/<one>`.
+- [ ] `"$SURT" status <one>` shows `merge into base: ff-only` on the `branch` line and `merge    merged into main <base7> → <tip7>`.
+- [ ] `"$SURT" inspect <one> <task key>` lists the build step's `execution.started`; copy its Execution id. `"$SURT" inspect <execution-id>` shows `profile   claude-code · claude-opus-5-5 · …` and `session   <uuid> · model claude-opus-5-5 · …`: the override reached Claude Code.
+- [ ] The Reviewer kept the built-in model: `"$SURT" inspect <execution-id of a review>` shows `model claude-sonnet-5-5`.
+
+## M4.3 `on_success = "keep"` keeps a succeeded run until `surt delete`
+
+- [ ] Keep successful runs and commit it:
+
+  ```sh
+  printf '\n[cleanup]\non_success = "keep"\n' >> .surt/config.toml
+  git commit --quiet -am "surt: keep successful runs"
+  ```
+
+- [ ] Create, approve, plan and approve a second Feature `<two>` as in M4.2, without `--merge`, for example "Add shout.sh, which prints its first argument in upper case, and whisper.sh, which prints it in lower case. Each script gets its own test under tests/." The creation line has no `merge into base:` line.
+- [ ] `"$SURT" start <two>` ends with `✔ run succeeded`, then `· cleanup kept (on_success = "keep") — remove with: surt delete <two>` instead of a `↻ cleanup` line. Exit `0`. `main` did not move (`merge_into_base = "never"`).
+- [ ] The worktrees are still there: `git worktree list` lists one worktree per Task under `~/.surt/worktrees/<project-id>/<two>/`, and `git branch --list 'surt/task/<two>/*'` lists their Task Branches.
+- [ ] `"$SURT" status` shows `<two>` as `SUCCEEDED` with `· kept`, and `"$SURT" status <two>` ends with `cleanup  kept (on_success = "keep") — remove with: surt delete <two>`.
+- [ ] `"$SURT" start <two>` again removes nothing: `git worktree list` is unchanged.
+- [ ] `"$SURT" delete <two> --yes` exits `0`. Afterwards `git worktree list` lists only the toy repository itself, `git branch --list 'surt/task/<two>/*'` prints nothing, and `git branch --list surt/<two>` still lists the Integration Branch of the succeeded run.
+- [ ] `pgrep -fl 'claude -p'` prints nothing.
+
+## M4.4 Record the result
+
+Add a line to the "Smoke results" section of ticket 10 (`.scratch/milestone-4/issues/10-m4-close-out-and-macos-smoke.md`) and tick its manual-check box when every box of M4.1–M4.3 is ticked:
+
+```
+- YYYY-MM-DD · macOS <version> (<arch>) · Claude Code <version> · surt <commit> · <pass | fail: step and reason>
+```
+
+A failure is still a result: record it with the step that failed and the command's output, and open a ticket for it.

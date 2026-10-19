@@ -82,7 +82,7 @@ Invariants of the interface:
 | Module | Hides | Dependency category |
 |---|---|---|
 | `project` | the facade; finding `.surt/`; project and global configuration; the `Catalog` of built-ins | — |
-| `workflow` | parsing the five `kind`s with `deny_unknown_fields`; static validation against agents and the Operation registry; merging `.surt/agents/<id>/agent.toml`, read by `Project::create_run` and nowhere else, over the `Catalog` field by field; freezing the closure and its SHA-256 ([E](E-workflow-schema.md), [F](F-agent-contract.md#built-in-defaults-and-local-overrides)) | in-process, pure |
+| `workflow` | parsing the five `kind`s with `deny_unknown_fields`; static validation against agents and the Operation registry; merging `.surt/agents/<id>/`, read by `Project::create_run` and nowhere else, over the `Catalog` (`agent.toml` field by field, `instructions.md` and each schema replacing the built-in file of the same path); freezing the closure and its SHA-256 ([E](E-workflow-schema.md), [F](F-agent-contract.md#built-in-defaults-and-local-overrides)) | in-process, pure |
 | `drive` | the tick loop, the state machines of [G](G-state-machines.md), Iterations and Per-Item expansion, agent slots, the rate-limit pause, Interruption and Cancellation | orchestrates the others |
 | `reconcile` | the partial-state tables of [I. Recovery](I-recovery.md), orphans, Salvage Refs, preparing a clean worktree for every Attempt | real Git, real processes |
 | `artifacts` | blobs by SHA-256, atomic publication of Revisions, delivery validation, Working Copy, edit detection, pinning and revalidation ([H](H-artifact-storage.md)) | store + disk |
@@ -221,6 +221,7 @@ pub enum Refusal {
     SchemaTooNew { db: i64, supported: i64 },
     GitTooOld { found: Version, min: Version },
     NoDriverToStop,
+    InvalidAgentOverride(Box<InvalidOverride>),
     // …
 }
 ```
@@ -270,7 +271,7 @@ pub fn catalog() -> Catalog {
 ```
 
 - The table is explicit, with `include_str!`; no directory-embedding crate.
-- `Project::create_run` reads `.surt/agents/<name>/` and `workflow` merges it over the `Catalog`, validates and freezes. Nothing else reads the directory: driving commands no longer refuse when it exists, and the `AgentOverrides` refusal is gone. The engine does not know which bytes came from the binary.
+- `Project::create_run` reads `.surt/agents/<name>/` and `workflow` merges it over the `Catalog`, validates and freezes. Nothing else reads the directory: driving commands no longer refuse when it exists. The Milestone 1 refusals of the three M4 mechanisms are gone: `AgentOverrides` (a `.surt/agents/` directory), `MergeIntoBaseUnsupported` (`merge_into_base = "ff-only"`) and the refusal of `on_success = "keep"`. An override that would break a run refuses with `InvalidAgentOverride` instead ([F](F-agent-contract.md#built-in-defaults-and-local-overrides)). The engine does not know which bytes came from the binary.
 - The engine embeds only what it owns: its migrations and the schemas of the Artifacts that Operations produce (`base`, `check-report`, `conflict`, `integration`). Agent schemas (`manifest`, `commit`, `feedback`, `delivery`) travel with their Agents in `surt`.
 
 ## Toolchain and dependencies
