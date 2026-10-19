@@ -1,17 +1,17 @@
 # Manual smoke: the real Claude Code on macOS
 
-This checklist makes "Milestone 1 done" a repeatable check ([K. Roadmap](architecture/K-roadmap.md), criterion 2): in a toy repository, a Feature with two Tasks reaches `succeeded` with the real Claude Code. Everything else in Milestone 1 is covered by the automated suite with the Fake Runtime and stub executables; this is the only check that runs the real `claude`.
+This checklist makes "Milestone 1 done" a repeatable check ([K. Roadmap](architecture/K-roadmap.md), criterion 2): in a toy repository, a Feature with two Tasks reaches `succeeded` with the real Claude Code. Every section uses the CLI of the current binary (since Milestone 5: `surt run` and `surt continue`, with the feature workflow written into the toy repository by `surt init --template feature`). Everything else in Milestone 1 is covered by the automated suite with the Fake Runtime and stub executables; this is the only check that runs the real `claude`.
 
 **It spends your Claude subscription.** A full run launches about seven agent Executions (spec, tasks, two Builders, two Reviewers, the Shipper), more if a review asks for changes. Run it deliberately, not in a loop.
 
-Work through the boxes in order. Every command runs in the toy repository unless stated otherwise. `<name>` is the Feature name `surt feature` prints (for example `20261018-greet-and-farewell`).
+Work through the boxes in order. Every command runs in the toy repository unless stated otherwise. `<name>` is the Feature name `surt run` prints (for example `20261018-greet-and-farewell`).
 
 ## 1. Prerequisites
 
 - [ ] macOS with Git 2.38 or newer: `git --version`.
 - [ ] Claude Code **2.1.301 or newer** on `PATH`: `claude --version` prints e.g. `2.1.301 (Claude Code)`. Upgrade with `claude update`.
 - [ ] Claude Code is logged in with a **subscription** (run `claude` once interactively and `/login` if needed). Surt never passes API keys, gateways or `ANTHROPIC_*` variables through, so an API-key-only setup fails with `authentication_failed`.
-- [ ] The subscription can use the model of the built-in agents, `claude-sonnet-5-5` (see `crates/surt/assets/agents/*/agent.toml`).
+- [ ] The subscription can use the model of the feature Template's Agents, `claude-sonnet-5-5` (see `crates/surt/assets/templates/feature/agents/*/agent.toml`, which `surt init --template feature` writes to `.surt/agents/*/agent.toml`).
 - [ ] No other `claude -p` process is running: `pgrep -fl 'claude -p'` prints nothing. Later steps use this to detect leftovers.
 
 ## 2. Build the release binary
@@ -19,7 +19,7 @@ Work through the boxes in order. Every command runs in the toy repository unless
 From the Surt checkout:
 
 - [ ] `cargo build --release -p surt` succeeds. Do **not** pass `--features test-support`: the release binary has no Fake Runtime and always uses Claude Code.
-- [ ] `export SURT="$PWD/target/release/surt"` and `"$SURT" --help` lists `init`, `feature`, `plan`, `start`, `approve`, `reject`.
+- [ ] `export SURT="$PWD/target/release/surt"` and `"$SURT" --help` lists `init`, `run`, `continue`, `approve`, `reject`.
 - [ ] Record the Surt commit: `git rev-parse --short HEAD`.
 
 ## 3. Set up the toy repository
@@ -43,7 +43,7 @@ From the Surt checkout:
   git add . && git commit --quiet -m "toy: empty project"
   ```
 
-- [ ] `"$SURT" init` prints a success line and creates `.surt/config.toml` and `.surt/.gitignore`.
+- [ ] `"$SURT" init --template feature` prints a success line, one `created` line per file (`.surt/.gitignore`, `.surt/config.toml`, `.surt/surt.db`, `.surt/workflows/feature.toml`, `.surt/workflows/task-cycle.toml` and the files of the five Agents under `.surt/agents/`), and `next: surt run feature --input request="<what you want to build>"`.
 - [ ] Add the Check, so every Builder commit and every integration runs the tests:
 
   ```sh
@@ -57,43 +57,43 @@ From the Surt checkout:
   git add .surt && git commit --quiet -m "surt: config"
   ```
 
-- [ ] `git status --short` is empty: `.surt/.gitignore` keeps the runtime state out of Git.
+- [ ] `git status --short` is empty: the commit holds `config.toml`, `workflows/` and `agents/`, and `.surt/.gitignore` keeps the runtime state out of Git.
 
-## 4. Spec phase
+## 4. The spec
 
 - [ ] Create the Feature:
 
   ```sh
-  "$SURT" feature "Add greet.sh, which prints 'Hello, <name>!' for its first argument, and farewell.sh, which prints 'Goodbye, <name>!'. Each script gets its own test under tests/."
+  "$SURT" run feature --input request="Add greet.sh, which prints 'Hello, <name>!' for its first argument, and farewell.sh, which prints 'Goodbye, <name>!'. Each script gets its own test under tests/."
   ```
 
-  Expected: `✔ created <name>   base: main @ <sha7>`, then `● spec started`, then the spec waiting for approval with the next command. Exit code `0` (`echo $?`).
-- [ ] Read the spec: `cat .surt/features/<name>/spec.md`. It describes both scripts.
-- [ ] Exercise rejection once: `"$SURT" reject <name> -m "Also say that both scripts exit 2 without an argument"`, then `"$SURT" feature <name>`. The new spec revision mentions exit code 2.
-- [ ] `"$SURT" approve <name>` prints `✔ approved spec rev 2 …` and `next: surt plan <name>`.
+  Expected: `✔ created <name>   workflow: feature   base: main @ <sha7>`, then `● spec started`, then `⏸ spec rev 1 awaiting approval in .surt/subjects/<name>` with the `approve:` and `reject:` commands. Exit code `0` (`echo $?`).
+- [ ] Read the spec: `cat .surt/subjects/<name>/spec.md`. It describes both scripts.
+- [ ] Exercise rejection once: `"$SURT" reject <name> -m "Also say that both scripts exit 2 without an argument"`, then `"$SURT" continue <name>`. The new spec revision mentions exit code 2.
+- [ ] `"$SURT" approve <name>` prints `✔ approved spec rev 2 …` and `next: surt continue <name>`.
 
-## 5. Task phase
+## 5. The Tasks
 
-- [ ] `"$SURT" plan <name>` ends waiting on the task manifest, exit `0`.
-- [ ] `cat .surt/features/<name>/manifest.json` lists **exactly two** Tasks (greet and farewell), and `.surt/features/<name>/tasks/` holds one file per Task. If the agent produced another split, reject it with `"$SURT" reject <name> -m "Exactly two tasks: one for greet.sh, one for farewell.sh"` and run `"$SURT" plan <name>` again.
-- [ ] `"$SURT" approve <name>` prints `next: surt start <name>`.
+- [ ] `"$SURT" continue <name>` runs `plan-tasks` and ends with `⏸ manifest rev 1 awaiting approval …`, exit `0`.
+- [ ] `cat .surt/subjects/<name>/manifest.json` lists **exactly two** Tasks (greet and farewell), and `.surt/subjects/<name>/tasks/` holds one file per Task. If the agent produced another split, reject it with `"$SURT" reject <name> -m "Exactly two tasks: one for greet.sh, one for farewell.sh"` and run `"$SURT" continue <name>` again.
+- [ ] `"$SURT" approve <name>` prints `next: surt continue <name>`.
 
 ## 6. Implementation, interrupted once
 
 This step also checks the process-tree handling on macOS: a graceful stop reaches Claude Code and the whole tree ends within the grace period (`stop_grace_period`, 10 s by default). Run it with no `~/.surt/config.toml`, so the default applies.
 
-- [ ] `"$SURT" start <name>`. Wait until a line `● task … build started` appears.
+- [ ] `"$SURT" continue <name>`. Wait until a line `● item … build started` appears.
 - [ ] In a second terminal, `pgrep -fl 'claude -p'` shows at least one Claude Code process.
 - [ ] Press **Ctrl-C once** in the first terminal. Within the 10 s grace period `surt` exits with `130` and prints how to resume.
 - [ ] `pgrep -fl 'claude -p'` prints nothing: no orphaned agent survived the stop.
-- [ ] `"$SURT" start <name>` resumes. Expected lines, in some order:
-  - `● task <key> build started` for both Tasks (Builders run in their own worktrees, in parallel; the keys come from the manifest);
+- [ ] `"$SURT" continue <name>` resumes. Expected lines, in some order:
+  - `● item <key> build started` for both Tasks (Builders run in their own worktrees, in parallel; the keys come from the manifest);
   - reviews of both Tasks; a `changes_requested` review followed by a new build iteration is fine;
-  - `✔ task <key> merged (<sha7>)` for both Tasks;
-  - finally `✔ shipper delivered — surt/<name> @ <sha7>` and `✔ run succeeded`.
+  - `✔ item <key> merged (<sha7>)` for both Tasks;
+  - finally `✔ delivered — surt/<name> @ <sha7>` and `✔ run succeeded`.
 - [ ] Exit code `0`.
 
-If a step blocks (exit `4`), read the printed reason and log path. `unsupported_version` means Claude Code is too old; `authentication_failed` means the subscription login is missing. Fix the cause and run `"$SURT" start <name>` again. A rate limit does not block: Surt prints `⏸ agent launches paused until <time> — N waiting · Ctrl-C to stop (resumable)` and resumes by itself after the reset.
+If a step blocks (exit `4`), read the printed reason and log path. `unsupported_version` means Claude Code is too old; `authentication_failed` means the subscription login is missing. Fix the cause and run `"$SURT" continue <name>` again. A rate limit does not block: Surt prints `⏸ agent launches paused until <time> — N waiting · Ctrl-C to stop (resumable)` and resumes by itself after the reset.
 
 ## 7. Expected final state
 
@@ -122,7 +122,7 @@ If a step blocks (exit `4`), read the printed reason and log path. `unsupported_
   ```
 
   The log shows both Tasks' commits and their merges, the tests print `all tests passed`, and the scripts print `Hello, Ada!` and `Goodbye, Ada!`.
-- [ ] `main` did not move (`merge_into_base = "never"`): `git rev-parse main` equals the `<sha7>` printed by `surt feature`.
+- [ ] `main` did not move (`merge_into_base = "never"`): `git rev-parse main` equals the `<sha7>` printed by `surt run`.
 - [ ] Every agent Execution recorded the Claude Code version:
 
   ```sh
@@ -145,28 +145,28 @@ A failure is still a result: record it with the step that failed and the log pat
 
 # Milestone 2: operate and debug a run with the real Claude Code
 
-This part makes "Milestone 2 done" a repeatable check ([Milestone 2 spec](../.scratch/milestone-2/spec.md), "Done when" criterion 2). It covers what only a real terminal and the real `claude` show: the footer redraws during `surt start`, `surt logs -f` renders a live Builder, `surt stop` from a second terminal leaves a resumable run, and `surt inspect <execution>` shows session, model, turns and cost. Everything else in Milestone 2 is covered by the automated suite.
+This part makes "Milestone 2 done" a repeatable check ([Milestone 2 spec](../.scratch/milestone-2/spec.md), "Done when" criterion 2). It covers what only a real terminal and the real `claude` show: the footer redraws during `surt continue`, `surt logs -f` renders a live Builder, `surt stop` from a second terminal leaves a resumable run, and `surt inspect <execution>` shows session, model, turns and cost. Everything else in Milestone 2 is covered by the automated suite.
 
 It reuses sections 1–3 above (prerequisites, release binary, toy repository) and spends about as much of your subscription as the Milestone 1 run. Use a **fresh** toy repository: run section 3 again. Work in a terminal window at least 100 columns wide, with a UTF-8 locale (`echo $LANG` names `UTF-8`).
 
-## M2.1 Reach the implementation phase
+## M2.1 Reach the implementation
 
 - [ ] Create, approve and plan a Feature as in sections 4 and 5, without the rejection step:
 
   ```sh
-  "$SURT" feature "Add greet.sh, which prints 'Hello, <name>!' for its first argument, and farewell.sh, which prints 'Goodbye, <name>!'. Each script gets its own test under tests/."
+  "$SURT" run feature --input request="Add greet.sh, which prints 'Hello, <name>!' for its first argument, and farewell.sh, which prints 'Goodbye, <name>!'. Each script gets its own test under tests/."
   "$SURT" approve <name>
-  "$SURT" plan <name>
+  "$SURT" continue <name>
   "$SURT" approve <name>
   ```
 
-  The manifest lists two Tasks; reject and replan as in section 5 if it does not.
+  The manifest lists two Tasks; reject and continue as in section 5 if it does not.
 
-## M2.2 The footer redraws during `surt start`
+## M2.2 The footer redraws during `surt continue`
 
-- [ ] Terminal 1: `"$SURT" start <name>`.
+- [ ] Terminal 1: `"$SURT" continue <name>`.
 - [ ] Under the event lines a single footer line is redrawn in place about once a second, for example `── 2 running (A build 42s, B build 41s) · slots 2/3 · 1m ──`. Durations grow; the line never scrolls or repeats.
-- [ ] When an event line arrives (`● task … started`, `✔ …`), it prints above the footer and the footer is redrawn below it. Scrolling back shows only event lines, no stale footers.
+- [ ] When an event line arrives (`● item … started`, `✔ …`), it prints above the footer and the footer is redrawn below it. Scrolling back shows only event lines, no stale footers.
 - [ ] Leave terminal 1 running for the next two sections.
 
 ## M2.3 `surt logs -f` renders a live Builder
@@ -178,16 +178,16 @@ It reuses sections 1–3 above (prerequisites, release binary, toy repository) a
 
 ## M2.4 `surt stop` from a second terminal leaves a resumable run
 
-- [ ] Terminal 3, while at least one Builder runs: `"$SURT" stop <name>`. It prints `⏳ stop requested; driver pid … is stopping N executions…`, then, within the 10 s default grace period, `✔ stopped. resumable: surt start <name>`, and exits `0` (`echo $?`).
-- [ ] Terminal 1 prints `⏳ stop requested from another terminal; stopping…`, one `⏹ task … attempt N interrupted` line per running Execution, then `stopped by surt stop (from another terminal)` with `resume: surt start <name>`, erases the footer, and exits `130` (`echo $?`).
+- [ ] Terminal 3, while at least one Builder runs: `"$SURT" stop <name>`. It prints `⏳ stop requested; driver pid … is stopping N executions…`, then, within the 10 s default grace period, `✔ stopped. resumable: surt continue <name>`, and exits `0` (`echo $?`).
+- [ ] Terminal 1 prints `⏳ stop requested from another terminal; stopping…`, one `⏹ item … attempt N interrupted` line per running Execution, then `stopped by surt stop (from another terminal)` with `resume: surt continue <name>`, erases the footer, and exits `130` (`echo $?`).
 - [ ] Terminal 2: `logs -f` drains the remaining lines and exits `0` on its own once the Driver is gone.
 - [ ] `pgrep -fl 'claude -p'` prints nothing.
 - [ ] `"$SURT" status <name>` shows the run `INTERRUPTED` with no Driver, and the interrupted Executions spent no Attempt (each Task's attempt count is unchanged).
-- [ ] Terminal 1: `"$SURT" start <name>` resumes and the run reaches `✔ run succeeded`, exit `0`, as in section 6.
+- [ ] Terminal 1: `"$SURT" continue <name>` resumes and the run reaches `✔ run succeeded`, exit `0`, as in section 6.
 
 ## M2.5 `surt inspect <execution>` shows session, model, turns and cost
 
-- [ ] `"$SURT" inspect <name> A` prints Task A's timeline, ending with its `execution.succeeded` and `step.done` events; copy the Execution id from its `execution.started` line for the build step.
+- [ ] `"$SURT" inspect <name> A` prints item A's timeline, ending with its `execution.succeeded` and `step.done` events; copy the Execution id from its `execution.started` line for the build step.
 - [ ] `"$SURT" inspect <execution-id>` prints, among the other lines:
   - `session   <uuid> · model <model> · version <claude --version>`;
   - `usage     <N> turns · … input · … output · $<cost>` with a non-zero turn count and cost;
@@ -225,25 +225,25 @@ It reuses sections 1–3 above and spends about twice the Milestone 1 run: two F
 - [ ] Create, approve and plan two Features as in sections 4 and 5, without the rejection step. Call the first `<one>` and the second `<two>`:
 
   ```sh
-  "$SURT" feature "Add greet.sh, which prints 'Hello, <name>!' for its first argument, and farewell.sh, which prints 'Goodbye, <name>!'. Each script gets its own test under tests/."
+  "$SURT" run feature --input request="Add greet.sh, which prints 'Hello, <name>!' for its first argument, and farewell.sh, which prints 'Goodbye, <name>!'. Each script gets its own test under tests/."
   "$SURT" approve <one>
-  "$SURT" plan <one>
+  "$SURT" continue <one>
   "$SURT" approve <one>
-  "$SURT" feature "Add shout.sh, which prints its first argument in upper case, and whisper.sh, which prints it in lower case. Each script gets its own test under tests/."
+  "$SURT" run feature --input request="Add shout.sh, which prints its first argument in upper case, and whisper.sh, which prints it in lower case. Each script gets its own test under tests/."
   "$SURT" approve <two>
-  "$SURT" plan <two>
+  "$SURT" continue <two>
   "$SURT" approve <two>
   ```
 
-  Each manifest lists two Tasks; reject and replan as in section 5 if one does not.
+  Each manifest lists two Tasks; reject and continue as in section 5 if one does not.
 
 ## M3.2 Two Features never run two Builders
 
-- [ ] Terminal 1: `"$SURT" start <one>`. Terminal 2, a few seconds later: `"$SURT" start <two>`.
+- [ ] Terminal 1: `"$SURT" continue <one>`. Terminal 2, a few seconds later: `"$SURT" continue <two>`.
 - [ ] Terminal 3, in the toy repository, while both run: `while sleep 5; do clear; "$SURT" status; pgrep -fl 'claude -p'; done`. For as long as both Features show `RUNNING`:
   - the last line of `status` reads `agent slots: 1/1 in use` or `agent slots: 0/1 in use`, never `2/1`;
   - `pgrep` lists at most one `claude -p` process.
-- [ ] While an agent of `<one>` runs, stop the loop (Ctrl-C) and run `"$SURT" status <two>`: a Task of `<two>` reads `⏳ queued … waiting for agent slot (1/1 in use)`, although `<two>` itself runs nothing. Restart the loop.
+- [ ] While an agent of `<one>` runs, stop the loop (Ctrl-C) and run `"$SURT" status <two>`: an item of `<two>` reads `⏳ queued … waiting for agent slot (1/1 in use)`, although `<two>` itself runs nothing. Restart the loop.
 - [ ] The footers in terminals 1 and 2 show `slots 1/1` whenever either Feature has an agent running, not only their own.
 - [ ] Both Features reach `✔ run succeeded`, exit `0` (`echo $?` in each terminal).
 - [ ] Stop the loop in terminal 3. `pgrep -fl 'claude -p'` prints nothing.
@@ -270,12 +270,12 @@ It reuses sections 1–3 above and spends about twice the Milestone 1 run: two F
   ```
 
 - [ ] Create, approve and plan a third Feature `<three>` as in M3.1, for example "Add count.sh, which prints the number of its arguments, and first.sh, which prints its first argument. Each script gets its own test under tests/."
-- [ ] Terminal 1: `"$SURT" start <three>`. Wait until a `● task … build started` line appears and `pgrep -fl 'claude -p'` lists the Builder.
-- [ ] Terminal 2: `"$SURT" stop <three>`. It prints `⏳ stop requested; driver pid … is stopping N executions…`, then, within the 30 s grace period, `✔ stopped. resumable: surt start <three>`, and exits `0`.
-- [ ] Terminal 1 prints one `⏹ task … attempt N interrupted` line per running Builder, then `resume: surt start <three>`, and exits `130`.
+- [ ] Terminal 1: `"$SURT" continue <three>`. Wait until a `● item … build started` line appears and `pgrep -fl 'claude -p'` lists the Builder.
+- [ ] Terminal 2: `"$SURT" stop <three>`. It prints `⏳ stop requested; driver pid … is stopping N executions…`, then, within the 30 s grace period, `✔ stopped. resumable: surt continue <three>`, and exits `0`.
+- [ ] Terminal 1 prints one `⏹ item … attempt N interrupted` line per running Builder, then `resume: surt continue <three>`, and exits `130`.
 - [ ] `pgrep -fl 'claude -p'` prints nothing: every Builder exited.
 - [ ] `"$SURT" inspect <three>` shows each stopped Builder's `execution.interrupted`, and `"$SURT" status <three>` shows the run `INTERRUPTED` with no Driver and no Attempt spent.
-- [ ] Terminal 1: `"$SURT" start <three>` resumes and reaches `✔ run succeeded`, exit `0`.
+- [ ] Terminal 1: `"$SURT" continue <three>` resumes and reaches `✔ run succeeded`, exit `0`.
 - [ ] Remove the global file (`rm ~/.surt/config.toml`), or put back the one you moved aside.
 
 That a Builder ignoring the stop is force-killed only after the configured period is covered by the stub-process tests; the real Claude Code exits on the graceful stop.
@@ -292,35 +292,37 @@ A failure is still a result: record it with the step that failed and the command
 
 # Milestone 4: fit the project with the real Claude Code
 
-This part makes "Milestone 4 done" a repeatable check ([Milestone 4 spec](../.scratch/milestone-4/spec.md), "Shipping"). It covers what only the real `claude` and a real checked-out `main` show: a Builder override that reaches Claude Code as another model, a fast-forward of `main` inside the user's own worktree, and a successful run whose worktrees stay until `surt delete`. The refusals of invalid overrides, every row of the fast-forward table and the interrupted fast-forward are covered by the automated suite with the Fake Runtime and real Git.
+This part makes "Milestone 4 done" a repeatable check ([Milestone 4 spec](../.scratch/milestone-4/spec.md), "Shipping"). It covers what only the real `claude` and a real checked-out `main` show: a Builder on another model that reaches Claude Code as that model, a fast-forward of `main` inside the user's own worktree, and a successful run whose worktrees stay until `surt delete`. Invalid Agent files, every row of the fast-forward table and the interrupted fast-forward are covered by the automated suite with the Fake Runtime and real Git.
 
-It reuses sections 1–3 above and spends about two Milestone 1 runs: two Features, without the rejection step. Use a **fresh** toy repository: run section 3 again. Choose a model your subscription can use other than the built-in `claude-sonnet-5-5`; the steps below say `claude-opus-5-5`.
+It reuses sections 1–3 above and spends about two Milestone 1 runs: two Features, without the rejection step. Use a **fresh** toy repository: run section 3 again. Choose a model your subscription can use other than the Template's `claude-sonnet-5-5`; the steps below say `claude-opus-5-5`.
 
-## M4.1 A Builder override to another model
+Since Milestone 5 there are no overrides: `.surt/agents/builder/agent.toml` is the Builder's whole definition, written by `surt init --template feature`, and M4.1 edits it in place.
 
-- [ ] Override the Builder's model and commit it, so `main` stays clean:
+## M4.1 The Builder on another model
+
+- [ ] Change the Builder's model and commit it, so `main` stays clean:
 
   ```sh
-  mkdir -p .surt/agents/builder
-  printf '[profile]\nmodel = "claude-opus-5-5"\n' > .surt/agents/builder/agent.toml
-  git add .surt/agents && git commit --quiet -m "surt: builder on another model"
+  sed -i '' 's/^model = "claude-sonnet-5-5"$/model = "claude-opus-5-5"/' .surt/agents/builder/agent.toml
+  grep '^model' .surt/agents/builder/agent.toml
+  git commit --quiet -am "surt: builder on another model"
   git status --short
   ```
 
-  `git status --short` prints nothing.
+  `grep` prints `model = "claude-opus-5-5"`; `git status --short` prints nothing.
 
-## M4.2 `surt feature … --merge` fast-forwards a checked-out, clean `main`
+## M4.2 `surt run feature --merge` fast-forwards a checked-out, clean `main`
 
 - [ ] `git branch --show-current` prints `main`: the toy repository's own worktree holds the Base branch.
 - [ ] Create the Feature with the per-run flag. Call it `<one>`:
 
   ```sh
-  "$SURT" feature --merge "Add greet.sh, which prints 'Hello, <name>!' for its first argument, with its own test under tests/."
+  "$SURT" run feature --merge --input request="Add greet.sh, which prints 'Hello, <name>!' for its first argument, with its own test under tests/."
   ```
 
-  Under `✔ created <one>   base: main @ <base7>` it prints `local agents: builder (agent.toml)`, then `merge into base: ff-only (--merge)`. Exit `0`.
-- [ ] Approve and plan as in sections 4 and 5, without the rejection step: `"$SURT" approve <one>`, `"$SURT" plan <one>`, `"$SURT" approve <one>`.
-- [ ] `"$SURT" start <one>` ends with `✔ shipper delivered — surt/<one> @ <tip7>`, then `✔ merged into main (fast-forward <base7> → <tip7>)`, then `✔ run succeeded`. Exit `0`.
+  Under `✔ created <one>   workflow: feature   base: main @ <base7>` it prints `merge into base: ff-only (--merge)`. Exit `0`.
+- [ ] Approve and continue as in sections 4 and 5, without the rejection step: `"$SURT" approve <one>`, `"$SURT" continue <one>`, `"$SURT" approve <one>`.
+- [ ] `"$SURT" continue <one>` ends with `✔ delivered — surt/<one> @ <tip7>`, then `✔ merged into main (fast-forward <base7> → <tip7>)`, then `✔ run succeeded`. Exit `0`.
 - [ ] `main` is at the delivered tip and its files moved with it:
 
   ```sh
@@ -332,8 +334,8 @@ It reuses sections 1–3 above and spends about two Milestone 1 runs: two Featur
 
   Both SHAs are `<tip7>`; `git status --short` prints nothing; the tests print `all tests passed` and the script `Hello, Ada!`; the reflog entry reads `surt: fast-forward main to surt/<one>`.
 - [ ] `"$SURT" status <one>` shows `merge into base: ff-only` on the `branch` line and `merge    merged into main <base7> → <tip7>`.
-- [ ] `"$SURT" inspect <one> <task key>` lists the build step's `execution.started`; copy its Execution id. `"$SURT" inspect <execution-id>` shows `profile   claude-code · claude-opus-5-5 · …` and `session   <uuid> · model claude-opus-5-5 · …`: the override reached Claude Code.
-- [ ] The Reviewer kept the built-in model: `"$SURT" inspect <execution-id of a review>` shows `model claude-sonnet-5-5`.
+- [ ] `"$SURT" inspect <one> <item key>` lists the build step's `execution.started`; copy its Execution id. `"$SURT" inspect <execution-id>` shows `profile   claude-code · claude-opus-5-5 · …` and `session   <uuid> · model claude-opus-5-5 · …`: the edited model reached Claude Code.
+- [ ] The Reviewer kept the Template's model: `"$SURT" inspect <execution-id of a review>` shows `model claude-sonnet-5-5`.
 
 ## M4.3 `on_success = "keep"` keeps a succeeded run until `surt delete`
 
@@ -344,17 +346,117 @@ It reuses sections 1–3 above and spends about two Milestone 1 runs: two Featur
   git commit --quiet -am "surt: keep successful runs"
   ```
 
-- [ ] Create, approve, plan and approve a second Feature `<two>` as in M4.2, without `--merge`, for example "Add shout.sh, which prints its first argument in upper case, and whisper.sh, which prints it in lower case. Each script gets its own test under tests/." The creation line has no `merge into base:` line.
-- [ ] `"$SURT" start <two>` ends with `✔ run succeeded`, then `· cleanup kept (on_success = "keep") — remove with: surt delete <two>` instead of a `↻ cleanup` line. Exit `0`. `main` did not move (`merge_into_base = "never"`).
-- [ ] The worktrees are still there: `git worktree list` lists one worktree per Task under `~/.surt/worktrees/<project-id>/<two>/`, and `git branch --list 'surt/task/<two>/*'` lists their Task Branches.
+- [ ] Create, approve, continue and approve a second Feature `<two>` as in M4.2, without `--merge`, for example "Add shout.sh, which prints its first argument in upper case, and whisper.sh, which prints it in lower case. Each script gets its own test under tests/." The creation line has no `merge into base:` line.
+- [ ] `"$SURT" continue <two>` ends with `✔ run succeeded`, then `· cleanup kept (on_success = "keep") — remove with: surt delete <two>` instead of a `↻ cleanup` line. Exit `0`. `main` did not move (`merge_into_base = "never"`).
+- [ ] The worktrees are still there: `git worktree list` lists one worktree per Task under `~/.surt/worktrees/<project-id>/<two>/`, and `git branch --list 'surt/item/<two>/*'` lists their Item Branches.
 - [ ] `"$SURT" status` shows `<two>` as `SUCCEEDED` with `· kept`, and `"$SURT" status <two>` ends with `cleanup  kept (on_success = "keep") — remove with: surt delete <two>`.
-- [ ] `"$SURT" start <two>` again removes nothing: `git worktree list` is unchanged.
-- [ ] `"$SURT" delete <two> --yes` exits `0`. Afterwards `git worktree list` lists only the toy repository itself, `git branch --list 'surt/task/<two>/*'` prints nothing, and `git branch --list surt/<two>` still lists the Integration Branch of the succeeded run.
+- [ ] `"$SURT" continue <two>` again refuses with exit `3` (`<two> has no active run …`, suggesting `surt continue <two> --new-run`) and removes nothing: `git worktree list` is unchanged.
+- [ ] `"$SURT" delete <two> --yes` exits `0`. Afterwards `git worktree list` lists only the toy repository itself, `git branch --list 'surt/item/<two>/*'` prints nothing, and `git branch --list surt/<two>` still lists the Integration Branch of the succeeded run.
 - [ ] `pgrep -fl 'claude -p'` prints nothing.
 
 ## M4.4 Record the result
 
 Add a line to the "Smoke results" section of ticket 10 (`.scratch/milestone-4/issues/10-m4-close-out-and-macos-smoke.md`) and tick its manual-check box when every box of M4.1–M4.3 is ticked:
+
+```
+- YYYY-MM-DD · macOS <version> (<arch>) · Claude Code <version> · surt <commit> · <pass | fail: step and reason>
+```
+
+A failure is still a result: record it with the step that failed and the command's output, and open a ticket for it.
+
+# Milestone 5: the project owns its workflows, with the real Claude Code
+
+This part makes "Milestone 5 done" a repeatable check ([Milestone 5 spec](../.scratch/milestone-5/spec.md), [ADR 0013](adr/0013-definitions-live-in-the-project.md)). It covers what only the real `claude` shows: the feature Template written into a project, an edited Reviewer instruction that the real Reviewer follows and that the run froze, `surt run`/`surt approve`/`surt continue` to the end, a rerun of `surt init --template feature` that keeps edited files, and a workflow of the project's own with no inputs. Invalid definitions, input refusals, `--new-run` with carried inputs and the frozen delivery checks are covered by the automated suite.
+
+It reuses sections 1–2 above and spends about one Milestone 1 run plus one short agent Execution. Use a **fresh** toy repository: run section 3 again, which is where `surt init --template feature` is checked.
+
+## M5.1 The Template is files of the project
+
+- [ ] In the toy repository after section 3, `ls .surt/workflows .surt/agents` lists `feature.toml` and `task-cycle.toml`, and the directories `builder`, `reviewer`, `shipper`, `spec` and `tasks`, each with `agent.toml` and `instructions.md`.
+- [ ] `git ls-files .surt` lists `.surt/.gitignore`, `.surt/config.toml`, both workflows and every file under `.surt/agents/` (schemas included), and no `surt.db`: the definitions are versioned with the project.
+- [ ] `diff .surt/agents/reviewer/instructions.md <surt checkout>/crates/surt/assets/templates/feature/agents/reviewer/instructions.md` prints nothing: the file is exactly what the binary embeds.
+
+## M5.2 An edited Reviewer instruction reaches the Reviewer
+
+- [ ] Give the Reviewer a project convention and commit it:
+
+  ```sh
+  printf '\n## Project convention\n\nStart the `summary` of every review with the word SMOKE-REVIEWED.\n' >> .surt/agents/reviewer/instructions.md
+  git commit --quiet -am "surt: reviewer convention"
+  ```
+
+- [ ] Create the Feature. Call it `<name>`:
+
+  ```sh
+  "$SURT" run feature --input request="Add greet.sh, which prints 'Hello, <name>!' for its first argument, with its own test under tests/."
+  ```
+
+  It prints `✔ created <name>   workflow: feature   base: main @ <sha7>`, with no `local agents:` line, then stops at `⏸ spec rev 1 awaiting approval …`. Exit `0`.
+- [ ] Edit the file again **after** creation, without committing: `printf 'End every summary with the word NOT-FROZEN.\n' >> .surt/agents/reviewer/instructions.md`. The run froze its Agents when it was created, so this line must never reach its Reviewer.
+- [ ] `"$SURT" approve <name>` prints `next: surt continue <name>`; `"$SURT" continue <name>` stops at `⏸ manifest rev 1 awaiting approval …`; `"$SURT" approve <name>` prints `next: surt continue <name>` again.
+- [ ] `"$SURT" continue <name>` runs to the end: `✔ item <key> merged (<sha7>)` for each Task, `✔ delivered — surt/<name> @ <tip7>`, `✔ run succeeded`, a `↻ cleanup` line, exit `0`.
+- [ ] `"$SURT" inspect <name> <item key>` lists the review step's `execution.started`; copy its Execution id. `"$SURT" inspect <execution-id>` shows the role `reviewer` and the profile `claude-code · claude-sonnet-5-5 · …`.
+- [ ] The Reviewer's frozen instructions hold the committed convention and not the later edit:
+
+  ```sh
+  sqlite3 .surt/surt.db "SELECT CAST(b.bytes AS TEXT) FROM execution e JOIN snapshot_file f ON f.snapshot_sha256 = e.agent_snapshot_sha256 JOIN blob b ON b.sha256 = f.blob_sha256 WHERE e.id = '<execution-id>' AND f.rel_path = 'instructions.md'" | tail -3
+  ```
+
+  prints the line ``Start the `summary` of every review with the word SMOKE-REVIEWED.`` last, and no `NOT-FROZEN`.
+- [ ] The Reviewer followed it: `"$SURT" show <name> feedback --item <item key>` prints a `summary` that starts with `SMOKE-REVIEWED` and contains no `NOT-FROZEN`.
+- [ ] Discard the uncommitted edit: `git checkout .surt/agents/reviewer/instructions.md`, then `git status --short` prints nothing.
+
+## M5.3 `surt init --template feature` again keeps the project's files
+
+- [ ] Delete one Template file: `rm .surt/agents/shipper/instructions.md`.
+- [ ] `"$SURT" init --template feature` prints `✔ surt is already initialized in …/.surt`, then `created` on the line of `.surt/agents/shipper/instructions.md` and `kept` on every other line, `.surt/agents/reviewer/instructions.md` included. Exit `0`.
+- [ ] `grep SMOKE-REVIEWED .surt/agents/reviewer/instructions.md` still prints the convention, and `git status --short` prints nothing: the restored Shipper file is the committed one, and the edited Reviewer file was not overwritten.
+
+## M5.4 A workflow of the project's own, with no inputs
+
+- [ ] Add a one-step workflow and its Agent:
+
+  ```sh
+  mkdir -p .surt/agents/greeter
+  cat > .surt/workflows/hello.toml <<'TOML'
+  schema = 1
+  name = "hello"
+
+  [steps.greet]
+  kind = "agent"
+  agent = "greeter"
+  TOML
+  cat > .surt/agents/greeter/agent.toml <<'TOML'
+  schema = 1
+  id = "greeter"
+
+  [outputs.note]
+  format = "text"
+
+  [profile]
+  runtime = "claude-code"
+  model = "claude-sonnet-5-5"
+  effort = "high"
+
+  [profile.claude]
+  auth = "subscription"
+  permission_mode = "dontAsk"
+  tools = ["Read", "Write"]
+  allowed_tools = ["Read"]
+  disallowed_tools = ["mcp__*"]
+  TOML
+  printf '# Greeter\n\nWrite note.txt in the delivery directory named in your context, holding one line that greets the reader. Finish with outcome done and outputs.note set to note.txt.\n' > .surt/agents/greeter/instructions.md
+  git add .surt && git commit --quiet -m "surt: hello workflow"
+  ```
+
+- [ ] `"$SURT" run hello --input request=x` refuses with exit `3`: `✖ workflow hello has no input "request"`, `workflow hello takes no inputs`, and a `fix:` line. Nothing is created (`"$SURT" status --all` lists no `hello` Subject).
+- [ ] `"$SURT" run hello` prints `✔ created <date>-hello   workflow: hello` (named after the workflow, no `base:` part), `● greet started`, `✔ note rev 1 published`, `✔ greet done`, then `✔ run succeeded` with no `delivered` line, since the workflow has no Integration Branch. Exit `0`.
+- [ ] `"$SURT" show <date>-hello note` prints the greeting.
+- [ ] `pgrep -fl 'claude -p'` prints nothing.
+
+## M5.5 Record the result
+
+Add a line to the "Smoke results" section of ticket 07 (`.scratch/milestone-5/issues/07-m5-close-out.md`) and tick its manual-check box when every box of M5.1–M5.4 is ticked:
 
 ```
 - YYYY-MM-DD · macOS <version> (<arch>) · Claude Code <version> · surt <commit> · <pass | fail: step and reason>
