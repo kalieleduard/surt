@@ -64,9 +64,6 @@ fn step_use(problem: &Problem) -> Option<StepUse> {
         } => Some(StepUse::Until),
         Problem::UnknownOutcome { .. } => Some(StepUse::When),
         Problem::UnknownAgentInput { .. } | Problem::MissingInput { .. } => Some(StepUse::Input),
-        Problem::MissingCheckedOutput { .. } | Problem::MissingCheckedOutcome { .. } => {
-            Some(StepUse::DeliveryCheck)
-        }
         _ => None,
     }
 }

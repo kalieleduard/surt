@@ -45,7 +45,6 @@ pub enum StepUse {
     When,
     Until,
     Input,
-    DeliveryCheck,
 }
 
 impl InvalidOverride {

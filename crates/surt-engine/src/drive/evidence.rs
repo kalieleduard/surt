@@ -39,8 +39,8 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 .get(output)
                 .and_then(|delivered| delivered.json.as_ref());
             let proven = match check {
-                DeliveryCheck::CommitEvidence => self.prove_commit(launch, json).await,
-                DeliveryCheck::ReviewedCommit => self.prove_review(launch, json).await,
+                DeliveryCheck::CommitEvidence {} => self.prove_commit(launch, json).await,
+                DeliveryCheck::ReviewedCommit {} => self.prove_review(launch, json).await,
                 DeliveryCheck::NoBlockingFinding { outcome } => {
                     without_blocking(json, &delivery.outcome, outcome)
                 }

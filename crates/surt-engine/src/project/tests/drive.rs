@@ -12,6 +12,7 @@ mod evidence;
 mod fault_intentions;
 mod faults;
 mod fixtures;
+mod frozen_checks;
 mod gates;
 mod inspecting;
 mod inspecting_executions;

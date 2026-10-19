@@ -2,6 +2,7 @@ mod active;
 mod agents;
 mod checked;
 mod created;
+mod declared_checks;
 #[cfg(feature = "test-support")]
 mod drive;
 mod edits;
@@ -10,7 +11,6 @@ mod flows;
 mod frozen;
 mod local_assets;
 mod local_schemas;
-mod override_checks;
 mod override_hygiene;
 mod override_refusals;
 mod override_workflows;

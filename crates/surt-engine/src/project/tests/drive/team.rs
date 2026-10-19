@@ -10,8 +10,8 @@ use super::fixtures::{ACTOR, Feature, agent, preserved};
 use super::planned::{PLANNER, plan};
 use super::repository::git;
 use crate::project::{
-    BASE_SCHEMA, CHECK_REPORT_SCHEMA, CONFLICT_SCHEMA, Catalog, Config, DeliveryCheck,
-    DriveOutcome, INTEGRATION_SCHEMA,
+    BASE_SCHEMA, CHECK_REPORT_SCHEMA, CONFLICT_SCHEMA, Catalog, Config, DriveOutcome,
+    INTEGRATION_SCHEMA,
 };
 use crate::runtime::{
     AgentRuntime, Behavior, Delivery, FakeRuntime, RuntimeCompletion, RuntimeError,
@@ -172,6 +172,7 @@ optional = true
 
 [outputs.commit]
 format = "json"
+checks = [{ kind = "commit_evidence" }]
 
 [profile]
 runtime = "fake"
@@ -203,6 +204,7 @@ optional = true
 
 [outputs.feedback]
 format = "json"
+checks = [{ kind = "reviewed_commit" }, { kind = "no_blocking_finding", outcome = "approved" }]
 
 [profile]
 runtime = "fake"
@@ -228,8 +230,6 @@ runtime = "fake"
 model = "fake-model"
 effort = "high"
 "#;
-
-const APPROVED: &str = "approved";
 
 pub(super) type Act = fn(&Path) -> String;
 pub(super) type Turn = Box<dyn Fn(&Path) -> Behavior + Send + Sync>;
@@ -407,13 +407,6 @@ pub(super) fn team_catalog(task: &'static str) -> Catalog {
         .agent("builder", agent(BUILDER))
         .agent("reviewer", agent(REVIEWER))
         .agent("shipper", agent(SHIPPER))
-        .delivery_check("builder", "commit", DeliveryCheck::CommitEvidence)
-        .delivery_check("reviewer", "feedback", DeliveryCheck::ReviewedCommit)
-        .delivery_check(
-            "reviewer",
-            "feedback",
-            DeliveryCheck::NoBlockingFinding { outcome: APPROVED },
-        )
 }
 
 pub(super) async fn built(
