@@ -66,6 +66,7 @@ impl Feature {
         git(&root, &["init", "--quiet", "--initial-branch=main"]);
         git(&root, &["config", "user.name", "Surt Tester"]);
         git(&root, &["config", "user.email", "tester@example.com"]);
+        git(&root, &["config", "core.autocrlf", "false"]);
         fs::write(root.join(".git/info/exclude"), ".surt/\n").expect("the exclude file");
         let base = commit_file(&root, "README.md", "hello\n");
         let project = dir.project(catalog, config).await;
