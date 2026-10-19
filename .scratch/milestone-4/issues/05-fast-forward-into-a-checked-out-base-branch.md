@@ -15,15 +15,19 @@ Spec: [Milestone 4](../spec.md) (stories 42–46, 50–52, 60) · Plan: [A. Merg
 
 **Blocked by:** 04 (Fast-forward into a Base branch that is not checked out)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The worktree holding `refs/heads/<base.ref>` is found with `git worktree list --porcelain -z`
-- [ ] "Clean" means no staged or unstaged changes to tracked files and no merge, cherry-pick, revert or rebase in progress; untracked files do not count
-- [ ] A clean worktree gets `git -C <worktree> merge --ff-only <tip>` → `merged`, with `worktree_path` in the `ref_move` row; a worktree that is not clean → `skipped` (`worktree_not_clean`)
-- [ ] When `git merge --ff-only` refuses because it would overwrite an untracked file, the Outcome is `skipped` (`worktree_not_clean`)
-- [ ] With `worktree_path` set, the ref at `old_sha` and that worktree not clean, the Step Run becomes `blocked` (`not_retryable`, `merge_into_base_interrupted`), exit `4`, with I's finish/undo lines; after "finish it" the next drive records `merged`, after "undo it" it fast-forwards again, after nothing it blocks again
-- [ ] A `git merge --ff-only` failure (a Windows file in use) is a technical failure whose next Attempt follows the rules above
-- [ ] The repository's `post-merge` hook runs as Git runs it; its exit status does not change the Outcome
-- [ ] `Project` tests with real Git: clean checked-out worktree (files and ref both at the tip), tracked change, in-progress merge marker, untracked file left alone, untracked file that would be overwritten; the interrupted case with its finish and undo paths
-- [ ] Binary test: `merge_into_base_interrupted` exits `4` with the finish/undo lines
-- [ ] A records the definition of clean and the hook behaviour; I links the reason values
+- [x] The worktree holding `refs/heads/<base.ref>` is found with `git worktree list --porcelain -z`
+- [x] "Clean" means no staged or unstaged changes to tracked files and no merge, cherry-pick, revert or rebase in progress; untracked files do not count
+- [x] A clean worktree gets `git -C <worktree> merge --ff-only <tip>` → `merged`, with `worktree_path` in the `ref_move` row; a worktree that is not clean → `skipped` (`worktree_not_clean`)
+- [x] When `git merge --ff-only` refuses because it would overwrite an untracked file, the Outcome is `skipped` (`worktree_not_clean`)
+- [x] With `worktree_path` set, the ref at `old_sha` and that worktree not clean, the Step Run becomes `blocked` (`not_retryable`, `merge_into_base_interrupted`), exit `4`, with I's finish/undo lines; after "finish it" the next drive records `merged`, after "undo it" it fast-forwards again, after nothing it blocks again
+- [x] A `git merge --ff-only` failure (a Windows file in use) is a technical failure whose next Attempt follows the rules above
+- [x] The repository's `post-merge` hook runs as Git runs it; its exit status does not change the Outcome
+- [x] `Project` tests with real Git: clean checked-out worktree (files and ref both at the tip), tracked change, in-progress merge marker, untracked file left alone, untracked file that would be overwritten; the interrupted case with its finish and undo paths
+- [x] Binary test: `merge_into_base_interrupted` exits `4` with the finish/undo lines
+- [x] A records the definition of clean and the hook behaviour; I links the reason values
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on Windows. Merged into `integration/milestone-4` at 86dd9d2; code-review fixes at 863ebc6. The review fixes added the worktree path to the not-clean line and a test for a recorded worktree that no longer exists. Resolved.

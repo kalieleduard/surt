@@ -11,15 +11,19 @@ Spec: [Milestone 4](../spec.md) (stories 61–68, 71) · Plan: [I. Cleanup — w
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] `.surt/config.toml` accepts `[cleanup] on_success = "clean" | "keep"`, absent by default; any other value refuses every command with the file, the line and the reason (exit `3`)
-- [ ] Workflow Definitions' `[cleanup] on_success` also parses `"keep"`, and its canonical form keeps it
-- [ ] The effective policy is the configuration's value when set, else the root Workflow Definition's; child definitions are not consulted; it is frozen into the `config` snapshot
-- [ ] A `succeeded` run with `keep` runs no cleanup step, leaves `cleaned_at` NULL, writes no cleanup event and prints the kept line; status derives `CleanupState::Kept` from the frozen policy
-- [ ] No command treats a kept run as cleanup pending; driving it again removes nothing; `surt delete` removes it as I's table says
-- [ ] A cancelled run ignores the policy
-- [ ] Config unit tests: `clean`, `keep`, absent, invalid
-- [ ] `Project` tests with the Fake and real Git: a kept run leaves every item of I's `keep` column and status reports `Kept`; driving it again removes nothing; `delete` removes it; a cancelled run with `keep` cleans as cancelled
-- [ ] Binary tests: the kept line; `kept` in `status`, `status --all` and `cleanup.state = "kept"` in `status --json`
-- [ ] E, I and J record the configuration key and the effective policy; D lists `on_success` in the `config` snapshot; K's `on_success = "keep"` row says it is implemented
+- [x] `.surt/config.toml` accepts `[cleanup] on_success = "clean" | "keep"`, absent by default; any other value refuses every command with the file, the line and the reason (exit `3`)
+- [x] Workflow Definitions' `[cleanup] on_success` also parses `"keep"`, and its canonical form keeps it
+- [x] The effective policy is the configuration's value when set, else the root Workflow Definition's; child definitions are not consulted; it is frozen into the `config` snapshot
+- [x] A `succeeded` run with `keep` runs no cleanup step, leaves `cleaned_at` NULL, writes no cleanup event and prints the kept line; status derives `CleanupState::Kept` from the frozen policy
+- [x] No command treats a kept run as cleanup pending; driving it again removes nothing; `surt delete` removes it as I's table says
+- [x] A cancelled run ignores the policy
+- [x] Config unit tests: `clean`, `keep`, absent, invalid
+- [x] `Project` tests with the Fake and real Git: a kept run leaves every item of I's `keep` column and status reports `Kept`; driving it again removes nothing; `delete` removes it; a cancelled run with `keep` cleans as cancelled
+- [x] Binary tests: the kept line; `kept` in `status`, `status --all` and `cleanup.state = "kept"` in `status --json`
+- [x] E, I and J record the configuration key and the effective policy; D lists `on_success` in the `config` snapshot; K's `on_success = "keep"` row says it is implemented
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on Windows. Merged into `integration/milestone-4` at c9b4084; code-review fixes at 863ebc6. Resolved.

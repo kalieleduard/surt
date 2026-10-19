@@ -2,7 +2,7 @@
 
 Labels: ready-for-agent
 Type: spec
-Status: open (0 of 10 tickets resolved; tickets in [issues/](issues/))
+Status: open (9 of 10 tickets resolved; 10 awaits CI and the manual smoke; tickets in [issues/](issues/))
 Map: [Surt — Architecture and implementation plan](../surt-architecture/map.md)
 Plan: [K. Roadmap](../../docs/architecture/K-roadmap.md#after-milestone-1), [F. Built-in defaults and local overrides](../../docs/architecture/F-agent-contract.md#built-in-defaults-and-local-overrides), [A. Merging into the Base](../../docs/architecture/A-git-integration.md#merging-into-the-base-opt-in), [I. An interrupted fast-forward](../../docs/architecture/I-recovery.md#an-interrupted-fast-forward-into-the-base), [I. Cleanup — what each ending removes](../../docs/architecture/I-cleanup.md#what-each-ending-removes), [J. Configuration](../../docs/architecture/J-cli.md#configuration), [ADR 0006](../../docs/adr/0006-merge-into-base-is-opt-in-fast-forward.md)
 Previous: [Milestone 3](../milestone-3/spec.md)

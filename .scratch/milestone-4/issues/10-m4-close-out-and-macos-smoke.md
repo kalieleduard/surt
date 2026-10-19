@@ -20,3 +20,7 @@ Spec: [Milestone 4](../spec.md) (stories 72–75, "Shipping") · Plan: [K. After
 ## Smoke results
 
 One line per run of the Milestone 4 section of [the smoke checklist](../../../docs/smoke-claude-code.md):
+
+## Comments
+
+- 2026-10-18 (orchestrator): Merged into `integration/milestone-4` at d87d736; code-review fixes at 863ebc6. Open: CI on macOS, Linux and Windows (needs the branch pushed) and the manual macOS smoke (M4 section of `docs/smoke-claude-code.md`).

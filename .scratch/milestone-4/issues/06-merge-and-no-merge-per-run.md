@@ -16,12 +16,16 @@ $ surt feature 20261017-add-login --no-merge
 
 **Blocked by:** 04 (Fast-forward into a Base branch that is not checked out)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] `--merge` and `--no-merge` exist on `surt feature`, mutually exclusive in clap (exit `2`)
-- [ ] They apply on the description form and on `--new-run`; `NewRun` carries the override and `create_run` freezes the effective value (`ff-only` / `never`) into the `config` snapshot; the engine knows nothing of the flags
-- [ ] On the resume form either flag refuses with exit `3`, naming the frozen value and pointing to `--new-run`
-- [ ] The creation line prints `merge into base: <value>` and, when a flag chose it, which one; nothing extra prints for the project default `never` without a flag
-- [ ] `Project` test: a per-run override frozen in `config` wins over the project file, and a later edit of the file changes nothing for that run
-- [ ] Binary tests: both flags on creation and on `--new-run`; both together exit `2`; either on resume exits `3`; the creation line
-- [ ] J records the flags on `--new-run`, their refusal on resume and the creation line
+- [x] `--merge` and `--no-merge` exist on `surt feature`, mutually exclusive in clap (exit `2`)
+- [x] They apply on the description form and on `--new-run`; `NewRun` carries the override and `create_run` freezes the effective value (`ff-only` / `never`) into the `config` snapshot; the engine knows nothing of the flags
+- [x] On the resume form either flag refuses with exit `3`, naming the frozen value and pointing to `--new-run`
+- [x] The creation line prints `merge into base: <value>` and, when a flag chose it, which one; nothing extra prints for the project default `never` without a flag
+- [x] `Project` test: a per-run override frozen in `config` wins over the project file, and a later edit of the file changes nothing for that run
+- [x] Binary tests: both flags on creation and on `--new-run`; both together exit `2`; either on resume exits `3`; the creation line
+- [x] J records the flags on `--new-run`, their refusal on resume and the creation line
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on Windows. Merged into `integration/milestone-4` at aeb7526; code-review fixes at 863ebc6. Resolved.
