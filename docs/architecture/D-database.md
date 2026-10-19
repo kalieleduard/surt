@@ -143,7 +143,7 @@ A snapshot is a set of files with an identity hash, shared by every run that fro
 
 ```
 root run       ref refs/heads/surt/20261017-add-login              start = Base             tip = M_B
-child run (B)  ref refs/heads/surt/task/20261017-add-login/B       start = tip when B began
+child run (B)  ref refs/heads/surt/item/20261017-add-login/B       start = tip when B began
                worktree /Users/…/.surt/worktrees/surt-a1b2c3/20261017-add-login/B
                merged_as M_B
 ```

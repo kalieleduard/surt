@@ -54,12 +54,12 @@ No command treats a kept run as cleanup pending: a driving command on it removes
 
 | Thing | `succeeded`, `clean` | `succeeded`, `keep` | `cancelled` | `surt delete` |
 |---|---|---|---|---|
-| Working Copy `.surt/features/<subject>/`, files equal to their baseline | remove | keep | remove | remove |
+| Working Copy `.surt/subjects/<subject>/`, files equal to their baseline | remove | keep | remove | remove |
 | Working Copy files with an unrecorded edit | keep, warn | keep | keep, warn | remove |
 | `.surt/runtime/executions/<id>/` (`inputs/`, `delivery/`) | remove | keep | remove | remove |
 | Logs `.surt/logs/<subject>/` | keep | keep | keep | remove |
 | Task worktrees | remove | keep | salvage, then remove | remove, no salvage |
-| Task Branches `surt/task/<subject>/<key>` | delete if at `tip_sha` | keep | keep | delete |
+| Task Branches `surt/item/<subject>/<key>` | delete if at `tip_sha` | keep | keep | delete |
 | Salvage Refs of the run | delete | keep | keep | delete |
 | Integration Branch `surt/<subject>` | keep | keep | keep | keep if the run `succeeded`, delete if `cancelled` |
 | SQLite rows | keep | keep | keep | purge |
@@ -92,7 +92,7 @@ A human edit that was never recorded can sit in the Working Copy when a run ends
 ```
 ✔ run        succeeded
 ↻ cleanup    done
-⚠ kept .surt/features/20261017-add-login/spec.md — unrecorded edit
+⚠ kept .surt/subjects/20261017-add-login/spec.md — unrecorded edit
 ```
 
 Recording it as a human Revision is not possible for a pinned Revision, and doing it during a cancel would rewrite the history of a run that is ending.
@@ -102,7 +102,7 @@ A new run of the same Subject would write its own Revisions over that file. `sur
 ```
 $ surt feature 20261017-add-login --new-run
 ✖ working copy has unrecorded edits from run 1
-    .surt/features/20261017-add-login/spec.md
+    .surt/subjects/20261017-add-login/spec.md
     fix: move or delete the file, then run again
 ```
 
@@ -113,7 +113,7 @@ It exits `3` ([J](J-cli.md#exit-codes)). `surt delete` removes those files and l
 ```
 $ surt restore 20261017-add-login spec
 ✖ 20261017-add-login run 1 has ended; restore only rewrites an active run
-    .surt/features/20261017-add-login/spec.md
+    .surt/subjects/20261017-add-login/spec.md
   fix: move or delete the file
 ```
 
@@ -153,7 +153,7 @@ $ surt delete add-login
 delete feature 20261017-add-login and all its history?
   runs      1 cancelled · 2 succeeded
   git       delete surt/20261017-add-login (run 1, cancelled)
-            delete surt/task/20261017-add-login/{A,B} · 1 salvage ref
+            delete surt/item/20261017-add-login/{A,B} · 1 salvage ref
             keep   surt/20261017-add-login.2 (run 2, delivered)
   disk      .surt/logs/20261017-add-login (14 MB) · 1 unrecorded edit in the working copy
   database  3 spec revisions · 41 executions · 312 events
@@ -170,7 +170,7 @@ delete feature 20261017-add-login and all its history?
 2. **Git and disk**, each step idempotent:
    - worktrees: `unlock`, `remove --force`; a missing directory is pruned for that entry only;
    - refs: one `git update-ref --stdin` transaction;
-   - directories: `.surt/logs/<subject>/`, `.surt/features/<subject>/` and every `.surt/runtime/executions/<id>/` of the Subject.
+   - directories: `.surt/logs/<subject>/`, `.surt/subjects/<subject>/` and every `.surt/runtime/executions/<id>/` of the Subject.
    A failure (a file in use) does the rest of this step, skips step 3 and exits `1` with `retry: surt delete 20261017-add-login`.
 3. **SQLite**, in one `BEGIN IMMEDIATE` transaction: read the Subject's root runs again. If the set differs from the one step 2 cleaned (a concurrent `--new-run`), roll back and refuse with exit `3`: `feature changed while deleting; run again`. Otherwise purge: `DELETE FROM subject`, then the snapshot and blob garbage collection.
 4. **Lock files.** Release the run locks and remove their files, best effort. A lock file whose run no longer exists is inert.

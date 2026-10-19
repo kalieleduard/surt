@@ -12,7 +12,7 @@ surt/20261016-add-login   a11 ── M_A ── M_C ── M_B ── snapshot �
                            ├─ A ──┘      │      │
                            ├─ C ─────────┘      │
                            └──── (from M_A) B ──┘
-surt/task/20261016-add-login/{A,B,C}
+surt/item/20261016-add-login/{A,B,C}
 ```
 
 1. `surt feature` fixes the **Base**: the commit at `HEAD`, or at `--base <ref>`.
@@ -46,10 +46,10 @@ Surt uses only the `git` CLI, with argument vectors and no shell. libgit2 and gi
 | Branch | Name | Created by |
 |---|---|---|
 | Integration Branch | `surt/<subject>` | `git.create_run_branch` |
-| Task Branch | `surt/task/<subject>/<key>` | `git.create_child_worktree` |
+| Task Branch (one per item) | `surt/item/<subject>/<key>` | `git.create_child_worktree` |
 
-- Git cannot store `refs/heads/surt/X` and `refs/heads/surt/X/A` at once. Task Branches therefore live under `surt/task/`, which never collides with a Subject because every Subject starts with digits.
-- From the second root run of the same Subject, `<subject>` becomes `<subject>.N` in branch names and worktree paths, where `N` is the run's ordinal within its Subject: `surt/20261016-add-login.2`, `surt/task/20261016-add-login.2/A`. No run renames or deletes another run's branches. A `.` never occurs in a Subject slug, so `.2` cannot be mistaken for the Subject `20261016-add-login-2`.
+- Git cannot store `refs/heads/surt/X` and `refs/heads/surt/X/A` at once. Task Branches therefore live under `surt/item/`, a name the engine uses for the child branch of any per-item step whatever the workflow calls its items. It never collides with a Subject because every Subject starts with digits.
+- From the second root run of the same Subject, `<subject>` becomes `<subject>.N` in branch names and worktree paths, where `N` is the run's ordinal within its Subject: `surt/20261016-add-login.2`, `surt/item/20261016-add-login.2/A`. No run renames or deletes another run's branches. A `.` never occurs in a Subject slug, so `.2` cannot be mistaken for the Subject `20261016-add-login-2`.
 - Every generated name is also checked with `git check-ref-format --branch` as a defence.
 
 ### Project id and worktrees
@@ -77,7 +77,7 @@ Item keys become path components of branch names and directories, and they are u
 ↻ plan-tasks attempt 2
 ```
 
-Item file paths (`files.task = "tasks/A.md"`) are portable relative paths ([F. Agent Contract](F-agent-contract.md#one-markdown-document-per-task)). Each path component also matches `[A-Za-z0-9._-]+`, is not `.` or `..`, has no trailing dot, and does not have a reserved device name as its stem (`con.md` is refused). Full paths are unique case-insensitively within one Revision. The Working Copy (`.surt/features/<subject>/tasks/A.md`) and `inputs/` mirror these paths verbatim.
+Item file paths (`files.task = "tasks/A.md"`) are portable relative paths ([F. Agent Contract](F-agent-contract.md#one-markdown-document-per-task)). Each path component also matches `[A-Za-z0-9._-]+`, is not `.` or `..`, has no trailing dot, and does not have a reserved device name as its stem (`con.md` is refused). Full paths are unique case-insensitively within one Revision. The Working Copy (`.surt/subjects/<subject>/tasks/A.md`) and `inputs/` mirror these paths verbatim.
 
 ## The Base
 
@@ -174,10 +174,10 @@ Invariant: **every tip of an Integration Branch passed the Checks, and every Tas
 Merge commit format:
 
 ```
-Merge task C into surt/20261016-add-login
+Merge item C into surt/20261016-add-login
 
 Surt-Run: 20261016-add-login
-Surt-Task: C
+Surt-Item: C
 Surt-Reviewed-Commit: c9d4e1f…
 ```
 
@@ -212,7 +212,7 @@ The Integration Branch belongs to Surt until the run ends. A human who wants to 
 
 ## Snapshot, Shipper and delivery
 
-- `git.snapshot_run_branch` runs after `implement`. It checks ownership like `integrate` step 1, verifies that the tip descends from `base.sha`, and produces `integration` ([schema](schemas/integration.schema.json)): branch, Base, final tip, and each Task's key, reviewed commit and merge commit. A parent does not read its children's artifacts ([E](E-workflow-schema.md#per-item-steps)), so this list comes from Git and SQLite state, not from child artifacts.
+- `git.snapshot_run_branch` runs after `implement`. It checks ownership like `integrate` step 1, verifies that the tip descends from `base.sha`, and produces `integration` ([schema](schemas/integration.schema.json)): branch, Base, final tip, and under `items` each merged item's key, reviewed commit and merge commit. A parent does not read its children's artifacts ([E](E-workflow-schema.md#per-item-steps)), so this list comes from Git and SQLite state, not from child artifacts.
 - The **Shipper** is a read-only agent. It reads `manifest` and `integration`, inspects `git log`/`git diff <base>..<tip>` from the project root without checking anything out, and delivers `delivery` = `{ title, summary }` ([schema](schemas/delivery.schema.json)): text ready to become a pull request description, summarizing the spec's intent, the Tasks and the Checks. The delivered branch and SHA are those of `integration`; the agent does not declare them.
 - Nothing is pushed. The spec is not committed. The Integration Branch is the deliverable:
   ```

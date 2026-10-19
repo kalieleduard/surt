@@ -41,10 +41,10 @@ $ surt approve 20261016-add-login
 
 ## Working Copy
 
-Humans read and edit artifacts through a **Working Copy** under `.surt/features/<subject>/`. It only exists for artifacts that pass through an Approval Gate in the run's frozen Workflow Definition. The engine derives the list from the `kind = "approval"` steps; it does not know what a spec or a manifest is. For the Template's `feature` workflow:
+Humans read and edit artifacts through a **Working Copy** under `.surt/subjects/<subject>/`. It only exists for artifacts that pass through an Approval Gate in the run's frozen Workflow Definition. The engine derives the list from the `kind = "approval"` steps; it does not know what a spec or a manifest is. For the Template's `feature` workflow:
 
 ```
-.surt/features/20261016-add-login/
+.surt/subjects/20261016-add-login/
 ├── spec.md          ← artifact of gate approve-spec
 ├── manifest.json    ← artifact of gate approve-tasks
 └── tasks/
@@ -186,7 +186,7 @@ Surt writes `.surt/.gitignore` so that only the project's configuration and defi
 ├── config.toml        ✔ versioned (project configuration)
 ├── workflows/         ✔ versioned (Workflow Definitions, section E)
 ├── agents/            ✔ versioned (Agents, section F)
-├── features/          ✖ ignored: Working Copies; the truth is in SQLite
+├── subjects/          ✖ ignored: Working Copies; the truth is in SQLite
 ├── logs/              ✖ ignored: agent and Check logs, one directory per Subject
 ├── surt.db            ✖ ignored (with -wal and -shm)
 └── runtime/           ✖ ignored: locks, slots, Execution directories
@@ -205,12 +205,12 @@ Surt writes `.surt/.gitignore` so that only the project's configuration and defi
 
 `workflows/` and `agents/` hold the complete definitions a new run freezes ([E](E-workflow-schema.md#where-definitions-live), [F](F-agent-contract.md#definitions-in-the-project)); `surt init --template feature` writes the feature Template there and never overwrites a file. They are reviewed like any other code: pulling a branch can change what the next run does.
 
-Versioning `features/` would create a second source of truth. Task branches would carry stale copies of the spec, and a `git checkout` of another branch would change the Working Copy, which Surt would see as a human edit.
+Versioning `subjects/` would create a second source of truth. Task branches would carry stale copies of the spec, and a `git checkout` of another branch would change the Working Copy, which Surt would see as a human edit.
 
 ## After a run ends
 
 - Revisions, blobs and Approvals stay in SQLite for as long as the Workflow Run exists. Removing old runs (purge) is section I.
-- Cleanup of a terminal run removes its Working Copy `.surt/features/<subject>/` and its `.surt/runtime/executions/<id>/` directories. Both are views that can be regenerated: `surt show <subject> <artifact>` reads any Revision. A Working Copy file with an unrecorded edit is kept, and `--new-run` refuses while it is there ([I. Cleanup](I-cleanup.md#unrecorded-working-copy-edits)).
+- Cleanup of a terminal run removes its Working Copy `.surt/subjects/<subject>/` and its `.surt/runtime/executions/<id>/` directories. Both are views that can be regenerated: `surt show <subject> <artifact>` reads any Revision. A Working Copy file with an unrecorded edit is kept, and `--new-run` refuses while it is there ([I. Cleanup](I-cleanup.md#unrecorded-working-copy-edits)).
 - Agent logs live in `.surt/logs/<subject>/`, outside `runtime/`, and survive cleanup ([I. Cleanup](I-cleanup.md#logs)).
 - Nothing is committed into the user's branches. The Shipper does not commit the spec; its delivery text summarizes the spec's intent ([A. Git Integration](A-git-integration.md#snapshot-shipper-and-delivery)).
 
