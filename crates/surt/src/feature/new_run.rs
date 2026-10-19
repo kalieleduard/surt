@@ -1,6 +1,8 @@
 use surt_engine::project::{Commit, NewRun, Project, RunSelector, RunStatus, StatusScope};
 
-use super::{DEFAULT_BASE, base_artifact, short_base, with_local_agents};
+use super::{
+    DEFAULT_BASE, MergeFlag, base_artifact, short_base, with_local_agents, with_merge_line,
+};
 use crate::builtin::{FEATURE_WORKFLOW, REQUEST_ARTIFACT};
 use crate::driving::local_time;
 use crate::failure::Failure;
@@ -15,6 +17,7 @@ pub(super) async fn start(
     project: &Project,
     reference: &str,
     base: Option<&str>,
+    merge: Option<MergeFlag>,
 ) -> Result<(), Failure> {
     let subject = project.resolve_subject(reference).await?;
     finish_cleanup(project, &subject, COMMAND).await?;
@@ -23,13 +26,15 @@ pub(super) async fn start(
         .resolve_commit(base.unwrap_or(DEFAULT_BASE))
         .await?
         .ok_or_else(|| Failure::Refused(no_base(&name, base)))?;
-    let new_run = next_run(&name, &commit, project.actor().await?);
+    let mut new_run = next_run(&name, &commit, project.actor().await?);
+    new_run.merge_into_base = merge.map(MergeFlag::mode);
     let runtime = runtime::select(project)?;
     let created = project.create_run(new_run).await?;
     let ordinal = current(project, &name)
         .await?
         .map_or(0, |status| status.run);
-    with_local_agents(started(&name, ordinal, &commit), &created.local_agents).print_success();
+    let run_line = with_local_agents(started(&name, ordinal, &commit), &created.local_agents);
+    with_merge_line(run_line, created.merge_into_base, merge).print_success();
     SPEC.drive(project, &name, &created.run, &runtime).await
 }
 
@@ -46,11 +51,15 @@ fn next_run(subject: &str, base: &Commit, actor: String) -> NewRun {
         workflow: FEATURE_WORKFLOW.to_owned(),
         initial_artifacts: vec![base_artifact(base)],
         carried: vec![REQUEST_ARTIFACT.to_owned()],
+        merge_into_base: None,
         actor,
     }
 }
 
-async fn current(project: &Project, subject: &str) -> Result<Option<RunStatus>, Failure> {
+pub(super) async fn current(
+    project: &Project,
+    subject: &str,
+) -> Result<Option<RunStatus>, Failure> {
     let statuses = project
         .status(StatusScope::Feature(subject, RunSelector::Current))
         .await?;

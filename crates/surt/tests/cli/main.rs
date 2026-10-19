@@ -15,6 +15,7 @@ mod kept;
 mod kill;
 mod logs;
 mod merge;
+mod merge_flags;
 mod new_run;
 mod output;
 mod overrides;

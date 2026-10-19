@@ -2,7 +2,9 @@ use serde::Deserialize;
 
 use super::{CleanupState, PendingIntegration, Unattended};
 use crate::cleanup::{Kept, Left};
+use crate::drive::BaseMerge;
 use crate::git;
+use crate::operations::Operation;
 use crate::platform;
 use crate::project::{Commit, Error};
 use crate::store::{RootRunRow, Store};
@@ -40,6 +42,16 @@ pub(in crate::project) async fn base(store: &Store, root: &str) -> Result<Option
                 branch: base.reference,
             })
     }))
+}
+
+pub(in crate::project) async fn merge(
+    store: &Store,
+    root: &str,
+) -> Result<Option<BaseMerge>, Error> {
+    let done = store
+        .last_operation_done(root, Operation::MergeIntoBase.id())
+        .await?;
+    Ok(done.as_deref().and_then(BaseMerge::from_data))
 }
 
 pub(super) async fn unattended(

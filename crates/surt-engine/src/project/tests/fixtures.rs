@@ -111,6 +111,7 @@ pub(super) fn new_run(workflow: &str) -> NewRun {
             initial("base", "base.json", br#"{"sha": "abc"}"#),
         ],
         carried: Vec::new(),
+        merge_into_base: None,
         actor: "dev@example.com".to_owned(),
     }
 }
