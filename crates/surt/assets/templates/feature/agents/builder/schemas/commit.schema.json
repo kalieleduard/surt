@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Built-in Builder commit output",
+  "title": "Builder commit output",
   "type": "object",
   "additionalProperties": false,
   "required": ["sha"],
