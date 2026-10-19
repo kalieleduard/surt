@@ -172,4 +172,13 @@ impl Store {
         }
         Ok(transaction.commit().await?)
     }
+
+    pub(crate) async fn step_started_at(&self, step: &str) -> Result<Option<i64>, StoreError> {
+        Ok(
+            sqlx::query_scalar("SELECT started_at FROM step_run WHERE id = ?")
+                .bind(step)
+                .fetch_one(&self.pool)
+                .await?,
+        )
+    }
 }

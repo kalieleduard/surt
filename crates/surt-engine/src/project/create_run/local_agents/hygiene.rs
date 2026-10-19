@@ -2,6 +2,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use super::is_placeholder;
 use crate::project::{Error, Refusal};
 use crate::workflow::{Catalog, InvalidOverride, Problem};
 
@@ -79,6 +80,11 @@ fn entries(dir: &Path) -> Result<Vec<Entry>, Error> {
                     path: entry.path(),
                 })
                 .map_err(|error| Error::io("read", dir, error))
+        })
+        .filter(|entry| {
+            entry
+                .as_ref()
+                .map_or(true, |entry| !is_placeholder(&entry.path))
         })
         .collect::<Result<Vec<_>, _>>()?;
     entries.sort_by(|left, right| left.name.cmp(&right.name));

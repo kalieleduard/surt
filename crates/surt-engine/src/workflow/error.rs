@@ -71,6 +71,7 @@ pub enum Problem {
         name: String,
     },
     UnknownOutcome {
+        field: StepField,
         step: String,
         outcome: String,
         declared: Vec<String>,
@@ -95,6 +96,9 @@ pub enum Problem {
     },
     NonLocalReference {
         reference: String,
+    },
+    InvalidSchema {
+        detail: String,
     },
     MisplacedJsonSchema {
         name: String,

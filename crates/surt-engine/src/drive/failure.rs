@@ -4,6 +4,8 @@ use crate::project::Error;
 use crate::runtime::FailureClass;
 use crate::store::{ExecutionEnd, StoreError};
 
+const INVALID_INPUT: &str = "invalid_input";
+
 #[derive(Debug)]
 pub(super) struct Failure {
     class: FailureClass,
@@ -23,6 +25,10 @@ impl Failure {
             code,
             message,
         }
+    }
+
+    pub(super) fn invalid_input(message: String) -> Failure {
+        Failure::not_retryable(INVALID_INPUT, message)
     }
 
     pub(super) fn retryable(code: &'static str, message: String) -> Failure {

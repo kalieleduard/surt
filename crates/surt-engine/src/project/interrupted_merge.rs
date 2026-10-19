@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use super::{Error, Project, RunId, open_store};
 use crate::git;
-use crate::operations::Operation;
 use crate::store::PendingRefMove;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -23,7 +22,7 @@ impl Project {
 }
 
 fn interrupted(pending: PendingRefMove) -> Option<InterruptedMerge> {
-    if pending.operation.as_deref().and_then(Operation::find) != Some(Operation::MergeIntoBase) {
+    if !pending.merges_into_base() {
         return None;
     }
     let intended = pending.intended;

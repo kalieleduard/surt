@@ -1,8 +1,9 @@
 use super::fixtures::{ProjectDir, default_config, in_step, new_run, workflow_refusal, writer};
-use crate::project::{Catalog, Problem};
+use crate::project::{Catalog, Problem, StepField};
 
-fn unknown_outcome(step: &str, outcome: &str, declared: &[&str]) -> Problem {
+fn unknown_outcome(field: StepField, step: &str, outcome: &str, declared: &[&str]) -> Problem {
     Problem::UnknownOutcome {
+        field,
         step: step.to_owned(),
         outcome: outcome.to_owned(),
         declared: declared.iter().map(|name| (*name).to_owned()).collect(),
@@ -65,18 +66,29 @@ when = { step = "write", outcome = "approved" }
 
     assert_eq!(
         operation,
-        in_step("ship", unknown_outcome("prepare", "passed", &["done"]))
+        in_step(
+            "ship",
+            unknown_outcome(StepField::When, "prepare", "passed", &["done"])
+        )
     );
     assert_eq!(
         approval,
         in_step(
             "cycle",
-            unknown_outcome("gate", "accepted", &["approved", "rejected"])
+            unknown_outcome(
+                StepField::Until,
+                "gate",
+                "accepted",
+                &["approved", "rejected"]
+            )
         )
     );
     assert_eq!(
         agent,
-        in_step("ship", unknown_outcome("write", "approved", &["done"]))
+        in_step(
+            "ship",
+            unknown_outcome(StepField::When, "write", "approved", &["done"])
+        )
     );
 }
 

@@ -37,6 +37,15 @@ pub struct InvalidOverride {
 pub struct WorkflowStep {
     pub workflow: String,
     pub step: String,
+    pub field: Option<StepUse>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StepUse {
+    When,
+    Until,
+    Input,
+    DeliveryCheck,
 }
 
 impl InvalidOverride {
@@ -65,7 +74,7 @@ impl Catalog {
                 assets,
                 local: Some(&local_assets),
             };
-            schemas::check_references(local, &sources)?;
+            schemas::check(local, &sources)?;
             if let Some(merged) = effective_toml(local, &sources)? {
                 effective = effective.with_effective_toml(&local.id, merged);
             }

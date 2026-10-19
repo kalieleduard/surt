@@ -99,3 +99,34 @@ async fn empty_agent_directories_freeze_the_built_in_agents_unchanged() {
         plain.frozen_agent("writer").await
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn git_placeholder_files_anywhere_under_the_agents_directory_are_no_override() {
+    let dir = ProjectDir::new();
+    for placeholder in [
+        ".gitkeep",
+        "writer/.keep",
+        "writer/schemas/.gitkeep",
+        "writer/drafts/.gitkeep",
+    ] {
+        let path = dir.path().join(".surt/agents").join(placeholder);
+        fs::create_dir_all(path.parent().expect("a parent")).expect("the directory");
+        fs::write(path, "").expect("a placeholder");
+    }
+    let plain = ProjectDir::new();
+
+    for project in [&dir, &plain] {
+        let created = project
+            .project(draft_catalog(), default_config())
+            .await
+            .create_run(new_run("draft"))
+            .await
+            .expect("the run is created");
+        assert_eq!(created.local_agents, []);
+    }
+
+    assert_eq!(
+        dir.frozen_agent("writer").await,
+        plain.frozen_agent("writer").await
+    );
+}

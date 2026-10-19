@@ -20,8 +20,24 @@ impl Reconcile<'_> {
         let Settled::Recorded(settled) = settled else {
             return Ok(None);
         };
-        let started = self.attempt(&pending, Operation::MergeIntoBase).await?;
-        let recorded = settled.data();
+        self.record_merge(&pending, &settled).await?;
+        Ok(match settled {
+            BaseMerge::Merged { to, .. } => Some(Progress::IntegrationRecorded {
+                step: pending.step,
+                branch: git::short_branch(&pending.intended.ref_name).to_owned(),
+                merge: to,
+            }),
+            BaseMerge::Skipped(_) => None,
+        })
+    }
+
+    async fn record_merge(
+        &self,
+        pending: &PendingRefMove,
+        settled: &BaseMerge,
+    ) -> Result<(), Error> {
+        let started = self.attempt(pending, Operation::MergeIntoBase).await?;
+        let recorded = settled.data()?;
         let acceptance = Acceptance {
             execution: &started.id,
             outcome: settled.outcome(),
@@ -31,13 +47,6 @@ impl Reconcile<'_> {
             recorded: Some(&recorded),
         };
         self.store.accept_execution(acceptance).await?;
-        Ok(match settled {
-            BaseMerge::Merged { to, .. } => Some(Progress::IntegrationRecorded {
-                step: pending.step,
-                branch: git::short_branch(&pending.intended.ref_name).to_owned(),
-                merge: to,
-            }),
-            BaseMerge::Skipped(_) => None,
-        })
+        Ok(())
     }
 }

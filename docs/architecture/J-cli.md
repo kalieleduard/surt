@@ -130,7 +130,7 @@ $ surt feature "add login" --merge
 
 The `merge into base:` line follows any `local agents:` line, under `✔ created …` and under `✔ run N of …` alike. Without a flag it reads `merge into base: ff-only` when the configuration says so, and is absent for the default `never`.
 
-On the resume form either flag refuses with exit `3`, because the active run already froze its mode; choosing again needs a new run:
+On the resume form either flag refuses with exit `3`, because the Subject's latest run, active or not, already froze its mode; choosing again needs a new run:
 
 ```
 $ surt feature 20261017-add-login --no-merge
@@ -273,7 +273,7 @@ $ surt status fix-cache
 
 Blocked Tasks show the blocked step, its last error and the command to resume, plus `inspect: surt inspect <execution>` and `logs: surt logs <execution>` for the last failed Execution ([G](G-state-machines.md#workflow-run)). Integration shows the merged SHA or the Conflict reason (`merge: src/auth.rs`, `checks: test`). Recovery-related lines (`⟳ integrating … (pending)`, an agent running unattended) are in [I](I-recovery.md). Terminal runs show `cleanup pending` or `kept` ([I. Cleanup](I-cleanup.md#in-surt-status)).
 
-The `branch` line keeps the frozen `merge into base` mode. Once the `merge` step ended, a `merge` line above `cleanup` gives its result, read from the step's recorded `step.done` fields ([A](A-git-integration.md#merging-into-the-base-opt-in)): `merged into main a11c9d0 → 4e1b2c0`, or `not merged:` with the reason, `main moved (a11c9d0 → b22e310)` (the Base, then where the branch was found), `main no longer exists`, `no base branch` or `worktree not clean`. A run whose mode is `never` records `disabled` and shows no line. While the fast-forward's Intention is pending, the line is the recovery one, `⟳ merge   main: a11c9d0 → 4e1b2c0 (pending)`.
+The `branch` line keeps the frozen `merge into base` mode. Once the `merge` step ended, a `merge` line above `cleanup` gives its result, read from the step's recorded `step.done` fields ([A](A-git-integration.md#merging-into-the-base-opt-in)): `merged into main (fast-forward a11c9d0 → 4e1b2c0)`, or `not merged:` with the reason in the same words as the line `start` printed: `main moved since base (a11c9d0 → b22e310)` (the Base, then where the branch was found), `main no longer exists (base a11c9d0)`, `the base a11c9d0 is not a branch` or `main is checked out in /Users/you/surt with changes`. A run whose mode is `never` records `disabled` and shows no line. While the fast-forward's Intention is pending, the line is the recovery one, `⟳ merge   main: a11c9d0 → 4e1b2c0 (pending)`.
 
 ```
 $ surt status add-login
@@ -281,7 +281,7 @@ $ surt status add-login
   base     main @ a11c9d0
   branch   surt/20261017-add-login @ 4e1b2c0 · merge into base: ff-only
   …
-  merge    not merged: main moved (a11c9d0 → b22e310)
+  merge    not merged: main moved since base (a11c9d0 → b22e310)
   cleanup  done
 ```
 
@@ -460,7 +460,7 @@ Each document serialises the read view the human output renders (`RunStatus`, `T
 }
 ```
 
-Optional Feature fields: `ended_at`, `driver` (`pid`, `since`), `paused` while a Transient Failure pauses agent launches (`code`, plus `resets_at` when the Execution recorded a reset time), `cleanup` (`state` `done`, `pending` or `kept`; `left` lists items with `item` and `reason`; `kept` lists `moved_branch` with `branch`, or `unrecorded_edit` or `foreign_path` with `path`); per gate `edited` and `missing`; per Task `waits_for`, `conflict` (`kind` `merge` with `paths`, or `checks` with `failed`); per last error `resets_at`; `merge` once the `merge` step ended, as recorded: `{"outcome": "merged", "from": …, "to": …}`, or `{"outcome": "skipped", "reason": …}` with `reason` `disabled`, `no_base_branch`, `worktree_not_clean` or `base_moved` (plus `found`, the full SHA the branch was at, unless it no longer exists).
+Optional Feature fields: `ended_at`, `driver` (`pid`, `since`), `paused` while a Transient Failure pauses agent launches (`code`, plus `resets_at` when the Execution recorded a reset time), `cleanup` (`state` `done`, `pending` or `kept`; `left` lists items with `item` and `reason`; `kept` lists `moved_branch` with `branch`, or `unrecorded_edit` or `foreign_path` with `path`); per gate `edited` and `missing`; per Task `waits_for`, `conflict` (`kind` `merge` with `paths`, or `checks` with `failed`); per last error `resets_at`; `merge` once the `merge` step ended, as recorded: `{"outcome": "merged", "from": …, "to": …}`, or `{"outcome": "skipped", "reason": …}` with `reason` `disabled`, `no_base_branch`, `worktree_not_clean` (plus `worktree`, the worktree's path) or `base_moved` (plus `found`, the full SHA the branch was at, unless it no longer exists).
 
 `agent_slots` is the project-wide count of [`surt status`](#surt-status), the same in every Feature's document, whether or not that Feature has a live Driver.
 

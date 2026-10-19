@@ -1,6 +1,6 @@
-use super::{InvalidOverride, LocalAgent, LocalFile, WorkflowStep};
+use super::{InvalidOverride, LocalAgent, LocalFile, StepUse, WorkflowStep};
 use crate::workflow::catalog::Catalog;
-use crate::workflow::error::{DefinitionFile, InvalidDefinition};
+use crate::workflow::error::{DefinitionFile, InvalidDefinition, Problem, StepField};
 
 impl Catalog {
     pub(crate) fn blame_overrides(
@@ -10,39 +10,39 @@ impl Catalog {
         workflow: &str,
         initial_artifacts: &[&str],
     ) -> Result<(), Box<InvalidOverride>> {
-        let Err(invalid) = effective.check(workflow, initial_artifacts) else {
+        let check = |catalog: &Catalog| catalog.check(workflow, initial_artifacts);
+        if check(effective).is_ok() || check(self).is_err() {
             return Ok(());
-        };
-        let built_in_valid = self.check(workflow, initial_artifacts).is_ok();
-        let overridden: Vec<(&str, &LocalFile)> = locals
-            .iter()
-            .filter_map(|local| local.toml.as_ref().map(|file| (local.id.as_str(), file)))
-            .collect();
-        let culprit = overridden
-            .iter()
-            .find(|(id, _)| {
-                self.with_one_override(effective, id)
-                    .check(workflow, initial_artifacts)
-                    .is_err()
-            })
-            .or(overridden.first());
-        match culprit {
-            Some((_, file)) if built_in_valid => Err(Box::new(InvalidOverride {
-                file: file.file.clone(),
-                field: None,
-                needed_by: needed_by(&invalid),
-                problem: invalid.problem,
-            })),
-            _ => Ok(()),
         }
+        let mut applied = self.clone();
+        for local in locals {
+            let Some(file) = override_file(local) else {
+                continue;
+            };
+            applied = applied.with_override_from(effective, &local.id);
+            if let Err(invalid) = check(&applied) {
+                return Err(blamed(file, *invalid));
+            }
+        }
+        Ok(())
     }
+}
 
-    fn with_one_override(&self, effective: &Catalog, id: &str) -> Catalog {
-        match effective.agent_toml(id) {
-            Some(toml) => self.clone().with_effective_toml(id, toml.to_owned()),
-            None => self.clone(),
-        }
-    }
+fn override_file(local: &LocalAgent) -> Option<&LocalFile> {
+    local
+        .toml
+        .as_ref()
+        .or(local.instructions.as_ref())
+        .or_else(|| local.schemas.values().next())
+}
+
+fn blamed(file: &LocalFile, invalid: InvalidDefinition) -> Box<InvalidOverride> {
+    Box::new(InvalidOverride {
+        file: file.file.clone(),
+        field: None,
+        needed_by: needed_by(&invalid),
+        problem: invalid.problem,
+    })
 }
 
 fn needed_by(invalid: &InvalidDefinition) -> Option<WorkflowStep> {
@@ -50,7 +50,23 @@ fn needed_by(invalid: &InvalidDefinition) -> Option<WorkflowStep> {
         (DefinitionFile::Workflow(workflow), Some(step)) => Some(WorkflowStep {
             workflow: workflow.clone(),
             step: step.clone(),
+            field: step_use(&invalid.problem),
         }),
+        _ => None,
+    }
+}
+
+fn step_use(problem: &Problem) -> Option<StepUse> {
+    match problem {
+        Problem::UnknownOutcome {
+            field: StepField::Until,
+            ..
+        } => Some(StepUse::Until),
+        Problem::UnknownOutcome { .. } => Some(StepUse::When),
+        Problem::UnknownAgentInput { .. } | Problem::MissingInput { .. } => Some(StepUse::Input),
+        Problem::MissingCheckedOutput { .. } | Problem::MissingCheckedOutcome { .. } => {
+            Some(StepUse::DeliveryCheck)
+        }
         _ => None,
     }
 }

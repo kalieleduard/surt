@@ -4,7 +4,7 @@ use std::error::Error;
 use jsonschema::{Draft, Retrieve, Uri, Validator};
 use serde_json::Value;
 
-use crate::workflow::local_references;
+use super::references::local_references;
 
 const SCHEMA_BASE: &str = "https://surt.invalid/";
 
@@ -20,17 +20,17 @@ impl Retrieve for AgentSchemas {
     }
 }
 
-pub(super) fn validator<'a>(
+pub(crate) fn compile_schema<'a>(
     path: &str,
-    schema: &Value,
     text: &str,
     schema_text: &impl Fn(&str) -> Option<&'a str>,
 ) -> Result<Validator, String> {
+    let schema: Value = serde_json::from_str(text).map_err(|error| error.to_string())?;
     jsonschema::options()
         .with_draft(Draft::Draft7)
         .with_base_uri(format!("{SCHEMA_BASE}{path}"))
         .with_retriever(AgentSchemas(referenced(path, text, schema_text)))
-        .build(schema)
+        .build(&schema)
         .map_err(|error| error.to_string())
 }
 

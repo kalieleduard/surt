@@ -141,7 +141,7 @@ fn an_override_removing_an_outcome_the_reviewer_must_declare_names_the_workflow_
     assert_eq!(
         run.stderr,
         "✖ .surt/agents/reviewer/agent.toml: a delivery check needs the outcome \"approved\"\n  \
-         needed by: task-cycle step review\n  \
+         needed by: task-cycle step review (delivery check)\n  \
          fix: edit .surt/agents/reviewer/agent.toml\n"
     );
     assert_eq!(

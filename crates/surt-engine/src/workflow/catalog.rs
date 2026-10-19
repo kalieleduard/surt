@@ -102,6 +102,16 @@ impl Catalog {
         self.local_assets.insert(id.to_owned(), local);
         self
     }
+
+    pub(super) fn with_override_from(mut self, effective: &Catalog, id: &str) -> Catalog {
+        if let Some(toml) = effective.effective_tomls.get(id) {
+            self.effective_tomls.insert(id.to_owned(), toml.clone());
+        }
+        if let Some(local) = effective.local_assets.get(id) {
+            self.local_assets.insert(id.to_owned(), local.clone());
+        }
+        self
+    }
 }
 
 impl AgentAssets {

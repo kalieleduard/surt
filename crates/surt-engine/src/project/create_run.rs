@@ -77,9 +77,32 @@ impl Project {
         store: &Store,
         catalog: &Catalog,
         locals: &[LocalAgent],
-        mut new: NewRun,
+        new: NewRun,
         merge_into_base: MergeIntoBase,
     ) -> Result<RunId, Error> {
+        let checked = self
+            .checked(store, catalog, locals, new, merge_into_base)
+            .await?;
+        if let Some(previous) = &checked.previous {
+            clear_kept_working_copy(store, &self.layout, previous).await?;
+        }
+        let subject = checked.new.subject.clone();
+        match store.create_run(rows(checked.new, checked.frozen)).await? {
+            RunCreation::Created(run) => Ok(RunId(run)),
+            RunCreation::ActiveRunExists(_) => {
+                Err(Error::Refused(Refusal::ActiveRunExists { subject }))
+            }
+        }
+    }
+
+    async fn checked(
+        &self,
+        store: &Store,
+        catalog: &Catalog,
+        locals: &[LocalAgent],
+        mut new: NewRun,
+        merge_into_base: MergeIntoBase,
+    ) -> Result<Checked, Error> {
         let carried = previous::carried(store, &self.layout, &new.subject, &new.carried).await?;
         new.initial_artifacts.extend(carried.artifacts);
         let names: Vec<&str> = new
@@ -93,17 +116,18 @@ impl Project {
         let frozen = freeze(catalog, &new.workflow, names, |root| {
             frozen_config(&self.config, merge_into_base, root)
         })?;
-        if let Some(previous) = &carried.previous {
-            clear_kept_working_copy(store, &self.layout, previous).await?;
-        }
-        let subject = new.subject.clone();
-        match store.create_run(rows(new, frozen)).await? {
-            RunCreation::Created(run) => Ok(RunId(run)),
-            RunCreation::ActiveRunExists(_) => {
-                Err(Error::Refused(Refusal::ActiveRunExists { subject }))
-            }
-        }
+        Ok(Checked {
+            new,
+            frozen,
+            previous: carried.previous,
+        })
     }
+}
+
+struct Checked {
+    new: NewRun,
+    frozen: FrozenRun,
+    previous: Option<RunId>,
 }
 
 fn rows(new: NewRun, frozen: FrozenRun) -> NewRunRows {

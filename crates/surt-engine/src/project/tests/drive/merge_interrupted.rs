@@ -11,13 +11,13 @@ const REFUSING_MAIN: &str =
     "#!/bin/sh\n[ \"$1\" = prepared ] || exit 0\n! grep -q ' refs/heads/main$'\n";
 const HOOK: &str = "reference-transaction";
 
-struct Interrupted {
-    feature: Feature,
-    base: String,
-    tip: String,
+pub(super) struct Interrupted {
+    pub(super) feature: Feature,
+    pub(super) base: String,
+    pub(super) tip: String,
 }
 
-async fn interrupted() -> Interrupted {
+pub(super) async fn interrupted() -> Interrupted {
     let feature = merged_feature(MergeIntoBase::FfOnly, Some("main")).await;
     let base = feature.base();
     feature.hook(HOOK, REFUSING_MAIN);
@@ -50,7 +50,7 @@ impl Feature {
             .await
     }
 
-    async fn kept_moves(&self) -> Vec<(String, String)> {
+    pub(super) async fn kept_moves(&self) -> Vec<(String, String)> {
         self.dir
             .rows("SELECT ref_name, old_sha FROM ref_move")
             .await

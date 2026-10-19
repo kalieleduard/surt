@@ -159,3 +159,20 @@ fn either_flag_on_resume_refuses_naming_the_frozen_value_and_the_new_run() {
     }
     assert_eq!(frozen_mode(&sandbox, &name), "ff-only");
 }
+
+#[test]
+fn either_flag_on_a_subject_without_an_active_run_refuses_naming_the_latest_run() {
+    let name = feature_name();
+    let sandbox = cancelled();
+
+    let resumed = sandbox.feature(&[&name, "--merge"]);
+
+    assert_eq!(resumed.code, Some(REFUSED_EXIT_CODE), "{}", resumed.stderr);
+    assert_eq!(
+        resumed.stderr,
+        format!(
+            "✖ run 1 of {name} already froze merge_into_base = \"never\"\n  \
+             to choose again, start a new run: surt feature {name} --new-run --merge\n"
+        )
+    );
+}

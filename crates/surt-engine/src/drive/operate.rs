@@ -140,7 +140,11 @@ impl<R: AgentRuntime> Driver<'_, R> {
         launch: &OperationLaunch,
         finished: Finished,
     ) -> Result<(), Error> {
-        let recorded = finished.recorded.as_ref().map(BaseMerge::data);
+        let recorded = finished
+            .recorded
+            .as_ref()
+            .map(BaseMerge::data)
+            .transpose()?;
         let acceptance = Acceptance {
             execution: &launch.started.id,
             outcome: finished.outcome,

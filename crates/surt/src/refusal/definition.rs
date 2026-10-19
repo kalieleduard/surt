@@ -40,6 +40,7 @@ pub(super) fn describe(problem: &Problem) -> String {
             step,
             outcome,
             declared,
+            ..
         } => format!(
             "expects outcome \"{outcome}\" of \"{step}\", which declares: {}",
             declared.join(", ")
@@ -63,6 +64,7 @@ pub(super) fn describe(problem: &Problem) -> String {
         Problem::NonLocalReference { reference } => {
             format!("$ref \"{reference}\" is not a file in the agent's schemas directory")
         }
+        Problem::InvalidSchema { detail } => format!("not a valid JSON Schema: {detail}"),
         Problem::MisplacedJsonSchema { name } => {
             format!("\"{name}\" has a json_schema but is neither json nor item_list")
         }

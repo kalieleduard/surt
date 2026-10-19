@@ -37,9 +37,7 @@ impl Reconcile<'_> {
     pub(super) async fn settle_ref_moves(&self) -> Result<Vec<Progress>, Error> {
         let mut found = Vec::new();
         for pending in self.store.pending_ref_moves(self.root).await? {
-            if pending.operation.as_deref().and_then(Operation::find)
-                == Some(Operation::MergeIntoBase)
-            {
+            if pending.merges_into_base() {
                 found.extend(self.settle_fast_forward(pending).await?);
                 continue;
             }

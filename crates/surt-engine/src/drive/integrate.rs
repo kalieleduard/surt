@@ -49,10 +49,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 .input_text(&launch.started, FEEDBACK_INPUT, REVIEWED_COMMIT_FIELD)
                 .await?
                 .ok_or_else(|| {
-                    Failure::not_retryable(
-                        "invalid_input",
-                        "the feedback input names no reviewed commit".into(),
-                    )
+                    Failure::invalid_input("the feedback input names no reviewed commit".into())
                 })?,
             into,
         };

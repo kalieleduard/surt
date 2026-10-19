@@ -4,7 +4,6 @@ mod files;
 mod item_list;
 mod portable;
 mod rejection;
-mod schemas;
 
 use std::collections::BTreeMap;
 use std::path::Path;

@@ -6,6 +6,7 @@ use sqlx::{FromRow, SqliteConnection};
 use super::columns::number;
 use super::{About, Checkpoint, Store, StoreError, record_event_data, unix_now};
 use crate::drive::StepLabel;
+use crate::operations::Operation;
 
 pub(super) const CONFIRMED: &str = "intention.confirmed";
 const DISCARDED: &str = "intention.discarded";
@@ -82,8 +83,14 @@ impl From<RefMoveRow> for RefMove {
 pub(crate) struct PendingRefMove {
     pub(crate) step_run: String,
     pub(crate) step: StepLabel,
-    pub(crate) operation: Option<String>,
+    pub(crate) operation: Option<Operation>,
     pub(crate) intended: RefMove,
+}
+
+impl PendingRefMove {
+    pub(crate) fn merges_into_base(&self) -> bool {
+        self.operation == Some(Operation::MergeIntoBase)
+    }
 }
 
 #[derive(FromRow)]
@@ -93,10 +100,8 @@ struct PendingRow {
     item_key: Option<String>,
     iteration: Option<i64>,
     operation_id: Option<String>,
-    ref_name: String,
-    old_sha: String,
-    new_sha: String,
-    worktree_path: Option<String>,
+    #[sqlx(flatten)]
+    intended: RefMoveRow,
 }
 
 impl Store {
@@ -125,13 +130,8 @@ impl Store {
                     item: row.item_key,
                     iteration: row.iteration.map(number),
                 },
-                operation: row.operation_id,
-                intended: RefMove {
-                    ref_name: row.ref_name,
-                    old_sha: row.old_sha,
-                    new_sha: row.new_sha,
-                    worktree_path: row.worktree_path.map(PathBuf::from),
-                },
+                operation: row.operation_id.as_deref().and_then(Operation::find),
+                intended: RefMove::from(row.intended),
             })
             .collect())
     }
@@ -175,29 +175,5 @@ impl Store {
         let mut transaction = self.begin_write().await?;
         settle_ref_move(&mut transaction, step, DISCARDED, unix_now()).await?;
         Ok(transaction.commit().await?)
-    }
-
-    pub(crate) async fn merged_children(
-        &self,
-        run: &str,
-    ) -> Result<Vec<(String, String)>, StoreError> {
-        Ok(sqlx::query_as(
-            "SELECT w.item_key, b.merged_as_sha FROM workflow_run w \
-             JOIN run_branch b ON b.workflow_run_id = w.id \
-             JOIN step_run p ON p.id = w.parent_step_run_id \
-             WHERE p.workflow_run_id = ? AND b.merged_as_sha IS NOT NULL ORDER BY w.item_key",
-        )
-        .bind(run)
-        .fetch_all(&self.pool)
-        .await?)
-    }
-
-    pub(crate) async fn step_started_at(&self, step: &str) -> Result<Option<i64>, StoreError> {
-        Ok(
-            sqlx::query_scalar("SELECT started_at FROM step_run WHERE id = ?")
-                .bind(step)
-                .fetch_one(&self.pool)
-                .await?,
-        )
     }
 }

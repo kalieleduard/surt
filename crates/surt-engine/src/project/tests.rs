@@ -9,6 +9,8 @@ mod fixtures;
 mod flows;
 mod frozen;
 mod local_assets;
+mod local_schemas;
+mod override_checks;
 mod override_hygiene;
 mod override_refusals;
 mod override_workflows;

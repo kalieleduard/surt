@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use tempfile::TempDir;
 use tokio::sync::mpsc;
@@ -74,8 +74,9 @@ impl Execution {
         }
     }
 
-    pub(super) fn delivery_dir(&self) -> PathBuf {
-        self.request.delivery_dir.clone()
+    #[cfg(unix)]
+    pub(super) fn delivery_dir(&self) -> &Path {
+        &self.request.delivery_dir
     }
 
     pub(super) async fn run(&self, behavior: Behavior) -> Result<Verdict, RuntimeError> {

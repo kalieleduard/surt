@@ -1,5 +1,5 @@
 use super::definition::Definition;
-use super::error::{DefinitionFile, InvalidDefinition, Problem};
+use super::error::{DefinitionFile, InvalidDefinition, Problem, StepField};
 use super::flow::Agents;
 use super::steps::{Condition, StepSpec};
 use crate::operations::Operation;
@@ -13,11 +13,12 @@ pub(super) fn check(
 ) -> Result<(), Box<InvalidDefinition>> {
     for step in &definition.steps {
         let until = match &step.spec {
-            StepSpec::Loop(spec) => Some(&spec.until),
+            StepSpec::Loop(spec) => Some((StepField::Until, &spec.until)),
             _ => None,
         };
-        for condition in step.spec.when().into_iter().chain(until) {
-            check_condition(definition, agents, condition).map_err(|problem| {
+        let when = step.spec.when().map(|when| (StepField::When, when));
+        for (field, condition) in when.into_iter().chain(until) {
+            check_condition(definition, agents, field, condition).map_err(|problem| {
                 InvalidDefinition::new(
                     DefinitionFile::Workflow(definition.name.clone()),
                     Some(&step.key),
@@ -32,6 +33,7 @@ pub(super) fn check(
 fn check_condition(
     definition: &Definition,
     agents: &Agents,
+    field: StepField,
     condition: &Condition,
 ) -> Result<(), Problem> {
     let declared = definition
@@ -41,6 +43,7 @@ fn check_condition(
         return Ok(());
     }
     Err(Problem::UnknownOutcome {
+        field,
         step: condition.step.clone(),
         outcome: condition.outcome.clone(),
         declared,
