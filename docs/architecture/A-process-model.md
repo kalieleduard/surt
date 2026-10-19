@@ -14,7 +14,7 @@ Each command owns one phase. A command that drives runs in the foreground. It re
 
 | Command | Drives? | Precondition | Runs until |
 |---|---|---|---|
-| `surt feature "<description>"` | yes | no active run for the Subject | spec Approval Gate |
+| `surt run feature --input request="<what to build>"` | yes | no active run for a Subject of the same slug | spec Approval Gate |
 | `surt approve <feature>` | **no**, it only records the Approval | an Approval Gate is waiting | returns immediately |
 | `surt plan <feature>` | yes | spec Revision approved | task-manifest Approval Gate |
 | `surt start <feature>` | yes | task-manifest Revision approved | Shipper delivers the final integrated branch, then the opt-in fast-forward into the Base runs ([A. Git Integration](A-git-integration.md)) (run terminal) |

@@ -87,16 +87,16 @@ Item file paths (`files.task = "tasks/A.md"`) are portable relative paths ([F. A
 { "ref": "main", "sha": "a11c9d0e5f…" }
 ```
 
-- `ref` is the short branch name checked out at `HEAD`, or the branch given to `--base`. It is `null` when the Base is a detached commit or a tag; then `merge_into_base` always skips.
+- `ref` is the short branch name checked out at `HEAD`, or the branch given as the `base` input. It is `null` when the Base is a detached commit or a tag; then `merge_into_base` always skips.
 - Only commits count. Uncommitted changes are not part of the Base, and Surt says so:
   ```
-  $ surt feature "add login"
+  $ surt run feature --input request="add login"
   ⚠ uncommitted changes in your worktree are not part of base a11c9d0
-  ✔ created 20261016-add-login   base: main @ a11c9d0
+  ✔ created 20261016-add-login   workflow: feature   base: main @ a11c9d0
   ```
 - The Base is shown by `status`, and a later run of the same Subject resolves its own Base when it is created.
 
-The engine does not know what a Base is. It accepts **initial artifacts** supplied by the command that creates a root run, as human-origin Revisions; `request` and `base` are the two the feature workflow uses ([E. Workflow Definition Schema](E-workflow-schema.md#artifacts-and-inputs)).
+The engine does not know what a Base is. A root workflow declares its **run inputs**, and the engine stores each as a human-origin Revision when the run is created; `base` is a `git_ref` input, which the engine resolves to `{ref, sha}`. The feature Template declares `request` and `base` (default `HEAD`) ([E. Workflow Definition Schema](E-workflow-schema.md#run-inputs-inputs-and-subject)).
 
 ## Operation registry
 
