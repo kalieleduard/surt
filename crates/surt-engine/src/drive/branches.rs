@@ -106,11 +106,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         self.input_text(&launch.started, input, SHA_FIELD)
             .await?
             .ok_or_else(|| {
-                Failure::not_retryable(
-                    "invalid_input",
-                    format!("the {input} input has no readable commit"),
-                )
-                .into()
+                Failure::invalid_input(format!("the {input} input has no readable commit")).into()
             })
     }
 }
