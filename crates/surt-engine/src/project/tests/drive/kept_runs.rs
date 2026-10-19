@@ -154,3 +154,27 @@ async fn a_new_run_of_a_kept_subject_is_refused_while_its_working_copy_holds_an_
     assert!(entries(&feature.working_copy("")).len() > 1);
     feature.assert_untouched(&before);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_new_run_of_a_kept_subject_refused_by_an_override_removes_nothing() {
+    let feature = kept().await;
+    let before = feature.kept_run();
+    let files = entries(&feature.working_copy(""));
+    feature.dir.write_local(
+        "planner",
+        "agent.toml",
+        "[inputs.style]\nformat = \"text\"\n",
+    );
+
+    let created = feature.project.create_run(next_run(&feature)).await;
+
+    assert!(
+        matches!(
+            created,
+            Err(Error::Refused(Refusal::InvalidAgentOverride(_)))
+        ),
+        "{created:?}"
+    );
+    assert_eq!(entries(&feature.working_copy("")), files);
+    feature.assert_untouched(&before);
+}
