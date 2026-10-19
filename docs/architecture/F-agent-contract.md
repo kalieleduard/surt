@@ -81,12 +81,14 @@ $ surt feature "add login"
 
 A local `agent.toml` with CRLF line endings freezes to the same identity as its LF version, because the snapshot stores the canonical effective TOML.
 
+**Instructions and schemas.** A local `instructions.md` is frozen as read and is the text the Context Assembler hands to the runtime. A schema path in the effective `agent.toml` resolves in this order: the local file `.surt/agents/<id>/<path>` when it exists, otherwise the built-in asset of the same path; a path found in neither refuses with `InvalidAgentOverride` naming the file that declared it. Schemas the project did not override stay in effect, so overriding `agent.toml` alone keeps the built-in validation. Every local schema's `$ref`s are followed transitively with the same resolution order, relative to the referring schema's directory; a reference with a scheme (`https://`, `file:`), an absolute path or a path that leaves the agent's directory is refused naming the local schema, so freezing a run never touches the network. The closure is frozen with the Agent, and a delivery is validated against it from the snapshot alone.
+
 **The creation line.** `create_run` reports which Agents used local files and which ones. The creation line of `surt feature "<description>"` and of `--new-run` lists them, and prints nothing when there are none:
 
 ```
 $ surt feature "add login"
 ✔ created 20261017-add-login   base: main @ a11c9d0
-  local agents: builder (agent.toml)
+  local agents: builder (agent.toml), reviewer (instructions.md, schemas/feedback.schema.json)
 ```
 
 ## Agent Profile
