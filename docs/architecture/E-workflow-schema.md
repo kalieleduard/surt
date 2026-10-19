@@ -27,11 +27,15 @@ when = { step = "check", outcome = "passed" }   # optional: run only on this Out
 agent = "reviewer"            # the fields of the kind
 ```
 
-`[cleanup] on_success` parses `"clean"` and `"keep"`, and the canonical form keeps the value. The **effective policy** of a root run is the project configuration's `[cleanup] on_success` when it is set ([J](J-cli.md#configuration)), else the root Workflow Definition's (`clean` for the built-in `feature`). Child definitions' values are not consulted: cleanup is per root run ([I](I-cleanup.md#when-cleanup-runs)). The effective policy is frozen into the `config` snapshot when the root run is created.
+`[cleanup] on_success` parses `"clean"` and `"keep"`, and the canonical form keeps the value. The **effective policy** of a root run is the project configuration's `[cleanup] on_success` when it is set ([J](J-cli.md#configuration)), else the root Workflow Definition's (`clean` for the Template's `feature`). Child definitions' values are not consulted: cleanup is per root run ([I](I-cleanup.md#when-cleanup-runs)). The effective policy is frozen into the `config` snapshot when the root run is created.
 
 The `toml` crate is used with `preserve_order`. File order matters only for display, never for semantics. Unknown fields are errors (`deny_unknown_fields`).
 
-Only the built-in definitions (`feature`, `task-cycle`) exist, and they ship inside the binary. Project-level overrides and custom workflows are out of scope for this plan. The schema does not prevent them.
+### Where definitions live
+
+A Workflow Definition is the file `.surt/workflows/<name>.toml` of the project; its file stem must equal its `name`, or the definition is refused at `name`. Nothing is compiled into the binary and nothing is merged over defaults ([ADR 0013](../adr/0013-definitions-live-in-the-project.md)): a project with no `.surt/workflows/` has no workflows. `surt init --template feature` writes the feature **Template** (`feature.toml`, `task-cycle.toml` and their five Agents, [below](#the-feature-template)) into `.surt/`, never overwriting a file that exists; from then on the files are the project's, versioned like any other code ([H](H-artifact-storage.md#what-is-versioned-in-the-users-git)).
+
+`Project::create_run` reads the files when a root run is created, and reads only the closure it needs: the named workflow, every `per_item` child workflow transitively and every Agent those workflows reference (`.surt/agents/<id>/`, [F](F-agent-contract.md#definitions-in-the-project)). A broken workflow or Agent outside that closure does not refuse the run. No other command reads `.surt/workflows/`; they all use the frozen snapshots. A file that is not UTF-8 is refused; CRLF line endings are accepted, and the identity is computed over the canonical form, so CRLF and LF freeze alike.
 
 ## Step kinds
 
@@ -108,7 +112,7 @@ needs = ["prepare"]
   ]
   ```
 - The producer's `agent.toml` declares any required item files and their formats through `outputs.<name>.item_files.<file-name>`. The `files` names must match those declarations on every item. Paths are rooted at the Execution's delivery directory and must resolve to safe regular files; nested Item Lists are not supported as item files. With no declarations, `files` may be absent or empty.
-- An **Item List Revision** includes both its JSON index and all referenced file bytes. Approval covers that complete Revision; changing a referenced file creates a new Revision and requires reapproval. File paths alone are not a snapshot. The built-in Task Agent writes one Markdown file per Task through this generic mechanism; the engine does not interpret it as a Task document. Contract and examples: [F. Agent Contract](F-agent-contract.md#one-markdown-document-per-task); rationale: [ADR 0004](../adr/0004-item-list-files-share-approved-revision.md).
+- An **Item List Revision** includes both its JSON index and all referenced file bytes. Approval covers that complete Revision; changing a referenced file creates a new Revision and requires reapproval. File paths alone are not a snapshot. The Template's Task Agent writes one Markdown file per Task through this generic mechanism; the engine does not interpret it as a Task document. Contract and examples: [F. Agent Contract](F-agent-contract.md#one-markdown-document-per-task); rationale: [ADR 0004](../adr/0004-item-list-files-share-approved-revision.md).
 - An Item List is validated **when the producing agent delivers it** (duplicate or missing key, unknown key in `needs`, cycle, missing or invalid item file). An invalid list is an invalid output and leads to a new Attempt, so a human never approves a cyclic or incomplete list. The engine validates again on expansion, as a defence.
   ```
   ✖ plan-tasks attempt 1: invalid item list — cycle B → C → B
@@ -124,16 +128,20 @@ needs = ["prepare"]
 - A root Workflow Run freezes, at creation, the **closure** of its effective definitions: its own and every Workflow Definition reachable through `per_item` steps. Its Child Workflow Runs use the frozen copy. Edits never reach a run that already exists.
 - A frozen definition is identified by the SHA-256 of its canonical form, shown short in `status`/`inspect` (`feature@3f9a2c · task-cycle@8b1d07`). There is no hand-maintained `version` field.
 - `schema` is the format version. A binary refuses a definition whose `schema` it does not know.
-- Agent contracts, instructions and each Agent's effective profile are also frozen at root run creation, after local overrides are applied; see [F. Agent Contract](F-agent-contract.md).
+- Agent contracts, instructions, schemas and each Agent's profile are also frozen at root run creation, as read from `.surt/agents/`; see [F. Agent Contract](F-agent-contract.md).
 
 ## Static validation
 
-Validation runs on every definition before a root Workflow Run is created, and the run is not created if it fails. Built-in definitions are also validated in Surt's own test suite. Errors cite file, line and the fix where possible:
+Validation runs on every definition of the closure before a root Workflow Run is created, and the run is not created if it fails: the refusal is `InvalidDefinition` (exit `3`, no row written), carrying the file under `.surt/`, the field path or the step when one applies, and the reason. The feature Template is also validated in Surt's own test suite, through the engine, as a project would. A missing root workflow is `UnknownWorkflow`, which lists the workflows found in `.surt/workflows/`, or suggests `surt init --template feature` when there are none:
 
 ```
-✖ task-cycle.toml line 12: unknown field "agnet" in [steps.build] — did you mean "agent"?
-✖ task-cycle.toml line 30: [steps.cycle] until expects outcome "merge" of "integrate",
-  but operation git.integrate declares: merged, conflict
+✖ .surt/workflows/task-cycle.toml:12: unknown field `agnet`, expected one of `kind`, `agent`, …
+  fix: edit .surt/workflows/task-cycle.toml
+✖ .surt/workflows/task-cycle.toml: steps.cycle: expects outcome "merge" of "integrate", which declares: merged, conflict
+  fix: edit .surt/workflows/task-cycle.toml
+✖ no workflow is named "feature" in .surt/workflows/
+  .surt/workflows/ holds no workflow
+  fix: surt init --template feature
 ```
 
 Checks:
@@ -147,9 +155,9 @@ Checks:
 7. Every `run` is a registered operation. Every `workflow` of a `per_item` exists, and its `items` artifact is produced by a step before it in the Item List format. Any `item_files` declarations have valid names and supported file formats; actual item references and bytes are validated at delivery and expansion.
 8. Every `approval` names an `artifact` produced before it and a `rejection_artifact` unique in the definition.
 
-## Built-in definitions
+## The feature Template
 
-Agent ids are `spec`, `tasks`, `builder`, `reviewer` and `shipper` (`.surt/agents/<id>/`, layout in section F). The comments listing what each agent reads and writes are informative. The contract lives in each `agent.toml`, and `?` marks an optional input.
+These are the files `surt init --template feature` writes to `.surt/workflows/`. Agent ids are `spec`, `tasks`, `builder`, `reviewer` and `shipper` (`.surt/agents/<id>/`, layout in section F). The comments listing what each agent reads and writes are informative. The contract lives in each `agent.toml`, and `?` marks an optional input.
 
 ### `feature.toml`
 
