@@ -2,7 +2,7 @@
 
 Labels: ready-for-agent
 Type: spec
-Status: open (tickets in [issues/](issues/))
+Status: open (6 of 7 tickets resolved; 07 awaits CI and the manual smoke; tickets in [issues/](issues/))
 Map: [Surt — Architecture and implementation plan](../surt-architecture/map.md)
 Plan: [K. Roadmap](../../docs/architecture/K-roadmap.md#after-milestone-1), [E. Workflow Definition Schema](../../docs/architecture/E-workflow-schema.md), [F. Agent Contract](../../docs/architecture/F-agent-contract.md), [J. CLI](../../docs/architecture/J-cli.md), [ADR 0013](../../docs/adr/0013-definitions-live-in-the-project.md)
 Previous: [Milestone 4](../milestone-4/spec.md)
