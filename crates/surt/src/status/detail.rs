@@ -1,4 +1,5 @@
 mod gates;
+mod merge;
 mod tasks;
 
 use std::fmt::Write;
@@ -68,11 +69,14 @@ pub(super) fn render(status: &RunStatus) -> String {
             ),
         );
     }
+    if let Some(result) = merge::result(status) {
+        field(&mut text, "merge", &result);
+    }
     cleanup(&mut text, status, &resume);
     text
 }
 
-pub(super) fn merge_into_base(mode: MergeIntoBase) -> &'static str {
+pub(crate) fn merge_into_base(mode: MergeIntoBase) -> &'static str {
     match mode {
         MergeIntoBase::Never => "never",
         MergeIntoBase::FfOnly => "ff-only",

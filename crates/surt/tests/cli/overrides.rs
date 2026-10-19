@@ -101,6 +101,41 @@ fn an_invalid_override_refuses_the_feature_with_exit_3_before_any_row_is_written
 }
 
 #[test]
+fn an_override_removing_an_outcome_the_reviewer_must_declare_names_the_workflow_step() {
+    let sandbox = project(&[spec(1, "# Spec 1\n")]);
+    write_local(&sandbox, "reviewer", "outcomes = [\"changes_requested\"]\n");
+
+    let run = sandbox.feature(&["add login"]);
+
+    assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
+    assert_eq!(
+        run.stderr,
+        "✖ .surt/agents/reviewer/agent.toml: a delivery check needs the outcome \"approved\"\n  \
+         needed by: task-cycle step review\n  \
+         fix: edit .surt/agents/reviewer/agent.toml\n"
+    );
+    assert_eq!(
+        sandbox.texts("SELECT CAST(count(*) AS TEXT) FROM subject"),
+        ["0"]
+    );
+}
+
+#[test]
+fn a_misspelt_agent_directory_refuses_and_lists_the_built_in_agents() {
+    let sandbox = project(&[spec(1, "# Spec 1\n")]);
+    write_local(&sandbox, "buidler", "[profile]\neffort = \"low\"\n");
+
+    let run = sandbox.feature(&["add login"]);
+
+    assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
+    assert_eq!(
+        run.stderr,
+        "✖ .surt/agents/buidler: not a built-in agent; agents: builder, reviewer, shipper, spec, tasks\n  \
+         fix: rename or remove .surt/agents/buidler\n"
+    );
+}
+
+#[test]
 fn plan_and_start_drive_a_feature_whose_builder_has_a_local_model() {
     let sandbox = project(&[
         spec(1, "# Spec 1\n"),

@@ -6,7 +6,7 @@ use serde_json::json;
 
 use super::super::fixtures::{ProjectDir, SUBJECT, initial, new_run};
 use super::fixtures::Feature;
-use crate::project::{Catalog, Config};
+use crate::project::{Catalog, Config, MergeIntoBase};
 
 const PROJECT_ID: &str = "test-project";
 
@@ -51,6 +51,16 @@ impl Feature {
         config: Config,
         base_ref: Option<&str>,
     ) -> Feature {
+        Feature::on_base_choosing(catalog, workflow, config, base_ref, None).await
+    }
+
+    pub(super) async fn on_base_choosing(
+        catalog: Catalog,
+        workflow: &str,
+        config: Config,
+        base_ref: Option<&str>,
+        merge_into_base: Option<MergeIntoBase>,
+    ) -> Feature {
         let dir = ProjectDir::new();
         let root = dir.path();
         git(&root, &["init", "--quiet", "--initial-branch=main"]);
@@ -60,6 +70,7 @@ impl Feature {
         let base = commit_file(&root, "README.md", "hello\n");
         let project = dir.project(catalog, config).await;
         let mut new_run = new_run(workflow);
+        new_run.merge_into_base = merge_into_base;
         let base_json = json!({ "ref": base_ref, "sha": base }).to_string();
         new_run.initial_artifacts[1] = initial("base", "base.json", base_json.as_bytes());
         let run = project

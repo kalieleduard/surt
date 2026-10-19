@@ -7,7 +7,7 @@ The commands of v1 ([K](K-roadmap.md) lists the subset Milestone 1 ships), how t
 ```
 surt init
 surt feature "<description>" [--name <slug>] [--base <ref>] [--merge | --no-merge] [--new]
-surt feature <feature> [--new-run]
+surt feature <feature> [--new-run [--base <ref>] [--merge | --no-merge]]
 surt plan    <feature>
 surt start   <feature>
 surt approve <feature> [--rev N]
@@ -118,7 +118,25 @@ $ surt init
    The `local agents:` line, here and under `✔ created …`, lists the Agents whose files under `.surt/agents/` the new run froze ([F](F-agent-contract.md#built-in-defaults-and-local-overrides)); it is absent when there are none.
    It refuses with exit `3` while the Working Copy holds an unrecorded edit left by the previous run ([I](I-cleanup.md#unrecorded-working-copy-edits)). Run `N+1` takes the Subject's latest `request` Revision as a new human-origin Initial Artifact. Its Base is the current `HEAD`, or `--base`. It freezes the definitions, agents and configuration again. A `succeeded` Subject works the same way. A cleanup the previous run left pending is finished first, under that run's lock: the command drives the previous root run, which cleans and returns at once because it is terminal, then creates run `N+1` ([I. Cleanup](I-cleanup.md#when-cleanup-runs)).
 
-`--base <ref>` resolves `<ref>` to a commit when the run is created; the default is `HEAD`. `--merge` and `--no-merge` override `[git] merge_into_base` for this run only, as `ff-only` and `never`, before the configuration is frozen. They exist on no other command.
+`--base <ref>` resolves `<ref>` to a commit when the run is created; the default is `HEAD`.
+
+`--merge` and `--no-merge` override `[git] merge_into_base` for this run only, as `ff-only` and `never`, before the configuration is frozen. They apply wherever the command creates a root run: the description form and `--new-run`. Together they are a usage error (exit `2`). They exist on no other command. The creation line names the frozen mode, and the flag when one chose it:
+
+```
+$ surt feature "add login" --merge
+✔ created 20261017-add-login   base: main @ a11c9d0
+  merge into base: ff-only (--merge)
+```
+
+The `merge into base:` line follows any `local agents:` line, under `✔ created …` and under `✔ run N of …` alike. Without a flag it reads `merge into base: ff-only` when the configuration says so, and is absent for the default `never`.
+
+On the resume form either flag refuses with exit `3`, because the active run already froze its mode; choosing again needs a new run:
+
+```
+$ surt feature 20261017-add-login --no-merge
+✖ run 1 of 20261017-add-login already froze merge_into_base = "ff-only"
+  to choose again, start a new run: surt feature 20261017-add-login --new-run --no-merge
+```
 
 ## Approve and reject
 
@@ -254,6 +272,18 @@ $ surt status fix-cache
 ```
 
 Blocked Tasks show the blocked step, its last error and the command to resume, plus `inspect: surt inspect <execution>` and `logs: surt logs <execution>` for the last failed Execution ([G](G-state-machines.md#workflow-run)). Integration shows the merged SHA or the Conflict reason (`merge: src/auth.rs`, `checks: test`). Recovery-related lines (`⟳ integrating … (pending)`, an agent running unattended) are in [I](I-recovery.md). Terminal runs show `cleanup pending` or `kept` ([I. Cleanup](I-cleanup.md#in-surt-status)).
+
+The `branch` line keeps the frozen `merge into base` mode. Once the `merge` step ended, a `merge` line above `cleanup` gives its result, read from the step's recorded `step.done` fields ([A](A-git-integration.md#merging-into-the-base-opt-in)): `merged into main a11c9d0 → 4e1b2c0`, or `not merged:` with the reason, `main moved (a11c9d0 → b22e310)` (the Base, then where the branch was found), `main no longer exists`, `no base branch` or `worktree not clean`. A run whose mode is `never` records `disabled` and shows no line. While the fast-forward's Intention is pending, the line is the recovery one, `⟳ merge   main: a11c9d0 → 4e1b2c0 (pending)`.
+
+```
+$ surt status add-login
+20261017-add-login · run 1   SUCCEEDED
+  base     main @ a11c9d0
+  branch   surt/20261017-add-login @ 4e1b2c0 · merge into base: ff-only
+  …
+  merge    not merged: main moved (a11c9d0 → b22e310)
+  cleanup  done
+```
 
 ### `surt inspect`
 
@@ -430,7 +460,7 @@ Each document serialises the read view the human output renders (`RunStatus`, `T
 }
 ```
 
-Optional Feature fields: `ended_at`, `driver` (`pid`, `since`), `paused` while a Transient Failure pauses agent launches (`code`, plus `resets_at` when the Execution recorded a reset time), `cleanup` (`state` `done`, `pending` or `kept`; `left` lists items with `item` and `reason`; `kept` lists `moved_branch` with `branch`, or `unrecorded_edit` or `foreign_path` with `path`); per gate `edited` and `missing`; per Task `waits_for`, `conflict` (`kind` `merge` with `paths`, or `checks` with `failed`); per last error `resets_at`.
+Optional Feature fields: `ended_at`, `driver` (`pid`, `since`), `paused` while a Transient Failure pauses agent launches (`code`, plus `resets_at` when the Execution recorded a reset time), `cleanup` (`state` `done`, `pending` or `kept`; `left` lists items with `item` and `reason`; `kept` lists `moved_branch` with `branch`, or `unrecorded_edit` or `foreign_path` with `path`); per gate `edited` and `missing`; per Task `waits_for`, `conflict` (`kind` `merge` with `paths`, or `checks` with `failed`); per last error `resets_at`; `merge` once the `merge` step ended, as recorded: `{"outcome": "merged", "from": …, "to": …}`, or `{"outcome": "skipped", "reason": …}` with `reason` `disabled`, `no_base_branch`, `worktree_not_clean` or `base_moved` (plus `found`, the full SHA the branch was at, unless it no longer exists).
 
 `agent_slots` is the project-wide count of [`surt status`](#surt-status), the same in every Feature's document, whether or not that Feature has a live Driver.
 

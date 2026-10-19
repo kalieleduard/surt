@@ -5,11 +5,11 @@ use std::num::NonZeroU32;
 
 use serde::Serialize;
 
-use super::{Check, Config, Error, GitConfig, Project, Refusal};
+use super::{Check, Config, Error, GitConfig, MergeIntoBase, Project, Refusal};
 use crate::cleanup::clear_kept_working_copy;
 pub use crate::drive::graph::RunId;
 use crate::store::{NewInitialArtifact, NewRunRows, RunCreation, Store, unix_now};
-use crate::workflow::{Catalog, CleanupPolicy, FrozenRun, OnSuccess, freeze};
+use crate::workflow::{Catalog, CleanupPolicy, FrozenRun, LocalAgent, OnSuccess, freeze};
 pub use local_agents::LocalFiles;
 
 #[derive(Clone, Debug)]
@@ -18,6 +18,7 @@ pub struct NewRun {
     pub workflow: String,
     pub initial_artifacts: Vec<InitialArtifact>,
     pub carried: Vec<String>,
+    pub merge_into_base: Option<MergeIntoBase>,
     pub actor: String,
 }
 
@@ -37,7 +38,7 @@ pub struct ArtifactFile {
 struct FrozenConfig<'a> {
     max_attempts: NonZeroU32,
     max_iterations: NonZeroU32,
-    git: &'a GitConfig,
+    git: GitConfig,
     cleanup: CleanupPolicy,
     checks: &'a [Check],
 }
@@ -46,6 +47,7 @@ struct FrozenConfig<'a> {
 pub struct CreatedRun {
     pub run: RunId,
     pub local_agents: Vec<LocalFiles>,
+    pub merge_into_base: MergeIntoBase,
 }
 
 impl Project {
@@ -55,12 +57,18 @@ impl Project {
             .catalog
             .with_local(&locals)
             .map_err(Refusal::InvalidAgentOverride)?;
+        let merge_into_base = new
+            .merge_into_base
+            .unwrap_or(self.config.git.merge_into_base);
         let store = self.store().await?;
-        let created = self.create_with(&store, &catalog, new).await;
+        let created = self
+            .create_with(&store, &catalog, &locals, new, merge_into_base)
+            .await;
         store.close().await;
         Ok(CreatedRun {
             run: created?,
             local_agents: local_agents::reported(&locals),
+            merge_into_base,
         })
     }
 
@@ -68,16 +76,22 @@ impl Project {
         &self,
         store: &Store,
         catalog: &Catalog,
+        locals: &[LocalAgent],
         mut new: NewRun,
+        merge_into_base: MergeIntoBase,
     ) -> Result<RunId, Error> {
         let carried = previous::carried(store, &self.layout, &new.subject, &new.carried).await?;
         new.initial_artifacts.extend(carried.artifacts);
-        let names = new
+        let names: Vec<&str> = new
             .initial_artifacts
             .iter()
-            .map(|artifact| artifact.name.as_str());
+            .map(|artifact| artifact.name.as_str())
+            .collect();
+        self.catalog
+            .blame_overrides(catalog, locals, &new.workflow, &names)
+            .map_err(Refusal::InvalidAgentOverride)?;
         let frozen = freeze(catalog, &new.workflow, names, |root| {
-            frozen_config(&self.config, root)
+            frozen_config(&self.config, merge_into_base, root)
         })?;
         if let Some(previous) = &carried.previous {
             clear_kept_working_copy(store, &self.layout, previous).await?;
@@ -113,11 +127,15 @@ fn rows(new: NewRun, frozen: FrozenRun) -> NewRunRows {
     }
 }
 
-fn frozen_config(config: &Config, root: OnSuccess) -> Result<String, toml::ser::Error> {
+fn frozen_config(
+    config: &Config,
+    merge_into_base: MergeIntoBase,
+    root: OnSuccess,
+) -> Result<String, toml::ser::Error> {
     toml::to_string(&FrozenConfig {
         max_attempts: config.max_attempts,
         max_iterations: config.max_iterations,
-        git: &config.git,
+        git: GitConfig { merge_into_base },
         cleanup: CleanupPolicy {
             on_success: config.cleanup.effective(root),
         },

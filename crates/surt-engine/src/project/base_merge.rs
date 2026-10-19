@@ -1,7 +1,6 @@
-use super::status::recorded_base;
+use super::status::{recorded_base, recorded_merge};
 use super::{Commit, Error, Project, RunId, open_store};
 use crate::drive::BaseMerge;
-use crate::operations::Operation;
 use crate::store::Store;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -20,10 +19,7 @@ impl Project {
 }
 
 async fn recorded(store: &Store, run: &str) -> Result<Option<BaseMergeReport>, Error> {
-    let done = store
-        .last_operation_done(run, Operation::MergeIntoBase.id())
-        .await?;
-    let Some(merge) = done.as_deref().and_then(BaseMerge::from_data) else {
+    let Some(merge) = recorded_merge(store, run).await? else {
         return Ok(None);
     };
     Ok(recorded_base(store, run)

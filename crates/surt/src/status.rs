@@ -6,6 +6,8 @@ use std::path::Path;
 
 use surt_engine::project::{GateStatus, Project, RunSelector, RunState, RunStatus, StatusScope};
 
+pub(crate) use detail::merge_into_base;
+
 use crate::failure::Failure;
 use crate::phase;
 use crate::symbols::printable;

@@ -105,6 +105,17 @@ pub enum Problem {
     MissingClaudeProfile,
     MisplacedApiKeyEnv,
     InvalidBudget,
+    UnknownAgentDirectory {
+        known: Vec<String>,
+    },
+    StrayAgentFile,
+    TestOnlyRuntime,
+    MissingCheckedOutput {
+        output: String,
+    },
+    MissingCheckedOutcome {
+        outcome: String,
+    },
 }
 
 impl InvalidDefinition {

@@ -1,3 +1,4 @@
+mod blame;
 mod fields;
 
 use toml::Table;
@@ -5,6 +6,8 @@ use toml::Table;
 use super::agent::AgentContract;
 use super::catalog::Catalog;
 use super::error::Problem;
+
+const TEST_ONLY_RUNTIME: &str = "fake";
 
 pub(crate) struct LocalAgent {
     pub(crate) id: String,
@@ -20,7 +23,14 @@ pub(crate) struct LocalFile {
 pub struct InvalidOverride {
     pub file: String,
     pub field: Option<String>,
+    pub needed_by: Option<WorkflowStep>,
     pub problem: Problem,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WorkflowStep {
+    pub workflow: String,
+    pub step: String,
 }
 
 impl InvalidOverride {
@@ -28,6 +38,7 @@ impl InvalidOverride {
         Box::new(InvalidOverride {
             file: file.to_owned(),
             field,
+            needed_by: None,
             problem,
         })
     }
@@ -50,17 +61,26 @@ impl Catalog {
                 continue;
             };
             let merged = merged_toml(builtin, file)?;
-            AgentContract::parse_effective(&local.id, &merged, assets).map_err(|problem| {
-                InvalidOverride::new(
-                    &file.file,
-                    fields::field_of(&problem, &merged),
-                    fields::without_line(problem),
-                )
-            })?;
+            AgentContract::parse_effective(&local.id, &merged, assets)
+                .and_then(production_runtime)
+                .map_err(|problem| {
+                    InvalidOverride::new(
+                        &file.file,
+                        fields::field_of(&problem, &merged),
+                        fields::without_line(problem),
+                    )
+                })?;
             effective = effective.with_effective_toml(&local.id, merged);
         }
         Ok(effective)
     }
+}
+
+fn production_runtime(contract: AgentContract) -> Result<AgentContract, Problem> {
+    if cfg!(feature = "test-support") || contract.runtime() != TEST_ONLY_RUNTIME {
+        return Ok(contract);
+    }
+    Err(Problem::TestOnlyRuntime)
 }
 
 fn merged_toml(mut merged: Table, file: &LocalFile) -> Result<String, Box<InvalidOverride>> {
