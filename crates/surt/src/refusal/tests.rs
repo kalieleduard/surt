@@ -242,7 +242,7 @@ fn an_artifact_without_a_working_copy_lists_the_restorable_ones() {
 fn a_terminal_run_keeps_the_edited_file_and_says_to_move_or_delete_it() {
     assert_eq!(
         text(&terminal_run()),
-        "✖ 20261017-add-login run 1 has ended; restore only rewrites an active run\n    .surt/features/20261017-add-login/spec.md\n  fix: move or delete the file\n"
+        "✖ 20261017-add-login run 1 has ended; restore only rewrites an active run\n    .surt/subjects/20261017-add-login/spec.md\n  fix: move or delete the file\n"
     );
 }
 
@@ -450,11 +450,11 @@ fn unrecorded_edits_left_by_the_previous_run_are_listed_before_a_new_run() {
 
     assert_eq!(
         text(&single),
-        "✖ working copy has unrecorded edits from run 1\n    .surt/features/20261017-add-login/spec.md\n  fix: move or delete the file, then run again\n"
+        "✖ working copy has unrecorded edits from run 1\n    .surt/subjects/20261017-add-login/spec.md\n  fix: move or delete the file, then run again\n"
     );
     assert_eq!(
         text(several),
-        "✖ working copy has unrecorded edits from run 1\n    .surt/features/20261017-add-login/spec.md .surt/features/20261017-add-login/notes.md\n  fix: move or delete the files, then run again\n"
+        "✖ working copy has unrecorded edits from run 1\n    .surt/subjects/20261017-add-login/spec.md .surt/subjects/20261017-add-login/notes.md\n  fix: move or delete the files, then run again\n"
     );
 }
 

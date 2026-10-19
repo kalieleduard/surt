@@ -134,7 +134,7 @@ $ surt run feature --input request="add login" --input base=main --merge
    $ surt continue add-login
    ● plan-tasks started
    …
-   ⏸ manifest rev 1 awaiting approval in .surt/features/20261017-add-login
+   ⏸ manifest rev 1 awaiting approval in .surt/subjects/20261017-add-login
      approve: surt approve 20261017-add-login
      reject: surt reject 20261017-add-login -m "<reason>"
    ```
@@ -298,8 +298,8 @@ At an Approval Gate it lists everything the Approval covers. For an Item List th
 $ surt status fix-cache
 20261016-fix-cache · run 1   AWAITING APPROVAL   (no driver)
   manifest rev 1 (agent) ⏸ awaiting approval — approving covers the manifest and all 3 item files:
-           .surt/features/20261016-fix-cache/manifest.json
-           .surt/features/20261016-fix-cache/tasks/{A,B,C}.md
+           .surt/subjects/20261016-fix-cache/manifest.json
+           .surt/subjects/20261016-fix-cache/tasks/{A,B,C}.md
          ✎ tasks/B.md edited — recorded as rev 2 on approve (approval then targets rev 2)
   approve: surt approve 20261016-fix-cache    reject: surt reject 20261016-fix-cache -m "…"
 ```
@@ -430,7 +430,7 @@ A driving command prints one line per relevant state change: a Step Run starting
   B
   ```
 - **Without a TTY** nothing is ever asked. A command that would confirm refuses with exit `3` unless `--yes` is given. There are no colours, spinners or footers, only the same lines.
-- A path inside the project is shown relative to its toplevel with `/` on every OS (`.surt/features/20261017-add-login/spec.md`), in text and in `--json`. A path outside it, such as a worktree under `~/.surt/`, is shown absolute in the OS's own form.
+- A path inside the project is shown relative to its toplevel with `/` on every OS (`.surt/subjects/20261017-add-login/spec.md`), in text and in `--json`. A path outside it, such as a worktree under `~/.surt/`, is shown absolute in the OS's own form.
 - `NO_COLOR` disables colour. When the terminal is not UTF-8 (an old Windows console), the symbols become `[ok] [error] [warn] [retry] [paused] [blocked]`. The two settings are independent.
   - The engine's `platform` module answers "does the console output UTF-8". Unix: the first non-empty of `LC_ALL`, `LC_CTYPE`, `LANG` must name UTF-8 (`UTF-8` or `utf8`, any case); none set counts as UTF-8. Windows: the console output code page must be `65001`; a process with no console, or whose stdout and stderr are both redirected, counts as UTF-8, since the bytes go to a pipe or file, not to the console.
   - Every glyph the CLI prints lives in one symbol table (`surt` crate, `symbols.rs`), which also holds its ASCII form. Lines are converted at the print boundary, so a glyph in an engine message (the `→` of a cycle) is converted too. `show` file content is never converted.

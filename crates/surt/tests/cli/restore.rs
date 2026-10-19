@@ -17,7 +17,7 @@ fn surt(sandbox: &Sandbox, args: &[&str]) -> Run {
 fn spec_file(sandbox: &Sandbox, name: &str) -> PathBuf {
     sandbox
         .dot_surt()
-        .join("features")
+        .join("subjects")
         .join(name)
         .join("spec.md")
 }

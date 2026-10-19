@@ -12,7 +12,7 @@ pub(super) fn integration_branch() -> String {
 }
 
 pub(super) fn task_branch_of(key: &str) -> String {
-    format!("refs/heads/surt/task/{SUBJECT}/{key}")
+    format!("refs/heads/surt/item/{SUBJECT}/{key}")
 }
 
 pub(super) fn login(worktree: &Path) -> String {
@@ -135,7 +135,7 @@ async fn every_approved_task_enters_the_integration_branch_as_a_merge_of_its_rev
         assert_eq!(
             feature.git(&["log", "-1", "--format=%B", &merge.sha]),
             format!(
-                "Merge task {key} into surt/{SUBJECT}\n\nSurt-Run: {SUBJECT}\nSurt-Task: {key}\nSurt-Reviewed-Commit: {reviewed}"
+                "Merge item {key} into surt/{SUBJECT}\n\nSurt-Run: {SUBJECT}\nSurt-Item: {key}\nSurt-Reviewed-Commit: {reviewed}"
             )
         );
         let started = feature.integrate_started_at(key).await;

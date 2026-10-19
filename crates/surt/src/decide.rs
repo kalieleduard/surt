@@ -54,7 +54,7 @@ pub(crate) async fn reject(cwd: &Path, args: RejectArgs) -> Result<(), Failure> 
 fn warn_restored(subject: &str, decided: &Decided) {
     for path in &decided.restored {
         Message::new(format!(
-            ".surt/features/{subject}/{path} was missing; recreated from the latest revision"
+            ".surt/subjects/{subject}/{path} was missing; recreated from the latest revision"
         ))
         .print(Mark::Warning);
     }

@@ -187,7 +187,7 @@ fn assert_cleaned(sandbox: &Sandbox, name: &str) {
         format!("refs/heads/surt/{name}\n")
     );
     let dot_surt = sandbox.dot_surt();
-    assert!(!dot_surt.join("features").join(name).exists());
+    assert!(!dot_surt.join("subjects").join(name).exists());
     let executions = dot_surt.join("runtime/executions");
     assert!(
         std::fs::read_dir(&executions).map_or(true, |mut entries| entries.next().is_none()),
@@ -331,7 +331,7 @@ fn continue_at_the_manifest_gate_runs_nothing_and_ends_at_the_gate_again() {
     assert_eq!(
         waiting,
         format!(
-            "⏸ manifest rev 1 awaiting approval in .surt/features/{name}\n  approve: surt approve {name}\n  reject: surt reject {name} -m \"<reason>\"\n"
+            "⏸ manifest rev 1 awaiting approval in .surt/subjects/{name}\n  approve: surt approve {name}\n  reject: surt reject {name} -m \"<reason>\"\n"
         )
     );
     assert_eq!(count(&sandbox, "execution"), executions);
@@ -393,8 +393,8 @@ fn a_cleanup_keeps_an_edited_file_and_says_how_to_retry_what_it_could_not_remove
         "SELECT w.rel_path FROM working_copy_file w JOIN artifact a ON a.id = w.artifact_id \
          WHERE a.name = 'spec'",
     );
-    let edited = format!(".surt/features/{name}/{spec}");
-    std::fs::create_dir_all(sandbox.dot_surt().join("features").join(&name))
+    let edited = format!(".surt/subjects/{name}/{spec}");
+    std::fs::create_dir_all(sandbox.dot_surt().join("subjects").join(&name))
         .expect("the working copy");
     std::fs::write(sandbox.repo().join(&edited), "# Spec, edited later\n").expect("an edit");
     let execution = text(&sandbox, "SELECT id FROM execution ORDER BY id LIMIT 1");

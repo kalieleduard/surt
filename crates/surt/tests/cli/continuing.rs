@@ -34,7 +34,7 @@ fn refused(run: Run) -> String {
 fn working_copy(sandbox: &Sandbox, rel_path: &str) -> String {
     let path = sandbox
         .dot_surt()
-        .join("features")
+        .join("subjects")
         .join(subject_name())
         .join(rel_path);
     fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}: {error}", path.display()))
@@ -43,7 +43,7 @@ fn working_copy(sandbox: &Sandbox, rel_path: &str) -> String {
 fn awaiting(artifact: &str, revision: u32) -> String {
     let name = subject_name();
     format!(
-        "⏸ {artifact} rev {revision} awaiting approval in .surt/features/{name}\n  approve: surt approve {name}\n  reject: surt reject {name} -m \"<reason>\"\n"
+        "⏸ {artifact} rev {revision} awaiting approval in .surt/subjects/{name}\n  approve: surt approve {name}\n  reject: surt reject {name} -m \"<reason>\"\n"
     )
 }
 
@@ -314,7 +314,7 @@ fn an_edited_spec_is_recorded_by_resuming_and_approved_as_a_human_edit() {
     let name = subject_name();
     let spec_file = sandbox
         .dot_surt()
-        .join("features")
+        .join("subjects")
         .join(&name)
         .join("spec.md");
     fs::write(&spec_file, "# Spec 1, edited\n").expect("the edit is written");
@@ -353,7 +353,7 @@ fn an_edit_to_a_pinned_spec_is_refused_until_the_edited_file_is_removed() {
     ok(continued(&sandbox, &name));
     let spec_file = sandbox
         .dot_surt()
-        .join("features")
+        .join("subjects")
         .join(&name)
         .join("spec.md");
     fs::write(&spec_file, "# Spec 1, edited after planning\n").expect("the edit is written");
@@ -370,7 +370,7 @@ fn an_edit_to_a_pinned_spec_is_refused_until_the_edited_file_is_removed() {
     assert_eq!(resumed, refusal);
     assert!(
         approved.starts_with(&format!(
-            "⚠ .surt/features/{name}/spec.md was missing; recreated from the latest revision\n✔ approved manifest rev 1 (agent)"
+            "⚠ .surt/subjects/{name}/spec.md was missing; recreated from the latest revision\n✔ approved manifest rev 1 (agent)"
         )),
         "{approved}"
     );

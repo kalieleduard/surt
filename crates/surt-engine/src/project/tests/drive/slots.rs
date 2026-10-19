@@ -258,7 +258,7 @@ async fn the_status_of_each_of_two_driven_features_counts_the_agent_slots_of_the
         let mut each = Vec::new();
         for subject in SUBJECTS {
             let statuses = reader
-                .status(StatusScope::Feature(subject, RunSelector::Current))
+                .status(StatusScope::Subject(subject, RunSelector::Current))
                 .await
                 .expect("the Feature's status reads");
             each.extend(statuses.into_iter().map(|status| status.slots));

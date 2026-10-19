@@ -106,7 +106,7 @@ impl Driven<'_> {
                 _ => String::new(),
             };
             Message::new(format!(
-                "{}{revision} awaiting approval in .surt/features/{subject}",
+                "{}{revision} awaiting approval in .surt/subjects/{subject}",
                 gate.artifact
             ))
             .way("approve", format!("surt approve {subject}"))

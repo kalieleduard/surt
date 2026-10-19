@@ -25,7 +25,7 @@ const CANCELLED: &str = "cancelled";
 pub enum StatusScope<'a> {
     Active,
     All,
-    Feature(&'a str, RunSelector),
+    Subject(&'a str, RunSelector),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -150,14 +150,14 @@ pub enum CleanupState {
 
 impl Project {
     pub async fn status(&self, scope: StatusScope<'_>) -> Result<Vec<RunStatus>, Error> {
-        let feature = match scope {
-            StatusScope::Feature(reference, run) => {
+        let selected = match scope {
+            StatusScope::Subject(reference, run) => {
                 Some((self.resolve_subject(reference).await?.name, run))
             }
             _ => None,
         };
         let store = self.reader().await?;
-        let statuses = match &feature {
+        let statuses = match &selected {
             Some((subject, run)) => self.selected_status(&store, subject, *run).await,
             None => {
                 self.read_statuses(&store, None, scope == StatusScope::All)

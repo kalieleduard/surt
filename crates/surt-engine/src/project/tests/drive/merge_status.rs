@@ -12,7 +12,7 @@ impl Feature {
     async fn status_merge(&self) -> Option<BaseMerge> {
         let statuses = self
             .project
-            .status(StatusScope::Feature(SUBJECT, RunSelector::Current))
+            .status(StatusScope::Subject(SUBJECT, RunSelector::Current))
             .await
             .expect("status reads");
         statuses[0].merge.clone()

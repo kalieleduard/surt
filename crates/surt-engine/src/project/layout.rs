@@ -74,7 +74,7 @@ impl Layout {
     }
 
     pub(crate) fn working_copy(&self, subject: &str) -> PathBuf {
-        self.dot_surt().join("features").join(subject)
+        self.dot_surt().join("subjects").join(subject)
     }
 
     fn runtime(&self) -> PathBuf {

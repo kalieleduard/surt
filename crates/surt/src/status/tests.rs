@@ -57,7 +57,7 @@ fn gate_over(
         },
         decided_by: None,
         decided_at: None,
-        working_copy: PathBuf::from(".surt/features").join(SUBJECT),
+        working_copy: PathBuf::from(".surt/subjects").join(SUBJECT),
         edited: edited.iter().map(|file| (*file).to_owned()).collect(),
         missing: Vec::new(),
     }

@@ -96,7 +96,7 @@ pub(super) fn refused() -> Behavior {
 }
 
 fn task_branch(key: &str) -> String {
-    format!("refs/heads/surt/task/{SUBJECT}/{key}")
+    format!("refs/heads/surt/item/{SUBJECT}/{key}")
 }
 
 async fn child_run(feature: &Feature, key: &'static str) -> String {

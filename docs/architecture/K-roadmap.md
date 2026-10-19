@@ -16,7 +16,7 @@ What gets built first, in which order, and what follows. Sections A–J describe
 ```
 $ surt init
 $ surt feature "add login"             # Spec Agent → stops at the spec gate
-$ $EDITOR .surt/features/20261017-add-login/spec.md     # optional
+$ $EDITOR .surt/subjects/20261017-add-login/spec.md     # optional
 $ surt approve add-login
 $ surt plan add-login                  # Task Agent → manifest + tasks/*.md → gate
 $ surt approve add-login

@@ -160,7 +160,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             .ok_or_else(|| Error::internal(NotStarted))?;
         let item = launch.row.item.as_deref().unwrap_or_default();
         let message = format!(
-            "Merge task {item} into {}\n\nSurt-Run: {}\nSurt-Task: {item}\nSurt-Reviewed-Commit: {}",
+            "Merge item {item} into {}\n\nSurt-Run: {}\nSurt-Item: {item}\nSurt-Reviewed-Commit: {}",
             git::short_branch(&integration.into.ref_name),
             run_stem(&launch.subject, launch.ordinal),
             integration.reviewed

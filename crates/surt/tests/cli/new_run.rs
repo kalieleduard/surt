@@ -138,7 +138,7 @@ fn a_new_run_is_refused_while_the_working_copy_keeps_an_unrecorded_edit() {
     let sandbox = at_the_spec_gate();
     let spec = sandbox
         .dot_surt()
-        .join("features")
+        .join("subjects")
         .join(&name)
         .join("spec.md");
     fs::write(&spec, "# Spec 1, edited\n").expect("the edit is written");
@@ -150,7 +150,7 @@ fn a_new_run_is_refused_while_the_working_copy_keeps_an_unrecorded_edit() {
     assert_eq!(
         refused.stderr,
         format!(
-            "✖ working copy has unrecorded edits from run 1\n    .surt/features/{name}/spec.md\n  \
+            "✖ working copy has unrecorded edits from run 1\n    .surt/subjects/{name}/spec.md\n  \
              fix: move or delete the file, then run again\n"
         )
     );

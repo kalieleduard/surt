@@ -75,7 +75,7 @@ fn delete_after_a_cancelled_and_a_succeeded_run_keeps_only_the_delivered_branch(
         "{refs}"
     );
     assert!(
-        refs.contains(&format!("refs/heads/surt/task/{name}/B\n")),
+        refs.contains(&format!("refs/heads/surt/item/{name}/B\n")),
         "{refs}"
     );
 
@@ -90,7 +90,7 @@ fn delete_after_a_cancelled_and_a_succeeded_run_keeps_only_the_delivered_branch(
     );
     let dot_surt = sandbox.dot_surt();
     assert!(!dot_surt.join("logs").join(&name).exists());
-    assert!(!dot_surt.join("features").join(&name).exists());
+    assert!(!dot_surt.join("subjects").join(&name).exists());
     let mut locks: Vec<String> = fs::read_dir(dot_surt.join("runtime/locks"))
         .expect("the locks directory")
         .map(|entry| {

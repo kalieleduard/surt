@@ -7,7 +7,7 @@ use crate::runtime::Script;
 async fn status(feature: &Feature) -> RunStatus {
     feature
         .project
-        .status(StatusScope::Feature(SUBJECT, RunSelector::Current))
+        .status(StatusScope::Subject(SUBJECT, RunSelector::Current))
         .await
         .expect("the status reads")
         .remove(0)

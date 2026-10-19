@@ -100,7 +100,7 @@ async fn a_run_frozen_without_the_merge_step_finishes_without_merging_or_a_merge
     );
     let statuses = feature
         .project
-        .status(StatusScope::Feature(SUBJECT, RunSelector::Current))
+        .status(StatusScope::Subject(SUBJECT, RunSelector::Current))
         .await
         .expect("status reads");
     assert_eq!(statuses[0].merge, None);

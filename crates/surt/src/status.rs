@@ -27,7 +27,7 @@ pub(crate) async fn run(cwd: &Path, args: StatusArgs) -> Result<(), Failure> {
     let project = Project::open_read_only(cwd).await?;
     if let Some(subject) = &args.subject {
         let statuses = project
-            .status(StatusScope::Feature(subject, run_selector(args.run)))
+            .status(StatusScope::Subject(subject, run_selector(args.run)))
             .await?;
         if args.json {
             return statuses

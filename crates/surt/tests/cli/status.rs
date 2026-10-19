@@ -85,7 +85,7 @@ fn local_time(sandbox: &Sandbox, sql: &str) -> String {
 fn status_of_a_subject_at_a_gate_lists_every_covered_file_and_each_unrecorded_edit() {
     let name = subject_name();
     let sandbox = at_the_manifest_gate(&name);
-    let working_copy = sandbox.dot_surt().join("features").join(&name);
+    let working_copy = sandbox.dot_surt().join("subjects").join(&name);
     fs::write(working_copy.join("tasks/A.md"), "# Task A, edited\n").expect("an edit");
     fs::remove_file(working_copy.join("tasks/B.md")).expect("a removed file");
     let branch = git(&sandbox, &["rev-parse", "--abbrev-ref", "HEAD"]);
@@ -101,9 +101,9 @@ fn status_of_a_subject_at_a_gate_lists_every_covered_file_and_each_unrecorded_ed
              base     {branch} @ {head}\n  \
              spec     rev 1 (agent) ✔ approved by tester@example.com {approved_at}\n  \
              manifest rev 1 (agent) ⏸ awaiting approval — approving covers the manifest and all 2 item files:\n           \
-             .surt/features/{name}/manifest.json\n           \
-             .surt/features/{name}/tasks/A.md\n           \
-             .surt/features/{name}/tasks/B.md\n           \
+             .surt/subjects/{name}/manifest.json\n           \
+             .surt/subjects/{name}/tasks/A.md\n           \
+             .surt/subjects/{name}/tasks/B.md\n           \
              ✎ tasks/A.md edited — recorded as rev 2 on approve (approval then targets rev 2)\n           \
              ⚠ tasks/B.md missing from the Working Copy\n  \
              approve: surt approve {name}    reject: surt reject {name} -m \"…\"\n"
@@ -276,7 +276,7 @@ fn show_reads_any_revision_after_cleanup_including_an_items_own_artifacts() {
     let feedback = ok(surt(&sandbox, &["show", &name, "feedback", "--item", "A"]));
     let detail = ok(surt(&sandbox, &["status", &name]));
 
-    assert!(!sandbox.dot_surt().join("features").join(&name).exists());
+    assert!(!sandbox.dot_surt().join("subjects").join(&name).exists());
     assert_eq!(spec, "# Spec 1\n");
     assert!(
         feedback.contains("\"summary\":\"approved after reading the code\""),
@@ -303,7 +303,7 @@ fn status_run_1_of_a_single_run_subject_is_the_detail_shown_by_default() {
 fn status_and_show_write_nothing_to_the_database_or_the_working_copy() {
     let name = subject_name();
     let sandbox = at_the_manifest_gate(&name);
-    let working_copy = sandbox.dot_surt().join("features").join(&name);
+    let working_copy = sandbox.dot_surt().join("subjects").join(&name);
     fs::write(working_copy.join("tasks/A.md"), "# Task A, edited\n").expect("an edit");
     fs::remove_file(working_copy.join("tasks/B.md")).expect("a removed file");
     let execution = sandbox

@@ -100,7 +100,7 @@ fn show_prints_any_revision_byte_for_byte_on_stdout_and_nothing_else() {
     assert_eq!(latest.stdout, SPEC_2);
     assert_eq!(first.stdout, SPEC_1);
     assert!(latest.stderr.is_empty(), "{}", latest.stderr);
-    let working_copy = sandbox.dot_surt().join("features").join(&name);
+    let working_copy = sandbox.dot_surt().join("subjects").join(&name);
     assert_eq!(
         manifest.stdout,
         fs::read_to_string(working_copy.join("manifest.json")).expect("the manifest")
@@ -111,7 +111,7 @@ fn show_prints_any_revision_byte_for_byte_on_stdout_and_nothing_else() {
 fn show_warns_on_stderr_when_the_working_copy_holds_an_unrecorded_edit() {
     let name = subject_name();
     let sandbox = with_two_specs(&name);
-    let working_copy = sandbox.dot_surt().join("features").join(&name);
+    let working_copy = sandbox.dot_surt().join("subjects").join(&name);
     fs::write(working_copy.join("spec.md"), "# Spec, edited by hand\n").expect("an edit");
 
     let run = ok(surt(&sandbox, &["show", &name, "spec"]));
