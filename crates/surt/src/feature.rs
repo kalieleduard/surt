@@ -50,7 +50,6 @@ pub(crate) async fn run(cwd: &Path, args: FeatureArgs) -> Result<(), Failure> {
     }
     if let Some(subject) = project.subject_named(&args.description).await? {
         if let Some(flag) = merge
-            && subject.active_run.is_some()
             && let Some(status) = new_run::current(&project, &subject.name).await?
         {
             return Err(Failure::Refused(already_frozen(

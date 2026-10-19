@@ -130,7 +130,7 @@ $ surt feature "add login" --merge
 
 The `merge into base:` line follows any `local agents:` line, under `✔ created …` and under `✔ run N of …` alike. Without a flag it reads `merge into base: ff-only` when the configuration says so, and is absent for the default `never`.
 
-On the resume form either flag refuses with exit `3`, because the active run already froze its mode; choosing again needs a new run:
+On the resume form either flag refuses with exit `3`, because the Subject's latest run, active or not, already froze its mode; choosing again needs a new run:
 
 ```
 $ surt feature 20261017-add-login --no-merge
