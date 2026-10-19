@@ -179,11 +179,12 @@ fn waiting_for_a_slot(snapshot: &ActivitySnapshot) -> bool {
 async fn waiter<F>(
     drivers: &mut [Option<Pin<Box<F>>>],
     receivers: &mut [mpsc::UnboundedReceiver<Progress>],
+    agents: &Agents,
 ) -> usize
 where
     F: Future<Output = Result<DriveOutcome, Error>>,
 {
-    until(drivers, async {
+    let waiter = until(drivers, async {
         let [first, second] = receivers else {
             unreachable!("two drivers");
         };
@@ -199,7 +200,13 @@ where
             }
         }
     })
-    .await
+    .await;
+    let mut started = agents.started.subscribe();
+    until(drivers, started.wait_for(|started| !started.is_empty()))
+        .await
+        .map(drop)
+        .expect("the started agents are watched");
+    waiter
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -212,7 +219,7 @@ async fn two_drivers_of_one_project_share_its_agent_slots_and_a_dropped_driver_f
         mut receivers,
     } = features.drive();
 
-    let waiter = waiter(&mut drivers, &mut receivers).await;
+    let waiter = waiter(&mut drivers, &mut receivers, agents).await;
     let holder = 1 - waiter;
     assert_eq!(agents.started(), [holder]);
 
@@ -244,7 +251,7 @@ async fn the_status_of_each_of_two_driven_features_counts_the_agent_slots_of_the
         mut drivers,
         mut receivers,
     } = features.drive();
-    waiter(&mut drivers, &mut receivers).await;
+    waiter(&mut drivers, &mut receivers, &features.agents).await;
 
     let reader = &features.projects[0];
     let (each, overview) = until(&mut drivers, async {
