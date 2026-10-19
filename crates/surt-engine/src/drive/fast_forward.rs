@@ -89,11 +89,9 @@ impl<R: AgentRuntime> Driver<'_, R> {
         &self,
         launch: &OperationLaunch,
     ) -> Result<Result<RefMove, NotMerged>, OperationError> {
-        let base = self.input_json(&launch.started, BASE_INPUT).await?;
-        let Some(branch) = base.as_ref().and_then(|base| text(base, REF_FIELD)) else {
+        let Some(reference) = self.base_reference(launch).await? else {
             return Ok(Err(NotMerged::NoBaseBranch));
         };
-        let reference = format!("{BRANCH_NAMESPACE}{branch}");
         let base_sha = self.input_sha(launch, BASE_INPUT).await?;
         let root = self.driving.layout.root();
         let found = git::commit_sha(root, &reference).await?;
@@ -110,6 +108,17 @@ impl<R: AgentRuntime> Driver<'_, R> {
             new_sha: self.delivered_tip(launch).await?,
             worktree_path,
         }))
+    }
+
+    async fn base_reference(
+        &self,
+        launch: &OperationLaunch,
+    ) -> Result<Option<String>, OperationError> {
+        let base = self.input_json(&launch.started, BASE_INPUT).await?;
+        Ok(base
+            .as_ref()
+            .and_then(|base| text(base, REF_FIELD))
+            .map(|branch| format!("{BRANCH_NAMESPACE}{branch}")))
     }
 
     async fn delivered_tip(&self, launch: &OperationLaunch) -> Result<String, OperationError> {
