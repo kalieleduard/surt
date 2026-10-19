@@ -42,3 +42,16 @@ fn an_exclusive_lock_creates_its_directories_and_excludes_other_holders() {
     drop(held);
     assert!(becomes_lockable(&path));
 }
+
+#[test]
+fn a_dropped_lock_is_released_at_once_though_a_copy_of_its_handle_lives_on() {
+    let root = TempDir::new().expect("a temporary directory");
+    let path = root.path().join("agent-0.lock");
+    let held = lock_exclusive(&path).expect("the lock is taken");
+    let inherited = held.file.try_clone().expect("the handle is copied");
+
+    drop(held);
+
+    assert!(matches!(other_handle(&path).try_lock(), Ok(())));
+    drop(inherited);
+}
