@@ -96,6 +96,37 @@ async fn a_fast_forward_that_stopped_between_the_files_and_the_ref_blocks_the_st
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn the_project_names_the_worktree_and_both_shas_of_an_interrupted_fast_forward() {
+    let Interrupted { feature, base, tip } = interrupted().await;
+
+    let found = feature
+        .project
+        .interrupted_merge(&feature.run)
+        .await
+        .expect("the interrupted merge reads")
+        .expect("an interrupted merge");
+
+    assert_eq!(
+        (
+            found.branch.as_str(),
+            found.from.as_str(),
+            found.to.as_str()
+        ),
+        ("main", base.as_str(), tip.as_str())
+    );
+    assert_eq!(
+        found.worktree.canonicalize().ok(),
+        feature.root().canonicalize().ok()
+    );
+    feature.git(&["merge", "--ff-only", "--quiet", &tip]);
+    feature.drive_with(&delivering_team()).await;
+    assert_eq!(
+        feature.project.interrupted_merge(&feature.run).await.ok(),
+        Some(None)
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn finishing_the_interrupted_fast_forward_by_hand_records_the_merge() {
     let Interrupted { feature, base, tip } = interrupted().await;
     feature.git(&["merge", "--ff-only", "--quiet", &tip]);
