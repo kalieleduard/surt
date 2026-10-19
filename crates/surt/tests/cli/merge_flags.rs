@@ -1,4 +1,4 @@
-use crate::delivering::feature_name;
+use crate::delivering::subject_name;
 use crate::scripts::spec;
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
@@ -37,7 +37,7 @@ fn frozen_mode(sandbox: &Sandbox, name: &str) -> String {
 fn cancelled() -> Sandbox {
     let sandbox = project();
     ok(sandbox.run_feature("add login", &[]));
-    ok(surt(&sandbox, &["cancel", "--yes", &feature_name()]));
+    ok(surt(&sandbox, &["cancel", "--yes", &subject_name()]));
     sandbox
 }
 
@@ -53,7 +53,7 @@ fn merge_freezes_ff_only_and_names_the_flag_under_the_creation_line() {
         "  merge into base: ff-only (--merge)",
         "{created}"
     );
-    assert_eq!(frozen_mode(&sandbox, &feature_name()), "ff-only");
+    assert_eq!(frozen_mode(&sandbox, &subject_name()), "ff-only");
 }
 
 #[test]
@@ -68,7 +68,7 @@ fn no_merge_freezes_never_over_a_project_file_that_says_ff_only() {
         "  merge into base: never (--no-merge)",
         "{created}"
     );
-    assert_eq!(frozen_mode(&sandbox, &feature_name()), "never");
+    assert_eq!(frozen_mode(&sandbox, &subject_name()), "never");
 }
 
 #[test]
@@ -106,7 +106,7 @@ fn merge_and_no_merge_together_are_a_usage_error() {
 
 #[test]
 fn a_new_run_freezes_the_flag_it_was_given() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = cancelled();
 
     let merged = ok(surt(&sandbox, &["continue", &name, "--new-run", "--merge"]));
@@ -122,7 +122,7 @@ fn a_new_run_freezes_the_flag_it_was_given() {
 
 #[test]
 fn a_new_run_freezes_no_merge_over_the_project_file() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = cancelled();
     sandbox.write_config("[git]\nmerge_into_base = \"ff-only\"\n");
 
@@ -141,7 +141,7 @@ fn a_new_run_freezes_no_merge_over_the_project_file() {
 
 #[test]
 fn either_flag_on_resume_refuses_naming_the_frozen_value_and_the_new_run() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = project();
     ok(sandbox.run_feature("add login", &["--merge"]));
 
@@ -162,7 +162,7 @@ fn either_flag_on_resume_refuses_naming_the_frozen_value_and_the_new_run() {
 
 #[test]
 fn either_flag_on_a_subject_without_an_active_run_refuses_naming_the_latest_run() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = cancelled();
 
     let resumed = sandbox.continue_run(&[&name, "--merge"]);

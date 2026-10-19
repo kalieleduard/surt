@@ -14,14 +14,14 @@ use crate::symbols::DASH;
 
 #[derive(clap::Args)]
 pub(crate) struct CancelArgs {
-    feature: String,
+    subject: String,
     #[arg(short = 'y', long)]
     yes: bool,
 }
 
 pub(crate) async fn run(cwd: &Path, args: CancelArgs) -> Result<(), Failure> {
     let project = Project::open(cwd).await?;
-    let subject = project.resolve_subject(&args.feature).await?;
+    let subject = project.resolve_subject(&args.subject).await?;
     let run = match (&subject.active_run, &subject.pending_cleanup) {
         (None, Some(run)) => run,
         _ => {

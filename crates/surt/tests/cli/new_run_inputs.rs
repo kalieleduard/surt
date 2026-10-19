@@ -1,4 +1,4 @@
-use crate::delivering::feature_name;
+use crate::delivering::subject_name;
 use crate::scripts::spec;
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
@@ -21,7 +21,7 @@ fn cancelled() -> Sandbox {
     sandbox.init();
     sandbox.script(&[spec(1, "# Spec 1\n")]);
     ok(sandbox.run_feature("add login", &[]));
-    ok(surt(&sandbox, &["cancel", "--yes", &feature_name()]));
+    ok(surt(&sandbox, &["cancel", "--yes", &subject_name()]));
     sandbox
 }
 
@@ -52,7 +52,7 @@ fn root_runs(sandbox: &Sandbox) -> String {
 
 #[test]
 fn a_new_run_carries_the_request_and_resolves_the_base_again() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = cancelled();
     let first_base = head(&sandbox);
     sandbox.git(
@@ -77,7 +77,7 @@ fn a_new_run_carries_the_request_and_resolves_the_base_again() {
 
 #[test]
 fn an_input_given_to_a_new_run_replaces_the_carried_one() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = cancelled();
     let request = format!("request={CHANGED_REQUEST}");
 
@@ -92,7 +92,7 @@ fn an_input_given_to_a_new_run_replaces_the_carried_one() {
 
 #[test]
 fn an_input_the_workflow_does_not_declare_refuses_the_new_run() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = cancelled();
 
     let refused = surt(
@@ -111,7 +111,7 @@ fn an_input_the_workflow_does_not_declare_refuses_the_new_run() {
 
 #[test]
 fn an_input_without_new_run_is_a_usage_error() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = cancelled();
     let request = format!("request={CHANGED_REQUEST}");
 

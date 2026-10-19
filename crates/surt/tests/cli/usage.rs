@@ -32,3 +32,10 @@ fn the_phase_commands_no_longer_exist() {
         assert_eq!(status.code(), Some(USAGE_ERROR_EXIT_CODE), "{command}");
     }
 }
+
+#[test]
+fn show_takes_item_and_no_longer_accepts_task() {
+    let status = run_surt(&["show", "add-login", "feedback", "--task", "A"]);
+
+    assert_eq!(status.code(), Some(USAGE_ERROR_EXIT_CODE));
+}

@@ -121,7 +121,7 @@ fn found(fields: Fields<'_>) -> Option<String> {
             joined(
                 [
                     finding.text("kind").map(str::to_owned),
-                    finding.labelled("task", "item"),
+                    finding.labelled("item", "item"),
                     finding.text("step").map(str::to_owned),
                 ],
                 " ",

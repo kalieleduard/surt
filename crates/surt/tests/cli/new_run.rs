@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::delivering::feature_name;
+use crate::delivering::subject_name;
 use crate::scripts::spec;
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
@@ -26,7 +26,7 @@ fn at_the_spec_gate() -> Sandbox {
 
 fn cancelled() -> Sandbox {
     let sandbox = at_the_spec_gate();
-    ok(surt(&sandbox, &["cancel", "--yes", &feature_name()]));
+    ok(surt(&sandbox, &["cancel", "--yes", &subject_name()]));
     sandbox
 }
 
@@ -46,8 +46,8 @@ fn head(sandbox: &Sandbox) -> (String, String) {
 }
 
 #[test]
-fn a_cancelled_feature_starts_over_as_run_two_and_run_one_stays_readable() {
-    let name = feature_name();
+fn a_cancelled_subject_starts_over_as_run_two_and_run_one_stays_readable() {
+    let name = subject_name();
     let sandbox = cancelled();
     let (branch, short) = head(&sandbox);
 
@@ -93,8 +93,8 @@ fn a_cancelled_feature_starts_over_as_run_two_and_run_one_stays_readable() {
 }
 
 #[test]
-fn a_feature_without_an_active_run_refuses_and_suggests_a_new_run() {
-    let name = feature_name();
+fn a_subject_without_an_active_run_refuses_and_suggests_a_new_run() {
+    let name = subject_name();
     let sandbox = cancelled();
 
     let refused = surt(&sandbox, &["continue", &name]);
@@ -118,8 +118,8 @@ fn a_feature_without_an_active_run_refuses_and_suggests_a_new_run() {
 }
 
 #[test]
-fn a_new_run_is_refused_while_the_feature_has_an_active_run() {
-    let name = feature_name();
+fn a_new_run_is_refused_while_the_subject_has_an_active_run() {
+    let name = subject_name();
     let sandbox = at_the_spec_gate();
 
     let refused = surt(&sandbox, &["continue", &name, "--new-run"]);
@@ -134,7 +134,7 @@ fn a_new_run_is_refused_while_the_feature_has_an_active_run() {
 
 #[test]
 fn a_new_run_is_refused_while_the_working_copy_keeps_an_unrecorded_edit() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = at_the_spec_gate();
     let spec = sandbox
         .dot_surt()
@@ -162,7 +162,7 @@ fn a_new_run_is_refused_while_the_working_copy_keeps_an_unrecorded_edit() {
 
 #[test]
 fn a_new_run_first_finishes_the_cleanup_of_the_previous_run() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = cancelled();
     sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
 
@@ -184,14 +184,14 @@ fn a_new_run_first_finishes_the_cleanup_of_the_previous_run() {
 }
 
 #[test]
-fn a_new_run_of_an_unknown_feature_is_refused() {
+fn a_new_run_of_an_unknown_subject_is_refused() {
     let sandbox = at_the_spec_gate();
 
     let refused = surt(&sandbox, &["continue", "20200101-nothing", "--new-run"]);
 
     assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
     assert!(
-        refused.stderr.starts_with("✖ no feature matches"),
+        refused.stderr.starts_with("✖ no subject matches"),
         "{}",
         refused.stderr
     );

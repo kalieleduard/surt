@@ -1,9 +1,9 @@
 use std::fs;
 use std::path::PathBuf;
 
-use crate::delivering::feature_name;
+use crate::delivering::subject_name;
 use crate::scripts::{build, review, ship, spec, tasks};
-use crate::status::with_a_blocked_task;
+use crate::status::with_a_blocked_item;
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const SUCCESS: &str = include_str!(concat!(
@@ -55,8 +55,8 @@ struct Logged {
 }
 
 fn logged() -> Logged {
-    let name = feature_name();
-    let sandbox = with_a_blocked_task(&name);
+    let name = subject_name();
+    let sandbox = with_a_blocked_item(&name);
     let plan = latest(&sandbox, "NULL", "plan-tasks");
     let review = latest(&sandbox, "'A'", "review");
     let build = latest(&sandbox, "'B'", "build");
@@ -82,7 +82,7 @@ fn logged() -> Logged {
 }
 
 #[test]
-fn logs_of_a_feature_render_the_latest_execution_of_the_run_and_each_task_with_a_prefix() {
+fn logs_of_a_subject_render_the_latest_execution_of_the_run_and_each_item_with_a_prefix() {
     let logged = logged();
 
     let shown = ok(surt(&logged.sandbox, &["logs", &logged.name]));
@@ -102,18 +102,18 @@ fn logs_of_a_feature_render_the_latest_execution_of_the_run_and_each_task_with_a
 }
 
 #[test]
-fn logs_of_a_task_or_an_execution_have_no_prefix() {
+fn logs_of_an_item_or_an_execution_have_no_prefix() {
     let logged = logged();
     let prefix = &logged.build[..logged.build.len() - 1];
 
-    let task = ok(surt(&logged.sandbox, &["logs", &logged.name, "B"]));
+    let item = ok(surt(&logged.sandbox, &["logs", &logged.name, "B"]));
     let execution = ok(surt(&logged.sandbox, &["logs", &logged.build]));
     let by_prefix = ok(surt(&logged.sandbox, &["logs", prefix]));
     let review = ok(surt(&logged.sandbox, &["logs", &logged.review]));
 
-    assert_eq!(task, "Write delivery/a.md\nboom\n");
-    assert_eq!(execution, task);
-    assert_eq!(by_prefix, task);
+    assert_eq!(item, "Write delivery/a.md\nboom\n");
+    assert_eq!(execution, item);
+    assert_eq!(by_prefix, item);
     assert_eq!(review, "\"Looks good\"\n");
 }
 
@@ -122,10 +122,10 @@ fn raw_logs_print_the_original_stream_lines() {
     let logged = logged();
 
     let execution = ok(surt(&logged.sandbox, &["logs", &logged.plan, "--raw"]));
-    let task = ok(surt(&logged.sandbox, &["logs", &logged.name, "B", "--raw"]));
+    let item = ok(surt(&logged.sandbox, &["logs", &logged.name, "B", "--raw"]));
 
     assert_eq!(execution, SUCCESS);
-    assert_eq!(task, SIGTERM);
+    assert_eq!(item, SIGTERM);
 }
 
 #[test]
@@ -133,12 +133,12 @@ fn following_a_run_without_a_live_driver_prints_what_exists_and_exits() {
     let logged = logged();
     let (name, plan) = (logged.name.as_str(), logged.plan.as_str());
 
-    let feature = ok(surt(&logged.sandbox, &["logs", name, "-f"]));
-    let task = ok(surt(&logged.sandbox, &["logs", name, "B", "--follow"]));
+    let subject = ok(surt(&logged.sandbox, &["logs", name, "-f"]));
+    let item = ok(surt(&logged.sandbox, &["logs", name, "B", "--follow"]));
     let execution = ok(surt(&logged.sandbox, &["logs", plan, "-f", "--raw"]));
 
-    assert_eq!(feature, ok(surt(&logged.sandbox, &["logs", name])));
-    assert_eq!(task, "Write delivery/a.md\nboom\n");
+    assert_eq!(subject, ok(surt(&logged.sandbox, &["logs", name])));
+    assert_eq!(item, "Write delivery/a.md\nboom\n");
     assert_eq!(execution, SUCCESS);
 }
 
@@ -149,7 +149,7 @@ fn a_missing_log_directory_says_so_and_points_at_inspect() {
     fs::remove_dir_all(logs_of(&logged.sandbox, name, build)).expect("the log is removed");
 
     let refused = surt(&logged.sandbox, &["logs", build]);
-    let feature = surt(&logged.sandbox, &["logs", name]);
+    let subject = surt(&logged.sandbox, &["logs", name]);
 
     let missing = format!(
         "no log for execution {build} (.surt/logs/{name}/{build}/ is missing)\n  \
@@ -158,10 +158,10 @@ fn a_missing_log_directory_says_so_and_points_at_inspect() {
     assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
     assert_eq!(refused.stdout, "");
     assert_eq!(refused.stderr, format!("✖ {missing}"));
-    assert_eq!(feature.code, Some(0), "{}", feature.stderr);
-    assert_eq!(feature.stderr, format!("⚠ {missing}"));
+    assert_eq!(subject.code, Some(0), "{}", subject.stderr);
+    assert_eq!(subject.stderr, format!("⚠ {missing}"));
     assert_eq!(
-        feature.stdout,
+        subject.stdout,
         "plan-tasks#1 │ Write delivery/note.md\n\
          plan-tasks#1 │ ✔ delivered\n\
          A review#1   │ \"Looks good\"\n"
@@ -170,7 +170,7 @@ fn a_missing_log_directory_says_so_and_points_at_inspect() {
 
 #[test]
 fn a_check_shows_its_combined_output_under_one_header_per_check() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = Sandbox::with_repository();
     sandbox.commit_something();
     sandbox.init();
@@ -198,14 +198,14 @@ fn a_check_shows_its_combined_output_under_one_header_per_check() {
 }
 
 #[test]
-fn logs_of_an_unknown_task_or_run_refuse() {
+fn logs_of_an_unknown_item_or_run_refuse() {
     let logged = logged();
 
-    let task = surt(&logged.sandbox, &["logs", &logged.name, "Z"]);
+    let item = surt(&logged.sandbox, &["logs", &logged.name, "Z"]);
     let run = surt(&logged.sandbox, &["logs", &logged.name, "--run", "2"]);
 
-    assert_eq!(task.code, Some(REFUSED_EXIT_CODE), "{}", task.stderr);
-    assert!(task.stderr.contains("tasks: A, B"), "{}", task.stderr);
+    assert_eq!(item.code, Some(REFUSED_EXIT_CODE), "{}", item.stderr);
+    assert!(item.stderr.contains("items: A, B"), "{}", item.stderr);
     assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
-    assert_eq!((task.stdout.as_str(), run.stdout.as_str()), ("", ""));
+    assert_eq!((item.stdout.as_str(), run.stdout.as_str()), ("", ""));
 }

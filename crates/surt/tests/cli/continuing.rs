@@ -16,7 +16,7 @@ fn project() -> Sandbox {
     sandbox
 }
 
-fn feature_name() -> String {
+fn subject_name() -> String {
     format!("{}-add-login", Zoned::now().date().strftime("%Y%m%d"))
 }
 
@@ -35,13 +35,13 @@ fn working_copy(sandbox: &Sandbox, rel_path: &str) -> String {
     let path = sandbox
         .dot_surt()
         .join("features")
-        .join(feature_name())
+        .join(subject_name())
         .join(rel_path);
     fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}: {error}", path.display()))
 }
 
 fn awaiting(artifact: &str, revision: u32) -> String {
-    let name = feature_name();
+    let name = subject_name();
     format!(
         "⏸ {artifact} rev {revision} awaiting approval in .surt/features/{name}\n  approve: surt approve {name}\n  reject: surt reject {name} -m \"<reason>\"\n"
     )
@@ -85,7 +85,7 @@ fn spec_is_rejected_regenerated_approved_then_continued_up_to_the_manifest_gate(
         spec(2, "# Spec 2 with OAuth\n"),
         tasks(1, &["A", "B"]),
     ]);
-    let name = feature_name();
+    let name = subject_name();
 
     let created = ok(sandbox.run_feature("add login", &[]));
     let spec_one = working_copy(&sandbox, "spec.md");
@@ -146,7 +146,7 @@ fn driving_prints_each_step_as_it_starts_and_finishes() {
 #[test]
 fn continue_while_a_gate_waits_ends_at_that_gate_again_without_running_anything() {
     let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n"), tasks(1, &["A"])]);
-    let name = feature_name();
+    let name = subject_name();
 
     let waiting = ok(continued(&sandbox, &name));
 
@@ -161,7 +161,7 @@ fn a_rejected_manifest_names_the_step_that_redoes_it_and_continue_regenerates_it
         tasks(1, &["A", "B", "C"]),
         tasks(2, &["A", "B"]),
     ]);
-    let name = feature_name();
+    let name = subject_name();
     ok(surt(&sandbox, &["approve", &name]));
     ok(continued(&sandbox, &name));
 
@@ -185,7 +185,7 @@ fn a_rejected_manifest_names_the_step_that_redoes_it_and_continue_regenerates_it
 #[test]
 fn a_revision_other_than_the_latest_is_refused() {
     let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n")]);
-    let name = feature_name();
+    let name = subject_name();
 
     let stale = refused(surt(&sandbox, &["approve", &name, "--rev", "2"]));
 
@@ -202,7 +202,7 @@ fn an_ambiguous_prefix_refuses_listing_the_candidates() {
     sandbox.script(&[spec(1, "# Spec 1\n")]);
     ok(sandbox.run_feature("add login", &[]));
     ok(sandbox.run_feature("add login", &["--new"]));
-    let name = feature_name();
+    let name = subject_name();
     let prefix = &name[..name.len() - 2];
 
     let ambiguous = refused(surt(&sandbox, &["approve", prefix]));
@@ -211,7 +211,7 @@ fn an_ambiguous_prefix_refuses_listing_the_candidates() {
     assert_eq!(
         ambiguous,
         format!(
-            "✖ \"{prefix}\" matches 2 features:\n    \
+            "✖ \"{prefix}\" matches 2 subjects:\n    \
              {name}    AWAITING APPROVAL (spec rev 1)\n    \
              {name}-2  AWAITING APPROVAL (spec rev 1)\n  \
              use the full name\n"
@@ -219,7 +219,7 @@ fn an_ambiguous_prefix_refuses_listing_the_candidates() {
     );
     assert_eq!(
         unknown,
-        "✖ no feature matches \"add-logout\"\n  inspect: surt status\n"
+        "✖ no subject matches \"add-logout\"\n  inspect: surt status\n"
     );
     assert_eq!(count(&sandbox, "approval"), "0");
 }
@@ -227,7 +227,7 @@ fn an_ambiguous_prefix_refuses_listing_the_candidates() {
 #[test]
 fn approving_with_no_gate_waiting_is_refused() {
     let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n")]);
-    let name = feature_name();
+    let name = subject_name();
     ok(surt(&sandbox, &["approve", &name]));
 
     let again = refused(surt(&sandbox, &["approve", &name]));
@@ -241,7 +241,7 @@ fn approving_with_no_gate_waiting_is_refused() {
 #[test]
 fn a_subject_without_an_active_run_is_refused_by_approve_and_reject() {
     let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n")]);
-    let name = feature_name();
+    let name = subject_name();
     sandbox.execute(
         "UPDATE workflow_run SET state = 'cancelled', finished_at = created_at, cleaned_at = created_at",
     );
@@ -264,7 +264,7 @@ fn a_subject_without_an_active_run_is_refused_by_approve_and_reject() {
 fn an_agent_that_keeps_failing_blocks_the_run_with_exit_4() {
     let sandbox = project();
     sandbox.script(&[crash("spec", 1), crash("spec", 2), crash("spec", 3)]);
-    let name = feature_name();
+    let name = subject_name();
 
     let run = sandbox.run_feature("add login", &[]);
 
@@ -311,7 +311,7 @@ fn an_invalid_runtime_script_is_an_internal_error_before_anything_is_created() {
 #[test]
 fn an_edited_spec_is_recorded_by_resuming_and_approved_as_a_human_edit() {
     let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n")]);
-    let name = feature_name();
+    let name = subject_name();
     let spec_file = sandbox
         .dot_surt()
         .join("features")
@@ -348,7 +348,7 @@ fn an_edited_spec_is_recorded_by_resuming_and_approved_as_a_human_edit() {
 #[test]
 fn an_edit_to_a_pinned_spec_is_refused_until_the_edited_file_is_removed() {
     let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n"), tasks(1, &["A"])]);
-    let name = feature_name();
+    let name = subject_name();
     ok(surt(&sandbox, &["approve", &name]));
     ok(continued(&sandbox, &name));
     let spec_file = sandbox

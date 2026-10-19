@@ -12,7 +12,7 @@ const USE_MORE: &str = "use the full id, as surt prints it";
 
 pub(super) fn unknown(reference: &str) -> Message {
     Message::new(format!(
-        "no feature or execution matches {}",
+        "no subject or execution matches {}",
         quoted(reference)
     ))
     .way("inspect", "surt status")

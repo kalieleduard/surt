@@ -3,7 +3,8 @@ mod merge;
 
 use serde_json::Value;
 use surt_engine::project::{
-    BlockReason, BlockedStep, Conflict, GateStatus, GateView, ItemStatus, LastFailure, RunStatus,
+    BlockReason, BlockedStep, Conflict, GateStatus, GateView, ItemListSummary, ItemStatus,
+    LastFailure, RunStatus,
 };
 
 use super::detail::merge_into_base;
@@ -12,15 +13,15 @@ use crate::json::Fields;
 use crate::show::origin;
 use crate::states::item_state_name;
 
-pub(super) fn features(statuses: &[RunStatus]) -> Fields {
-    let features: Vec<Value> = statuses
+pub(super) fn subjects(statuses: &[RunStatus]) -> Fields {
+    let subjects: Vec<Value> = statuses
         .iter()
-        .map(|status| feature(status).into())
+        .map(|status| subject(status).into())
         .collect();
-    Fields::new().with("features", features)
+    Fields::new().with("subjects", subjects)
 }
 
-pub(super) fn feature(status: &RunStatus) -> Fields {
+pub(super) fn subject(status: &RunStatus) -> Fields {
     let resume = resume_command(status);
     let states: Vec<&str> = status
         .states
@@ -69,10 +70,10 @@ fn repository(fields: Fields, status: &RunStatus) -> Fields {
 }
 
 fn work(fields: Fields, status: &RunStatus, resume: &str) -> Fields {
-    let tasks: Vec<Value> = status
+    let items: Vec<Value> = status
         .items
         .iter()
-        .map(|item| task(item, status, resume))
+        .map(|item| item_fields(item, status, resume))
         .collect();
     fields
         .with(
@@ -90,7 +91,8 @@ fn work(fields: Fields, status: &RunStatus, resume: &str) -> Fields {
             }),
         )
         .with("gates", status.gates.iter().map(gate).collect::<Vec<_>>())
-        .with("tasks", tasks)
+        .maybe("item_step", status.item_step.as_deref())
+        .with("items", items)
         .list("blocked", status.blocked.iter().map(blocked).collect())
         .with("resume", resume)
 }
@@ -114,6 +116,7 @@ fn gate(view: &GateView) -> Value {
                     .with("origin", origin(revision.origin))
                     .with("sha256", revision.sha256.as_str())
                     .with("files", revision.files.clone())
+                    .maybe("item_list", revision.item_list.map(item_list))
             }),
         )
         .maybe(
@@ -130,7 +133,7 @@ fn gate(view: &GateView) -> Value {
         .into()
 }
 
-fn task(item: &ItemStatus, status: &RunStatus, resume: &str) -> Value {
+fn item_fields(item: &ItemStatus, status: &RunStatus, resume: &str) -> Value {
     let fields = Fields::new()
         .with("key", item.key.as_str())
         .with("state", item_state_name(item.state))
@@ -169,7 +172,7 @@ fn conflict(conflict: &Conflict) -> Fields {
 fn blocked(step: &BlockedStep) -> Value {
     Fields::new()
         .with("step", step.step.key.as_str())
-        .maybe("task", step.step.item.as_deref())
+        .maybe("item", step.step.item.as_deref())
         .maybe("iteration", step.step.iteration)
         .with("reason", reason(step.reason))
         .maybe("last_error", step.last_failure.as_ref().map(last_error))
@@ -191,4 +194,10 @@ fn last_error(failure: &LastFailure) -> Fields {
         .with("code", failure.code.as_str())
         .with("message", failure.message.as_str())
         .time("resets_at", failure.resets_at)
+}
+
+fn item_list(list: ItemListSummary) -> Fields {
+    Fields::new()
+        .with("items", list.items)
+        .with("item_files", list.item_files)
 }

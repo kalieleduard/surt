@@ -11,14 +11,14 @@ use crate::symbols::DASH;
 
 #[derive(clap::Args)]
 pub(crate) struct DeleteArgs {
-    feature: String,
+    subject: String,
     #[arg(short = 'y', long)]
     yes: bool,
 }
 
 pub(crate) async fn run(cwd: &Path, args: DeleteArgs) -> Result<(), Failure> {
     let project = Project::open(cwd).await?;
-    let subject = project.resolve_subject(&args.feature).await?.name;
+    let subject = project.resolve_subject(&args.subject).await?.name;
     if !args.yes {
         confirm(&project, &subject).await?;
     }

@@ -9,10 +9,10 @@ use crate::message::Mark;
 
 const SUBJECT: &str = "20261017-add-login";
 
-fn impact(executions: usize, tasks: usize, merged: usize, branch: bool) -> CancelImpact {
+fn impact(executions: usize, items: usize, merged: usize, branch: bool) -> CancelImpact {
     CancelImpact {
         executions,
-        items: tasks,
+        items,
         merged,
         integration_branch: branch.then(|| format!("surt/{SUBJECT}")),
     }
@@ -34,24 +34,24 @@ fn the_question_shows_what_is_stopped_and_what_stays() {
     assert_eq!(
         question(SUBJECT, &impact(2, 4, 2, true)),
         "cancel 20261017-add-login?\n\
-         \x20 2 running executions will be stopped · 2/4 tasks merged stay on surt/20261017-add-login\n\
-         \x20 worktrees are removed; task branches and salvage refs stay\n\
+         \x20 2 running executions will be stopped · 2/4 items merged stay on surt/20261017-add-login\n\
+         \x20 worktrees are removed; item branches and salvage refs stay\n\
          \x20 starting over later needs a new run (surt continue 20261017-add-login --new-run)\n"
     );
 }
 
 #[test]
-fn the_question_names_a_single_execution_and_a_run_without_tasks() {
+fn the_question_names_a_single_execution_and_a_run_without_items() {
     assert_eq!(
         question(SUBJECT, &impact(1, 0, 0, false)),
         "cancel 20261017-add-login?\n\
          \x20 1 running execution will be stopped\n\
-         \x20 worktrees are removed; task branches and salvage refs stay\n\
+         \x20 worktrees are removed; item branches and salvage refs stay\n\
          \x20 starting over later needs a new run (surt continue 20261017-add-login --new-run)\n"
     );
     assert!(
         question(SUBJECT, &impact(0, 2, 0, true))
-            .contains("  nothing is running · 0/2 tasks merged stay on surt/20261017-add-login\n")
+            .contains("  nothing is running · 0/2 items merged stay on surt/20261017-add-login\n")
     );
 }
 

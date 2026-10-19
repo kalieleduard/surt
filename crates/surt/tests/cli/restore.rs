@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use crate::delivering::{feature_name, planned};
+use crate::delivering::{planned, subject_name};
 use crate::scripts::{build, review, ship, tasks};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
@@ -47,7 +47,7 @@ fn pinned_and_edited(name: &str) -> Sandbox {
 
 #[test]
 fn a_pinned_edit_refusal_is_undone_with_restore_yes_and_the_run_continues() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = pinned_and_edited(&name);
 
     let refused = surt(&sandbox, &["continue", &name]);
@@ -83,7 +83,7 @@ fn a_pinned_edit_refusal_is_undone_with_restore_yes_and_the_run_continues() {
 
 #[test]
 fn restore_without_a_terminal_and_without_yes_refuses_and_keeps_the_edit() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = pinned_and_edited(&name);
 
     let refused = surt(&sandbox, &["restore", &name, "spec"]);
@@ -104,7 +104,7 @@ fn restore_without_a_terminal_and_without_yes_refuses_and_keeps_the_edit() {
 
 #[test]
 fn restore_with_nothing_different_says_so_and_exits_0() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = planned(&name, &[tasks(1, &["A"])]);
 
     let restored = surt(&sandbox, &["restore", &name, "spec"]);
@@ -119,7 +119,7 @@ fn restore_with_nothing_different_says_so_and_exits_0() {
 
 #[test]
 fn restore_of_an_artifact_without_a_working_copy_lists_the_restorable_ones() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = planned(&name, &[tasks(1, &["A"])]);
 
     let refused = surt(&sandbox, &["restore", &name, "request", "--yes"]);
@@ -137,10 +137,10 @@ fn restore_of_an_artifact_without_a_working_copy_lists_the_restorable_ones() {
 #[cfg(unix)]
 #[test]
 fn restore_reports_a_live_driver_before_asking_anything() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = waiting_builder(&name);
     let mut driving = Driving::start(&sandbox, &name);
-    driving.wait_for("● task A build started\n");
+    driving.wait_for("● item A build started\n");
     fs::write(spec_file(&sandbox, &name), EDITED).expect("the edit is written");
     let driver = driving.pid();
 

@@ -72,6 +72,15 @@ pub(super) async fn statuses(
     Ok(statuses)
 }
 
+pub(super) fn item_step(frozen: &Frozen, run: &RootRunRow) -> Result<Option<String>, Error> {
+    Ok(frozen
+        .definition(&run.definition)?
+        .steps
+        .iter()
+        .find(|step| matches!(step.spec, StepSpec::PerItem(_)))
+        .map(|step| step.key.clone()))
+}
+
 async fn needs(
     store: &Store,
     run: &RootRunRow,

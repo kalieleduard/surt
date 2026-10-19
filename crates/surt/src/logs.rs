@@ -15,8 +15,8 @@ use source::{Files, Format, prefixes, render};
 
 #[derive(clap::Args)]
 pub(crate) struct LogsArgs {
-    feature: String,
-    task: Option<String>,
+    subject: String,
+    item: Option<String>,
     #[arg(long, value_name = "N")]
     run: Option<u32>,
     #[arg(short = 'f', long)]
@@ -80,7 +80,7 @@ impl Target {
 
 pub(crate) async fn run(cwd: &Path, args: LogsArgs) -> Result<(), Failure> {
     let project = Project::open_read_only(cwd).await?;
-    let target = Target::select(&project, &args.feature, args.task.as_deref(), args.run).await?;
+    let target = Target::select(&project, &args.subject, args.item.as_deref(), args.run).await?;
     let logs = target.logs(&project).await?;
     let format = if args.raw {
         Format::Raw

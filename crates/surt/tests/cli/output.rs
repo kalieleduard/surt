@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::delivering::{feature_name, planned};
+use crate::delivering::{planned, subject_name};
 use crate::scripts::{build, review, ship, tasks};
 use crate::support::{INTERNAL_ERROR_EXIT_CODE, REFUSED_EXIT_CODE, Sandbox};
 
@@ -137,7 +137,7 @@ fn no_color_and_the_ascii_symbols_are_independent() {
 
 #[test]
 fn a_driving_command_without_a_tty_prints_only_event_lines() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = planned(
         &name,
         &[
@@ -154,7 +154,7 @@ fn a_driving_command_without_a_tty_prints_only_event_lines() {
 
     assert_eq!(run.code, Some(0), "{}", run.stderr);
     assert!(
-        run.stderr.contains("● task B build started\n"),
+        run.stderr.contains("● item B build started\n"),
         "{}",
         run.stderr
     );

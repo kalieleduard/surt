@@ -13,14 +13,14 @@ const UNKNOWN_PRODUCER: &str = "the step that produced it";
 
 #[derive(clap::Args)]
 pub(crate) struct ApproveArgs {
-    feature: String,
+    subject: String,
     #[arg(long, value_name = "N")]
     rev: Option<u32>,
 }
 
 #[derive(clap::Args)]
 pub(crate) struct RejectArgs {
-    feature: String,
+    subject: String,
     #[arg(short = 'm', long = "message", value_name = "reason", value_parser = NonEmptyStringValueParser::new())]
     reason: String,
     #[arg(long, value_name = "N")]
@@ -29,7 +29,7 @@ pub(crate) struct RejectArgs {
 
 pub(crate) async fn approve(cwd: &Path, args: ApproveArgs) -> Result<(), Failure> {
     let project = Project::open(cwd).await?;
-    let subject = project.resolve_subject(&args.feature).await?;
+    let subject = project.resolve_subject(&args.subject).await?;
     let run = active_run(&subject)?;
     let decided = project
         .approve(run, args.rev, &project.actor().await?)
@@ -41,7 +41,7 @@ pub(crate) async fn approve(cwd: &Path, args: ApproveArgs) -> Result<(), Failure
 
 pub(crate) async fn reject(cwd: &Path, args: RejectArgs) -> Result<(), Failure> {
     let project = Project::open(cwd).await?;
-    let subject = project.resolve_subject(&args.feature).await?;
+    let subject = project.resolve_subject(&args.subject).await?;
     let run = active_run(&subject)?;
     let decided = project
         .reject(run, args.rev, &args.reason, &project.actor().await?)

@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use crate::delivering::{feature_name, planned_with};
+use crate::delivering::{planned_with, subject_name};
 use crate::scripts::{build, review, ship, tasks};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
@@ -38,7 +38,7 @@ fn kept(name: &str) -> (Sandbox, String) {
 
 #[test]
 fn a_kept_run_ends_with_the_kept_line_instead_of_a_cleanup() {
-    let name = feature_name();
+    let name = subject_name();
 
     let (sandbox, started) = kept(&name);
 
@@ -59,7 +59,7 @@ fn a_kept_run_ends_with_the_kept_line_instead_of_a_cleanup() {
 
 #[test]
 fn status_shows_a_kept_run_as_kept_and_never_as_cleanup_pending() {
-    let name = feature_name();
+    let name = subject_name();
     let (sandbox, _) = kept(&name);
 
     let all = shown(surt(&sandbox, &["status", "--all"]));
@@ -81,12 +81,12 @@ fn status_shows_a_kept_run_as_kept_and_never_as_cleanup_pending() {
     );
     assert_eq!(json.code, Some(0), "{}", json.stderr);
     let document: Value = serde_json::from_str(&json.stdout).expect("one JSON document");
-    assert_eq!(document["features"][0]["cleanup"]["state"], "kept");
+    assert_eq!(document["subjects"][0]["cleanup"]["state"], "kept");
 }
 
 #[test]
 fn a_phase_command_on_a_kept_run_removes_nothing() {
-    let name = feature_name();
+    let name = subject_name();
     let (sandbox, _) = kept(&name);
     let worktrees = sandbox.git_output(&sandbox.repo(), &["worktree", "list"]);
 

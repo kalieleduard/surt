@@ -30,13 +30,13 @@ pub(super) fn unknown_revision(
     )
 }
 
-pub(super) fn unknown_task(subject: &str, task: &str, known: &[String]) -> Message {
+pub(super) fn unknown_item(subject: &str, item: &str, known: &[String]) -> Message {
     let listed = if known.is_empty() {
-        "it has no tasks yet".to_owned()
+        "it has no items yet".to_owned()
     } else {
-        format!("tasks: {}", known.join(", "))
+        format!("items: {}", known.join(", "))
     };
-    Message::new(format!("{subject} has no task {}", quoted(task)))
+    Message::new(format!("{subject} has no item {}", quoted(item)))
         .context(listed)
         .way("inspect", format!("surt status {subject}"))
 }
@@ -48,9 +48,9 @@ pub(super) fn no_revision_in_iteration(
     iteration: u32,
     iterations: &[u32],
 ) -> Message {
-    let producer = item.map_or_else(|| subject.to_owned(), |item| format!("task {item}"));
-    let task = item
-        .map(|item| format!(" --task {item}"))
+    let producer = item.map_or_else(|| subject.to_owned(), |item| format!("item {item}"));
+    let item_flag = item
+        .map(|item| format!(" --item {item}"))
         .unwrap_or_default();
     let latest = iterations
         .last()
@@ -62,7 +62,7 @@ pub(super) fn no_revision_in_iteration(
     .context(produced_in(artifact, iterations))
     .way(
         "inspect",
-        format!("surt show {subject} {artifact}{task}{latest}"),
+        format!("surt show {subject} {artifact}{item_flag}{latest}"),
     )
 }
 

@@ -47,7 +47,7 @@ pub(crate) async fn print(mut events: UnboundedReceiver<Progress>) -> Printed {
 
 pub(crate) fn label(step: &StepLabel) -> String {
     let mut text = match &step.item {
-        Some(item) => format!("task {item} {}", step.key),
+        Some(item) => format!("item {item} {}", step.key),
         None => step.key.clone(),
     };
     if let Some(iteration) = step.iteration.filter(|iteration| *iteration > FIRST) {

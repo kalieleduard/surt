@@ -51,7 +51,7 @@ fn of_execution(event: TimelineEvent, step: &str, iteration: u32, attempt: u32) 
     event
 }
 
-fn of_task(mut event: TimelineEvent, item: &str) -> TimelineEvent {
+fn of_item(mut event: TimelineEvent, item: &str) -> TimelineEvent {
     event.item = Some(item.to_owned());
     event
 }
@@ -97,7 +97,7 @@ fn the_run_timeline_prints_each_event_with_its_time_and_details() {
             Some(1),
         ),
         event(NOON + 180, "driver.started", json!({ "pid": 48213 })),
-        of_task(
+        of_item(
             event(NOON + 240, "run.created", json!({ "item": "B" })),
             "B",
         ),
@@ -109,12 +109,12 @@ fn the_run_timeline_prints_each_event_with_its_time_and_details() {
          12:01:00  revision.published  write iter 1 · attempt 1 · spec rev 1 (agent)\n\
          12:02:00  approval.recorded   approve_spec iter 1 · spec rev 1 rejected — \"needs OAuth\" · by you@example.com\n\
          12:03:00  driver.started      pid 48213\n\
-         12:04:00  run.created         task B\n"
+         12:04:00  run.created         item B\n"
     );
 }
 
 #[test]
-fn the_task_timeline_explains_iterations_attempts_and_blocks() {
+fn the_item_timeline_explains_iterations_attempts_and_blocks() {
     let events = vec![
         in_step(
             event(
@@ -163,7 +163,7 @@ fn the_task_timeline_explains_iterations_attempts_and_blocks() {
     ];
     let events = events
         .into_iter()
-        .map(|event| of_task(event, "B"))
+        .map(|event| of_item(event, "B"))
         .collect();
 
     assert_eq!(
@@ -242,7 +242,7 @@ fn recovery_stop_requests_intentions_and_cleanup_name_what_they_touched() {
 
     assert_eq!(
         shown(&timeline(None, events)),
-        "12:00:00  driver.recovered     previous pid 41 · found orphan_stopped task A build\n\
+        "12:00:00  driver.recovered     previous pid 41 · found orphan_stopped item A build\n\
          12:00:01  run.stop_requested   by you@example.com\n\
          12:00:02  intention.confirmed  ref_move refs/heads/surt/x 1111111 → 2222222\n\
          12:00:03  cleanup.incomplete   kept spec.md · left worktree B: busy\n"
