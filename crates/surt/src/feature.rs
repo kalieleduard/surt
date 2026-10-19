@@ -17,7 +17,7 @@ use crate::phase::SPEC;
 use crate::runtime;
 use merge_flag::{MergeFlag, already_frozen, with_merge_line};
 use retry::Retry;
-pub(crate) use retry::quoted;
+pub(crate) use retry::{quoted, word};
 
 const DEFAULT_BASE: &str = "HEAD";
 const REQUEST_FILE: &str = "request.txt";

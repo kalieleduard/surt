@@ -1,5 +1,5 @@
 use super::Reconcile;
-use crate::drive::{BaseMerge, Progress, settle_fast_forward};
+use crate::drive::{BaseMerge, Progress, Settled, settle_fast_forward};
 use crate::git;
 use crate::operations::Operation;
 use crate::project::Error;
@@ -17,7 +17,7 @@ impl Reconcile<'_> {
             &pending.intended,
         )
         .await?;
-        let Some(settled) = settled else {
+        let Settled::Recorded(settled) = settled else {
             return Ok(None);
         };
         let started = self.attempt(&pending, Operation::MergeIntoBase).await?;

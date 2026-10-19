@@ -53,8 +53,10 @@ impl Driven<'_> {
             DriveOutcome::Succeeded => self.succeeded().await,
             DriveOutcome::Blocked { .. } => {
                 let steps = self.project.blocked_steps(self.run).await?;
+                let interrupted = self.project.interrupted_merge(self.run).await?;
                 Err(Failure::Blocked(blocked::report(
                     &steps,
+                    interrupted.as_ref(),
                     self.resume_command(),
                 )))
             }

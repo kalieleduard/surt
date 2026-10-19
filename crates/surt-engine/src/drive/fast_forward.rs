@@ -11,27 +11,43 @@ use crate::project::{Error, MergeIntoBase};
 use crate::reconcile::{Found, find};
 use crate::runtime::AgentRuntime;
 use crate::store::{RefMove, Store};
+use checked_out::{checked_out, interrupted};
+
+mod checked_out;
 
 const BASE_INPUT: &str = "base";
 const INTEGRATION_INPUT: &str = "integration";
 const REF_FIELD: &str = "ref";
 const TIP_FIELD: &str = "tip";
+const INTERRUPTED: &str = "merge_into_base_interrupted";
+
+pub(crate) enum Settled {
+    Recorded(BaseMerge),
+    Redo,
+    Interrupted,
+}
 
 pub(crate) async fn settle_fast_forward(
     store: &Store,
     repository: &Path,
     step: &str,
     intended: &RefMove,
-) -> Result<Option<BaseMerge>, Error> {
+) -> Result<Settled, Error> {
     match find(repository, intended).await? {
-        Found::Moved => Ok(Some(merged(intended))),
+        Found::Moved => Ok(Settled::Recorded(merged(intended))),
         Found::NotMoved => {
+            if let Some(worktree) = &intended.worktree_path
+                && worktree.is_dir()
+                && !git::is_clean(worktree).await?
+            {
+                return Ok(Settled::Interrupted);
+            }
             store.forget_ref_move(step).await?;
-            Ok(None)
+            Ok(Settled::Redo)
         }
         Found::Elsewhere(found) => {
             store.forget_ref_move(step).await?;
-            Ok(Some(base_moved(found)))
+            Ok(Settled::Recorded(base_moved(found)))
         }
     }
 }
@@ -42,11 +58,12 @@ impl<R: AgentRuntime> Driver<'_, R> {
         launch: &OperationLaunch,
     ) -> Result<Finished, OperationError> {
         let (store, root) = (self.driving.store, self.driving.layout.root());
-        if let Some(intended) = store.ref_move(&launch.row.id).await?
-            && let Some(settled) =
-                settle_fast_forward(store, root, &launch.row.id, &intended).await?
-        {
-            return Ok(recorded(settled));
+        if let Some(intended) = store.ref_move(&launch.row.id).await? {
+            match settle_fast_forward(store, root, &launch.row.id, &intended).await? {
+                Settled::Recorded(settled) => return Ok(recorded(settled)),
+                Settled::Interrupted => return Err(interrupted(&intended).into()),
+                Settled::Redo => {}
+            }
         }
         Ok(recorded(self.decide_fast_forward(launch).await?))
     }
@@ -62,31 +79,41 @@ impl<R: AgentRuntime> Driver<'_, R> {
         let Some(branch) = base.as_ref().and_then(|base| text(base, REF_FIELD)) else {
             return Ok(BaseMerge::Skipped(NotMerged::NoBaseBranch));
         };
-        let base_sha = self.input_sha(launch, BASE_INPUT).await?;
-        let tip = self
-            .input_text(&launch.started, INTEGRATION_INPUT, TIP_FIELD)
-            .await?
-            .ok_or_else(|| {
-                Failure::not_retryable("invalid_input", "the integration input names no tip".into())
-            })?;
         let reference = format!("{BRANCH_NAMESPACE}{branch}");
+        let base_sha = self.input_sha(launch, BASE_INPUT).await?;
         let root = self.driving.layout.root();
         let found = git::commit_sha(root, &reference).await?;
         if found.as_deref() != Some(base_sha.as_str()) {
             return Ok(base_moved(found));
         }
-        if checked_out(root, &reference).await? {
+        let worktree = checked_out(root, &reference).await?;
+        if let Some(worktree) = &worktree
+            && !git::is_clean(worktree).await?
+        {
             return Ok(BaseMerge::Skipped(NotMerged::WorktreeNotClean));
         }
         let intended = RefMove {
             ref_name: reference,
             old_sha: base_sha,
-            new_sha: tip,
+            new_sha: self.delivered_tip(launch).await?,
+            worktree_path: worktree,
         };
         if intended.old_sha == intended.new_sha {
             return Ok(merged(&intended));
         }
-        self.fast_forward(launch, &intended).await
+        match &intended.worktree_path {
+            Some(worktree) => self.fast_forward_in(launch, &intended, worktree).await,
+            None => self.fast_forward(launch, &intended).await,
+        }
+    }
+
+    async fn delivered_tip(&self, launch: &OperationLaunch) -> Result<String, OperationError> {
+        self.input_text(&launch.started, INTEGRATION_INPUT, TIP_FIELD)
+            .await?
+            .ok_or_else(|| {
+                Failure::not_retryable("invalid_input", "the integration input names no tip".into())
+                    .into()
+            })
     }
 
     async fn fast_forward(
@@ -96,11 +123,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
     ) -> Result<BaseMerge, OperationError> {
         let store = self.driving.store;
         store.intend_ref_move(&launch.row.id, intended).await?;
-        let message = format!(
-            "surt: fast-forward {} to surt/{}",
-            git::short_branch(&intended.ref_name),
-            run_stem(&launch.subject, launch.ordinal)
-        );
+        let message = reflog_message(launch, intended);
         let root = self.driving.layout.root();
         let moved = {
             let _git = self.git_lock().await?;
@@ -108,6 +131,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 ref_name,
                 old_sha,
                 new_sha,
+                ..
             } = intended;
             git::fast_forward_ref(root, ref_name, new_sha, old_sha, &message).await
         };
@@ -115,8 +139,8 @@ impl<R: AgentRuntime> Driver<'_, R> {
             Ok(()) => Ok(merged(intended)),
             Err(failed @ GitError::Failed { .. }) => {
                 match settle_fast_forward(store, root, &launch.row.id, intended).await? {
-                    Some(settled) => Ok(settled),
-                    None => Err(failed.into()),
+                    Settled::Recorded(settled) => Ok(settled),
+                    Settled::Redo | Settled::Interrupted => Err(failed.into()),
                 }
             }
             Err(error) => Err(error.into()),
@@ -124,11 +148,12 @@ impl<R: AgentRuntime> Driver<'_, R> {
     }
 }
 
-async fn checked_out(repository: &Path, reference: &str) -> Result<bool, GitError> {
-    Ok(git::worktrees::list(repository)
-        .await?
-        .iter()
-        .any(|entry| entry.branch.as_deref() == Some(reference)))
+fn reflog_message(launch: &OperationLaunch, intended: &RefMove) -> String {
+    format!(
+        "surt: fast-forward {} to surt/{}",
+        git::short_branch(&intended.ref_name),
+        run_stem(&launch.subject, launch.ordinal)
+    )
 }
 
 fn merged(intended: &RefMove) -> BaseMerge {

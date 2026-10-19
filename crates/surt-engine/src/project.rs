@@ -13,6 +13,7 @@ mod gate_status;
 mod gates;
 mod init;
 mod inspect;
+mod interrupted_merge;
 mod layout;
 mod logs;
 mod naming;
@@ -64,6 +65,7 @@ pub use inspect::{
     AgentProfile, ExecutionDetail, ExecutionFailure, ExecutionInput, InspectRequest, Performer,
     RuntimeInfo, Timeline, TimelineEvent, Usage,
 };
+pub use interrupted_merge::InterruptedMerge;
 pub use logs::{LogRequest, LogSource, Logs};
 pub use naming::Slug;
 pub use repository::Commit;

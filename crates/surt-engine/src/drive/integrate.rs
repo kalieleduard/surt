@@ -121,6 +121,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             ref_name: integration.into.ref_name.clone(),
             old_sha: tip.clone(),
             new_sha: merge,
+            worktree_path: None,
         };
         self.move_tip(launch, intended).await
     }
@@ -141,6 +142,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 ref_name,
                 old_sha,
                 new_sha,
+                ..
             } = &intended;
             git::move_ref(root, ref_name, new_sha, old_sha).await?;
         }

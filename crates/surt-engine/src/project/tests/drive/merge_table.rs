@@ -73,21 +73,3 @@ async fn a_base_branch_that_moved_since_the_base_is_left_where_it_is() {
         [json!({ "outcome": "skipped", "reason": "base_moved", "found": moved })]
     );
 }
-
-#[tokio::test(flavor = "multi_thread")]
-async fn a_base_branch_checked_out_in_a_worktree_is_never_moved_underneath_it() {
-    let feature = merged_feature(MergeIntoBase::FfOnly, Some("main")).await;
-    let base = feature.base();
-
-    let driven = feature.drive_with(&delivering_team()).await;
-
-    assert_eq!(
-        driven.outcome.expect("drive returns"),
-        DriveOutcome::Succeeded
-    );
-    assert_eq!(feature.sha("main"), Some(base));
-    assert_eq!(
-        feature.merge_done().await,
-        [json!({ "outcome": "skipped", "reason": "worktree_not_clean" })]
-    );
-}

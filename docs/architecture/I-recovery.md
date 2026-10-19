@@ -195,6 +195,8 @@ With `merge_into_base = "ff-only"` and the Base branch checked out in the user's
 
 The row stays, so the next command's Attempt applies the same rule. After *finish it* the ref equals `new_sha`, so the Outcome is `merged`. After *undo it* the ref equals `old_sha` and the worktree is clean, so the fast-forward runs again. If nothing was done, the step blocks again.
 
+"Clean" is [A's definition](A-git-integration.md#merging-into-the-base-opt-in): no change to a tracked file and no operation in progress; untracked files do not count. The same case arises without a Ctrl-C when `git merge --ff-only` fails after updating some files (a file in use on Windows): that failure is a technical one (`git_failed`), its row stays, and the next Attempt lands here. A refusal to overwrite an untracked file is not this case, because Git refuses before touching anything; it ends the step `skipped` with reason [`worktree_not_clean`](A-git-integration.md#merging-into-the-base-opt-in). The ref-at-`new_sha` and ref-elsewhere rows record `merged` and [`base_moved`](A-git-integration.md#merging-into-the-base-opt-in) as for the not-checked-out case.
+
 ## Transient Failures: network and rate limits
 
 Claude Code already retries API errors by itself (`system/api_retry`). When it gives up, Surt classifies the failure from the stream (`assistant.error`, the `result`'s `terminal_reason`) instead of spending an Attempt on every kind:
