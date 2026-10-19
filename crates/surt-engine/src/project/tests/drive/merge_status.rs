@@ -3,6 +3,7 @@ use std::fs;
 use super::super::fixtures::SUBJECT;
 use super::fixtures::Feature;
 use super::integration::integration_branch;
+use super::merge_worktree::same_path;
 use super::merging::{delivering_team, merged_feature};
 use super::repository::commit_file;
 use crate::project::{BaseMerge, MergeIntoBase, NotMerged, RunSelector, StatusScope};
@@ -81,10 +82,11 @@ async fn status_reports_a_base_branch_checked_out_in_a_dirty_worktree() {
 
     feature.drive_with(&delivering_team()).await;
 
-    assert_eq!(
-        feature.status_merge().await,
-        Some(BaseMerge::Skipped(NotMerged::WorktreeNotClean))
-    );
+    let merge = feature.status_merge().await;
+    let Some(BaseMerge::Skipped(NotMerged::WorktreeNotClean { worktree })) = &merge else {
+        panic!("expected a worktree_not_clean skip, got {merge:?}");
+    };
+    assert!(same_path(worktree, &feature.root()), "{merge:?}");
 }
 
 #[tokio::test(flavor = "multi_thread")]

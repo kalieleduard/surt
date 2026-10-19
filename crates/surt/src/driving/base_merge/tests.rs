@@ -37,9 +37,11 @@ fn every_skip_names_its_reason_and_leaves_the_merge_to_the_developer() {
         (
             report(
                 Some("main"),
-                BaseMerge::Skipped(NotMerged::WorktreeNotClean),
+                BaseMerge::Skipped(NotMerged::WorktreeNotClean {
+                    worktree: "/Users/you/surt".into(),
+                }),
             ),
-            "⚠ not merged: main is checked out in a worktree that is not clean; merge surt/20261017-add-login yourself\n",
+            "⚠ not merged: main is checked out in /Users/you/surt with changes; merge surt/20261017-add-login yourself\n",
         ),
         (
             report(

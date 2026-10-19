@@ -33,7 +33,7 @@ impl Feature {
     }
 }
 
-fn same_path(left: &Path, right: &Path) -> bool {
+pub(super) fn same_path(left: &Path, right: &Path) -> bool {
     left.canonicalize().ok() == right.canonicalize().ok()
 }
 
@@ -64,9 +64,16 @@ async fn a_clean_checked_out_base_branch_moves_together_with_its_files() {
 async fn left_alone(feature: &Feature, base: &str) {
     feature.succeeds().await;
     assert_eq!(feature.sha("main"), Some(base.to_owned()));
+    let done = feature.merge_done().await;
+    let worktree = done
+        .first()
+        .and_then(|data| data["worktree"].as_str())
+        .map(Path::new)
+        .expect("the skip names the worktree");
+    assert!(same_path(worktree, &feature.root()), "{done:?}");
     assert_eq!(
-        feature.merge_done().await,
-        [json!({ "outcome": "skipped", "reason": "worktree_not_clean" })]
+        done,
+        [json!({ "outcome": "skipped", "reason": "worktree_not_clean", "worktree": worktree })]
     );
 }
 

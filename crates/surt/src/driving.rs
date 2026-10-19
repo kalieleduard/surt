@@ -1,4 +1,4 @@
-mod base_merge;
+pub(crate) mod base_merge;
 mod blocked;
 mod cleanup;
 mod interruption;

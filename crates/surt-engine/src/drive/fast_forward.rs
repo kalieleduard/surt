@@ -6,12 +6,12 @@ use super::driver::Driver;
 use super::failure::{Failure, OperationError};
 use super::inputs::text;
 use super::operate::{Finished, OperationLaunch};
-use crate::git::{self, BRANCH_NAMESPACE, GitError};
+use crate::git::{self, BRANCH_NAMESPACE, FastForward, GitError};
 use crate::project::{Error, MergeIntoBase};
 use crate::reconcile::{Found, find};
 use crate::runtime::AgentRuntime;
 use crate::store::{RefMove, Store};
-use checked_out::{checked_out, interrupted};
+use checked_out::{clean_checkout, interrupted, move_base, not_clean};
 
 mod checked_out;
 
@@ -75,44 +75,48 @@ impl<R: AgentRuntime> Driver<'_, R> {
         if self.frozen.merge_into_base == MergeIntoBase::Never {
             return Ok(BaseMerge::Skipped(NotMerged::Disabled));
         }
+        let intended = match self.intended_move(launch).await? {
+            Ok(intended) => intended,
+            Err(skipped) => return Ok(BaseMerge::Skipped(skipped)),
+        };
+        if intended.old_sha == intended.new_sha {
+            return Ok(merged(&intended));
+        }
+        self.fast_forward(launch, &intended).await
+    }
+
+    async fn intended_move(
+        &self,
+        launch: &OperationLaunch,
+    ) -> Result<Result<RefMove, NotMerged>, OperationError> {
         let base = self.input_json(&launch.started, BASE_INPUT).await?;
         let Some(branch) = base.as_ref().and_then(|base| text(base, REF_FIELD)) else {
-            return Ok(BaseMerge::Skipped(NotMerged::NoBaseBranch));
+            return Ok(Err(NotMerged::NoBaseBranch));
         };
         let reference = format!("{BRANCH_NAMESPACE}{branch}");
         let base_sha = self.input_sha(launch, BASE_INPUT).await?;
         let root = self.driving.layout.root();
         let found = git::commit_sha(root, &reference).await?;
         if found.as_deref() != Some(base_sha.as_str()) {
-            return Ok(base_moved(found));
+            return Ok(Err(NotMerged::BaseMoved { found }));
         }
-        let worktree = checked_out(root, &reference).await?;
-        if let Some(worktree) = &worktree
-            && !git::is_clean(worktree).await?
-        {
-            return Ok(BaseMerge::Skipped(NotMerged::WorktreeNotClean));
-        }
-        let intended = RefMove {
+        let worktree_path = match clean_checkout(root, &reference).await? {
+            Ok(worktree_path) => worktree_path,
+            Err(skipped) => return Ok(Err(skipped)),
+        };
+        Ok(Ok(RefMove {
             ref_name: reference,
             old_sha: base_sha,
             new_sha: self.delivered_tip(launch).await?,
-            worktree_path: worktree,
-        };
-        if intended.old_sha == intended.new_sha {
-            return Ok(merged(&intended));
-        }
-        match &intended.worktree_path {
-            Some(worktree) => self.fast_forward_in(launch, &intended, worktree).await,
-            None => self.fast_forward(launch, &intended).await,
-        }
+            worktree_path,
+        }))
     }
 
     async fn delivered_tip(&self, launch: &OperationLaunch) -> Result<String, OperationError> {
         self.input_text(&launch.started, INTEGRATION_INPUT, TIP_FIELD)
             .await?
             .ok_or_else(|| {
-                Failure::not_retryable("invalid_input", "the integration input names no tip".into())
-                    .into()
+                Failure::invalid_input("the integration input names no tip".into()).into()
             })
     }
 
@@ -127,23 +131,31 @@ impl<R: AgentRuntime> Driver<'_, R> {
         let root = self.driving.layout.root();
         let moved = {
             let _git = self.git_lock().await?;
-            let RefMove {
-                ref_name,
-                old_sha,
-                new_sha,
-                ..
-            } = intended;
-            git::fast_forward_ref(root, ref_name, new_sha, old_sha, &message).await
+            move_base(root, intended, &message).await
         };
         match moved {
-            Ok(()) => Ok(merged(intended)),
-            Err(failed @ GitError::Failed { .. }) => {
-                match settle_fast_forward(store, root, &launch.row.id, intended).await? {
-                    Settled::Recorded(settled) => Ok(settled),
-                    Settled::Redo | Settled::Interrupted => Err(failed.into()),
-                }
+            Ok(FastForward::Moved) => Ok(merged(intended)),
+            Ok(FastForward::WouldOverwrite) => {
+                store.forget_ref_move(&launch.row.id).await?;
+                Ok(BaseMerge::Skipped(not_clean(intended)))
+            }
+            Err(failed @ GitError::Failed { .. }) if intended.worktree_path.is_none() => {
+                self.settle_failed_swap(launch, intended, failed).await
             }
             Err(error) => Err(error.into()),
+        }
+    }
+
+    async fn settle_failed_swap(
+        &self,
+        launch: &OperationLaunch,
+        intended: &RefMove,
+        failed: GitError,
+    ) -> Result<BaseMerge, OperationError> {
+        let (store, root) = (self.driving.store, self.driving.layout.root());
+        match settle_fast_forward(store, root, &launch.row.id, intended).await? {
+            Settled::Recorded(settled) => Ok(settled),
+            Settled::Redo | Settled::Interrupted => Err(failed.into()),
         }
     }
 }

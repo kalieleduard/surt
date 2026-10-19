@@ -179,7 +179,7 @@ fn status_shows_the_fast_forward_of_a_merged_run() {
 
     assert!(
         detail.contains(&format!(
-            "\n  merge    merged into {main} {} → {}\n",
+            "\n  merge    merged into {main} (fast-forward {} → {})\n",
             short(&base),
             short(&tip)
         )),
@@ -208,7 +208,7 @@ fn status_shows_why_a_run_was_not_merged() {
 
     assert!(
         detail.contains(&format!(
-            "\n  merge    not merged: {main} moved ({} → {})\n",
+            "\n  merge    not merged: {main} moved since base ({} → {})\n",
             short(&base),
             short(&moved)
         )),

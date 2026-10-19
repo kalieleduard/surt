@@ -41,7 +41,7 @@ fn the_detail_ends_a_merged_run_with_the_fast_forward_it_made() {
     let text = detail::render(&finished(Some("main"), Some(merged())));
 
     assert!(
-        text.ends_with("  merge    merged into main a11c9d0 → 3c1aa20\n"),
+        text.ends_with("  merge    merged into main (fast-forward a11c9d0 → 3c1aa20)\n"),
         "{text}"
     );
     assert!(text.contains("merge into base: ff-only"), "{text}");
@@ -54,19 +54,21 @@ fn the_detail_names_why_a_run_was_not_merged() {
             NotMerged::BaseMoved {
                 found: Some(OLD_TIP.to_owned()),
             },
-            "  merge    not merged: main moved (a11c9d0 → 9e04b7d)",
+            "  merge    not merged: main moved since base (a11c9d0 → 9e04b7d)",
         ),
         (
             NotMerged::BaseMoved { found: None },
-            "  merge    not merged: main no longer exists",
+            "  merge    not merged: main no longer exists (base a11c9d0)",
         ),
         (
             NotMerged::NoBaseBranch,
-            "  merge    not merged: no base branch",
+            "  merge    not merged: the base a11c9d0 is not a branch",
         ),
         (
-            NotMerged::WorktreeNotClean,
-            "  merge    not merged: worktree not clean",
+            NotMerged::WorktreeNotClean {
+                worktree: "/Users/you/surt".into(),
+            },
+            "  merge    not merged: main is checked out in /Users/you/surt with changes",
         ),
     ];
 
@@ -109,8 +111,10 @@ fn status_json_carries_the_merge_result_as_recorded() {
         json!({"outcome": "skipped", "reason": "no_base_branch"})
     );
     assert_eq!(
-        skipped(NotMerged::WorktreeNotClean),
-        json!({"outcome": "skipped", "reason": "worktree_not_clean"})
+        skipped(NotMerged::WorktreeNotClean {
+            worktree: "/Users/you/surt".into()
+        }),
+        json!({"outcome": "skipped", "reason": "worktree_not_clean", "worktree": "/Users/you/surt"})
     );
     assert_eq!(
         skipped(NotMerged::Disabled),

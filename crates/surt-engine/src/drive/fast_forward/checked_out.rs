@@ -1,42 +1,50 @@
 use std::path::{Path, PathBuf};
 
-use super::super::base_merge::{BaseMerge, NotMerged};
-use super::super::driver::Driver;
-use super::super::failure::{Failure, OperationError};
-use super::super::operate::OperationLaunch;
-use super::{INTERRUPTED, merged, reflog_message};
+use super::super::base_merge::NotMerged;
+use super::super::failure::Failure;
+use super::INTERRUPTED;
 use crate::git::{self, FastForward, GitError};
-use crate::runtime::AgentRuntime;
 use crate::store::RefMove;
 
-impl<R: AgentRuntime> Driver<'_, R> {
-    pub(super) async fn fast_forward_in(
-        &self,
-        launch: &OperationLaunch,
-        intended: &RefMove,
-        worktree: &Path,
-    ) -> Result<BaseMerge, OperationError> {
-        let store = self.driving.store;
-        store.intend_ref_move(&launch.row.id, intended).await?;
-        let message = reflog_message(launch, intended);
-        let moved = {
-            let _git = self.git_lock().await?;
-            git::merge_ff_only(worktree, &intended.new_sha, &message).await?
-        };
-        match moved {
-            FastForward::Moved => Ok(merged(intended)),
-            FastForward::WouldOverwrite => {
-                store.forget_ref_move(&launch.row.id).await?;
-                Ok(BaseMerge::Skipped(NotMerged::WorktreeNotClean))
-            }
-        }
+pub(super) async fn clean_checkout(
+    repository: &Path,
+    reference: &str,
+) -> Result<Result<Option<PathBuf>, NotMerged>, GitError> {
+    let Some(worktree) = checked_out(repository, reference).await? else {
+        return Ok(Ok(None));
+    };
+    if git::is_clean(&worktree).await? {
+        return Ok(Ok(Some(worktree)));
+    }
+    Ok(Err(NotMerged::WorktreeNotClean { worktree }))
+}
+
+pub(super) async fn move_base(
+    repository: &Path,
+    intended: &RefMove,
+    message: &str,
+) -> Result<FastForward, GitError> {
+    let RefMove {
+        ref_name,
+        old_sha,
+        new_sha,
+        worktree_path,
+    } = intended;
+    match worktree_path {
+        Some(worktree) => git::merge_ff_only(worktree, new_sha, message).await,
+        None => git::fast_forward_ref(repository, ref_name, new_sha, old_sha, message)
+            .await
+            .map(|()| FastForward::Moved),
     }
 }
 
-pub(super) async fn checked_out(
-    repository: &Path,
-    reference: &str,
-) -> Result<Option<PathBuf>, GitError> {
+pub(super) fn not_clean(intended: &RefMove) -> NotMerged {
+    NotMerged::WorktreeNotClean {
+        worktree: intended.worktree_path.clone().unwrap_or_default(),
+    }
+}
+
+async fn checked_out(repository: &Path, reference: &str) -> Result<Option<PathBuf>, GitError> {
     Ok(git::worktrees::list(repository)
         .await?
         .into_iter()

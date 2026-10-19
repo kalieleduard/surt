@@ -254,7 +254,7 @@ The rows are checked in the order of the table. Each `skipped` records one reaso
 | `disabled` | `never` | none: the default output is unchanged |
 | `no_base_branch` | `base.ref` is `null` | `⚠ not merged: the base a11c9d0 is not a branch; merge surt/<subject> yourself` |
 | `base_moved` | the branch is not at `base.sha`, or the compare-and-swap of `update-ref` failed; `found` is where it is (`null` when it no longer exists) | `⚠ not merged: main moved since base (a11c9d0 → b22e310); merge surt/<subject> yourself` |
-| `worktree_not_clean` | the branch is checked out in a worktree that is not clean | `⚠ not merged: main is checked out in a worktree that is not clean; merge surt/<subject> yourself` |
+| `worktree_not_clean` | the branch is checked out in a worktree that is not clean; `worktree` is that worktree's path, recorded for display only | `⚠ not merged: main is checked out in /Users/you/surt with changes; merge surt/<subject> yourself` |
 
 `merged` records `from` (`base.sha`) and `to` (the delivered tip) and prints `✔ merged into main (fast-forward a11c9d0 → 4e1b2c0)`. The `update-ref` writes the reflog message `surt: fast-forward <base.ref> to surt/<subject>`, so `git reflog main` names the run that moved it. Before it moves the ref the Operation commits a `ref_move` Intention (`refs/heads/<base.ref>`, `base.sha` → tip), settled by recovery's [ref move rule](I-recovery.md#ref-moves). Surt never pushes.
 
