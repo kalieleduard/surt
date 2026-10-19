@@ -124,4 +124,19 @@ impl Store {
         record_event_data(&mut transaction, about, kind, unix_now(), data).await?;
         Ok(transaction.commit().await?)
     }
+
+    pub(crate) async fn merged_children(
+        &self,
+        run: &str,
+    ) -> Result<Vec<(String, String)>, StoreError> {
+        Ok(sqlx::query_as(
+            "SELECT w.item_key, b.merged_as_sha FROM workflow_run w \
+             JOIN run_branch b ON b.workflow_run_id = w.id \
+             JOIN step_run p ON p.id = w.parent_step_run_id \
+             WHERE p.workflow_run_id = ? AND b.merged_as_sha IS NOT NULL ORDER BY w.item_key",
+        )
+        .bind(run)
+        .fetch_all(&self.pool)
+        .await?)
+    }
 }
