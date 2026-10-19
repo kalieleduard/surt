@@ -1,6 +1,10 @@
-use super::fixtures::{Execution, REPORT, rejection};
+#[cfg(unix)]
+use super::fixtures::Execution;
+use super::fixtures::{REPORT, rejection};
 use crate::artifacts::DeliveryRejection;
-use crate::runtime::{Behavior, Delivery};
+use crate::runtime::Delivery;
+#[cfg(unix)]
+use crate::runtime::Behavior;
 
 fn with_data(path: &str, contents: &[u8]) -> Delivery {
     Delivery::new("approved")
