@@ -1,5 +1,5 @@
 use super::fixtures::{ProjectDir, default_config, draft_catalog, new_run, override_refusal};
-use crate::project::Problem;
+use crate::project::{LocalFiles, Problem};
 
 const LOCAL_INSTRUCTIONS: &str = "Follow the project's style guide.\r\n";
 
@@ -154,5 +154,34 @@ async fn a_local_ref_found_neither_locally_nor_built_in_refuses() {
         Problem::MissingAsset {
             path: STATUS.to_owned()
         }
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn create_run_reports_instructions_and_schemas_next_to_agent_toml() {
+    let dir = ProjectDir::new();
+    dir.write_local("writer", "agent.toml", SUMMARY_OUTPUT);
+    dir.write_local("writer", "instructions.md", LOCAL_INSTRUCTIONS);
+    dir.write_local("writer", SUMMARY, STRICT_NOTES);
+    dir.write_local("writer", STATUS, STATUS_SCHEMA);
+
+    let created = dir
+        .project(draft_catalog(), default_config())
+        .await
+        .create_run(new_run("draft"))
+        .await
+        .expect("the run is created");
+
+    assert_eq!(
+        created.local_agents,
+        [LocalFiles {
+            agent: "writer".to_owned(),
+            files: vec![
+                "agent.toml".to_owned(),
+                "instructions.md".to_owned(),
+                STATUS.to_owned(),
+                SUMMARY.to_owned(),
+            ],
+        }]
     );
 }

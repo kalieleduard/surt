@@ -42,11 +42,24 @@ fn shown(id: &str, rel_path: &str) -> String {
 pub(super) fn reported(locals: &[LocalAgent]) -> Vec<LocalFiles> {
     locals
         .iter()
-        .filter(|local| local.toml.is_some())
         .map(|local| LocalFiles {
             agent: local.id.clone(),
-            files: vec![AGENT_FILE.to_owned()],
+            files: local_files(local),
         })
+        .filter(|reported| !reported.files.is_empty())
+        .collect()
+}
+
+fn local_files(local: &LocalAgent) -> Vec<String> {
+    let named = [
+        (AGENT_FILE, local.toml.is_some()),
+        (INSTRUCTIONS_FILE, local.instructions.is_some()),
+    ];
+    named
+        .into_iter()
+        .filter(|(_, present)| *present)
+        .map(|(name, _)| name.to_owned())
+        .chain(local.schemas.keys().cloned())
         .collect()
 }
 
