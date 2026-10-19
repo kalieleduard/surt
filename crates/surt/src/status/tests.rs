@@ -9,6 +9,8 @@ use surt_engine::project::{
 
 use serde_json::json;
 
+mod merge;
+
 use super::{detail, json, overview};
 use crate::driving::local_time;
 use crate::symbols::Symbols;
