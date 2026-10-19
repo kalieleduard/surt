@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use super::base_merge::{BaseMerge, NotMerged};
 use super::branches::run_stem;
@@ -6,17 +6,20 @@ use super::driver::Driver;
 use super::failure::{Failure, OperationError};
 use super::inputs::text;
 use super::operate::{Finished, OperationLaunch};
-use crate::git::{self, BRANCH_NAMESPACE, FastForward, GitError};
+use crate::git::{self, BRANCH_NAMESPACE, GitError};
 use crate::project::{Error, MergeIntoBase};
 use crate::reconcile::{Found, find};
 use crate::runtime::AgentRuntime;
 use crate::store::{RefMove, Store};
+use checked_out::{checked_out, interrupted};
+
+mod checked_out;
 
 const BASE_INPUT: &str = "base";
 const INTEGRATION_INPUT: &str = "integration";
 const REF_FIELD: &str = "ref";
 const TIP_FIELD: &str = "tip";
-pub(crate) const INTERRUPTED: &str = "merge_into_base_interrupted";
+const INTERRUPTED: &str = "merge_into_base_interrupted";
 
 pub(crate) enum Settled {
     Recorded(BaseMerge),
@@ -112,28 +115,6 @@ impl<R: AgentRuntime> Driver<'_, R> {
             })
     }
 
-    async fn fast_forward_in(
-        &self,
-        launch: &OperationLaunch,
-        intended: &RefMove,
-        worktree: &Path,
-    ) -> Result<BaseMerge, OperationError> {
-        let store = self.driving.store;
-        store.intend_ref_move(&launch.row.id, intended).await?;
-        let message = reflog_message(launch, intended);
-        let moved = {
-            let _git = self.git_lock().await?;
-            git::merge_ff_only(worktree, &intended.new_sha, &message).await?
-        };
-        match moved {
-            FastForward::Moved => Ok(merged(intended)),
-            FastForward::WouldOverwrite => {
-                store.forget_ref_move(&launch.row.id).await?;
-                Ok(BaseMerge::Skipped(NotMerged::WorktreeNotClean))
-            }
-        }
-    }
-
     async fn fast_forward(
         &self,
         launch: &OperationLaunch,
@@ -166,31 +147,11 @@ impl<R: AgentRuntime> Driver<'_, R> {
     }
 }
 
-async fn checked_out(repository: &Path, reference: &str) -> Result<Option<PathBuf>, GitError> {
-    Ok(git::worktrees::list(repository)
-        .await?
-        .into_iter()
-        .find(|entry| entry.branch.as_deref() == Some(reference))
-        .map(|entry| entry.path))
-}
-
 fn reflog_message(launch: &OperationLaunch, intended: &RefMove) -> String {
     format!(
         "surt: fast-forward {} to surt/{}",
         git::short_branch(&intended.ref_name),
         run_stem(&launch.subject, launch.ordinal)
-    )
-}
-
-fn interrupted(intended: &RefMove) -> Failure {
-    let worktree = intended.worktree_path.as_deref().unwrap_or(Path::new(""));
-    Failure::not_retryable(
-        INTERRUPTED,
-        format!(
-            "merge into {} was interrupted; {} may be partially updated",
-            git::short_branch(&intended.ref_name),
-            worktree.display()
-        ),
     )
 }
 
