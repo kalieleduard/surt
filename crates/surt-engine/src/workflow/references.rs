@@ -7,7 +7,7 @@ const SEPARATOR: char = '/';
 const CURRENT: &str = ".";
 const PARENT: &str = "..";
 
-pub(super) fn local_references(path: &str, text: &str) -> Vec<String> {
+pub(crate) fn local_references(path: &str, text: &str) -> Vec<String> {
     let Ok(schema) = serde_json::from_str::<Value>(text) else {
         return Vec::new();
     };

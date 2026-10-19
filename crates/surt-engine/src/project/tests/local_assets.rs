@@ -80,3 +80,24 @@ async fn a_schema_found_neither_locally_nor_built_in_refuses() {
         }
     );
 }
+
+const SPLIT_NOTES: &str =
+    r#"{"type": "object", "properties": {"status": {"$ref": "defs/status.schema.json"}}}"#;
+
+const STATUS: &str = "schemas/defs/status.schema.json";
+
+const STATUS_SCHEMA: &str = r#"{"enum": ["ok", "late"]}"#;
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_local_schema_split_with_a_local_ref_freezes_its_closure() {
+    let dir = ProjectDir::new();
+    dir.write_local("writer", NOTES, SPLIT_NOTES);
+    dir.write_local("writer", STATUS, STATUS_SCHEMA);
+
+    create(&dir).await;
+
+    assert_eq!(
+        dir.frozen_agent_file("writer", STATUS).await.as_deref(),
+        Some(STATUS_SCHEMA)
+    );
+}

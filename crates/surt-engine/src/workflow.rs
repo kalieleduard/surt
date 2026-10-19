@@ -22,4 +22,5 @@ pub use error::{DefinitionFile, InvalidDefinition, Problem, StepField};
 pub(crate) use freeze::{FreezeError, FrozenRun, Snapshot, freeze};
 pub use overrides::InvalidOverride;
 pub(crate) use overrides::{LocalAgent, LocalFile};
+pub(crate) use references::local_references;
 pub(crate) use steps::{PerItemStep, StepSpec};

@@ -174,3 +174,18 @@ async fn a_delivery_is_validated_against_the_local_schema_that_overlays_the_buil
 
     rejected_then_accepted(&feature, "{}", r#"{"status": "ok"}"#).await;
 }
+
+const SPLIT_NOTES: &str = r#"{"type": "object", "properties": {"status": {"$ref": "defs/status.schema.json#/$defs/status"}}}"#;
+
+const STATUS_DEFS: &str = r#"{"$defs": {"status": {"enum": ["ok", "late"]}}}"#;
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_delivery_is_validated_against_a_local_schema_split_with_a_local_ref() {
+    let feature = noted_with_local(&[
+        (NOTES, SPLIT_NOTES),
+        ("schemas/defs/status.schema.json", STATUS_DEFS),
+    ])
+    .await;
+
+    rejected_then_accepted(&feature, r#"{"status": "lost"}"#, r#"{"status": "late"}"#).await;
+}
