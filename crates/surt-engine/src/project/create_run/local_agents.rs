@@ -1,3 +1,5 @@
+mod hygiene;
+
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -17,6 +19,7 @@ pub struct LocalFiles {
 
 pub(super) fn read(layout: &Layout, catalog: &Catalog) -> Result<Vec<LocalAgent>, Error> {
     let agents = layout.agents();
+    hygiene::check(&agents, AGENTS_DIR, catalog)?;
     catalog
         .agent_ids()
         .map(|id| {

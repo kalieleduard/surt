@@ -81,6 +81,21 @@ $ surt feature "add login"
 
 A local `agent.toml` with CRLF line endings freezes to the same identity as its LF version, because the snapshot stores the canonical effective TOML.
 
+**Directory hygiene.** Every entry directly under `.surt/agents/` must be a directory named by a built-in Agent id; anything else (a misspelt directory, a stray `builder.toml`) refuses with the entry's path and the list of known ids. Inside an Agent directory only `agent.toml`, `instructions.md` and files under `schemas/` are allowed; any other file, at any depth, refuses naming it, with `fix: rename or remove <file>`. Empty directories carry no files, so an empty `.surt/agents/` or an empty `<id>/` (a `git` placeholder) is no override. A local `agent.toml` that sets `id` must set it to its directory name.
+
+**Test-only runtime.** An effective profile of an overridden Agent with `runtime = "fake"` is accepted only when the engine is built with the `test-support` feature; a release build refuses it at `profile.runtime` as a test-only runtime, so a stray test profile never reaches production.
+
+**Workflow validation and delivery checks.** After merging, the built-in workflow closure of the new root run is validated against the effective Agents exactly as for the built-ins: Outcomes named by `until` and `when`, inputs and outputs by name, Item List files. The `Catalog`'s delivery checks are part of that validation: every Agent a workflow step runs must declare each output a delivery check names as a `json` output, and the Outcome `NoBlockingFinding` names. A built-in that fails is an `InvalidDefinition`; when only the effective Agents fail, the refusal is `InvalidAgentOverride` on the override that breaks it (the first local `agent.toml` that fails on its own) and names the workflow step that no longer validates:
+
+```
+$ surt feature "add login"
+✖ .surt/agents/reviewer/agent.toml: a delivery check needs the outcome "approved"
+  needed by: task-cycle step review
+  fix: edit .surt/agents/reviewer/agent.toml
+```
+
+An override that leaves a `when` or `until` waiting for an Outcome the Agent no longer declares reads `outcomes no longer include "<outcome>"`. Because tables merge by key and there is no deletion syntax, an override can replace `outcomes` but cannot remove an input or output; it can still add a required input nothing supplies, or change the format of an output a delivery check reads, and both refuse the same way.
+
 **The creation line.** `create_run` reports which Agents used local files and which ones. The creation line of `surt feature "<description>"` and of `--new-run` lists them, and prints nothing when there are none:
 
 ```

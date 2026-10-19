@@ -9,7 +9,7 @@ use super::{Check, Config, Error, GitConfig, MergeIntoBase, Project, Refusal};
 use crate::cleanup::clear_kept_working_copy;
 pub use crate::drive::graph::RunId;
 use crate::store::{NewInitialArtifact, NewRunRows, RunCreation, Store, unix_now};
-use crate::workflow::{Catalog, CleanupPolicy, FrozenRun, OnSuccess, freeze};
+use crate::workflow::{Catalog, CleanupPolicy, FrozenRun, LocalAgent, OnSuccess, freeze};
 pub use local_agents::LocalFiles;
 
 #[derive(Clone, Debug)]
@@ -62,7 +62,7 @@ impl Project {
             .unwrap_or(self.config.git.merge_into_base);
         let store = self.store().await?;
         let created = self
-            .create_with(&store, &catalog, new, merge_into_base)
+            .create_with(&store, &catalog, &locals, new, merge_into_base)
             .await;
         store.close().await;
         Ok(CreatedRun {
@@ -76,15 +76,20 @@ impl Project {
         &self,
         store: &Store,
         catalog: &Catalog,
+        locals: &[LocalAgent],
         mut new: NewRun,
         merge_into_base: MergeIntoBase,
     ) -> Result<RunId, Error> {
         let carried = previous::carried(store, &self.layout, &new.subject, &new.carried).await?;
         new.initial_artifacts.extend(carried.artifacts);
-        let names = new
+        let names: Vec<&str> = new
             .initial_artifacts
             .iter()
-            .map(|artifact| artifact.name.as_str());
+            .map(|artifact| artifact.name.as_str())
+            .collect();
+        self.catalog
+            .blame_overrides(catalog, locals, &new.workflow, &names)
+            .map_err(Refusal::InvalidAgentOverride)?;
         let frozen = freeze(catalog, &new.workflow, names, |root| {
             frozen_config(&self.config, merge_into_base, root)
         })?;
