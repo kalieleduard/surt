@@ -4,7 +4,6 @@ mod claude;
 mod definitions;
 mod delete;
 mod discovery;
-mod feature;
 #[cfg(unix)]
 mod follow;
 mod init;
@@ -24,6 +23,9 @@ mod output;
 mod paused;
 mod phases;
 mod restore;
+mod run;
+mod run_refusals;
+mod run_workflows;
 mod scripts;
 mod show;
 mod slots;

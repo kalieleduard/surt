@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::super::fixtures::{SUBJECT, initial};
+use super::super::fixtures::{SUBJECT, input};
 use super::cleanup::{delivered_team, entries};
 use super::fixtures::{ACTOR, Feature};
 use super::integration::{integration_branch, task_branch_of};
@@ -12,12 +12,11 @@ use crate::runtime::Script;
 const REQUEST: &str = "request";
 const PLAN: &str = "plan.json";
 
-fn next_run(feature: &Feature) -> NewRun {
-    let base_json = format!(r#"{{"ref": "main", "sha": "{}"}}"#, feature.base());
+fn next_run() -> NewRun {
     NewRun {
         subject: SUBJECT.to_owned(),
         workflow: "shipped".to_owned(),
-        initial_artifacts: vec![initial("base", "base.json", base_json.as_bytes())],
+        inputs: vec![input("base", "main")],
         carried: vec![REQUEST.to_owned()],
         merge_into_base: None,
         actor: ACTOR.to_owned(),
@@ -73,7 +72,7 @@ async fn a_new_run_of_a_kept_subject_clears_the_baseline_working_copy_and_keeps_
 
     feature.run = feature
         .project
-        .create_run(next_run(&feature))
+        .create_run(next_run())
         .await
         .expect("run 2 is created")
         .run;
@@ -88,7 +87,7 @@ async fn the_next_run_of_a_kept_subject_drives_on_its_own_dot_two_names() {
     let before = feature.kept_run();
     feature.run = feature
         .project
-        .create_run(next_run(&feature))
+        .create_run(next_run())
         .await
         .expect("run 2 is created")
         .run;
@@ -132,7 +131,7 @@ async fn a_new_run_of_a_kept_subject_is_refused_while_its_working_copy_holds_an_
     let before = feature.kept_run();
     feature.edit(PLAN, "[]\n");
 
-    let created = feature.project.create_run(next_run(&feature)).await;
+    let created = feature.project.create_run(next_run()).await;
 
     assert_eq!(
         created.map(|_| ()).map_err(|error| match error {
@@ -166,7 +165,7 @@ async fn a_new_run_of_a_kept_subject_refused_by_an_override_removes_nothing() {
         "[inputs.style]\nformat = \"text\"\n",
     );
 
-    let created = feature.project.create_run(next_run(&feature)).await;
+    let created = feature.project.create_run(next_run()).await;
 
     assert!(
         matches!(created, Err(Error::Refused(Refusal::InvalidDefinition(_)))),

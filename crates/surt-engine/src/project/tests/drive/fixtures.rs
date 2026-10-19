@@ -16,6 +16,13 @@ pub(super) const REVIEW_WORKFLOW: &str = r#"
 schema = 1
 name = "review"
 
+[inputs.request]
+format = "text"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
+
 [steps.write]
 kind = "agent"
 agent = "writer"

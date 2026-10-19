@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use super::super::fixtures::{SUBJECT, initial};
+use super::super::fixtures::{SUBJECT, input};
 use super::fixtures::{ACTOR, Feature, draft, review_catalog};
 use super::integration::{login, logout};
 use super::planned::plan;
@@ -31,16 +31,11 @@ fn leaves_leftovers_and_is_refused() -> Turn {
     })
 }
 
-fn next_run(feature: &Feature, subject: &str) -> NewRun {
-    let base = feature.base();
-    let base_json = format!(r#"{{"ref": "main", "sha": "{base}"}}"#);
+fn next_run(subject: &str) -> NewRun {
     NewRun {
         subject: subject.to_owned(),
         workflow: "shipped".to_owned(),
-        initial_artifacts: vec![
-            initial("request", "request.txt", b"add login"),
-            initial("base", "base.json", base_json.as_bytes()),
-        ],
+        inputs: vec![input("request", "add login"), input("base", "main")],
         carried: Vec::new(),
         merge_into_base: None,
         actor: ACTOR.to_owned(),
@@ -63,7 +58,7 @@ async fn cancelled_then_delivered() -> Feature {
     let mut feature = cancelled().await;
     feature.run = feature
         .project
-        .create_run(next_run(&feature, SUBJECT))
+        .create_run(next_run(SUBJECT))
         .await
         .expect("run 2 is created")
         .run;
@@ -119,7 +114,7 @@ async fn deleting_keeps_only_the_delivered_integration_branch_and_purges_the_his
     let other = "20261017-other";
     feature
         .project
-        .create_run(next_run(&feature, other))
+        .create_run(next_run(other))
         .await
         .expect("another feature");
     let run_locks: Vec<(String,)> = feature
@@ -387,7 +382,7 @@ async fn a_run_created_while_deleting_rolls_the_purge_back() {
         .dir
         .project(team_catalog(INTEGRATED_TASK), Config::default())
         .await;
-    let next = next_run(&feature, SUBJECT);
+    let next = next_run(SUBJECT);
     feature.project.interleave_before_purge(async move {
         other.create_run(next).await.expect("run 2 is created");
     });

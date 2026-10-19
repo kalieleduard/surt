@@ -20,6 +20,13 @@ const COMMITTED_WORKFLOW: &str = r#"
 schema = 1
 name = "committed"
 
+[inputs.request]
+format = "text"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
+
 [steps.prepare]
 kind = "operation"
 run = "git.create_run_branch"

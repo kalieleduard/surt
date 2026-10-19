@@ -1,8 +1,8 @@
 mod feature;
 
 pub(crate) const FEATURE_WORKFLOW: &str = "feature";
-pub(crate) const REQUEST_ARTIFACT: &str = "request";
-pub(crate) const BASE_ARTIFACT: &str = "base";
+pub(crate) const REQUEST_INPUT: &str = "request";
+pub(crate) const BASE_INPUT: &str = "base";
 pub(crate) const FEATURE_TEMPLATE: &str = "feature";
 pub(crate) const TEMPLATES: [&str; 1] = [FEATURE_TEMPLATE];
 
@@ -14,6 +14,7 @@ type AgentFiles = &'static [(&'static str, &'static str)];
 pub(crate) struct Template {
     workflows: &'static [(&'static str, &'static str)],
     agents: &'static [(&'static str, AgentFiles)],
+    next: &'static str,
 }
 
 pub(crate) fn named(name: &str) -> Option<Template> {
@@ -24,6 +25,10 @@ pub(crate) fn named(name: &str) -> Option<Template> {
 }
 
 impl Template {
+    pub(crate) fn next_command(&self) -> &'static str {
+        self.next
+    }
+
     pub(crate) fn files(&self) -> Vec<(String, &'static str)> {
         let workflows = self
             .workflows

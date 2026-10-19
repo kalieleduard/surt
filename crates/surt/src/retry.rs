@@ -1,18 +1,18 @@
 const SHELL_SPECIAL: [char; 4] = ['\\', '"', '$', '`'];
 const PLAIN_PUNCTUATION: &str = "-_./:@^~";
 
-pub(super) struct Retry {
+pub(crate) struct Retry {
     words: Vec<String>,
 }
 
 impl Retry {
-    pub(super) fn of(description: &str) -> Retry {
+    pub(crate) fn command(words: &[&str]) -> Retry {
         Retry {
-            words: vec!["surt".to_owned(), "feature".to_owned(), quoted(description)],
+            words: words.iter().map(|text| word(text)).collect(),
         }
     }
 
-    pub(super) fn option(mut self, flag: &str, value: Option<&str>) -> Retry {
+    pub(crate) fn option(mut self, flag: &str, value: Option<&str>) -> Retry {
         if let Some(value) = value {
             self.words.push(flag.to_owned());
             self.words.push(word(value));
@@ -20,12 +20,12 @@ impl Retry {
         self
     }
 
-    pub(super) fn word(mut self, word: &str) -> Retry {
+    pub(crate) fn word(mut self, word: &str) -> Retry {
         self.words.push(word.to_owned());
         self
     }
 
-    pub(super) fn render(&self) -> String {
+    pub(crate) fn render(&self) -> String {
         self.words.join(" ")
     }
 }

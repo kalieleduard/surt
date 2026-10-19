@@ -1,7 +1,7 @@
 use surt_engine::project::KnownRun;
 
-use crate::feature::quoted;
 use crate::message::Message;
+use crate::retry::quoted;
 use crate::status::state_names;
 
 pub(super) fn unknown_artifact(subject: &str, artifact: &str, known: &[String]) -> Message {

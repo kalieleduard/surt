@@ -4,13 +4,13 @@ use crate::message::Message;
 use crate::status::merge_into_base;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum MergeFlag {
+pub(crate) enum MergeFlag {
     Merge,
     NoMerge,
 }
 
 impl MergeFlag {
-    pub(super) fn chosen(merge: bool, no_merge: bool) -> Option<MergeFlag> {
+    pub(crate) fn chosen(merge: bool, no_merge: bool) -> Option<MergeFlag> {
         match (merge, no_merge) {
             (true, _) => Some(MergeFlag::Merge),
             (_, true) => Some(MergeFlag::NoMerge),
@@ -18,7 +18,7 @@ impl MergeFlag {
         }
     }
 
-    pub(super) fn mode(self) -> MergeIntoBase {
+    pub(crate) fn mode(self) -> MergeIntoBase {
         match self {
             MergeFlag::Merge => MergeIntoBase::FfOnly,
             MergeFlag::NoMerge => MergeIntoBase::Never,
@@ -33,7 +33,7 @@ impl MergeFlag {
     }
 }
 
-pub(super) fn with_merge_line(
+pub(crate) fn with_merge_line(
     message: Message,
     mode: MergeIntoBase,
     flag: Option<MergeFlag>,
@@ -46,7 +46,7 @@ pub(super) fn with_merge_line(
     }
 }
 
-pub(super) fn already_frozen(subject: &str, status: &RunStatus, flag: MergeFlag) -> Message {
+pub(crate) fn already_frozen(subject: &str, status: &RunStatus, flag: MergeFlag) -> Message {
     Message::new(format!(
         "run {} of {subject} already froze merge_into_base = \"{}\"",
         status.run,

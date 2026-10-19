@@ -1,4 +1,4 @@
-use super::fixtures::{ProjectDir, SUBJECT, default_config, draft_catalog, initial, new_run};
+use super::fixtures::{ProjectDir, SUBJECT, default_config, draft_catalog, input, new_run};
 use crate::project::{
     Error, KnownRun, Project, Refusal, RunSelector, RunState, ShowRequest, StatusScope,
 };
@@ -13,7 +13,7 @@ async fn two_runs(dir: &ProjectDir) -> Project {
         .expect("run 1 is created");
     dir.execute(CANCEL_ALL).await;
     let mut second = new_run("draft");
-    second.initial_artifacts[0] = initial("request", "request.txt", b"add login again");
+    second.inputs[0] = input("request", "add login again");
     project.create_run(second).await.expect("run 2 is created");
     project
 }

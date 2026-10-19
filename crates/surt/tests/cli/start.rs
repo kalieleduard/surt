@@ -87,7 +87,7 @@ fn the_brief_delivers_a_feature_from_its_description_to_the_integration_branch()
         .trim()
         .to_owned();
 
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
     ok(surt(&sandbox, &["reject", &name, "-m", "needs OAuth"]));
     ok(sandbox.feature(&[&name]));
     ok(surt(&sandbox, &["approve", &name]));
@@ -216,7 +216,7 @@ pub fn planned_with(name: &str, scripts: &[String], config: Option<&str>) -> San
     if let Some(config) = config {
         sandbox.write_config(config);
     }
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
     ok(surt(&sandbox, &["approve", name]));
     ok(surt(&sandbox, &["plan", name]));
     ok(surt(&sandbox, &["approve", name]));
@@ -321,7 +321,7 @@ fn a_rate_limited_task_pauses_and_merges_while_a_blocked_task_stops_start_with_e
 fn start_refuses_until_the_manifest_is_approved() {
     let sandbox = project(&[spec(1, "# Spec 1\n"), tasks(1, &["A"])]);
     let name = feature_name();
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
     ok(surt(&sandbox, &["approve", &name]));
     ok(surt(&sandbox, &["plan", &name]));
     let executions = count(&sandbox, "execution");

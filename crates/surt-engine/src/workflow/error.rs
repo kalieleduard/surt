@@ -1,3 +1,5 @@
+use super::inputs::InputFormat;
+
 pub(crate) const WORKFLOWS_DIR: &str = ".surt/workflows";
 pub(crate) const AGENTS_DIR: &str = ".surt/agents";
 pub(crate) const AGENT_FILE: &str = "agent.toml";
@@ -127,6 +129,20 @@ pub enum Problem {
     },
     MissingCheckedOutcome {
         outcome: String,
+    },
+    MisplacedInputDefault {
+        input: String,
+    },
+    UnknownSubjectInput {
+        input: String,
+    },
+    SubjectInputNotText {
+        input: String,
+        format: InputFormat,
+    },
+    InputsInChildWorkflow,
+    GitInputNotGitRef {
+        input: String,
     },
 }
 

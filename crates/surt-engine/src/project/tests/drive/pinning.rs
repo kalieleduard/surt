@@ -14,6 +14,9 @@ const PINNING_WORKFLOW: &str = r#"
 schema = 1
 name = "pinning"
 
+[inputs.request]
+format = "text"
+
 [steps.write]
 kind = "agent"
 agent = "writer"

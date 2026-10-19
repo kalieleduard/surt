@@ -58,7 +58,7 @@ fn fingerprint(path: &Path) -> String {
 
 pub fn at_the_manifest_gate(name: &str) -> Sandbox {
     let sandbox = project(&[spec(1, "# Spec 1\n"), tasks(1, &["A", "B"])]);
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
     ok(surt(&sandbox, &["approve", name]));
     ok(surt(&sandbox, &["plan", name]));
     sandbox
@@ -424,7 +424,7 @@ fn ok(run: Run) -> String {
 fn status_lists_a_feature_awaiting_approval_with_no_driver_and_its_gate() {
     let name = feature_name();
     let sandbox = project(&[spec(1, "# Spec 1\n")]);
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
 
     let stdout = ok(surt(&sandbox, &["status"]));
 

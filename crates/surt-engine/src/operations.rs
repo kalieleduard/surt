@@ -60,6 +60,15 @@ impl Operation {
         }
     }
 
+    pub(crate) fn git_inputs(self) -> &'static [&'static str] {
+        match self {
+            Operation::CreateRunBranch
+            | Operation::SnapshotRunBranch
+            | Operation::MergeIntoBase => &["base"],
+            Operation::CreateChildWorktree | Operation::RunChecks | Operation::Integrate => &[],
+        }
+    }
+
     pub(crate) fn outcomes(self) -> &'static [&'static str] {
         match self {
             Operation::CreateRunBranch

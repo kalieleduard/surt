@@ -57,6 +57,16 @@ schema = 1
 name = "draft"
 description = "Write and approve a draft."
 
+[inputs.request]
+format = "text"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
+
+[subject]
+from = "request"
+
 [steps.prepare]
 kind = "operation"
 run = "git.create_run_branch"

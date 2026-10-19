@@ -56,6 +56,22 @@ fn the_feature_template_lists_every_file_it_creates() {
 }
 
 #[test]
+fn init_with_the_feature_template_points_at_surt_run_feature() {
+    let sandbox = Sandbox::with_repository();
+
+    let run = sandbox.init();
+
+    assert!(
+        run.stderr.ends_with(
+            "  next: surt run feature --input request=\"<what you want to build>\"
+"
+        ),
+        "{}",
+        run.stderr
+    );
+}
+
+#[test]
 fn config_workflows_and_agents_are_visible_to_git() {
     let sandbox = Sandbox::with_repository();
     sandbox.init();

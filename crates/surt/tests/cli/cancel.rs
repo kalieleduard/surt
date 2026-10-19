@@ -125,7 +125,7 @@ fn cancel_of_a_crashed_run_settles_it_and_a_new_description_starts_a_second_feat
         cancelled.stderr
     );
     assert_eq!(root_state(&sandbox), "cancelled");
-    let started = sandbox.feature(&["add login"]);
+    let started = sandbox.run_feature("add login", &[]);
     assert_eq!(started.code, Some(0), "{}", started.stderr);
     assert!(
         started.stderr.contains(&format!("✔ created {name}-2 ")),

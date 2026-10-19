@@ -36,7 +36,7 @@ fn executions(sandbox: &Sandbox) -> Vec<String> {
 fn without_a_scripted_runtime_a_missing_claude_code_blocks_the_step_at_once() {
     let sandbox = project();
 
-    let run = sandbox.surt_on_claude(&["feature", "add login"]);
+    let run = sandbox.surt_on_claude(&["run", "feature", "--input", "request=add login"]);
 
     assert_eq!(run.code, Some(BLOCKED_EXIT_CODE), "{}", run.stderr);
     assert_eq!(
@@ -55,7 +55,7 @@ fn an_outdated_claude_code_blocks_the_step_at_once_and_its_version_is_recorded()
     let sandbox = project();
     install_claude(&sandbox, "2.0.14", "exit 0");
 
-    let run = sandbox.surt_on_claude(&["feature", "add login"]);
+    let run = sandbox.surt_on_claude(&["run", "feature", "--input", "request=add login"]);
 
     assert_eq!(run.code, Some(BLOCKED_EXIT_CODE), "{}", run.stderr);
     assert_eq!(
@@ -84,7 +84,7 @@ fn each_execution_writes_its_stream_and_stderr_to_the_feature_log_directory() {
         &format!("echo '{UNKNOWN_EVENT}'\necho 'a diagnostic' >&2\nexit 1"),
     );
 
-    let run = sandbox.surt_on_claude(&["feature", "add login"]);
+    let run = sandbox.surt_on_claude(&["run", "feature", "--input", "request=add login"]);
 
     assert_eq!(run.code, Some(BLOCKED_EXIT_CODE), "{}", run.stderr);
     let subject = sandbox.texts("SELECT name FROM subject").concat();

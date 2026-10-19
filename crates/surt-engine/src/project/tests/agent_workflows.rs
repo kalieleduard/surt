@@ -6,6 +6,9 @@ schema = 1
 name = "drafting"
 description = "Write until the writer is done."
 
+[inputs.request]
+format = "text"
+
 [steps.write]
 kind = "agent"
 agent = "writer"

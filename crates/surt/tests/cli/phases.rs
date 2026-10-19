@@ -69,7 +69,7 @@ fn surt(sandbox: &Sandbox, args: &[&str]) -> Run {
 fn at_spec_gate(scripts: &[String]) -> Sandbox {
     let sandbox = project();
     sandbox.script(scripts);
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
     sandbox
 }
 
@@ -83,7 +83,7 @@ fn spec_is_rejected_regenerated_approved_then_planned_up_to_the_manifest_gate() 
     ]);
     let name = feature_name();
 
-    let created = ok(sandbox.feature(&["add login"]));
+    let created = ok(sandbox.run_feature("add login", &[]));
     let spec_one = working_copy(&sandbox, "spec.md");
     let rejected = ok(surt(
         &sandbox,
@@ -131,7 +131,7 @@ fn driving_prints_each_step_as_it_starts_and_finishes() {
     let sandbox = project();
     sandbox.script(&[spec(1, "# Spec 1\n")]);
 
-    let created = ok(sandbox.feature(&["add login"]));
+    let created = ok(sandbox.run_feature("add login", &[]));
 
     assert!(
         created.contains("\n● spec started\n✔ spec rev 1 published\n✔ spec done\n"),
@@ -230,8 +230,8 @@ fn a_revision_other_than_the_latest_is_refused() {
 fn an_ambiguous_prefix_refuses_listing_the_candidates() {
     let sandbox = project();
     sandbox.script(&[spec(1, "# Spec 1\n")]);
-    ok(sandbox.feature(&["add login"]));
-    ok(sandbox.feature(&["add login", "--new"]));
+    ok(sandbox.run_feature("add login", &[]));
+    ok(sandbox.run_feature("add login", &["--new"]));
     let name = feature_name();
     let prefix = &name[..name.len() - 2];
 
@@ -297,7 +297,7 @@ fn an_agent_that_keeps_failing_blocks_the_phase_with_exit_4() {
     sandbox.script(&[crash("spec", 1), crash("spec", 2), crash("spec", 3)]);
     let name = feature_name();
 
-    let run = sandbox.feature(&["add login"]);
+    let run = sandbox.run_feature("add login", &[]);
 
     assert_eq!(run.code, Some(BLOCKED_EXIT_CODE), "{}", run.stderr);
     assert!(
@@ -328,7 +328,7 @@ fn an_invalid_runtime_script_is_an_internal_error_before_anything_is_created() {
     let sandbox = project();
     sandbox.script(&["[[on]]\nstep = \"spec\"\nexplode = {}\n".to_owned()]);
 
-    let run = sandbox.feature(&["add login"]);
+    let run = sandbox.run_feature("add login", &[]);
 
     assert_eq!(run.code, Some(1), "{}", run.stderr);
     assert!(
@@ -419,7 +419,7 @@ fn an_edit_to_a_pinned_spec_is_refused_until_the_edited_file_is_removed() {
 fn a_missing_runtime_script_is_an_internal_error_before_anything_is_created() {
     let sandbox = project();
 
-    let run = sandbox.feature(&["add login"]);
+    let run = sandbox.run_feature("add login", &[]);
 
     assert_eq!(run.code, Some(1), "{}", run.stderr);
     assert!(

@@ -20,7 +20,7 @@ fn at_the_spec_gate() -> Sandbox {
     sandbox.commit_something();
     sandbox.init();
     sandbox.script(&[spec(1, "# Spec 1\n")]);
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
     sandbox
 }
 

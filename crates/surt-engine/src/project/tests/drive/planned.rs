@@ -14,6 +14,9 @@ pub(super) const PLANNED_WORKFLOW: &str = r#"
 schema = 1
 name = "planned"
 
+[inputs.request]
+format = "text"
+
 [steps.plan]
 kind = "agent"
 agent = "planner"

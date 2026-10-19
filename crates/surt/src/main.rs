@@ -11,11 +11,14 @@ mod init;
 mod inspect;
 mod json;
 mod logs;
+mod merge_flag;
 mod message;
 mod phase;
 mod plan;
 mod refusal;
 mod restore;
+mod retry;
+mod run;
 mod runtime;
 mod show;
 mod start;
@@ -42,6 +45,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     Init(init::InitArgs),
+    Run(run::RunArgs),
     Feature(feature::FeatureArgs),
     Plan(plan::PlanArgs),
     Start(start::StartArgs),
@@ -71,6 +75,7 @@ async fn run(command: Command) -> Result<(), Failure> {
     let cwd = std::env::current_dir()?;
     match command {
         Command::Init(args) => init::run(&cwd, args).await,
+        Command::Run(args) => run::run(&cwd, args).await,
         Command::Feature(args) => feature::run(&cwd, args).await,
         Command::Plan(args) => plan::run(&cwd, args).await,
         Command::Start(args) => start::run(&cwd, args).await,

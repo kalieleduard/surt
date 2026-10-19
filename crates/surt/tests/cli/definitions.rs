@@ -42,7 +42,7 @@ fn assert_nothing_written(sandbox: &Sandbox) {
 fn the_creation_line_stands_alone_without_a_local_agents_line() {
     let sandbox = project(&[spec(1, "# Spec 1\n")]);
 
-    let created = ok(sandbox.feature(&["add login"]));
+    let created = ok(sandbox.run_feature("add login", &[]));
 
     assert!(created.starts_with("✔ created "), "{created}");
     assert!(!created.contains("local agents"), "{created}");
@@ -58,7 +58,7 @@ fn an_invalid_agent_file_refuses_the_feature_with_exit_3_before_any_row_is_writt
         "effort = \"huge\"",
     );
 
-    let run = sandbox.feature(&["add login"]);
+    let run = sandbox.run_feature("add login", &[]);
 
     assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
     assert!(
@@ -87,7 +87,7 @@ fn removing_the_outcome_a_declared_check_names_is_refused_at_outcomes() {
         "outcomes = [\"changes_requested\"]",
     );
 
-    let run = sandbox.feature(&["add login"]);
+    let run = sandbox.run_feature("add login", &[]);
 
     assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
     assert_eq!(
@@ -103,7 +103,7 @@ fn without_the_feature_workflow_the_feature_is_refused_listing_the_workflows() {
     let sandbox = project(&[spec(1, "# Spec 1\n")]);
     fs::remove_file(sandbox.dot_surt().join("workflows/feature.toml")).expect("removed");
 
-    let run = sandbox.feature(&["add login"]);
+    let run = sandbox.run_feature("add login", &[]);
 
     assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
     assert_eq!(
@@ -121,7 +121,7 @@ fn a_project_initialized_without_a_template_is_pointed_at_it() {
     ok(surt(&sandbox, &["init"]));
     sandbox.script(&[spec(1, "# Spec 1\n")]);
 
-    let run = sandbox.feature(&["add login"]);
+    let run = sandbox.run_feature("add login", &[]);
 
     assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
     assert!(
@@ -149,7 +149,7 @@ fn plan_and_start_drive_a_feature_whose_builder_model_was_edited() {
     );
     let name = feature_name();
 
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
     ok(surt(&sandbox, &["approve", &name]));
     ok(surt(&sandbox, &["plan", &name]));
     ok(surt(&sandbox, &["approve", &name]));
@@ -176,7 +176,7 @@ fn editing_an_agent_after_creation_leaves_the_run_on_the_frozen_definition() {
     ]);
     let name = feature_name();
 
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
     edit(
         &sandbox,
         "agents/builder/agent.toml",

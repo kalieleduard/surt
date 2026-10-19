@@ -3,6 +3,7 @@ use std::path::PathBuf;
 mod agent_problems;
 mod definitions;
 mod executions;
+mod inputs;
 mod problems;
 
 use surt_engine::project::{

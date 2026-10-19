@@ -213,6 +213,13 @@ impl Sandbox {
         run
     }
 
+    pub fn run_feature(&self, request: &str, args: &[&str]) -> Run {
+        let input = format!("request={request}");
+        let mut all = vec!["run", "feature", "--input", &input];
+        all.extend_from_slice(args);
+        self.surt(&self.repo(), &all)
+    }
+
     pub fn feature(&self, args: &[&str]) -> Run {
         let mut all = vec!["feature"];
         all.extend_from_slice(args);

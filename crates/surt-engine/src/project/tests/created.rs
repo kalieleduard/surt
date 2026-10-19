@@ -60,6 +60,9 @@ async fn run_created_carries_the_base_and_the_actor() {
 
     assert_eq!(
         dir.event_data("run.created").await,
-        [serde_json::json!({ "base": { "sha": "abc" }, "actor": "dev@example.com" })]
+        [serde_json::json!({
+            "base": { "ref": "main", "sha": dir.head() },
+            "actor": "dev@example.com"
+        })]
     );
 }

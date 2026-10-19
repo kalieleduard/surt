@@ -32,7 +32,7 @@ pub fn delivered_after_a_rejected_review(name: &str) -> Sandbox {
         review("B", 1, "approved"),
         ship(),
     ]);
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
     ok(surt(
         &sandbox,
         &["reject", name, "-m", "needs OAuth\nand more"],

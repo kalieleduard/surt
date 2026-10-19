@@ -13,6 +13,9 @@ const PLANNING_WORKFLOW: &str = r#"
 schema = 1
 name = "planning"
 
+[inputs.request]
+format = "text"
+
 [steps.plan]
 kind = "agent"
 agent = "planner"

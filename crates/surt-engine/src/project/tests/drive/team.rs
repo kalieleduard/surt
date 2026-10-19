@@ -22,6 +22,13 @@ const BUILT_WORKFLOW: &str = r#"
 schema = 1
 name = "built"
 
+[inputs.request]
+format = "text"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
+
 [steps.prepare]
 kind = "operation"
 run = "git.create_run_branch"
@@ -48,6 +55,13 @@ needs = ["approve"]
 const SHIPPED_WORKFLOW: &str = r#"
 schema = 1
 name = "shipped"
+
+[inputs.request]
+format = "text"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
 
 [steps.prepare]
 kind = "operation"

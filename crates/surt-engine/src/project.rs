@@ -42,13 +42,15 @@ pub use crate::operations::checks::REPORT_SCHEMA as CHECK_REPORT_SCHEMA;
 pub use crate::operations::{BASE_SCHEMA, CONFLICT_SCHEMA, INTEGRATION_SCHEMA};
 pub use crate::platform::{console_outputs_utf8, stderr_columns};
 pub use crate::runtime::LogFiles;
-pub use crate::workflow::{DefinitionFile, InvalidDefinition, OnSuccess, Problem, StepField};
+pub use crate::workflow::{
+    DefinitionFile, InputFormat, InvalidDefinition, OnSuccess, Problem, StepField,
+};
 pub use base_merge::BaseMergeReport;
 pub use blocked::{BlockedStep, LastFailure};
 pub use cancelling::CancelImpact;
 pub use config::{Check, CleanupConfig, Config, GitConfig, GlobalConfig, MergeIntoBase};
 pub(crate) use config::{live_max_concurrent_agents, parse_timeout};
-pub use create_run::{ArtifactFile, CreatedRun, InitialArtifact, NewRun, RunId};
+pub use create_run::{CreatedRun, DeclaredInput, InputProblem, NewRun, RunId};
 pub use definitions::check_workflow;
 pub use deleting::{BranchFate, DeleteImpact, DeletedRun, Deletion, Directory};
 pub use delivery::IntegrationBranch;

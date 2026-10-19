@@ -2,10 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use serde_json::json;
-
 use super::super::fixtures::Catalog;
-use super::super::fixtures::{ProjectDir, SUBJECT, initial, new_run};
+use super::super::fixtures::{ProjectDir, SUBJECT, input, new_run};
 use super::fixtures::Feature;
 use crate::project::{Config, MergeIntoBase};
 
@@ -73,8 +71,9 @@ impl Feature {
         let project = dir.project(catalog, config).await;
         let mut new_run = new_run(workflow);
         new_run.merge_into_base = merge_into_base;
-        let base_json = json!({ "ref": base_ref, "sha": base }).to_string();
-        new_run.initial_artifacts[1] = initial("base", "base.json", base_json.as_bytes());
+        new_run
+            .inputs
+            .push(input("base", base_ref.unwrap_or(&base)));
         let run = project
             .create_run(new_run)
             .await
