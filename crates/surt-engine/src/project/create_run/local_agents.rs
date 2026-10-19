@@ -12,6 +12,7 @@ use crate::workflow::{Catalog, InvalidOverride, LocalAgent, LocalFile, Problem};
 const AGENT_FILE: &str = "agent.toml";
 const INSTRUCTIONS_FILE: &str = "instructions.md";
 const AGENTS_DIR: &str = ".surt/agents";
+const PLACEHOLDERS: [&str; 2] = [".gitkeep", ".keep"];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LocalFiles {
@@ -35,6 +36,12 @@ pub(super) fn read(layout: &Layout, catalog: &Catalog) -> Result<Vec<LocalAgent>
             })
         })
         .collect()
+}
+
+fn is_placeholder(path: &Path) -> bool {
+    path.file_name()
+        .is_some_and(|name| PLACEHOLDERS.iter().any(|placeholder| name == *placeholder))
+        && !path.is_dir()
 }
 
 fn shown(id: &str, rel_path: &str) -> String {

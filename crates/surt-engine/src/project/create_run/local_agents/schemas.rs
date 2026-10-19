@@ -4,7 +4,7 @@ use std::io;
 use std::path::Path;
 
 use super::super::super::Error;
-use super::{read_file, shown};
+use super::{is_placeholder, read_file, shown};
 use crate::workflow::LocalFile;
 
 const SCHEMAS_DIR: &str = "schemas";
@@ -24,6 +24,8 @@ pub(super) fn read(agent_dir: &Path, id: &str) -> Result<BTreeMap<String, LocalF
             let rel_path = format!("{rel_dir}/{}", entry.file_name().to_string_lossy());
             if entry.path().is_dir() {
                 pending.push(rel_path);
+            } else if is_placeholder(&entry.path()) {
+                continue;
             } else if let Some(file) = read_file(&entry.path(), &shown(id, &rel_path))? {
                 schemas.insert(rel_path, file);
             }
