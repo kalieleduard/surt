@@ -18,6 +18,7 @@ fn next_run(feature: &Feature, workflow: &str) -> NewRun {
         workflow: workflow.to_owned(),
         initial_artifacts: vec![initial("base", "base.json", base_json.as_bytes())],
         carried: vec![REQUEST.to_owned()],
+        merge_into_base: None,
         actor: ACTOR.to_owned(),
     }
 }
@@ -28,6 +29,7 @@ fn review_next_run() -> NewRun {
         workflow: "review".to_owned(),
         initial_artifacts: Vec::new(),
         carried: vec![REQUEST.to_owned()],
+        merge_into_base: None,
         actor: ACTOR.to_owned(),
     }
 }

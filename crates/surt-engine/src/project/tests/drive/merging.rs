@@ -6,7 +6,8 @@ use super::integration::{integration_branch, login};
 use super::repository::commit_file;
 use super::team::{INTEGRATED_TASK, Team, approved, builds, reviews, ships, team_catalog};
 use crate::project::{
-    BaseMerge, BaseMergeReport, Commit, Config, DriveOutcome, GitConfig, MergeIntoBase, NotMerged,
+    BaseMerge, BaseMergeReport, Catalog, Commit, Config, DriveOutcome, GitConfig, MergeIntoBase,
+    NotMerged,
 };
 
 const MERGED_WORKFLOW: &str = r#"
@@ -60,9 +61,12 @@ pub(super) fn merging(mode: MergeIntoBase) -> Config {
     }
 }
 
+pub(super) fn merged_catalog() -> Catalog {
+    team_catalog(INTEGRATED_TASK).workflow("merged", MERGED_WORKFLOW)
+}
+
 pub(super) async fn merged_feature(mode: MergeIntoBase, base_ref: Option<&str>) -> Feature {
-    let catalog = team_catalog(INTEGRATED_TASK).workflow("merged", MERGED_WORKFLOW);
-    let feature = Feature::on_base(catalog, "merged", merging(mode), base_ref).await;
+    let feature = Feature::on_base(merged_catalog(), "merged", merging(mode), base_ref).await;
     approved(feature, &[("A", &[])]).await
 }
 

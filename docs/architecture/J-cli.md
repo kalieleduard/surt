@@ -7,7 +7,7 @@ The commands of v1 ([K](K-roadmap.md) lists the subset Milestone 1 ships), how t
 ```
 surt init
 surt feature "<description>" [--name <slug>] [--base <ref>] [--merge | --no-merge] [--new]
-surt feature <feature> [--new-run]
+surt feature <feature> [--new-run [--base <ref>] [--merge | --no-merge]]
 surt plan    <feature>
 surt start   <feature>
 surt approve <feature> [--rev N]
@@ -118,7 +118,25 @@ $ surt init
    The `local agents:` line, here and under `✔ created …`, lists the Agents whose files under `.surt/agents/` the new run froze ([F](F-agent-contract.md#built-in-defaults-and-local-overrides)); it is absent when there are none.
    It refuses with exit `3` while the Working Copy holds an unrecorded edit left by the previous run ([I](I-cleanup.md#unrecorded-working-copy-edits)). Run `N+1` takes the Subject's latest `request` Revision as a new human-origin Initial Artifact. Its Base is the current `HEAD`, or `--base`. It freezes the definitions, agents and configuration again. A `succeeded` Subject works the same way. A cleanup the previous run left pending is finished first, under that run's lock: the command drives the previous root run, which cleans and returns at once because it is terminal, then creates run `N+1` ([I. Cleanup](I-cleanup.md#when-cleanup-runs)).
 
-`--base <ref>` resolves `<ref>` to a commit when the run is created; the default is `HEAD`. `--merge` and `--no-merge` override `[git] merge_into_base` for this run only, as `ff-only` and `never`, before the configuration is frozen. They exist on no other command.
+`--base <ref>` resolves `<ref>` to a commit when the run is created; the default is `HEAD`.
+
+`--merge` and `--no-merge` override `[git] merge_into_base` for this run only, as `ff-only` and `never`, before the configuration is frozen. They apply wherever the command creates a root run: the description form and `--new-run`. Together they are a usage error (exit `2`). They exist on no other command. The creation line names the frozen mode, and the flag when one chose it:
+
+```
+$ surt feature "add login" --merge
+✔ created 20261017-add-login   base: main @ a11c9d0
+  merge into base: ff-only (--merge)
+```
+
+The `merge into base:` line follows any `local agents:` line, under `✔ created …` and under `✔ run N of …` alike. Without a flag it reads `merge into base: ff-only` when the configuration says so, and is absent for the default `never`.
+
+On the resume form either flag refuses with exit `3`, because the active run already froze its mode; choosing again needs a new run:
+
+```
+$ surt feature 20261017-add-login --no-merge
+✖ run 1 of 20261017-add-login already froze merge_into_base = "ff-only"
+  to choose again, start a new run: surt feature 20261017-add-login --new-run --no-merge
+```
 
 ## Approve and reject
 

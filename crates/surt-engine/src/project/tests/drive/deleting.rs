@@ -42,6 +42,7 @@ fn next_run(feature: &Feature, subject: &str) -> NewRun {
             initial("base", "base.json", base_json.as_bytes()),
         ],
         carried: Vec::new(),
+        merge_into_base: None,
         actor: ACTOR.to_owned(),
     }
 }
