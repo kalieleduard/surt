@@ -7,14 +7,14 @@ use std::path::Path;
 use clap::builder::NonEmptyStringValueParser;
 use jiff::Zoned;
 use surt_engine::project::{
-    ArtifactFile, Commit, FreeName, InitialArtifact, LocalFiles, NewRun, Project, Slug,
+    ArtifactFile, Commit, FreeName, InitialArtifact, NewRun, Project, Slug,
 };
 
-use crate::builtin::{self, BASE_ARTIFACT, FEATURE_WORKFLOW, REQUEST_ARTIFACT};
 use crate::failure::Failure;
 use crate::message::Message;
 use crate::phase::SPEC;
 use crate::runtime;
+use crate::template::{BASE_ARTIFACT, FEATURE_WORKFLOW, REQUEST_ARTIFACT};
 use merge_flag::{MergeFlag, already_frozen, with_merge_line};
 use retry::Retry;
 pub(crate) use retry::{quoted, word};
@@ -43,7 +43,7 @@ pub(crate) struct FeatureArgs {
 }
 
 pub(crate) async fn run(cwd: &Path, args: FeatureArgs) -> Result<(), Failure> {
-    let project = Project::open(cwd, builtin::catalog()).await?;
+    let project = Project::open(cwd).await?;
     let merge = MergeFlag::chosen(args.merge, args.no_merge);
     if args.new_run {
         return new_run::start(&project, &args.description, args.base.as_deref(), merge).await;
@@ -97,8 +97,7 @@ async fn create(
     };
     let runtime = runtime::select(project)?;
     let created_run = project.create_run(new_run).await?;
-    let created_line = with_local_agents(created(&name, &base), &created_run.local_agents);
-    with_merge_line(created_line, created_run.merge_into_base, merge).print_success();
+    with_merge_line(created(&name, &base), created_run.merge_into_base, merge).print_success();
     SPEC.drive(project, &name.name, &created_run.run, &runtime)
         .await
 }
@@ -144,17 +143,6 @@ fn created(name: &FreeName, base: &Commit) -> Message {
         return message.context(format!("{} already exists", name.stem));
     }
     message
-}
-
-fn with_local_agents(message: Message, local_agents: &[LocalFiles]) -> Message {
-    if local_agents.is_empty() {
-        return message;
-    }
-    let agents: Vec<String> = local_agents
-        .iter()
-        .map(|local| format!("{} ({})", local.agent, local.files.join(", ")))
-        .collect();
-    message.context(format!("local agents: {}", agents.join(", ")))
 }
 
 fn no_slug(args: &FeatureArgs) -> Message {

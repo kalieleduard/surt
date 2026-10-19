@@ -6,12 +6,12 @@ use std::sync::Mutex;
 use jsonschema::{Draft, Retrieve, Uri};
 use serde_json::{Value, json};
 
+use super::super::fixtures::Catalog;
 use super::fixtures::{ACTOR, Feature, agent, preserved};
 use super::planned::{PLANNER, plan};
 use super::repository::git;
 use crate::project::{
-    BASE_SCHEMA, CHECK_REPORT_SCHEMA, CONFLICT_SCHEMA, Catalog, Config, DriveOutcome,
-    INTEGRATION_SCHEMA,
+    BASE_SCHEMA, CHECK_REPORT_SCHEMA, CONFLICT_SCHEMA, Config, DriveOutcome, INTEGRATION_SCHEMA,
 };
 use crate::runtime::{
     AgentRuntime, Behavior, Delivery, FakeRuntime, RuntimeCompletion, RuntimeError,

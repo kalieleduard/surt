@@ -5,11 +5,12 @@ use std::sync::Mutex;
 
 use serde_json::json;
 
+use super::super::fixtures::Catalog;
 use super::super::fixtures::SUBJECT;
 use super::fixtures::{ACTOR, Feature, agent, preserved};
 use super::planned::{PLANNER, plan};
 use super::repository::{commit_file, git};
-use crate::project::{Catalog, Config, DriveOutcome};
+use crate::project::{Config, DriveOutcome};
 use crate::runtime::{
     AgentRuntime, Behavior, Delivery, FakeRuntime, RuntimeCompletion, RuntimeError,
     RuntimeEventSink, RuntimeRequest, Script, StopSignal,

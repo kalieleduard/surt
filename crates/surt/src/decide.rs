@@ -3,7 +3,6 @@ use std::path::Path;
 use clap::builder::NonEmptyStringValueParser;
 use surt_engine::project::{Decided, Project, RevisionOrigin};
 
-use crate::builtin;
 use crate::failure::Failure;
 use crate::message::{Mark, Message};
 use crate::phase::{Phase, active_run};
@@ -29,7 +28,7 @@ pub(crate) struct RejectArgs {
 }
 
 pub(crate) async fn approve(cwd: &Path, args: ApproveArgs) -> Result<(), Failure> {
-    let project = Project::open(cwd, builtin::catalog()).await?;
+    let project = Project::open(cwd).await?;
     let subject = project.resolve_subject(&args.feature).await?;
     let run = active_run(&subject)?;
     let decided = project
@@ -41,7 +40,7 @@ pub(crate) async fn approve(cwd: &Path, args: ApproveArgs) -> Result<(), Failure
 }
 
 pub(crate) async fn reject(cwd: &Path, args: RejectArgs) -> Result<(), Failure> {
-    let project = Project::open(cwd, builtin::catalog()).await?;
+    let project = Project::open(cwd).await?;
     let subject = project.resolve_subject(&args.feature).await?;
     let run = active_run(&subject)?;
     let decided = project

@@ -6,15 +6,14 @@ use crate::symbols::Symbols;
 pub(super) fn problem_line(problem: Problem) -> String {
     let refusal = Refusal::InvalidDefinition(Box::new(InvalidDefinition {
         file: DefinitionFile::Workflow("feature".to_owned()),
+        field: None,
         step: None,
         problem,
     }));
-    text(&refusal)
-        .lines()
-        .nth(1)
-        .expect("a context line")
-        .trim()
-        .to_owned()
+    let text = text(&refusal);
+    let headline = text.lines().next().expect("a headline");
+    let (_, reason) = headline.split_once(": ").expect("a located reason");
+    reason.to_owned()
 }
 
 pub(super) fn owned(text: &str) -> String {
@@ -29,7 +28,7 @@ fn every_workflow_problem_is_described_in_one_line_of_words() {
                 line: Some(3),
                 detail: owned("expected `=`"),
             },
-            "line 3: expected `=`",
+            "expected `=`",
         ),
         (
             Problem::Syntax {
@@ -52,7 +51,7 @@ fn every_workflow_problem_is_described_in_one_line_of_words() {
             Problem::NameMismatch {
                 found: owned("other"),
             },
-            "it is named \"other\" inside",
+            "\"other\" does not match its file or directory name",
         ),
         (Problem::MissingKind, "the step has no kind"),
         (
@@ -63,7 +62,7 @@ fn every_workflow_problem_is_described_in_one_line_of_words() {
         ),
         (
             Problem::UnknownWorkflow { name: owned("x") },
-            "no workflow is named \"x\"",
+            "no workflow is named \"x\" in .surt/workflows/",
         ),
         (
             Problem::RecursiveWorkflow { name: owned("x") },
@@ -71,7 +70,7 @@ fn every_workflow_problem_is_described_in_one_line_of_words() {
         ),
         (
             Problem::UnknownAgent { name: owned("x") },
-            "no agent is named \"x\"",
+            "no agent is named \"x\" in .surt/agents/",
         ),
         (
             Problem::UnknownOperation { name: owned("x") },

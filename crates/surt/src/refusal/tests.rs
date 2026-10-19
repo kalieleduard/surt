@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 mod agent_problems;
+mod definitions;
 mod executions;
-mod overrides;
 mod problems;
 
 use surt_engine::project::{
@@ -12,7 +12,7 @@ use surt_engine::project::{
 
 use super::message;
 use crate::symbols::Symbols;
-use overrides::invalid_override;
+use definitions::invalid_agent_file;
 
 const MAX_CONTEXT_LINES: usize = 2;
 const MAX_WAYS_OUT: usize = 3;
@@ -77,11 +77,13 @@ fn every_refusal() -> Vec<Refusal> {
         },
         Refusal::InvalidDefinition(Box::new(InvalidDefinition {
             file: DefinitionFile::Workflow("feature".to_owned()),
+            field: None,
             step: Some("ship".to_owned()),
             problem: Problem::MissingKind,
         })),
         Refusal::InvalidDefinition(Box::new(InvalidDefinition {
             file: DefinitionFile::Agent("builder".to_owned()),
+            field: Some("profile.claude".to_owned()),
             step: None,
             problem: Problem::MissingClaudeProfile,
         })),
@@ -107,7 +109,7 @@ fn every_refusal() -> Vec<Refusal> {
         Refusal::UnknownSubject {
             reference: "login".to_owned(),
         },
-        invalid_override(Some("profile.effort")),
+        invalid_agent_file(Some("profile.effort")),
         Refusal::UnapprovedRevision {
             subject: "20261017-add-login".to_owned(),
             artifact: "spec".to_owned(),
@@ -171,6 +173,14 @@ fn every_refusal() -> Vec<Refusal> {
         not_restorable("request", &["manifest", "spec"]),
         not_restorable("spec", &[]),
         terminal_run(),
+        Refusal::UnknownWorkflow {
+            name: "feature".to_owned(),
+            known: vec!["bugfix".to_owned()],
+        },
+        Refusal::UnknownWorkflow {
+            name: "feature".to_owned(),
+            known: Vec::new(),
+        },
         Refusal::NoLiveDriver {
             subject: "20261017-add-login".to_owned(),
             states: vec![RunState::AwaitingApproval, RunState::Blocked],
@@ -370,7 +380,8 @@ fn an_invalid_definition_names_the_file_and_the_step() {
     let refusal = &every_refusal()[11];
 
     assert!(
-        text(refusal).starts_with("✖ invalid built-in definition: workflow feature [steps.ship]\n"),
+        text(refusal)
+            .starts_with("✖ .surt/workflows/feature.toml: steps.ship: the step has no kind\n"),
         "{}",
         text(refusal)
     );
@@ -380,6 +391,7 @@ fn an_invalid_definition_names_the_file_and_the_step() {
 fn an_invalid_definition_says_in_words_what_is_wrong() {
     let refusal = Refusal::InvalidDefinition(Box::new(InvalidDefinition {
         file: DefinitionFile::Workflow("task-cycle".to_owned()),
+        field: None,
         step: Some("cycle".to_owned()),
         problem: Problem::UnknownOutcome {
             field: StepField::Until,
@@ -391,7 +403,7 @@ fn an_invalid_definition_says_in_words_what_is_wrong() {
 
     assert_eq!(
         text(&refusal),
-        "✖ invalid built-in definition: workflow task-cycle [steps.cycle]\n  expects outcome \"merge\" of \"integrate\", which declares: merged, conflict\n  fix: reinstall surt\n"
+        "✖ .surt/workflows/task-cycle.toml: steps.cycle: expects outcome \"merge\" of \"integrate\", which declares: merged, conflict\n  fix: edit .surt/workflows/task-cycle.toml\n"
     );
 }
 

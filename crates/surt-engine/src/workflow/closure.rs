@@ -1,8 +1,12 @@
+use std::collections::BTreeMap;
+
 use super::agent::AgentContract;
-use super::catalog::Catalog;
+use super::agent_schemas;
 use super::definition::Definition;
 use super::error::{DefinitionFile, InvalidDefinition, Problem};
+use super::files::{AgentFiles, DefinitionSource};
 use super::flow::{self, Agents, Available};
+use super::freeze::FreezeError;
 use super::steps::StepSpec;
 use super::{outcomes, structure};
 
@@ -10,6 +14,7 @@ pub(super) struct Closure {
     pub(super) root: Definition,
     pub(super) children: Vec<Definition>,
     pub(super) agents: Agents,
+    pub(super) files: BTreeMap<String, AgentFiles>,
 }
 
 struct Referrer<'a> {
@@ -17,60 +22,55 @@ struct Referrer<'a> {
     step: &'a str,
 }
 
-struct Resolver<'a> {
-    catalog: &'a Catalog,
+struct Resolver<'a, S> {
+    source: &'a S,
     children: Vec<Definition>,
     agents: Agents,
+    files: BTreeMap<String, AgentFiles>,
     stack: Vec<String>,
 }
 
-pub(super) fn resolve(
-    catalog: &Catalog,
+pub(crate) fn validate<'a>(
+    source: &impl DefinitionSource,
     root: &str,
-    external: &Available,
-) -> Result<Closure, Box<InvalidDefinition>> {
+    initial_artifacts: impl IntoIterator<Item = &'a str>,
+) -> Result<(), FreezeError> {
+    resolve(source, root, initial_artifacts).map(|_| ())
+}
+
+pub(super) fn resolve<'a>(
+    source: &impl DefinitionSource,
+    root: &str,
+    initial_artifacts: impl IntoIterator<Item = &'a str>,
+) -> Result<Closure, FreezeError> {
+    let external: Available = initial_artifacts
+        .into_iter()
+        .map(|name| (name.to_owned(), None))
+        .collect();
     let mut resolver = Resolver {
-        catalog,
+        source,
         children: Vec::new(),
         agents: Agents::new(),
+        files: BTreeMap::new(),
         stack: Vec::new(),
     };
-    let root = resolver.visit(root, None, external)?;
+    let root = resolver.visit(root, None, &external)?;
     Ok(Closure {
         root,
         children: resolver.children,
         agents: resolver.agents,
+        files: resolver.files,
     })
 }
 
-impl Resolver<'_> {
+impl<S: DefinitionSource> Resolver<'_, S> {
     fn visit(
         &mut self,
         name: &str,
         referrer: Option<Referrer>,
         external: &Available,
-    ) -> Result<Definition, Box<InvalidDefinition>> {
-        let refuse = |problem| match &referrer {
-            Some(referrer) => InvalidDefinition::new(
-                DefinitionFile::Workflow(referrer.workflow.to_owned()),
-                Some(referrer.step),
-                problem,
-            ),
-            None => {
-                InvalidDefinition::new(DefinitionFile::Workflow(name.to_owned()), None, problem)
-            }
-        };
-        if self.stack.iter().any(|visiting| visiting == name) {
-            return Err(refuse(Problem::RecursiveWorkflow {
-                name: name.to_owned(),
-            }));
-        }
-        let text = self.catalog.workflow_text(name).ok_or_else(|| {
-            refuse(Problem::UnknownWorkflow {
-                name: name.to_owned(),
-            })
-        })?;
-        let definition = Definition::parse(name, text)?;
+    ) -> Result<Definition, FreezeError> {
+        let definition = self.definition(name, referrer)?;
         structure::check(&definition)?;
         self.load_agents(&definition)?;
         outcomes::check(&definition, &self.agents)?;
@@ -90,7 +90,36 @@ impl Resolver<'_> {
         Ok(definition)
     }
 
-    fn load_agents(&mut self, definition: &Definition) -> Result<(), Box<InvalidDefinition>> {
+    fn definition(
+        &self,
+        name: &str,
+        referrer: Option<Referrer>,
+    ) -> Result<Definition, FreezeError> {
+        let refuse = |problem| match &referrer {
+            Some(referrer) => InvalidDefinition::new(
+                DefinitionFile::Workflow(referrer.workflow.to_owned()),
+                Some(referrer.step),
+                problem,
+            ),
+            None => {
+                InvalidDefinition::new(DefinitionFile::Workflow(name.to_owned()), None, problem)
+            }
+        };
+        if self.stack.iter().any(|visiting| visiting == name) {
+            return Err(refuse(Problem::RecursiveWorkflow {
+                name: name.to_owned(),
+            })
+            .into());
+        }
+        let text = self.source.workflow(name)?.ok_or_else(|| {
+            refuse(Problem::UnknownWorkflow {
+                name: name.to_owned(),
+            })
+        })?;
+        Ok(Definition::parse(name, &text)?)
+    }
+
+    fn load_agents(&mut self, definition: &Definition) -> Result<(), FreezeError> {
         for step in &definition.steps {
             let StepSpec::Agent(spec) = &step.spec else {
                 continue;
@@ -98,7 +127,7 @@ impl Resolver<'_> {
             if self.agents.contains_key(&spec.agent) {
                 continue;
             }
-            let sources = self.catalog.agent_sources(&spec.agent).ok_or_else(|| {
+            let files = self.source.agent(&spec.agent)?.ok_or_else(|| {
                 InvalidDefinition::new(
                     DefinitionFile::Workflow(definition.name.clone()),
                     Some(&step.key),
@@ -107,12 +136,10 @@ impl Resolver<'_> {
                     },
                 )
             })?;
-            let toml = self
-                .catalog
-                .agent_toml(&spec.agent)
-                .unwrap_or(sources.assets.toml);
-            let contract = AgentContract::parse(&spec.agent, toml, &sources)?;
+            agent_schemas::check(&spec.agent, &files)?;
+            let contract = AgentContract::parse(&spec.agent, &files.toml, &files)?;
             self.agents.insert(spec.agent.clone(), contract);
+            self.files.insert(spec.agent.clone(), files);
         }
         Ok(())
     }

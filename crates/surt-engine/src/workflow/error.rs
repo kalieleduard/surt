@@ -1,6 +1,12 @@
+pub(crate) const WORKFLOWS_DIR: &str = ".surt/workflows";
+pub(crate) const AGENTS_DIR: &str = ".surt/agents";
+pub(crate) const AGENT_FILE: &str = "agent.toml";
+pub(crate) const INSTRUCTIONS_FILE: &str = "instructions.md";
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InvalidDefinition {
     pub file: DefinitionFile,
+    pub field: Option<String>,
     pub step: Option<String>,
     pub problem: Problem,
 }
@@ -9,6 +15,7 @@ pub struct InvalidDefinition {
 pub enum DefinitionFile {
     Workflow(String),
     Agent(String),
+    AgentFile { agent: String, path: String },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -112,9 +119,7 @@ pub enum Problem {
     MissingClaudeProfile,
     MisplacedApiKeyEnv,
     InvalidBudget,
-    UnknownAgentDirectory {
-        known: Vec<String>,
-    },
+    MissingFile,
     StrayAgentFile,
     TestOnlyRuntime,
     MissingCheckedOutput {
@@ -129,9 +134,25 @@ impl InvalidDefinition {
     pub(crate) fn new(file: DefinitionFile, step: Option<&str>, problem: Problem) -> Box<Self> {
         Box::new(InvalidDefinition {
             file,
+            field: None,
             step: step.map(str::to_owned),
             problem,
         })
+    }
+
+    pub(crate) fn with_field(mut self: Box<Self>, field: Option<String>) -> Box<Self> {
+        self.field = field;
+        self
+    }
+}
+
+impl DefinitionFile {
+    pub fn path(&self) -> String {
+        match self {
+            DefinitionFile::Workflow(name) => format!("{WORKFLOWS_DIR}/{name}.toml"),
+            DefinitionFile::Agent(id) => format!("{AGENTS_DIR}/{id}/{AGENT_FILE}"),
+            DefinitionFile::AgentFile { agent, path } => format!("{AGENTS_DIR}/{agent}/{path}"),
+        }
     }
 }
 

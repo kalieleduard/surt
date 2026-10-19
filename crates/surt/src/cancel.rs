@@ -5,7 +5,6 @@ use std::path::Path;
 use surt_engine::project::{Cancellation, Project, RunId};
 use tokio::sync::mpsc;
 
-use crate::builtin;
 use crate::confirmation::confirmed;
 use crate::driving::{print_progress, report_cleanup};
 use crate::failure::Failure;
@@ -21,7 +20,7 @@ pub(crate) struct CancelArgs {
 }
 
 pub(crate) async fn run(cwd: &Path, args: CancelArgs) -> Result<(), Failure> {
-    let project = Project::open(cwd, builtin::catalog()).await?;
+    let project = Project::open(cwd).await?;
     let subject = project.resolve_subject(&args.feature).await?;
     let run = match (&subject.active_run, &subject.pending_cleanup) {
         (None, Some(run)) => run,

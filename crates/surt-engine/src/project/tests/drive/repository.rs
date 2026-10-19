@@ -4,9 +4,10 @@ use std::process::Command;
 
 use serde_json::json;
 
+use super::super::fixtures::Catalog;
 use super::super::fixtures::{ProjectDir, SUBJECT, initial, new_run};
 use super::fixtures::Feature;
-use crate::project::{Catalog, Config, MergeIntoBase};
+use crate::project::{Config, MergeIntoBase};
 
 const PROJECT_ID: &str = "test-project";
 

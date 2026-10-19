@@ -1,10 +1,6 @@
-mod schemas;
+use toml::Table;
 
-use std::collections::BTreeSet;
-
-use toml::{Table, Value};
-
-use super::{AGENTS, BASE_ARTIFACT, FEATURE_WORKFLOW, REQUEST_ARTIFACT, catalog};
+use super::{agent, agent_ids, strings};
 
 const READ_ONLY_GIT: [&str; 5] = [
     "Bash(git status *)",
@@ -14,58 +10,10 @@ const READ_ONLY_GIT: [&str; 5] = [
     "Bash(git rev-parse *)",
 ];
 
-pub(super) fn agent(id: &str) -> Table {
-    let (_, assets) = AGENTS
-        .iter()
-        .find(|(candidate, _)| *candidate == id)
-        .unwrap_or_else(|| panic!("no built-in agent {id}"));
-    assets.toml.parse().expect("the agent TOML parses")
-}
-
-fn strings(value: &Value) -> Vec<&str> {
-    value
-        .as_array()
-        .expect("an array")
-        .iter()
-        .map(|item| item.as_str().expect("a string"))
-        .collect()
-}
-
-#[test]
-fn the_built_in_feature_workflow_and_its_agents_pass_static_validation() {
-    assert_eq!(
-        catalog().check(FEATURE_WORKFLOW, &[REQUEST_ARTIFACT, BASE_ARTIFACT]),
-        Ok(())
-    );
-    assert_eq!([REQUEST_ARTIFACT, BASE_ARTIFACT], ["request", "base"]);
-}
-
-#[test]
-fn the_feature_workflow_ends_with_the_fast_forward_into_the_base_after_the_shipper() {
-    let feature: Table = include_str!("../../assets/workflows/feature.toml")
-        .parse()
-        .expect("the workflow TOML parses");
-    let merge = &feature["steps"]["merge"];
-
-    assert_eq!(merge["kind"].as_str(), Some("operation"));
-    assert_eq!(merge["run"].as_str(), Some("git.merge_into_base"));
-    assert_eq!(strings(&merge["needs"]), ["ship"]);
-}
-
-#[test]
-fn the_catalog_holds_exactly_the_five_built_in_agents() {
-    let ids: BTreeSet<&str> = AGENTS.iter().map(|(id, _)| *id).collect();
-
-    assert_eq!(
-        ids,
-        BTreeSet::from(["builder", "reviewer", "shipper", "spec", "tasks"])
-    );
-}
-
 #[test]
 fn every_agent_runs_on_the_shared_profile_without_turn_or_cost_limits() {
-    for (id, _) in AGENTS {
-        let agent = agent(id);
+    for id in agent_ids() {
+        let agent = agent(&id);
         let profile = agent["profile"].as_table().expect("a profile");
         let claude = profile["claude"].as_table().expect("a claude profile");
 

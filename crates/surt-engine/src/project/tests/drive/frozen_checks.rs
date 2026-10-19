@@ -1,11 +1,10 @@
 use std::path::Path;
 
-use super::evidence::{BUILD_WORKFLOW, Committing, build_failures, change, committed};
-use super::fixtures::Feature;
-use crate::project::{Catalog, Config, DriveOutcome};
+use super::evidence::{BUILD_WORKFLOW, COMMITTER, Committing, build_failures, change, committed};
+use crate::project::{Config, DriveOutcome};
 use crate::runtime::Script;
 
-const NO_CHECKS: &str = "[outputs.commit]\nchecks = []\n";
+const CHECKS: &str = "checks = [{ kind = \"commit_evidence\" }]\n";
 
 fn named_nothing(_: &Path) -> String {
     "0123456789abcdef0123456789abcdef01234567".to_owned()
@@ -14,11 +13,9 @@ fn named_nothing(_: &Path) -> String {
 #[tokio::test(flavor = "multi_thread")]
 async fn checks_dropped_from_the_agent_after_creation_are_still_enforced_on_the_run() {
     let feature = committed(BUILD_WORKFLOW, Config::default()).await;
-    feature.dir.write_local("builder", "agent.toml", NO_CHECKS);
-    let feature = Feature {
-        project: feature.dir.project(Catalog::new(), Config::default()).await,
-        ..feature
-    };
+    feature
+        .dir
+        .write_agent_file("builder", "agent.toml", &COMMITTER.replace(CHECKS, ""));
     let runtime = Committing::new(Script::new())
         .on(1, 1, named_nothing)
         .on(1, 2, change);

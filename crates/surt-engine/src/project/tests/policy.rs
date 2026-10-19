@@ -1,6 +1,7 @@
+use super::fixtures::Catalog;
 use super::fixtures::{ProjectDir, default_config, draft_catalog, new_run};
 use super::per_item::catalog;
-use crate::project::{Catalog, CleanupConfig, Config, OnSuccess};
+use crate::project::{CleanupConfig, Config, OnSuccess};
 
 const KEEPING_PARENT: &str = r#"
 schema = 1

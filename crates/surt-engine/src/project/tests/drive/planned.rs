@@ -2,8 +2,9 @@ use std::sync::Mutex;
 
 use tokio::sync::watch;
 
+use super::super::fixtures::Catalog;
 use super::fixtures::{ACTOR, Feature, agent};
-use crate::project::{Catalog, Config, DriveOutcome};
+use crate::project::{Config, DriveOutcome};
 use crate::runtime::{
     AgentRuntime, Behavior, Delivery, FakeRuntime, RuntimeCompletion, RuntimeError,
     RuntimeEventSink, RuntimeRequest, Script, StopSignal,

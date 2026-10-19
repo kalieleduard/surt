@@ -1,4 +1,3 @@
-mod builtin;
 mod cancel;
 mod confirmation;
 mod decide;
@@ -25,6 +24,7 @@ mod status;
 mod stop;
 mod symbols;
 mod table;
+mod template;
 
 use std::process::ExitCode;
 
@@ -41,7 +41,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    Init,
+    Init(init::InitArgs),
     Feature(feature::FeatureArgs),
     Plan(plan::PlanArgs),
     Start(start::StartArgs),
@@ -70,7 +70,7 @@ async fn main() -> ExitCode {
 async fn run(command: Command) -> Result<(), Failure> {
     let cwd = std::env::current_dir()?;
     match command {
-        Command::Init => init::run(&cwd).await,
+        Command::Init(args) => init::run(&cwd, args).await,
         Command::Feature(args) => feature::run(&cwd, args).await,
         Command::Plan(args) => plan::run(&cwd, args).await,
         Command::Start(args) => start::run(&cwd, args).await,

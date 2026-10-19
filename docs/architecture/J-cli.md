@@ -1,11 +1,11 @@
 # J. CLI Surface
 
-The commands of v1 ([K](K-roadmap.md) lists the subset Milestone 1 ships), how they refer to things, what they print, their exit codes and the configuration they read. The engine is generic; these commands are the built-in feature workflow's front end and are the only layer that knows its phases. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [CLI surface and UX](../../.scratch/surt-architecture/issues/14-cli-surface-and-ux.md).
+The commands of v1 ([K](K-roadmap.md) lists the subset Milestone 1 ships), how they refer to things, what they print, their exit codes and the configuration they read. The engine is generic; these commands are the feature workflow's front end and are the only layer that knows its phases; the workflow itself is files under `.surt/`, written by `surt init --template feature`. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [CLI surface and UX](../../.scratch/surt-architecture/issues/14-cli-surface-and-ux.md).
 
 ## Commands
 
 ```
-surt init
+surt init [--template <name>]
 surt feature "<description>" [--name <slug>] [--base <ref>] [--merge | --no-merge] [--new]
 surt feature <feature> [--new-run [--base <ref>] [--merge | --no-merge]]
 surt plan    <feature>
@@ -26,7 +26,7 @@ surt delete  <feature>
 
 | Command | Drives? | What it does |
 |---|---|---|
-| `init` | no | Creates `.surt/` in the project ([below](#surt-init-and-finding-the-project)). |
+| `init` | no | Creates `.surt/` in the project and, with `--template`, writes a Template's workflows and Agents into it ([below](#surt-init-and-finding-the-project)). |
 | `feature "<description>"` | yes | Creates a Feature and its first run, drives to the spec Approval Gate. |
 | `feature <feature>` | yes | Resumes the spec phase of the active run; with `--new-run`, starts a new run of the Subject. |
 | `plan` | yes | Drives the Task Agent to the task-manifest Approval Gate. Requires the spec approved. |
@@ -69,11 +69,16 @@ $ surt approve add-login
 ## `surt init` and finding the project
 
 ```
-$ surt init
+$ surt init --template feature
 ✔ initialized surt in /Users/you/app/.surt
-  .surt/.gitignore    (only config.toml and agents/ are versioned)
-  .surt/config.toml   (defaults, commented)
-  .surt/surt.db
+  .surt/.gitignore                                         created
+  .surt/config.toml                                        created
+  .surt/surt.db                                            created
+  .surt/workflows/feature.toml                             created
+  .surt/workflows/task-cycle.toml                          created
+  .surt/agents/spec/agent.toml                             created
+  …
+  .surt/agents/shipper/schemas/base.schema.json            created
   git 2.47.0 ✔  identity you@example.com ✔
   next: surt feature "<what you want to build>"
 ```
@@ -85,8 +90,14 @@ $ surt init
   ```
 - **Project root** is the toplevel of the repository's main worktree. `init` from a subdirectory creates `.surt/` at the toplevel and says so. Other commands walk up from the current directory to the toplevel. A command run inside a Surt-managed worktree (`~/.surt/worktrees/…`) refuses.
 - **Preflight.** `init` runs the same Git preflight as the driving commands (Git ≥ 2.38, a user identity; [A. Git Integration](A-git-integration.md)) and refuses if it fails.
-- **Idempotent.** Running it again reports what exists. It never overwrites `config.toml` or `agents/`, and it rewrites `.surt/.gitignore` only if it is missing.
-- **Built-in agents are not materialized.** Their defaults live in the binary. A local override under `.surt/agents/<id>/` is written by hand, field by field ([F. Agent Contract](F-agent-contract.md#built-in-defaults-and-local-overrides)). There is no `surt agent export` in v1.
+- **Templates.** `--template <name>` also writes a Template's Workflow Definitions and Agents into `.surt/workflows/` and `.surt/agents/` ([E](E-workflow-schema.md#where-definitions-live), [F](F-agent-contract.md#definitions-in-the-project)). The binary knows one Template, `feature`. Plain `surt init` writes no workflow and no Agent, for a project that defines its own; a driving command in a project with no workflow refuses with `fix: surt init --template feature`. An unknown name refuses (exit `3`) before anything is written:
+  ```
+  $ surt init --template bugfix
+  ✖ no template is named "bugfix"
+    templates: feature
+    fix: surt init --template feature
+  ```
+- **Idempotent.** Running it again lists every file with `created` or `kept`. It never overwrites a file that exists: `config.toml`, `.gitignore` and any Template file are written only when missing, so rerunning `surt init --template feature` restores a deleted file and keeps every edit. Once written, the Template's files are the project's; a Surt upgrade never changes them.
 
 ## `surt feature`: create, resume or start again
 
@@ -113,10 +124,8 @@ $ surt init
 
    $ surt feature 20261017-add-login --new-run
    ✔ run 2 of 20261017-add-login   base main @ b22e310   branch surt/20261017-add-login.2
-     local agents: builder (agent.toml)
    ```
-   The `local agents:` line, here and under `✔ created …`, lists the Agents whose files under `.surt/agents/` the new run froze ([F](F-agent-contract.md#built-in-defaults-and-local-overrides)); it is absent when there are none.
-   It refuses with exit `3` while the Working Copy holds an unrecorded edit left by the previous run ([I](I-cleanup.md#unrecorded-working-copy-edits)). Run `N+1` takes the Subject's latest `request` Revision as a new human-origin Initial Artifact. Its Base is the current `HEAD`, or `--base`. It freezes the definitions, agents and configuration again. A `succeeded` Subject works the same way. A cleanup the previous run left pending is finished first, under that run's lock: the command drives the previous root run, which cleans and returns at once because it is terminal, then creates run `N+1` ([I. Cleanup](I-cleanup.md#when-cleanup-runs)).
+   It refuses with exit `3` while the Working Copy holds an unrecorded edit left by the previous run ([I](I-cleanup.md#unrecorded-working-copy-edits)). Run `N+1` takes the Subject's latest `request` Revision as a new human-origin Initial Artifact. Its Base is the current `HEAD`, or `--base`. It reads the workflow and its Agents from `.surt/` again and freezes them with the configuration. A `succeeded` Subject works the same way. A cleanup the previous run left pending is finished first, under that run's lock: the command drives the previous root run, which cleans and returns at once because it is terminal, then creates run `N+1` ([I. Cleanup](I-cleanup.md#when-cleanup-runs)).
 
 `--base <ref>` resolves `<ref>` to a commit when the run is created; the default is `HEAD`.
 
@@ -128,7 +137,7 @@ $ surt feature "add login" --merge
   merge into base: ff-only (--merge)
 ```
 
-The `merge into base:` line follows any `local agents:` line, under `✔ created …` and under `✔ run N of …` alike. Without a flag it reads `merge into base: ff-only` when the configuration says so, and is absent for the default `never`.
+The `merge into base:` line follows the creation line, under `✔ created …` and under `✔ run N of …` alike. Without a flag it reads `merge into base: ff-only` when the configuration says so, and is absent for the default `never`.
 
 On the resume form either flag refuses with exit `3`, because the Subject's latest run, active or not, already froze its mode; choosing again needs a new run:
 

@@ -4,12 +4,8 @@ const KEY_SEPARATOR: &str = ".";
 const OUTPUTS: &str = "outputs";
 const FORMAT: &str = "format";
 
-pub(super) fn field_of(problem: &Problem, merged: &str) -> Option<String> {
+pub(super) fn agent_field(problem: &Problem, text: &str) -> Option<String> {
     let field = match problem {
-        Problem::Syntax {
-            line: Some(line), ..
-        } => return field_at(merged, *line),
-        Problem::UnsupportedSchema { .. } => "schema",
         Problem::NameMismatch { .. } => "id",
         Problem::MissingClaudeProfile => "profile.claude",
         Problem::MisplacedApiKeyEnv => "profile.claude.api_key_env",
@@ -19,26 +15,36 @@ pub(super) fn field_of(problem: &Problem, merged: &str) -> Option<String> {
         Problem::MissingCheckedOutput { output } => {
             return Some([OUTPUTS, output, FORMAT].join(KEY_SEPARATOR));
         }
-        _ => return None,
+        _ => return common_field(problem, text),
     };
     Some(field.to_owned())
 }
 
-pub(super) fn without_line(problem: Problem) -> Problem {
+pub(super) fn workflow_field(problem: &Problem, text: &str) -> Option<String> {
     match problem {
-        Problem::Syntax { detail, .. } => Problem::Syntax { line: None, detail },
-        other => other,
+        Problem::NameMismatch { .. } => Some("name".to_owned()),
+        _ => common_field(problem, text),
     }
 }
 
-fn field_at(canonical: &str, line: usize) -> Option<String> {
+fn common_field(problem: &Problem, text: &str) -> Option<String> {
+    match problem {
+        Problem::Syntax {
+            line: Some(line), ..
+        } => field_at(text, *line),
+        Problem::UnsupportedSchema { .. } => Some("schema".to_owned()),
+        _ => None,
+    }
+}
+
+fn field_at(text: &str, line: usize) -> Option<String> {
     let mut table: Option<&str> = None;
-    for text in canonical.lines().take(line) {
+    for text in text.lines().take(line) {
         if let Some(header) = header(text) {
             table = Some(header);
         }
     }
-    let target = canonical.lines().nth(line.checked_sub(1)?)?;
+    let target = text.lines().nth(line.checked_sub(1)?)?;
     if header(target).is_some() {
         return table.map(str::to_owned);
     }

@@ -1,8 +1,9 @@
 use super::{AgentContract, Auth, Format, OutputSpec, Profile, RuntimeKind};
 use crate::workflow::error::Problem;
-use crate::workflow::sources::SchemaSource;
+use crate::workflow::files::SchemaSource;
 
 const SCHEMA_VERSION: i64 = 1;
+const TEST_RUNTIMES_ALLOWED: bool = cfg!(any(test, feature = "test-support"));
 
 impl AgentContract {
     pub(super) fn check(&self, id: &str, schemas: &impl SchemaSource) -> Result<(), Problem> {
@@ -69,6 +70,9 @@ impl OutputSpec {
 
 impl Profile {
     fn check(&self) -> Result<(), Problem> {
+        if self.runtime == RuntimeKind::Fake && !TEST_RUNTIMES_ALLOWED {
+            return Err(Problem::TestOnlyRuntime);
+        }
         if self.runtime == RuntimeKind::ClaudeCode && self.claude.is_none() {
             return Err(Problem::MissingClaudeProfile);
         }

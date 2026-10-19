@@ -89,6 +89,10 @@ impl Layout {
         self.dot_surt().join("config.toml")
     }
 
+    pub(crate) fn workflows(&self) -> PathBuf {
+        self.dot_surt().join("workflows")
+    }
+
     pub(crate) fn agents(&self) -> PathBuf {
         self.dot_surt().join("agents")
     }

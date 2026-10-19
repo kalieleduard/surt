@@ -1,12 +1,11 @@
 mod definition;
 mod edits;
 mod executions;
-mod overrides;
 mod reading;
 
 use std::path::Path;
 
-use surt_engine::project::{Candidate, DefinitionFile, InvalidDefinition, Refusal, RunState};
+use surt_engine::project::{Candidate, Refusal, RunState};
 
 use crate::feature::quoted;
 use crate::message::Message;
@@ -72,8 +71,8 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             run,
             files,
         } => edits::blocking_new_run(subject, *run, files),
-        Refusal::InvalidDefinition(invalid) => invalid_definition(invalid),
-        Refusal::InvalidAgentOverride(invalid) => overrides::invalid_override(invalid),
+        Refusal::InvalidDefinition(invalid) => definition::invalid(invalid),
+        Refusal::UnknownWorkflow { name, known } => definition::unknown_workflow(name, known),
         Refusal::UnknownSubject { reference } => {
             Message::new(format!("no feature matches {}", quoted(reference)))
                 .way("inspect", "surt status")
@@ -251,20 +250,6 @@ fn driver_live(subject: &str, pid: Option<u32>) -> Message {
         "fix",
         format!("surt stop {subject}, or Ctrl-C in its terminal, then rerun"),
     )
-}
-
-fn invalid_definition(invalid: &InvalidDefinition) -> Message {
-    let file = match &invalid.file {
-        DefinitionFile::Workflow(name) => format!("workflow {name}"),
-        DefinitionFile::Agent(name) => format!("agent {name}"),
-    };
-    let location = match &invalid.step {
-        Some(step) => format!("{file} [steps.{step}]"),
-        None => file,
-    };
-    Message::new(format!("invalid built-in definition: {location}"))
-        .context(definition::describe(&invalid.problem))
-        .way("fix", "reinstall surt")
 }
 
 fn managed_worktree(path: &Path, project: Option<&Path>) -> Message {

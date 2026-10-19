@@ -1,5 +1,5 @@
+use super::fixtures::{AgentAssets, Catalog};
 use super::fixtures::{ProjectDir, default_config, draft_catalog, new_run};
-use crate::project::{AgentAssets, Catalog};
 
 const INSTRUCTIONS_SHA256: &str =
     "8de2b45eaca7a1890d5d70979c1e1a085fa699d309cb1442f7f0db4e7b2fd9c1";
@@ -75,7 +75,7 @@ effort = "high"
 const READER_SCHEMAS: &[(&str, &str)] = &[
     (
         "schemas/snapshot.schema.json",
-        r##"{"properties": {"base": {"$ref": "base.schema.json"}, "tip": {"$ref": "#/definitions/sha"}}}"##,
+        r##"{"definitions": {"sha": {"type": "string"}}, "properties": {"base": {"$ref": "base.schema.json"}, "tip": {"$ref": "#/definitions/sha"}}}"##,
     ),
     (
         "schemas/base.schema.json",

@@ -1,5 +1,6 @@
+use super::fixtures::Catalog;
 use super::fixtures::{ProjectDir, agent, default_config, initial};
-use crate::project::{Catalog, NewRun};
+use crate::project::NewRun;
 
 const CYCLE: &str = r#"
 schema = 1

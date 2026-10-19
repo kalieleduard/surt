@@ -160,7 +160,7 @@ async fn a_new_run_of_a_kept_subject_refused_by_an_override_removes_nothing() {
     let feature = kept().await;
     let before = feature.kept_run();
     let files = entries(&feature.working_copy(""));
-    feature.dir.write_local(
+    feature.dir.write_agent_file(
         "planner",
         "agent.toml",
         "[inputs.style]\nformat = \"text\"\n",
@@ -169,10 +169,7 @@ async fn a_new_run_of_a_kept_subject_refused_by_an_override_removes_nothing() {
     let created = feature.project.create_run(next_run(&feature)).await;
 
     assert!(
-        matches!(
-            created,
-            Err(Error::Refused(Refusal::InvalidAgentOverride(_)))
-        ),
+        matches!(created, Err(Error::Refused(Refusal::InvalidDefinition(_)))),
         "{created:?}"
     );
     assert_eq!(entries(&feature.working_copy("")), files);

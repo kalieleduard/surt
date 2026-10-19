@@ -208,7 +208,7 @@ impl Sandbox {
     }
 
     pub fn init(&self) -> Run {
-        let run = self.surt(&self.repo(), &["init"]);
+        let run = self.surt(&self.repo(), &["init", "--template", "feature"]);
         assert_eq!(run.code, Some(0), "surt init failed: {}", run.stderr);
         run
     }

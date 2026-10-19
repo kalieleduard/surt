@@ -10,13 +10,13 @@ use tempfile::TempDir;
 
 use crate::project::layout::Layout;
 use crate::project::{Access, SurtHome, open_store};
-use crate::project::{
-    ArtifactFile, Catalog, Config, GlobalConfig, InitialArtifact, NewRun, Project,
-};
+use crate::project::{ArtifactFile, Config, GlobalConfig, InitialArtifact, NewRun, Project};
 #[cfg(feature = "test-support")]
 use crate::store::Faults;
-pub(super) use catalog::{WRITER_AGENT, WRITER_SCHEMAS, agent, draft_catalog, writer};
-pub(super) use refusals::{in_step, override_refusal, refusal, workflow_refusal};
+pub(super) use catalog::{
+    AgentAssets, Catalog, WRITER_AGENT, WRITER_SCHEMAS, agent, draft_catalog, writer,
+};
+pub(super) use refusals::{in_step, invalid_file, refusal, workflow_refusal};
 
 pub(super) const SUBJECT: &str = "20261017-add-login";
 
@@ -83,6 +83,7 @@ impl ProjectDir {
     }
 
     pub(super) async fn project(&self, catalog: Catalog, config: Config) -> Project {
+        catalog.write(&self.layout().dot_surt());
         open_store(&self.layout())
             .await
             .expect("the store opens")
@@ -93,7 +94,6 @@ impl ProjectDir {
             id: "test-project".to_owned(),
             config,
             global: GlobalConfig::default(),
-            catalog,
             home: SurtHome::at(&self.home()),
             access: Access::ReadWrite,
             #[cfg(feature = "test-support")]
