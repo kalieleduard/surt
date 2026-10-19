@@ -63,6 +63,13 @@ pub(super) fn merging(mode: MergeIntoBase) -> Config {
     }
 }
 
+pub(super) fn pre_merge_catalog() -> Catalog {
+    let (before_merge, _) = MERGED_WORKFLOW
+        .split_once("[steps.merge]")
+        .expect("the merged workflow has a merge step");
+    team_catalog(INTEGRATED_TASK).workflow("merged", before_merge)
+}
+
 pub(super) fn merged_catalog() -> Catalog {
     team_catalog(INTEGRATED_TASK).workflow("merged", MERGED_WORKFLOW)
 }
