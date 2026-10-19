@@ -1,13 +1,13 @@
 use std::io::{BufRead, BufReader};
 
+use crate::delivering::{feature_name, planned};
 use crate::scripts::{build, review, ship, tasks, wait_until_stopped};
-use crate::start::{feature_name, planned};
 use crate::support::Sandbox;
 
 const BUILD_STARTED: &str = "● task A build started\n";
 
 fn killed_while_building(sandbox: &Sandbox, name: &str) -> u32 {
-    let mut child = sandbox.spawn(&["start", name]);
+    let mut child = sandbox.spawn(&["continue", name]);
     let mut stderr = BufReader::new(child.stderr.take().expect("the piped stderr"));
     let mut seen = String::new();
     while !seen.ends_with(BUILD_STARTED) {
@@ -43,7 +43,7 @@ fn a_killed_driver_frees_the_run_and_the_next_start_finishes_it_with_a_new_attem
         ["running"]
     );
 
-    let resumed = sandbox.surt(&sandbox.repo(), &["start", &name]);
+    let resumed = sandbox.surt(&sandbox.repo(), &["continue", &name]);
 
     assert_eq!(resumed.code, Some(0), "{}", resumed.stderr);
     for line in [

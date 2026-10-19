@@ -50,6 +50,7 @@ async fn a_rejection_records_the_decision_on_the_reviewed_revision_without_drivi
             actor: ACTOR.to_owned(),
             files: vec!["draft.md".to_owned()],
             restored: Vec::new(),
+            producer: Some("write".to_owned()),
         }
     );
     assert_eq!(

@@ -2,7 +2,7 @@ use surt_engine::project::{CleanupState, GateStatus, ItemState, RunStatus};
 
 use super::state_names;
 use crate::driving::label;
-use crate::phase::Phase;
+use crate::status::item_files;
 use crate::symbols::{DASH, SEPARATOR};
 use crate::table;
 
@@ -94,15 +94,9 @@ fn gate_progress(status: &RunStatus) -> Option<String> {
             .revision
             .as_ref()
             .map_or(0, |summary| summary.files.len());
-        let covers_items = Phase::of_gate(&gate.step).is_some_and(Phase::covers_item_files);
-        Some(if covers_items {
-            format!(
-                "{} rev {revision} ({} tasks)",
-                gate.artifact,
-                files.saturating_sub(1)
-            )
-        } else {
-            format!("{} rev {revision}", gate.artifact)
+        Some(match item_files(files) {
+            Some(items) => format!("{} rev {revision} ({items} tasks)", gate.artifact),
+            None => format!("{} rev {revision}", gate.artifact),
         })
     })
 }

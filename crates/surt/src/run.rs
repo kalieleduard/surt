@@ -1,15 +1,15 @@
 mod created;
-mod inputs;
+pub(crate) mod inputs;
 mod naming;
 
 use std::path::Path;
 
 use clap::builder::NonEmptyStringValueParser;
-use surt_engine::project::{NewRun, Project};
+use surt_engine::project::{Carry, NewRun, Project};
 
+use crate::driving::Driven;
 use crate::failure::Failure;
 use crate::merge_flag::{MergeFlag, with_merge_line};
-use crate::phase::SPEC;
 use crate::runtime;
 pub(crate) use created::short_commit;
 use inputs::InputArg;
@@ -40,7 +40,7 @@ pub(crate) async fn run(cwd: &Path, args: RunArgs) -> Result<(), Failure> {
         subject: name.name.clone(),
         workflow: args.workflow.clone(),
         inputs,
-        carried: Vec::new(),
+        carry: Carry::Nothing,
         merge_into_base: merge.map(MergeFlag::mode),
         actor: project.actor().await?,
     };
@@ -48,6 +48,10 @@ pub(crate) async fn run(cwd: &Path, args: RunArgs) -> Result<(), Failure> {
     let created_run = project.create_run(new_run).await?;
     let line = created::line(&name, &args.workflow, &created_run.git_refs);
     with_merge_line(line, created_run.merge_into_base, merge).print_success();
-    SPEC.drive(&project, &name.name, &created_run.run, &runtime)
-        .await
+    let driven = Driven {
+        project: &project,
+        subject: &name.name,
+        run: &created_run.run,
+    };
+    driven.drive(&runtime).await
 }

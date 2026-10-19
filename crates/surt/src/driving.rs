@@ -8,6 +8,7 @@ use surt_engine::project::{DriveOutcome, Gate, GateStatus, Project, RunId};
 use surt_engine::runtime::{AgentRuntime, StopSignal};
 use tokio::sync::mpsc;
 
+use crate::continue_run::continue_command;
 use crate::failure::Failure;
 use crate::message::{Mark, Message};
 use crate::refusal;
@@ -24,7 +25,6 @@ pub(crate) struct Driven<'a> {
     pub(crate) project: &'a Project,
     pub(crate) subject: &'a str,
     pub(crate) run: &'a RunId,
-    pub(crate) command: &'static str,
 }
 
 impl Driven<'_> {
@@ -95,7 +95,7 @@ impl Driven<'_> {
     }
 
     fn resume_command(&self) -> String {
-        format!("surt {} {}", self.command, self.subject)
+        continue_command(self.subject)
     }
 
     async fn awaiting(&self, gates: &[Gate]) -> Result<(), Failure> {

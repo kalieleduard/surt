@@ -89,11 +89,11 @@ fn the_brief_delivers_a_feature_from_its_description_to_the_integration_branch()
 
     ok(sandbox.run_feature("add login", &[]));
     ok(surt(&sandbox, &["reject", &name, "-m", "needs OAuth"]));
-    ok(sandbox.feature(&[&name]));
+    ok(sandbox.continue_run(&[&name]));
     ok(surt(&sandbox, &["approve", &name]));
-    ok(surt(&sandbox, &["plan", &name]));
+    ok(surt(&sandbox, &["continue", &name]));
     ok(surt(&sandbox, &["approve", &name]));
-    let started = ok(surt(&sandbox, &["start", &name]));
+    let started = ok(surt(&sandbox, &["continue", &name]));
 
     let branch = format!("surt/{name}");
     let tip = rev_parse(&sandbox, &branch);
@@ -218,7 +218,7 @@ pub fn planned_with(name: &str, scripts: &[String], config: Option<&str>) -> San
     }
     ok(sandbox.run_feature("add login", &[]));
     ok(surt(&sandbox, &["approve", name]));
-    ok(surt(&sandbox, &["plan", name]));
+    ok(surt(&sandbox, &["continue", name]));
     ok(surt(&sandbox, &["approve", name]));
     sandbox
 }
@@ -251,7 +251,7 @@ fn a_rate_limited_task_pauses_and_merges_while_a_blocked_task_stops_start_with_e
         ],
     );
 
-    let run = surt(&sandbox, &["start", &name]);
+    let run = surt(&sandbox, &["continue", &name]);
 
     assert_eq!(run.code, Some(BLOCKED_EXIT_CODE), "{}", run.stderr);
     let (b_execution, b_message) = last_failure(&sandbox, "B");
@@ -304,7 +304,7 @@ fn a_rate_limited_task_pauses_and_merges_while_a_blocked_task_stops_start_with_e
              attempt 3 failed (exit_code): {b_message}\n  \
              inspect: surt inspect {b_execution}\n  \
              logs: surt logs {b_execution}\n  \
-             resume: surt start {name}\n"
+             resume: surt continue {name}\n"
         )),
         "{}",
         run.stderr
@@ -318,28 +318,27 @@ fn a_rate_limited_task_pauses_and_merges_while_a_blocked_task_stops_start_with_e
     );
 }
 #[test]
-fn start_refuses_until_the_manifest_is_approved() {
+fn continue_at_the_manifest_gate_runs_nothing_and_ends_at_the_gate_again() {
     let sandbox = project(&[spec(1, "# Spec 1\n"), tasks(1, &["A"])]);
     let name = feature_name();
     ok(sandbox.run_feature("add login", &[]));
     ok(surt(&sandbox, &["approve", &name]));
-    ok(surt(&sandbox, &["plan", &name]));
+    ok(surt(&sandbox, &["continue", &name]));
     let executions = count(&sandbox, "execution");
 
-    let run = surt(&sandbox, &["start", &name]);
+    let waiting = ok(surt(&sandbox, &["continue", &name]));
 
-    assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
     assert_eq!(
-        run.stderr,
+        waiting,
         format!(
-            "✖ manifest not approved yet (manifest rev 1 awaiting approval)\n  review manifest rev 1 and its Task Markdown files, then: surt approve {name}\n"
+            "⏸ manifest rev 1 awaiting approval in .surt/features/{name}\n  approve: surt approve {name}\n  reject: surt reject {name} -m \"<reason>\"\n"
         )
     );
     assert_eq!(count(&sandbox, "execution"), executions);
 }
 
 #[test]
-fn every_phase_command_finishes_a_pending_cleanup_of_the_feature() {
+fn continue_finishes_a_pending_cleanup_of_the_subject() {
     let name = feature_name();
     let sandbox = planned(
         &name,
@@ -350,7 +349,7 @@ fn every_phase_command_finishes_a_pending_cleanup_of_the_feature() {
             ship(),
         ],
     );
-    ok(surt(&sandbox, &["start", &name]));
+    ok(surt(&sandbox, &["continue", &name]));
     let execution = text(&sandbox, "SELECT id FROM execution ORDER BY id LIMIT 1");
     let leftover = sandbox
         .dot_surt()
@@ -358,34 +357,21 @@ fn every_phase_command_finishes_a_pending_cleanup_of_the_feature() {
         .join(&execution)
         .join("inputs");
 
-    for command in ["feature", "plan", "start"] {
-        std::fs::create_dir_all(&leftover).expect("a leftover execution directory");
-        sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
+    std::fs::create_dir_all(&leftover).expect("a leftover execution directory");
+    sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
 
-        let run = surt(&sandbox, &[command, &name]);
+    let finished = ok(surt(&sandbox, &["continue", &name]));
 
-        let finished = if command == "feature" {
-            assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
-            assert!(
-                run.stderr.contains("--new-run"),
-                "{command}: {}",
-                run.stderr
-            );
-            run.stderr.split("✖").next().unwrap_or_default().to_owned()
-        } else {
-            ok(run)
-        };
-        assert!(
-            finished.ends_with("✔ run succeeded\n↻ cleanup done\n"),
-            "{command}: {finished}"
-        );
-        assert!(!leftover.exists(), "{command}");
-        assert_eq!(
-            count(&sandbox, "workflow_run WHERE cleaned_at IS NOT NULL"),
-            "1"
-        );
-    }
-    let refused = surt(&sandbox, &["start", &name]);
+    assert!(
+        finished.ends_with("✔ run succeeded\n↻ cleanup done\n"),
+        "{finished}"
+    );
+    assert!(!leftover.exists());
+    assert_eq!(
+        count(&sandbox, "workflow_run WHERE cleaned_at IS NOT NULL"),
+        "1"
+    );
+    let refused = surt(&sandbox, &["continue", &name]);
     assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
 }
 
@@ -401,7 +387,7 @@ fn a_cleanup_keeps_an_edited_file_and_says_how_to_retry_what_it_could_not_remove
             ship(),
         ],
     );
-    ok(surt(&sandbox, &["start", &name]));
+    ok(surt(&sandbox, &["continue", &name]));
     let spec = text(
         &sandbox,
         "SELECT w.rel_path FROM working_copy_file w JOIN artifact a ON a.id = w.artifact_id \
@@ -419,7 +405,7 @@ fn a_cleanup_keeps_an_edited_file_and_says_how_to_retry_what_it_could_not_remove
     std::fs::write(&blocker, "not a directory\n").expect("a file in the way");
     sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
 
-    let incomplete = ok(surt(&sandbox, &["start", &name]));
+    let incomplete = ok(surt(&sandbox, &["continue", &name]));
 
     assert!(
         incomplete.contains(&format!("⚠ kept {edited} — unrecorded edit\n")),
@@ -432,7 +418,7 @@ fn a_cleanup_keeps_an_edited_file_and_says_how_to_retry_what_it_could_not_remove
         "{incomplete}"
     );
     assert!(
-        incomplete.ends_with(&format!("  retry: surt start {name}\n")),
+        incomplete.ends_with(&format!("  retry: surt continue {name}\n")),
         "{incomplete}"
     );
     assert_eq!(
@@ -441,7 +427,7 @@ fn a_cleanup_keeps_an_edited_file_and_says_how_to_retry_what_it_could_not_remove
     );
     std::fs::remove_file(&blocker).expect("the blocker is removed");
 
-    let finished = ok(surt(&sandbox, &["start", &name]));
+    let finished = ok(surt(&sandbox, &["continue", &name]));
 
     assert!(
         finished.ends_with(&format!(
@@ -472,7 +458,7 @@ fn start_refuses_while_the_integration_branch_was_moved_and_resumes_once_restore
             ship(),
         ],
     );
-    let blocked = surt(&sandbox, &["start", &name]);
+    let blocked = surt(&sandbox, &["continue", &name]);
     assert_eq!(blocked.code, Some(BLOCKED_EXIT_CODE), "{}", blocked.stderr);
     let branch = format!("surt/{name}");
     let tip = rev_parse(&sandbox, &branch);
@@ -480,7 +466,7 @@ fn start_refuses_while_the_integration_branch_was_moved_and_resumes_once_restore
     sandbox.git(&sandbox.repo(), &["branch", "--force", &branch, &base]);
     let executions = count(&sandbox, "execution");
 
-    let refused = surt(&sandbox, &["start", &name]);
+    let refused = surt(&sandbox, &["continue", &name]);
 
     assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
     assert_eq!(
@@ -488,7 +474,7 @@ fn start_refuses_while_the_integration_branch_was_moved_and_resumes_once_restore
         format!(
             "✖ {branch} moved outside surt (expected {}, found {})\n  \
              fix: git branch -f {branch} {tip}\n  \
-             resume: surt start {name}\n",
+             resume: surt continue {name}\n",
             short(&tip),
             short(&base)
         )
@@ -496,7 +482,7 @@ fn start_refuses_while_the_integration_branch_was_moved_and_resumes_once_restore
     assert_eq!(count(&sandbox, "execution"), executions);
 
     sandbox.git(&sandbox.repo(), &["branch", "--force", &branch, &tip]);
-    let resumed = ok(surt(&sandbox, &["start", &name]));
+    let resumed = ok(surt(&sandbox, &["continue", &name]));
 
     assert!(
         resumed

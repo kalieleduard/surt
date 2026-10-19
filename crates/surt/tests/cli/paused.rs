@@ -9,8 +9,8 @@ use jiff::tz::TimeZone;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
+use crate::delivering::{feature_name, planned};
 use crate::scripts::{limit_failure_in, tasks};
-use crate::start::{feature_name, planned};
 use crate::support::{Run, Sandbox};
 
 const DISTANT_RESET_SECONDS: i64 = 3_600;
@@ -24,7 +24,7 @@ struct PausedDriver {
 
 impl PausedDriver {
     fn start(sandbox: &Sandbox, name: &str) -> PausedDriver {
-        let mut child = sandbox.spawn(&["start", name]);
+        let mut child = sandbox.spawn(&["continue", name]);
         let mut stderr = BufReader::new(child.stderr.take().expect("the piped stderr"));
         let mut seen = String::new();
         while !seen.lines().any(|line| line.starts_with(PAUSED)) {

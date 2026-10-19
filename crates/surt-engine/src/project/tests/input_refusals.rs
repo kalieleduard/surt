@@ -33,7 +33,7 @@ fn declared() -> Vec<DeclaredInput> {
     ]
 }
 
-async fn refused(values: &[(&str, &str)], carried: &[&str]) -> InputProblem {
+async fn refused(values: &[(&str, &str)]) -> InputProblem {
     let dir = ProjectDir::new();
     let project = inputs_project(&dir).await;
     let mut run = new_run("inputs");
@@ -41,7 +41,6 @@ async fn refused(values: &[(&str, &str)], carried: &[&str]) -> InputProblem {
         .iter()
         .map(|(name, value)| input(name, value))
         .collect();
-    run.carried = carried.iter().map(|name| (*name).to_owned()).collect();
 
     let created = project.create_run(run).await;
 
@@ -66,7 +65,7 @@ fn named(name: &str) -> String {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn an_input_the_workflow_does_not_declare_is_refused() {
-    let problem = refused(&[("request", "add login"), ("colour", "blue")], &[]).await;
+    let problem = refused(&[("request", "add login"), ("colour", "blue")]).await;
 
     assert_eq!(
         problem,
@@ -78,7 +77,7 @@ async fn an_input_the_workflow_does_not_declare_is_refused() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn an_input_given_twice_is_refused() {
-    let problem = refused(&[("request", "add login"), ("request", "again")], &[]).await;
+    let problem = refused(&[("request", "add login"), ("request", "again")]).await;
 
     assert_eq!(
         problem,
@@ -90,7 +89,7 @@ async fn an_input_given_twice_is_refused() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_required_input_left_out_is_refused() {
-    let problem = refused(&[("notes", "# Notes")], &[]).await;
+    let problem = refused(&[("notes", "# Notes")]).await;
 
     assert_eq!(
         problem,
@@ -102,8 +101,8 @@ async fn a_required_input_left_out_is_refused() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn an_empty_text_or_markdown_input_is_refused() {
-    let text = refused(&[("request", "  \n")], &[]).await;
-    let markdown = refused(&[("request", "add login"), ("notes", "")], &[]).await;
+    let text = refused(&[("request", "  \n")]).await;
+    let markdown = refused(&[("request", "add login"), ("notes", "")]).await;
 
     assert_eq!(
         text,
@@ -121,7 +120,7 @@ async fn an_empty_text_or_markdown_input_is_refused() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_json_input_that_does_not_parse_is_refused_with_the_parser_message() {
-    let problem = refused(&[("request", "add login"), ("settings", "{retries")], &[]).await;
+    let problem = refused(&[("request", "add login"), ("settings", "{retries")]).await;
 
     assert!(
         matches!(&problem, InputProblem::NotJson { name, detail } if name == "settings" && !detail.is_empty()),
@@ -131,25 +130,13 @@ async fn a_json_input_that_does_not_parse_is_refused_with_the_parser_message() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_git_ref_that_names_no_commit_is_refused_with_the_reference() {
-    let problem = refused(&[("request", "add login"), ("base", "no-such-branch")], &[]).await;
+    let problem = refused(&[("request", "add login"), ("base", "no-such-branch")]).await;
 
     assert_eq!(
         problem,
         InputProblem::Unresolved {
             name: named("base"),
             reference: named("no-such-branch"),
-        }
-    );
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn a_carried_artifact_the_workflow_does_not_declare_is_refused() {
-    let problem = refused(&[("request", "add login")], &["spec"]).await;
-
-    assert_eq!(
-        problem,
-        InputProblem::Unknown {
-            name: named("spec")
         }
     );
 }

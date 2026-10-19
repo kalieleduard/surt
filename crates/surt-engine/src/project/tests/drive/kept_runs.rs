@@ -6,10 +6,9 @@ use super::fixtures::{ACTOR, Feature};
 use super::integration::{integration_branch, task_branch_of};
 use super::kept::{ITEMS, kept};
 use super::planned::plan;
-use crate::project::{DriveOutcome, Error, NewRun, Refusal};
+use crate::project::{Carry, DriveOutcome, Error, NewRun, Refusal};
 use crate::runtime::Script;
 
-const REQUEST: &str = "request";
 const PLAN: &str = "plan.json";
 
 fn next_run() -> NewRun {
@@ -17,7 +16,7 @@ fn next_run() -> NewRun {
         subject: SUBJECT.to_owned(),
         workflow: "shipped".to_owned(),
         inputs: vec![input("base", "main")],
-        carried: vec![REQUEST.to_owned()],
+        carry: Carry::PreviousInputs,
         merge_into_base: None,
         actor: ACTOR.to_owned(),
     }

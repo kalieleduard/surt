@@ -4,12 +4,12 @@ use surt_engine::project::{AgentSlots, Conflict, ItemState, ItemStatus};
 
 use super::line;
 use crate::driving::{local_time, short};
-use crate::phase::TASK_STEP;
 use crate::states::item_state_name;
 use crate::symbols::{BLOCKED, ERROR, PAUSED, SEPARATOR, STARTED, STOPPED, SUCCESS, WAITING};
 
 const LIST_SEPARATOR: &str = ", ";
 const WORD_WIDTH: usize = 9;
+const TASK_STEP: &str = "implement";
 
 pub(super) fn render(text: &mut String, tasks: &[ItemStatus], slots: AgentSlots, paused: bool) {
     if tasks.is_empty() {

@@ -1,5 +1,6 @@
 use surt_engine::project::{MergeIntoBase, RunStatus};
 
+use crate::continue_run::new_run_command;
 use crate::message::Message;
 use crate::status::merge_into_base;
 
@@ -54,6 +55,6 @@ pub(crate) fn already_frozen(subject: &str, status: &RunStatus, flag: MergeFlag)
     ))
     .way(
         "to choose again, start a new run",
-        format!("surt feature {subject} --new-run {}", flag.name()),
+        format!("{} {}", new_run_command(subject), flag.name()),
     )
 }

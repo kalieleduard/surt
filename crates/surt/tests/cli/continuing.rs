@@ -66,6 +66,10 @@ fn surt(sandbox: &Sandbox, args: &[&str]) -> Run {
     sandbox.surt(&sandbox.repo(), args)
 }
 
+fn continued(sandbox: &Sandbox, name: &str) -> Run {
+    surt(sandbox, &["continue", name])
+}
+
 fn at_spec_gate(scripts: &[String]) -> Sandbox {
     let sandbox = project();
     sandbox.script(scripts);
@@ -74,7 +78,7 @@ fn at_spec_gate(scripts: &[String]) -> Sandbox {
 }
 
 #[test]
-fn spec_is_rejected_regenerated_approved_then_planned_up_to_the_manifest_gate() {
+fn spec_is_rejected_regenerated_approved_then_continued_up_to_the_manifest_gate() {
     let sandbox = project();
     sandbox.script(&[
         spec(1, "# Spec 1\n"),
@@ -90,10 +94,10 @@ fn spec_is_rejected_regenerated_approved_then_planned_up_to_the_manifest_gate() 
         &["reject", "add-login", "-m", "needs OAuth"],
     ));
     let executions_after_reject = count(&sandbox, "execution");
-    let resumed = ok(sandbox.feature(&[&name]));
+    let resumed = ok(continued(&sandbox, &name));
     let spec_two = working_copy(&sandbox, "spec.md");
     let approved = ok(surt(&sandbox, &["approve", "add-login", "--rev", "2"]));
-    let planned = ok(surt(&sandbox, &["plan", &name]));
+    let planned = ok(continued(&sandbox, &name));
 
     assert!(
         created.starts_with(&format!("✔ created {name}")),
@@ -104,7 +108,7 @@ fn spec_is_rejected_regenerated_approved_then_planned_up_to_the_manifest_gate() 
     assert_eq!(
         rejected,
         format!(
-            "✔ rejected spec rev 1 — the Spec Agent will redo it reading your reason\n  regenerate: surt feature {name}\n"
+            "✔ rejected spec rev 1 — spec will redo it reading your reason\n  regenerate: surt continue {name}\n"
         )
     );
     assert_eq!(executions_after_reject, "1");
@@ -114,7 +118,7 @@ fn spec_is_rejected_regenerated_approved_then_planned_up_to_the_manifest_gate() 
     assert_eq!(
         approved,
         format!(
-            "✔ approved spec rev 2 (agent) sha256:{}… by {ACTOR}\n  next: surt plan {name}\n",
+            "✔ approved spec rev 2 (agent) sha256:{}… by {ACTOR}\n  next: surt continue {name}\n",
             &sha[..SHORT_SHA_CHARS]
         )
     );
@@ -140,23 +144,18 @@ fn driving_prints_each_step_as_it_starts_and_finishes() {
 }
 
 #[test]
-fn resuming_an_approved_spec_points_at_plan_and_changes_nothing() {
-    let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n")]);
+fn continue_while_a_gate_waits_ends_at_that_gate_again_without_running_anything() {
+    let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n"), tasks(1, &["A"])]);
     let name = feature_name();
-    ok(surt(&sandbox, &["approve", &name]));
-    let events = count(&sandbox, "event");
 
-    let resumed = ok(sandbox.feature(&[&name]));
+    let waiting = ok(continued(&sandbox, &name));
 
-    assert_eq!(
-        resumed,
-        format!("✔ spec rev 1 already approved — next: surt plan {name}\n")
-    );
-    assert_eq!(count(&sandbox, "event"), events);
+    assert_eq!(waiting, awaiting("spec", 1));
+    assert_eq!(count(&sandbox, "execution"), "1");
 }
 
 #[test]
-fn a_rejected_manifest_names_its_task_files_and_plan_regenerates_it() {
+fn a_rejected_manifest_names_the_step_that_redoes_it_and_continue_regenerates_it() {
     let sandbox = at_spec_gate(&[
         spec(1, "# Spec 1\n"),
         tasks(1, &["A", "B", "C"]),
@@ -164,52 +163,23 @@ fn a_rejected_manifest_names_its_task_files_and_plan_regenerates_it() {
     ]);
     let name = feature_name();
     ok(surt(&sandbox, &["approve", &name]));
-    ok(surt(&sandbox, &["plan", &name]));
+    ok(continued(&sandbox, &name));
 
     let rejected = ok(surt(&sandbox, &["reject", &name, "-m", "C is too big"]));
-    let replanned = ok(surt(&sandbox, &["plan", &name]));
+    let replanned = ok(continued(&sandbox, &name));
     let approved = ok(surt(&sandbox, &["approve", &name]));
-    let again = ok(surt(&sandbox, &["plan", &name]));
 
     assert_eq!(
         rejected,
         format!(
-            "✔ rejected manifest rev 1 (with tasks/A.md … tasks/C.md)\n  regenerate: surt plan {name}\n"
+            "✔ rejected manifest rev 1 — plan-tasks will redo it reading your reason\n  regenerate: surt continue {name}\n"
         )
     );
     assert!(replanned.ends_with(&awaiting("manifest", 2)), "{replanned}");
     assert!(
-        approved.ends_with(&format!("\n  next: surt start {name}\n")),
+        approved.ends_with(&format!("\n  next: surt continue {name}\n")),
         "{approved}"
     );
-    assert_eq!(
-        again,
-        format!("✔ manifest rev 2 already approved — next: surt start {name}\n")
-    );
-}
-
-#[test]
-fn plan_refuses_until_the_spec_is_approved() {
-    let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n"), tasks(1, &["A"])]);
-    let name = feature_name();
-
-    let waiting = refused(surt(&sandbox, &["plan", &name]));
-    ok(surt(&sandbox, &["reject", &name, "-m", "no"]));
-    let rejected = refused(surt(&sandbox, &["plan", &name]));
-
-    assert_eq!(
-        waiting,
-        format!(
-            "✖ spec not approved yet (spec rev 1 awaiting approval)\n  next: surt approve {name}\n"
-        )
-    );
-    assert_eq!(
-        rejected,
-        format!(
-            "✖ spec not approved yet (spec rev 1 rejected)\n  regenerate: surt feature {name}\n"
-        )
-    );
-    assert_eq!(count(&sandbox, "execution"), "1");
 }
 
 #[test]
@@ -269,7 +239,7 @@ fn approving_with_no_gate_waiting_is_refused() {
 }
 
 #[test]
-fn a_feature_without_an_active_run_is_refused_by_plan_approve_and_reject() {
+fn a_subject_without_an_active_run_is_refused_by_approve_and_reject() {
     let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n")]);
     let name = feature_name();
     sandbox.execute(
@@ -277,7 +247,6 @@ fn a_feature_without_an_active_run_is_refused_by_plan_approve_and_reject() {
     );
 
     for args in [
-        vec!["plan", name.as_str()],
         vec!["approve", name.as_str()],
         vec!["reject", name.as_str(), "-m", "no"],
     ] {
@@ -292,7 +261,7 @@ fn a_feature_without_an_active_run_is_refused_by_plan_approve_and_reject() {
 }
 
 #[test]
-fn an_agent_that_keeps_failing_blocks_the_phase_with_exit_4() {
+fn an_agent_that_keeps_failing_blocks_the_run_with_exit_4() {
     let sandbox = project();
     sandbox.script(&[crash("spec", 1), crash("spec", 2), crash("spec", 3)]);
     let name = feature_name();
@@ -316,7 +285,7 @@ fn an_agent_that_keeps_failing_blocks_the_phase_with_exit_4() {
     assert!(
         run.stderr.ends_with(&format!(
             "⛔ spec blocked: attempts exhausted\n  attempt 3 failed (exit_code): the agent exited with code 1\n  \
-             inspect: surt inspect {execution}\n  logs: surt logs {execution}\n  resume: surt feature {name}\n"
+             inspect: surt inspect {execution}\n  logs: surt logs {execution}\n  resume: surt continue {name}\n"
         )),
         "{}",
         run.stderr
@@ -350,9 +319,9 @@ fn an_edited_spec_is_recorded_by_resuming_and_approved_as_a_human_edit() {
         .join("spec.md");
     fs::write(&spec_file, "# Spec 1, edited\n").expect("the edit is written");
 
-    let resumed = ok(sandbox.feature(&[&name]));
+    let resumed = ok(continued(&sandbox, &name));
     fs::remove_file(&spec_file).expect("the spec is deleted");
-    let restored = ok(sandbox.feature(&[&name]));
+    let restored = ok(continued(&sandbox, &name));
     let approved = ok(surt(&sandbox, &["approve", &name]));
 
     assert_eq!(
@@ -381,7 +350,7 @@ fn an_edit_to_a_pinned_spec_is_refused_until_the_edited_file_is_removed() {
     let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n"), tasks(1, &["A"])]);
     let name = feature_name();
     ok(surt(&sandbox, &["approve", &name]));
-    ok(surt(&sandbox, &["plan", &name]));
+    ok(continued(&sandbox, &name));
     let spec_file = sandbox
         .dot_surt()
         .join("features")
@@ -390,7 +359,7 @@ fn an_edit_to_a_pinned_spec_is_refused_until_the_edited_file_is_removed() {
     fs::write(&spec_file, "# Spec 1, edited after planning\n").expect("the edit is written");
 
     let approve = refused(surt(&sandbox, &["approve", &name]));
-    let plan = refused(surt(&sandbox, &["plan", &name]));
+    let resumed = refused(continued(&sandbox, &name));
     fs::remove_file(&spec_file).expect("the edited spec is removed");
     let approved = ok(surt(&sandbox, &["approve", &name]));
 
@@ -398,7 +367,7 @@ fn an_edit_to_a_pinned_spec_is_refused_until_the_edited_file_is_removed() {
         "✖ spec.md changed, but spec rev 1 is pinned (a later step already read it)\n  the edit was not recorded\n  undo: surt restore {name} spec\n"
     );
     assert_eq!(approve, refusal);
-    assert_eq!(plan, refusal);
+    assert_eq!(resumed, refusal);
     assert!(
         approved.starts_with(&format!(
             "⚠ .surt/features/{name}/spec.md was missing; recreated from the latest revision\n✔ approved manifest rev 1 (agent)"

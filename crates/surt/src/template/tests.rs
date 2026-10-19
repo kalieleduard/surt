@@ -10,9 +10,11 @@ use surt_engine::project::check_workflow;
 use tempfile::TempDir;
 use toml::{Table, Value};
 
-use super::{
-    BASE_INPUT, FEATURE_TEMPLATE, FEATURE_WORKFLOW, REQUEST_INPUT, TEMPLATES, Template, named,
-};
+use super::{FEATURE_TEMPLATE, TEMPLATES, Template, named};
+
+const FEATURE_WORKFLOW: &str = "feature";
+const REQUEST_INPUT: &str = "request";
+const BASE_INPUT: &str = "base";
 
 fn feature() -> Template {
     named(FEATURE_TEMPLATE).expect("the feature template")

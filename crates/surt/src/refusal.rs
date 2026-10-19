@@ -8,6 +8,7 @@ use std::path::Path;
 
 use surt_engine::project::{Candidate, Refusal, RunState};
 
+use crate::continue_run::continue_command;
 use crate::message::Message;
 use crate::retry::quoted;
 use crate::status::{STATE_SEPARATOR, state_name, state_names};
@@ -65,7 +66,7 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
         }
         Refusal::ActiveRunExists { subject } => {
             Message::new(format!("{subject} already has an active run"))
-                .way("resume", format!("surt feature {subject}"))
+                .way("resume", continue_command(subject))
         }
         Refusal::UnrecordedEditsBlockNewRun {
             subject,
@@ -158,14 +159,14 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             found.as_deref().map_or("no branch", short)
         ))
         .way("fix", format!("git branch -f {branch} {expected}"))
-        .way("resume", format!("surt start {subject}")),
+        .way("resume", continue_command(subject)),
         Refusal::IntegrationBranchCheckedOut {
             subject,
             branch,
             path,
         } => Message::new(format!("{branch} is checked out in {}", path.display()))
             .way("fix", format!("git -C {} switch --detach", path.display()))
-            .way("resume", format!("surt start {subject}")),
+            .way("resume", continue_command(subject)),
         Refusal::UnknownArtifact {
             subject,
             artifact,

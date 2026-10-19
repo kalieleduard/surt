@@ -206,8 +206,8 @@ fn the_detail_names_the_run_among_several_and_every_task_state_unattended_agent_
              D  ⏸ pending   waits for B, C\n    \
              E  ● build     iter 2 · attempt 1 · checks: test\n  \
              ⛔ task B check iter 2 blocked: iterations exhausted\n  \
-             resume: surt plan {SUBJECT}\n  \
-             ⚠ task A build iter 2 still running unattended (pid 50122) — stopped on next: surt plan {SUBJECT}\n  \
+             resume: surt continue {SUBJECT}\n  \
+             ⚠ task A build iter 2 still running unattended (pid 50122) — stopped on next: surt continue {SUBJECT}\n  \
              ⟳ task B integrate   surt/{SUBJECT}: 9e04b7d → 3c1aa20 (pending)\n"
         )
     );
@@ -222,7 +222,7 @@ fn a_cleaned_terminal_run_shows_what_its_cleanup_kept_and_no_driver_column() {
         format!(
             "{SUBJECT} · run 1   CANCELLED\n  \
              branch   surt/{SUBJECT} @ 3c1aa20 · merge into base: never\n  \
-             tasks    manifest rev 1 (human) ✔ approved · 2 tasks\n  \
+             manifest rev 1 (human) ✔ approved · 2 tasks\n  \
              cleanup  done\n           \
              kept surt/{SUBJECT} — moved outside surt\n"
         )
@@ -300,8 +300,8 @@ fn the_detail_in_ascii_mode_replaces_every_glyph() {
              D  [paused] pending   waits for B, C\n    \
              E  * build     iter 2 | attempt 1 | checks: test\n  \
              [blocked] task B check iter 2 blocked: iterations exhausted\n  \
-             resume: surt plan {SUBJECT}\n  \
-             [warn] task A build iter 2 still running unattended (pid 50122) - stopped on next: surt plan {SUBJECT}\n  \
+             resume: surt continue {SUBJECT}\n  \
+             [warn] task A build iter 2 still running unattended (pid 50122) - stopped on next: surt continue {SUBJECT}\n  \
              [integrating] task B integrate   surt/{SUBJECT}: 9e04b7d -> 3c1aa20 (pending)\n"
         )
     );

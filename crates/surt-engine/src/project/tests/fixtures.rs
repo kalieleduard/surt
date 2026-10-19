@@ -11,7 +11,7 @@ use tempfile::TempDir;
 
 use crate::project::layout::Layout;
 use crate::project::{Access, SurtHome, open_store};
-use crate::project::{Config, GlobalConfig, NewRun, Project};
+use crate::project::{Carry, Config, GlobalConfig, NewRun, Project};
 #[cfg(feature = "test-support")]
 use crate::store::Faults;
 pub(super) use catalog::{
@@ -32,7 +32,7 @@ pub(super) fn new_run(workflow: &str) -> NewRun {
         subject: SUBJECT.to_owned(),
         workflow: workflow.to_owned(),
         inputs: vec![input("request", REQUEST)],
-        carried: Vec::new(),
+        carry: Carry::Nothing,
         merge_into_base: None,
         actor: "dev@example.com".to_owned(),
     }

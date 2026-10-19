@@ -1,8 +1,8 @@
 use std::fs;
 use std::path::Path;
 
+use crate::delivering::feature_name;
 use crate::scripts::{build, crash_in, review, ship, spec, tasks};
-use crate::start::feature_name;
 use crate::status::{assert_unchanged, hashes};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
@@ -37,8 +37,8 @@ pub fn delivered_after_a_rejected_review(name: &str) -> Sandbox {
         &sandbox,
         &["reject", name, "-m", "needs OAuth\nand more"],
     ));
-    ok(sandbox.feature(&[name]));
-    for command in ["approve", "plan", "approve", "start"] {
+    ok(sandbox.continue_run(&[name]));
+    for command in ["approve", "continue", "approve", "continue"] {
         ok(surt(&sandbox, &[command, name]));
     }
     sandbox

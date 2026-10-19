@@ -1,7 +1,7 @@
 use std::fs;
 
+use crate::delivering::feature_name;
 use crate::scripts::spec;
-use crate::start::feature_name;
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const SHORT_SHA_CHARS: usize = 7;
@@ -51,12 +51,12 @@ fn a_cancelled_feature_starts_over_as_run_two_and_run_one_stays_readable() {
     let sandbox = cancelled();
     let (branch, short) = head(&sandbox);
 
-    let started = surt(&sandbox, &["feature", &name, "--new-run"]);
+    let started = surt(&sandbox, &["continue", &name, "--new-run"]);
 
     assert_eq!(started.code, Some(0), "{}", started.stderr);
     assert!(
         started.stderr.starts_with(&format!(
-            "✔ run 2 of {name}   base {branch} @ {short}   branch surt/{name}.2\n"
+            "✔ run 2 of {name}   base: {branch} @ {short}   branch surt/{name}.2\n"
         )),
         "{}",
         started.stderr
@@ -97,7 +97,7 @@ fn a_feature_without_an_active_run_refuses_and_suggests_a_new_run() {
     let name = feature_name();
     let sandbox = cancelled();
 
-    let refused = surt(&sandbox, &["feature", &name]);
+    let refused = surt(&sandbox, &["continue", &name]);
 
     assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
     assert!(
@@ -109,7 +109,7 @@ fn a_feature_without_an_active_run_refuses_and_suggests_a_new_run() {
     );
     assert!(
         refused.stderr.ends_with(&format!(
-            ")\n  start run 2 from the same request: surt feature {name} --new-run\n"
+            ")\n  start run 2 with the same inputs: surt continue {name} --new-run\n"
         )),
         "{}",
         refused.stderr
@@ -122,12 +122,12 @@ fn a_new_run_is_refused_while_the_feature_has_an_active_run() {
     let name = feature_name();
     let sandbox = at_the_spec_gate();
 
-    let refused = surt(&sandbox, &["feature", &name, "--new-run"]);
+    let refused = surt(&sandbox, &["continue", &name, "--new-run"]);
 
     assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
     assert_eq!(
         refused.stderr,
-        format!("✖ {name} already has an active run\n  resume: surt feature {name}\n")
+        format!("✖ {name} already has an active run\n  resume: surt continue {name}\n")
     );
     assert_eq!(roots(&sandbox), "active");
 }
@@ -144,7 +144,7 @@ fn a_new_run_is_refused_while_the_working_copy_keeps_an_unrecorded_edit() {
     fs::write(&spec, "# Spec 1, edited\n").expect("the edit is written");
     ok(surt(&sandbox, &["cancel", "--yes", &name]));
 
-    let refused = surt(&sandbox, &["feature", &name, "--new-run"]);
+    let refused = surt(&sandbox, &["continue", &name, "--new-run"]);
 
     assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
     assert_eq!(
@@ -156,7 +156,7 @@ fn a_new_run_is_refused_while_the_working_copy_keeps_an_unrecorded_edit() {
     );
     assert_eq!(roots(&sandbox), "cancelled");
     fs::remove_file(&spec).expect("the edit is moved away");
-    ok(surt(&sandbox, &["feature", &name, "--new-run"]));
+    ok(surt(&sandbox, &["continue", &name, "--new-run"]));
     assert_eq!(roots(&sandbox), "cancelled,active");
 }
 
@@ -166,7 +166,7 @@ fn a_new_run_first_finishes_the_cleanup_of_the_previous_run() {
     let sandbox = cancelled();
     sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
 
-    let started = ok(surt(&sandbox, &["feature", &name, "--new-run"]));
+    let started = ok(surt(&sandbox, &["continue", &name, "--new-run"]));
 
     assert!(
         started.starts_with(&format!(
@@ -187,7 +187,7 @@ fn a_new_run_first_finishes_the_cleanup_of_the_previous_run() {
 fn a_new_run_of_an_unknown_feature_is_refused() {
     let sandbox = at_the_spec_gate();
 
-    let refused = surt(&sandbox, &["feature", "20200101-nothing", "--new-run"]);
+    let refused = surt(&sandbox, &["continue", "20200101-nothing", "--new-run"]);
 
     assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
     assert!(

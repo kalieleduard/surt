@@ -1,8 +1,8 @@
 use std::fs;
 use std::path::PathBuf;
 
+use crate::delivering::{feature_name, planned};
 use crate::scripts::{build, review, ship, tasks};
-use crate::start::{feature_name, planned};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 #[cfg(unix)]
@@ -50,9 +50,9 @@ fn a_pinned_edit_refusal_is_undone_with_restore_yes_and_the_run_continues() {
     let name = feature_name();
     let sandbox = pinned_and_edited(&name);
 
-    let refused = surt(&sandbox, &["start", &name]);
+    let refused = surt(&sandbox, &["continue", &name]);
     let restored = surt(&sandbox, &["restore", &name, "spec", "--yes"]);
-    let started = surt(&sandbox, &["start", &name]);
+    let started = surt(&sandbox, &["continue", &name]);
 
     assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
     assert!(

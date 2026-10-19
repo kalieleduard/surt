@@ -23,3 +23,12 @@ fn unknown_flag_exits_with_usage_error() {
 
     assert_eq!(status.code(), Some(USAGE_ERROR_EXIT_CODE));
 }
+
+#[test]
+fn the_phase_commands_no_longer_exist() {
+    for command in ["feature", "plan", "start"] {
+        let status = run_surt(&[command, "add-login"]);
+
+        assert_eq!(status.code(), Some(USAGE_ERROR_EXIT_CODE), "{command}");
+    }
+}

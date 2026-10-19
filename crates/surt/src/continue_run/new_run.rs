@@ -1,64 +1,60 @@
-use surt_engine::project::{Commit, NewRun, Project, RunSelector, RunStatus, StatusScope};
+use surt_engine::project::{
+    Carry, Commit, Error, NewRun, Project, Refusal, RunSelector, RunStatus, StatusScope, Subject,
+};
 
+use super::{drive, finish_cleanup, new_run_command};
 use crate::driving::local_time;
 use crate::failure::Failure;
 use crate::merge_flag::{MergeFlag, with_merge_line};
 use crate::message::Message;
-use crate::phase::{SPEC, finish_cleanup};
 use crate::run::short_commit;
 use crate::runtime;
 use crate::status::state_names;
-use crate::template::{BASE_INPUT, FEATURE_WORKFLOW, REQUEST_INPUT};
 
-const COMMAND: &str = "feature";
+const FIELD_GAP: &str = "   ";
 
 pub(super) async fn start(
     project: &Project,
-    reference: &str,
-    base: Option<&str>,
+    subject: Subject,
+    inputs: Vec<(String, String)>,
     merge: Option<MergeFlag>,
 ) -> Result<(), Failure> {
-    let subject = project.resolve_subject(reference).await?;
-    finish_cleanup(project, &subject, COMMAND).await?;
+    finish_cleanup(project, &subject).await?;
     let name = subject.name;
-    let mut new_run = next_run(&name, base, project.actor().await?);
-    new_run.merge_into_base = merge.map(MergeFlag::mode);
+    let new_run = NewRun {
+        workflow: latest_workflow(project, &name).await?,
+        subject: name.clone(),
+        inputs,
+        carry: Carry::PreviousInputs,
+        merge_into_base: merge.map(MergeFlag::mode),
+        actor: project.actor().await?,
+    };
     let runtime = runtime::select(project)?;
     let created = project.create_run(new_run).await?;
     let ordinal = current(project, &name)
         .await?
         .map_or(0, |status| status.run);
-    let base = created
-        .git_refs
-        .iter()
-        .find(|(input, _)| input == BASE_INPUT)
-        .map(|(_, commit)| commit);
     with_merge_line(
-        started(&name, ordinal, base),
+        started(&name, ordinal, &created.git_refs),
         created.merge_into_base,
         merge,
     )
     .print_success();
-    SPEC.drive(project, &name, &created.run, &runtime).await
+    drive(project, &name, &created.run, &runtime).await
+}
+
+async fn latest_workflow(project: &Project, subject: &str) -> Result<String, Failure> {
+    project.latest_workflow(subject).await?.ok_or_else(|| {
+        Failure::from(Error::Refused(Refusal::UnknownSubject {
+            reference: subject.to_owned(),
+        }))
+    })
 }
 
 pub(super) async fn suggested(project: &Project, subject: &str) -> Failure {
     match current(project, subject).await {
         Ok(latest) => Failure::Refused(no_active_run(subject, latest.as_ref())),
         Err(failure) => failure,
-    }
-}
-
-fn next_run(subject: &str, base: Option<&str>, actor: String) -> NewRun {
-    NewRun {
-        subject: subject.to_owned(),
-        workflow: FEATURE_WORKFLOW.to_owned(),
-        inputs: base
-            .map(|base| vec![(BASE_INPUT.to_owned(), base.to_owned())])
-            .unwrap_or_default(),
-        carried: vec![REQUEST_INPUT.to_owned()],
-        merge_into_base: None,
-        actor,
     }
 }
 
@@ -72,13 +68,13 @@ pub(super) async fn current(
     Ok(statuses.into_iter().next())
 }
 
-fn started(subject: &str, run: u32, base: Option<&Commit>) -> Message {
-    let base = base
-        .map(|commit| format!("   base {}", short_commit(commit)))
-        .unwrap_or_default();
-    Message::new(format!(
-        "run {run} of {subject}{base}   branch surt/{subject}.{run}"
-    ))
+fn started(subject: &str, run: u32, git_refs: &[(String, Commit)]) -> Message {
+    let mut headline = format!("run {run} of {subject}");
+    for (input, commit) in git_refs {
+        headline.push_str(&format!("{FIELD_GAP}{input}: {}", short_commit(commit)));
+    }
+    headline.push_str(&format!("{FIELD_GAP}branch surt/{subject}.{run}"));
+    Message::new(headline)
 }
 
 fn no_active_run(subject: &str, latest: Option<&RunStatus>) -> Message {
@@ -97,7 +93,7 @@ fn no_active_run(subject: &str, latest: Option<&RunStatus>) -> Message {
         state_names(&latest.states).to_lowercase()
     ))
     .way(
-        &format!("start run {} from the same request", latest.runs + 1),
-        format!("surt feature {subject} --new-run"),
+        &format!("start run {} with the same inputs", latest.runs + 1),
+        new_run_command(subject),
     )
 }

@@ -1,7 +1,7 @@
 use std::fs;
 
+use crate::delivering::{feature_name, planned};
 use crate::scripts::{build, crash_in, review, ship, spec, tasks};
-use crate::start::{feature_name, planned};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const BLOCKED_EXIT_CODE: i32 = 4;
@@ -43,7 +43,7 @@ fn cancelled_with_a_blocked_task(name: &str) -> Sandbox {
             crash_in("B/build", 1, 3),
         ],
     );
-    let blocked = surt(&sandbox, &["start", name]);
+    let blocked = surt(&sandbox, &["continue", name]);
     assert_eq!(blocked.code, Some(BLOCKED_EXIT_CODE), "{}", blocked.stderr);
     ok(surt(&sandbox, &["cancel", "--yes", name]));
     sandbox
@@ -57,11 +57,11 @@ fn delivered_as_run_two(sandbox: &Sandbox, name: &str) {
         review("A", 1, "approved"),
         ship(),
     ]);
-    ok(surt(sandbox, &["feature", name, "--new-run"]));
+    ok(surt(sandbox, &["continue", name, "--new-run"]));
     ok(surt(sandbox, &["approve", name]));
-    ok(surt(sandbox, &["plan", name]));
+    ok(surt(sandbox, &["continue", name]));
     ok(surt(sandbox, &["approve", name]));
-    ok(surt(sandbox, &["start", name]));
+    ok(surt(sandbox, &["continue", name]));
 }
 
 #[test]

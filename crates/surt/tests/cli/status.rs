@@ -6,8 +6,8 @@ use jiff::Timestamp;
 use jiff::tz::TimeZone;
 use sha2::{Digest, Sha256};
 
+use crate::delivering::{feature_name, planned};
 use crate::scripts::{build, crash_in, review, ship, spec, tasks};
-use crate::start::{feature_name, planned};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const BLOCKED_EXIT_CODE: i32 = 4;
@@ -60,7 +60,7 @@ pub fn at_the_manifest_gate(name: &str) -> Sandbox {
     let sandbox = project(&[spec(1, "# Spec 1\n"), tasks(1, &["A", "B"])]);
     ok(sandbox.run_feature("add login", &[]));
     ok(surt(&sandbox, &["approve", name]));
-    ok(surt(&sandbox, &["plan", name]));
+    ok(surt(&sandbox, &["continue", name]));
     sandbox
 }
 
@@ -100,7 +100,7 @@ fn status_of_a_feature_at_a_gate_lists_every_covered_file_and_each_unrecorded_ed
             "{name} · run 1   AWAITING APPROVAL   (no driver)\n  \
              base     {branch} @ {head}\n  \
              spec     rev 1 (agent) ✔ approved by tester@example.com {approved_at}\n  \
-             tasks    manifest rev 1 (agent) ⏸ awaiting approval — approving covers the manifest and all 2 task files:\n           \
+             manifest rev 1 (agent) ⏸ awaiting approval — approving covers the manifest and all 2 task files:\n           \
              .surt/features/{name}/manifest.json\n           \
              .surt/features/{name}/tasks/A.md\n           \
              .surt/features/{name}/tasks/B.md\n           \
@@ -127,7 +127,7 @@ pub fn with_a_blocked_task(name: &str) -> Sandbox {
             crash_in("B/build", 1, 3),
         ],
     );
-    let run = surt(&sandbox, &["start", name]);
+    let run = surt(&sandbox, &["continue", name]);
     assert_eq!(run.code, Some(BLOCKED_EXIT_CODE), "{}", run.stderr);
     sandbox
 }
@@ -181,7 +181,7 @@ fn status_of_a_blocked_feature_shows_each_task_and_how_to_resume_each_blocked_st
              base     {branch} @ {head}\n  \
              branch   surt/{name} @ {tip} · merge into base: never\n  \
              spec     rev 1 (agent) ✔ approved by tester@example.com {spec_at}\n  \
-             tasks    manifest rev 1 (agent) ✔ approved by tester@example.com {manifest_at} · 2 tasks\n  \
+             manifest rev 1 (agent) ✔ approved by tester@example.com {manifest_at} · 2 tasks\n  \
              implement\n    \
              A  ✔ merged    iter 1 · as {}\n    \
              B  ⛔ blocked   build iter 1 · attempt 3\n  \
@@ -189,7 +189,7 @@ fn status_of_a_blocked_feature_shows_each_task_and_how_to_resume_each_blocked_st
              attempt 3 failed (exit_code): the agent exited with code 1\n     \
              inspect: surt inspect {execution}\n     \
              logs: surt logs {execution}\n  \
-             resume: surt start {name}\n",
+             resume: surt continue {name}\n",
             short(&merged)
         )
     );
@@ -205,7 +205,7 @@ pub fn delivered(name: &str) -> Sandbox {
             ship(),
         ],
     );
-    ok(surt(&sandbox, &["start", name]));
+    ok(surt(&sandbox, &["continue", name]));
     sandbox
 }
 
@@ -225,7 +225,7 @@ fn status_all_adds_terminal_runs_and_shows_a_pending_cleanup_with_how_to_retry_i
     let cleaned = ok(surt(&sandbox, &["status", "--all"]));
     fs::write(&blocker, "not a directory\n").expect("a file in the way");
     sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
-    ok(surt(&sandbox, &["start", &name]));
+    ok(surt(&sandbox, &["continue", &name]));
     let pending = ok(surt(&sandbox, &["status", "--all"]));
     let detail = ok(surt(&sandbox, &["status", &name]));
 
@@ -262,7 +262,7 @@ fn status_all_adds_terminal_runs_and_shows_a_pending_cleanup_with_how_to_retry_i
         "{detail}"
     );
     assert!(
-        detail.ends_with(&format!(")\n           retry: surt start {name}\n")),
+        detail.ends_with(&format!(")\n           retry: surt continue {name}\n")),
         "{detail}"
     );
 }

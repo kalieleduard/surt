@@ -1,5 +1,5 @@
+use crate::delivering::feature_name;
 use crate::scripts::spec;
-use crate::start::feature_name;
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const USAGE_EXIT_CODE: i32 = 2;
@@ -109,7 +109,7 @@ fn a_new_run_freezes_the_flag_it_was_given() {
     let name = feature_name();
     let sandbox = cancelled();
 
-    let merged = ok(surt(&sandbox, &["feature", &name, "--new-run", "--merge"]));
+    let merged = ok(surt(&sandbox, &["continue", &name, "--new-run", "--merge"]));
 
     assert!(merged.starts_with("✔ run 2 of "), "{merged}");
     assert_eq!(
@@ -128,7 +128,7 @@ fn a_new_run_freezes_no_merge_over_the_project_file() {
 
     let kept_off = ok(surt(
         &sandbox,
-        &["feature", &name, "--new-run", "--no-merge"],
+        &["continue", &name, "--new-run", "--no-merge"],
     ));
 
     assert_eq!(
@@ -146,14 +146,14 @@ fn either_flag_on_resume_refuses_naming_the_frozen_value_and_the_new_run() {
     ok(sandbox.run_feature("add login", &["--merge"]));
 
     for flag in ["--merge", "--no-merge"] {
-        let resumed = sandbox.feature(&[&name, flag]);
+        let resumed = sandbox.continue_run(&[&name, flag]);
 
         assert_eq!(resumed.code, Some(REFUSED_EXIT_CODE), "{}", resumed.stderr);
         assert_eq!(
             resumed.stderr,
             format!(
                 "✖ run 1 of {name} already froze merge_into_base = \"ff-only\"\n  \
-                 to choose again, start a new run: surt feature {name} --new-run {flag}\n"
+                 to choose again, start a new run: surt continue {name} --new-run {flag}\n"
             )
         );
     }
@@ -165,14 +165,14 @@ fn either_flag_on_a_subject_without_an_active_run_refuses_naming_the_latest_run(
     let name = feature_name();
     let sandbox = cancelled();
 
-    let resumed = sandbox.feature(&[&name, "--merge"]);
+    let resumed = sandbox.continue_run(&[&name, "--merge"]);
 
     assert_eq!(resumed.code, Some(REFUSED_EXIT_CODE), "{}", resumed.stderr);
     assert_eq!(
         resumed.stderr,
         format!(
             "✖ run 1 of {name} already froze merge_into_base = \"never\"\n  \
-             to choose again, start a new run: surt feature {name} --new-run --merge\n"
+             to choose again, start a new run: surt continue {name} --new-run --merge\n"
         )
     );
 }

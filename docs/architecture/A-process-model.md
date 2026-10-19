@@ -8,26 +8,32 @@ The engine has one primitive: `drive(root_run_id)`. It advances a root Workflow 
 
 `drive` keeps no global state. All state it needs to continue lives in SQLite and on disk, so any Driver can pick up a run that another Driver left, whether it stopped cleanly or not.
 
-### Commands of the built-in feature workflow
+### Commands
 
-Each command owns one phase. A command that drives runs in the foreground. It refuses with an actionable message when its precondition is not met. Running the same command again continues from where it stopped. There is no separate `resume` command in v1.
+Two commands drive, for any workflow under `.surt/workflows/`: `surt run` creates a run and `surt continue` drives it again. A command that drives runs in the foreground until nothing is left that can run without a human, then returns. Running `surt continue` again continues from where the run stopped; it is the `resume` of the brief. No command knows a workflow's steps, phases or gates.
 
 | Command | Drives? | Precondition | Runs until |
 |---|---|---|---|
-| `surt run feature --input request="<what to build>"` | yes | no active run for a Subject of the same slug | spec Approval Gate |
-| `surt approve <feature>` | **no**, it only records the Approval | an Approval Gate is waiting | returns immediately |
-| `surt plan <feature>` | yes | spec Revision approved | task-manifest Approval Gate |
-| `surt start <feature>` | yes | task-manifest Revision approved | Shipper delivers the final integrated branch, then the opt-in fast-forward into the Base runs ([A. Git Integration](A-git-integration.md)) (run terminal) |
-| `surt stop <feature>` | no (see [External control](#external-control)) | a Driver is live | Interruption requested |
-| `surt cancel <feature>` | no (see [External control](#external-control)) | run not terminal | Cancellation recorded |
+| `surt run <workflow> [--input k=v]…` | yes | no active run for a Subject of the same slug (unless `--new`) | the first Approval Gate, a block, or the end |
+| `surt continue <subject>` | yes | the Subject has an active run (or a pending cleanup, which it finishes) | the next Approval Gate, a block, or the end |
+| `surt continue <subject> --new-run [--input k=v]…` | yes | the Subject has no active run | as `surt run`, for run `N+1` of the workflow the latest run used |
+| `surt approve <subject>` / `surt reject <subject>` | **no**, they only record the Approval | an Approval Gate is waiting | return immediately |
+| `surt stop <subject>` | no (see [External control](#external-control)) | a Driver is live | Interruption requested |
+| `surt cancel <subject>` | no (see [External control](#external-control)) | run not terminal | Cancellation recorded |
+
+There are no gate entry checks. A `continue` while a gate waits ends at that gate again and runs nothing; after a rejection the step that produced the artifact runs again; after an approval the run goes past the gate. For the feature workflow the sequence is:
 
 ```
-$ surt start 20261015-add-login
-✖ tasks not approved yet (manifest rev 1 awaiting approval)
-  review manifest rev 1 and its Task Markdown files, then: surt approve 20261015-add-login
+$ surt run feature --input request="add login"      # spec, then the spec gate
+$ surt approve add-login
+✔ approved spec rev 1 (agent) sha256:3f9a2c… by you@example.com
+  next: surt continue 20261015-add-login
+$ surt continue add-login                           # plan-tasks, then the manifest gate
+$ surt approve add-login
+$ surt continue add-login                           # implement, snapshot, ship, merge
 ```
 
-All three driving commands call the same `drive`. The phase boundaries come from the Approval Gates declared in the workflow, not from engine knowledge of specs or tasks. `surt approve --no-run` does not exist, because `approve` never drives.
+Every driving command calls the same `drive`. Where a run pauses comes from the Approval Gates declared in the workflow, not from engine or CLI knowledge of specs or tasks. `surt approve --no-run` does not exist, because `approve` never drives.
 
 ## Ownership: one Driver per root run
 
@@ -59,7 +65,7 @@ Rationale and rejected alternatives: [ADR 0002](../adr/0002-file-locks-over-sqli
 
 ```
 ^C stopping 2 executions… finishing integrate (task B)… (Ctrl-C again to force)
-✔ stopped. resumable: surt start 20261015-add-login
+✔ stopped. resumable: surt continue 20261015-add-login
 ```
 
 Agent processes run in their own process group (Unix) or with `CREATE_NEW_PROCESS_GROUP` (Windows). So the terminal's Ctrl-C reaches only the Driver, which then directs the stop.

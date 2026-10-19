@@ -220,8 +220,8 @@ impl Sandbox {
         self.surt(&self.repo(), &all)
     }
 
-    pub fn feature(&self, args: &[&str]) -> Run {
-        let mut all = vec!["feature"];
+    pub fn continue_run(&self, args: &[&str]) -> Run {
+        let mut all = vec!["continue"];
         all.extend_from_slice(args);
         self.surt(&self.repo(), &all)
     }

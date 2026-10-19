@@ -1,6 +1,6 @@
 use super::fixtures::Catalog;
 use super::fixtures::{ProjectDir, agent, default_config, input};
-use crate::project::NewRun;
+use crate::project::{Carry, NewRun};
 
 const CYCLE: &str = r#"
 schema = 1
@@ -102,7 +102,7 @@ async fn a_build_check_review_integrate_loop_is_accepted_and_only_its_loop_start
             subject: "20261017-task-a".to_owned(),
             workflow: "cycle".to_owned(),
             inputs: vec![input("item", r#"{"key": "A"}"#)],
-            carried: Vec::new(),
+            carry: Carry::Nothing,
             merge_into_base: None,
             actor: "dev@example.com".to_owned(),
         })

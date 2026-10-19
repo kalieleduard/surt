@@ -4,12 +4,12 @@ mod overview;
 
 use std::path::Path;
 
-use surt_engine::project::{GateStatus, Project, RunSelector, RunState, RunStatus, StatusScope};
+use surt_engine::project::{Project, RunSelector, RunState, RunStatus, StatusScope};
 
 pub(crate) use detail::merge_into_base;
 
+use crate::continue_run::continue_command;
 use crate::failure::Failure;
-use crate::phase;
 use crate::symbols::printable;
 
 #[derive(clap::Args)]
@@ -61,6 +61,11 @@ pub(crate) fn run_selector(run: Option<u32>) -> RunSelector {
 }
 
 pub(crate) const STATE_SEPARATOR: &str = " + ";
+const INDEX_FILES: usize = 1;
+
+pub(crate) fn item_files(files: usize) -> Option<usize> {
+    (files > INDEX_FILES).then(|| files - INDEX_FILES)
+}
 
 pub(crate) fn state_name(state: RunState) -> &'static str {
     match state {
@@ -82,12 +87,7 @@ pub(crate) fn state_names(states: &[RunState]) -> String {
 }
 
 pub(crate) fn resume_command(status: &RunStatus) -> String {
-    phase::current_command(&status.subject, |gate| {
-        status
-            .gates
-            .iter()
-            .any(|view| view.step == gate && matches!(view.status, GateStatus::Approved { .. }))
-    })
+    continue_command(&status.subject)
 }
 
 #[cfg(test)]

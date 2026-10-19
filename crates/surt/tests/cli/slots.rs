@@ -6,8 +6,8 @@ use std::time::{Duration, Instant};
 use jiff::Timestamp;
 use serde_json::{Value, json};
 
+use crate::delivering::{feature_name, planned_with};
 use crate::scripts::{tasks, wait_until_stopped};
-use crate::start::{feature_name, planned_with};
 use crate::status::hashes;
 use crate::support::Sandbox;
 
@@ -22,7 +22,7 @@ fn second_feature(sandbox: &Sandbox) -> String {
     for args in [
         vec!["run", "feature", "--input", "request=fix cache"],
         vec!["approve", &name],
-        vec!["plan", &name],
+        vec!["continue", &name],
         vec!["approve", &name],
     ] {
         let run = sandbox.surt(&sandbox.repo(), &args);
@@ -38,7 +38,7 @@ struct Driver {
 
 impl Driver {
     fn start(sandbox: &Sandbox, name: &str) -> Driver {
-        let mut child = sandbox.spawn(&["start", name]);
+        let mut child = sandbox.spawn(&["continue", name]);
         let stderr = BufReader::new(child.stderr.take().expect("the piped stderr"));
         Driver { child, stderr }
     }
