@@ -1,11 +1,11 @@
 use super::{AgentContract, Auth, Format, OutputSpec, Profile, RuntimeKind};
-use crate::workflow::catalog::AgentAssets;
 use crate::workflow::error::Problem;
+use crate::workflow::sources::SchemaSource;
 
 const SCHEMA_VERSION: i64 = 1;
 
 impl AgentContract {
-    pub(super) fn check(&self, id: &str, assets: &AgentAssets) -> Result<(), Problem> {
+    pub(super) fn check(&self, id: &str, schemas: &impl SchemaSource) -> Result<(), Problem> {
         if self.schema != SCHEMA_VERSION {
             return Err(Problem::UnsupportedSchema { found: self.schema });
         }
@@ -18,7 +18,7 @@ impl AgentContract {
         self.profile.check()?;
         match self
             .schema_paths()
-            .find(|path| assets.schema(path).is_none())
+            .find(|path| schemas.schema_text(path).is_none())
         {
             Some(path) => Err(Problem::MissingAsset {
                 path: path.to_owned(),
