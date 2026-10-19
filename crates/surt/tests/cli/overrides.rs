@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Path;
 
 use crate::scripts::{build, review, ship, spec, tasks};
 use crate::start::feature_name;
@@ -15,9 +16,13 @@ fn project(scripts: &[String]) -> Sandbox {
 }
 
 fn write_local(sandbox: &Sandbox, agent: &str, text: &str) {
-    let dir = sandbox.dot_surt().join("agents").join(agent);
-    fs::create_dir_all(&dir).expect("the agent directory");
-    fs::write(dir.join("agent.toml"), text).expect("the local agent.toml");
+    write_local_file(sandbox, agent, "agent.toml", text);
+}
+
+fn write_local_file(sandbox: &Sandbox, agent: &str, rel_path: &str, text: &str) {
+    let path = sandbox.dot_surt().join("agents").join(agent).join(rel_path);
+    fs::create_dir_all(path.parent().expect("a parent")).expect("the agent directory");
+    fs::write(path, text).expect("the local file");
 }
 
 fn ok(run: Run) -> String {
@@ -43,6 +48,31 @@ fn the_creation_line_lists_the_agents_that_use_local_files() {
     let lines: Vec<&str> = created.lines().take(2).collect();
     assert!(lines[0].starts_with("✔ created "), "{created}");
     assert_eq!(lines[1], "  local agents: spec (agent.toml)", "{created}");
+}
+
+#[test]
+fn the_creation_line_lists_local_instructions_and_schemas() {
+    let sandbox = project(&[spec(1, "# Spec 1\n")]);
+    let feedback = "schemas/feedback.schema.json";
+    let built_in = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("assets/agents/reviewer")
+        .join(feedback);
+    let schema = fs::read_to_string(built_in).expect("the built-in feedback schema");
+    write_local_file(
+        &sandbox,
+        "reviewer",
+        "instructions.md",
+        "Follow our style guide.\n",
+    );
+    write_local_file(&sandbox, "reviewer", feedback, &schema);
+
+    let created = ok(sandbox.feature(&["add login"]));
+
+    let lines: Vec<&str> = created.lines().take(2).collect();
+    assert_eq!(
+        lines[1], "  local agents: reviewer (instructions.md, schemas/feedback.schema.json)",
+        "{created}"
+    );
 }
 
 #[test]

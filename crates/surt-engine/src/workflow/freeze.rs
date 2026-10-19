@@ -126,16 +126,19 @@ fn single_file(kind: SnapshotKind, name: &str, rel_path: &str, text: String) -> 
 fn agent_snapshots(catalog: &Catalog, closure: &Closure) -> Result<Vec<Snapshot>, FreezeError> {
     let mut snapshots = Vec::new();
     for (id, contract) in &closure.agents {
-        let Some(assets) = catalog.agent_assets(id) else {
+        let Some(sources) = catalog.agent_sources(id) else {
             continue;
         };
         let mut files = vec![
             SnapshotFile::new(AGENT_FILE, contract.canonical()?.into_bytes()),
-            SnapshotFile::new(INSTRUCTIONS_FILE, assets.instructions.as_bytes().to_vec()),
+            SnapshotFile::new(
+                INSTRUCTIONS_FILE,
+                sources.instructions().as_bytes().to_vec(),
+            ),
         ];
         let mut pending: Vec<String> = contract.schema_paths().map(str::to_owned).collect();
         while let Some(path) = pending.pop() {
-            let Some(text) = assets.schema(&path) else {
+            let Some(text) = sources.schema(&path) else {
                 continue;
             };
             if files.iter().any(|file| file.rel_path == path) {

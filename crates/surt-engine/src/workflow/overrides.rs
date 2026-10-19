@@ -1,17 +1,23 @@
 mod blame;
 mod fields;
+mod schemas;
+
+use std::collections::BTreeMap;
 
 use toml::Table;
 
 use super::agent::AgentContract;
 use super::catalog::Catalog;
 use super::error::Problem;
+use super::sources::{AgentSources, LocalAssets};
 
 const TEST_ONLY_RUNTIME: &str = "fake";
 
 pub(crate) struct LocalAgent {
     pub(crate) id: String,
     pub(crate) toml: Option<LocalFile>,
+    pub(crate) instructions: Option<LocalFile>,
+    pub(crate) schemas: BTreeMap<String, LocalFile>,
 }
 
 pub(crate) struct LocalFile {
@@ -51,28 +57,57 @@ impl Catalog {
     ) -> Result<Catalog, Box<InvalidOverride>> {
         let mut effective = self.clone();
         for local in locals {
-            let Some(file) = &local.toml else {
-                continue;
-            };
             let Some(assets) = self.agent_assets(&local.id) else {
                 continue;
             };
-            let Ok(builtin) = toml::from_str::<Table>(assets.toml) else {
-                continue;
+            let local_assets = local.assets();
+            let sources = AgentSources {
+                assets,
+                local: Some(&local_assets),
             };
-            let merged = merged_toml(builtin, file)?;
-            AgentContract::parse_effective(&local.id, &merged, assets)
-                .and_then(production_runtime)
-                .map_err(|problem| {
-                    InvalidOverride::new(
-                        &file.file,
-                        fields::field_of(&problem, &merged),
-                        fields::without_line(problem),
-                    )
-                })?;
-            effective = effective.with_effective_toml(&local.id, merged);
+            schemas::check_references(local, &sources)?;
+            if let Some(merged) = effective_toml(local, &sources)? {
+                effective = effective.with_effective_toml(&local.id, merged);
+            }
+            effective = effective.with_local_assets(&local.id, local_assets);
         }
         Ok(effective)
+    }
+}
+
+fn effective_toml(
+    local: &LocalAgent,
+    sources: &AgentSources,
+) -> Result<Option<String>, Box<InvalidOverride>> {
+    let Some(file) = &local.toml else {
+        return Ok(None);
+    };
+    let Ok(builtin) = toml::from_str::<Table>(sources.assets.toml) else {
+        return Ok(None);
+    };
+    let merged = merged_toml(builtin, file)?;
+    AgentContract::parse_effective(&local.id, &merged, sources)
+        .and_then(production_runtime)
+        .map_err(|problem| {
+            InvalidOverride::new(
+                &file.file,
+                fields::field_of(&problem, &merged),
+                fields::without_line(problem),
+            )
+        })?;
+    Ok(Some(merged))
+}
+
+impl LocalAgent {
+    fn assets(&self) -> LocalAssets {
+        LocalAssets {
+            instructions: self.instructions.as_ref().map(|file| file.text.clone()),
+            schemas: self
+                .schemas
+                .iter()
+                .map(|(path, file)| (path.clone(), file.text.clone()))
+                .collect(),
+        }
     }
 }
 

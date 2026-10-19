@@ -267,12 +267,22 @@ impl ProjectDir {
     }
 
     pub(super) async fn frozen_agent(&self, agent: &str) -> toml::Table {
+        let text = self
+            .frozen_agent_file(agent, "agent.toml")
+            .await
+            .expect("the agent.toml is frozen");
+        toml::from_str(&text).expect("the frozen agent is TOML")
+    }
+
+    pub(super) async fn frozen_agent_file(&self, agent: &str, rel_path: &str) -> Option<String> {
         let sql = format!(
-            "SELECT b.bytes FROM snapshot s JOIN snapshot_file f ON f.snapshot_sha256 = s.sha256 JOIN blob b ON b.sha256 = f.blob_sha256 WHERE s.kind = 'agent' AND s.name = '{agent}' AND f.rel_path = 'agent.toml'"
+            "SELECT b.bytes FROM snapshot s JOIN snapshot_file f ON f.snapshot_sha256 = s.sha256 JOIN blob b ON b.sha256 = f.blob_sha256 WHERE s.kind = 'agent' AND s.name = '{agent}' AND f.rel_path = '{rel_path}'"
         );
         let stored: Vec<(Vec<u8>,)> = self.rows(&sql).await;
-        let text = String::from_utf8(stored[0].0.clone()).expect("the agent is UTF-8");
-        toml::from_str(&text).expect("the frozen agent is TOML")
+        stored
+            .into_iter()
+            .next()
+            .map(|(bytes,)| String::from_utf8(bytes).expect("the frozen file is UTF-8"))
     }
 
     pub(super) async fn event_data(&self, kind: &str) -> Vec<serde_json::Value> {

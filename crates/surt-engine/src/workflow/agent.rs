@@ -3,8 +3,8 @@ use std::num::NonZeroU32;
 
 use serde::{Deserialize, Serialize};
 
-use super::catalog::AgentAssets;
 use super::error::{DefinitionFile, InvalidDefinition, Problem};
+use super::sources::SchemaSource;
 
 mod checks;
 mod names;
@@ -132,9 +132,9 @@ impl AgentContract {
     pub(crate) fn parse(
         id: &str,
         toml: &str,
-        assets: &AgentAssets,
+        schemas: &impl SchemaSource,
     ) -> Result<AgentContract, Box<InvalidDefinition>> {
-        AgentContract::parse_effective(id, toml, assets).map_err(|problem| {
+        AgentContract::parse_effective(id, toml, schemas).map_err(|problem| {
             InvalidDefinition::new(DefinitionFile::Agent(id.to_owned()), None, problem)
         })
     }
@@ -142,11 +142,11 @@ impl AgentContract {
     pub(crate) fn parse_effective(
         id: &str,
         toml: &str,
-        assets: &AgentAssets,
+        schemas: &impl SchemaSource,
     ) -> Result<AgentContract, Problem> {
         let contract: AgentContract =
             toml::from_str(toml).map_err(|error| Problem::syntax(toml, &error))?;
-        contract.check(id, assets)?;
+        contract.check(id, schemas)?;
         Ok(contract)
     }
 

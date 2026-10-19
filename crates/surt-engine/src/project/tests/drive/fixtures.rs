@@ -137,7 +137,12 @@ impl Feature {
         Feature::in_dir(dir, review_catalog(), "review", default_config()).await
     }
 
-    async fn in_dir(dir: ProjectDir, catalog: Catalog, workflow: &str, config: Config) -> Feature {
+    pub(super) async fn in_dir(
+        dir: ProjectDir,
+        catalog: Catalog,
+        workflow: &str,
+        config: Config,
+    ) -> Feature {
         let project = dir.project(catalog, config).await;
         let run = project
             .create_run(new_run(workflow))

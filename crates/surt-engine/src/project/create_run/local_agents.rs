@@ -1,4 +1,5 @@
 mod hygiene;
+mod schemas;
 
 use std::fs;
 use std::io;
@@ -9,6 +10,7 @@ use super::super::{Error, Refusal};
 use crate::workflow::{Catalog, InvalidOverride, LocalAgent, LocalFile, Problem};
 
 const AGENT_FILE: &str = "agent.toml";
+const INSTRUCTIONS_FILE: &str = "instructions.md";
 const AGENTS_DIR: &str = ".surt/agents";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -23,9 +25,13 @@ pub(super) fn read(layout: &Layout, catalog: &Catalog) -> Result<Vec<LocalAgent>
     catalog
         .agent_ids()
         .map(|id| {
+            let dir = agents.join(id);
+            let read_named = |name: &str| read_file(&dir.join(name), &shown(id, name));
             Ok(LocalAgent {
                 id: id.to_owned(),
-                toml: read_file(&agents.join(id).join(AGENT_FILE), &shown(id, AGENT_FILE))?,
+                toml: read_named(AGENT_FILE)?,
+                instructions: read_named(INSTRUCTIONS_FILE)?,
+                schemas: schemas::read(&dir, id)?,
             })
         })
         .collect()
@@ -38,11 +44,24 @@ fn shown(id: &str, rel_path: &str) -> String {
 pub(super) fn reported(locals: &[LocalAgent]) -> Vec<LocalFiles> {
     locals
         .iter()
-        .filter(|local| local.toml.is_some())
         .map(|local| LocalFiles {
             agent: local.id.clone(),
-            files: vec![AGENT_FILE.to_owned()],
+            files: local_files(local),
         })
+        .filter(|reported| !reported.files.is_empty())
+        .collect()
+}
+
+fn local_files(local: &LocalAgent) -> Vec<String> {
+    let named = [
+        (AGENT_FILE, local.toml.is_some()),
+        (INSTRUCTIONS_FILE, local.instructions.is_some()),
+    ];
+    named
+        .into_iter()
+        .filter(|(_, present)| *present)
+        .map(|(name, _)| name.to_owned())
+        .chain(local.schemas.keys().cloned())
         .collect()
 }
 

@@ -98,5 +98,5 @@ fn compile<'a>(
     };
     let text = schema_text(path).ok_or_else(|| invalid("missing".to_owned()))?;
     let schema: Value = serde_json::from_str(text).map_err(|error| invalid(error.to_string()))?;
-    jsonschema::draft7::new(&schema).map_err(|error| invalid(error.to_string()))
+    super::schemas::validator(path, &schema, text, schema_text).map_err(invalid)
 }

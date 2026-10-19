@@ -57,7 +57,12 @@ pub(super) fn describe(problem: &Problem) -> String {
         Problem::DuplicateRejectionArtifact { artifact } => {
             format!("rejection artifact \"{artifact}\" is declared twice")
         }
-        Problem::MissingAsset { path } => format!("\"{path}\" is not bundled with the agent"),
+        Problem::MissingAsset { path } => {
+            format!("\"{path}\" is neither a local file nor bundled with the agent")
+        }
+        Problem::NonLocalReference { reference } => {
+            format!("$ref \"{reference}\" is not a file in the agent's schemas directory")
+        }
         Problem::MisplacedJsonSchema { name } => {
             format!("\"{name}\" has a json_schema but is neither json nor item_list")
         }
