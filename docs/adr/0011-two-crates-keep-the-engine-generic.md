@@ -1,5 +1,7 @@
 # Two crates keep the engine generic
 
+Amended by [ADR 0013](0013-definitions-live-in-the-project.md) (Milestone 5): the binary no longer holds the feature workflow as definitions passed to the engine as a `Catalog`; it holds only the feature Template's bytes, which `surt init --template feature` writes into `.surt/`, and the engine reads every definition from there. The two crates and their dependency direction are unchanged.
+
 Surt is a Cargo workspace with two crates: `surt-engine`, a library that knows only engine concepts (Workflow Run, Step Run, Execution, Artifact, Operation…), and `surt`, the binary that holds the CLI and the built-in feature workflow (its TOML definitions, its five Agents, its phases, its messages). The engine cannot import anything from the binary, and the feature workflow's files do not exist inside the engine crate.
 
 ## Considered Options

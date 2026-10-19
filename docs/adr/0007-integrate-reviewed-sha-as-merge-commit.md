@@ -13,4 +13,6 @@
 
 - Git 2.38 or later is required.
 - The delivered branch shows the Builders' commits plus one merge per Task. A user who wants one commit squashes when merging into `main`; Surt never rewrites the history it proved.
-- A conflict produces no commit. The Builder merges the tip into its Task Branch and goes through Checks and review again.
+- A conflict produces no commit. The Builder merges the tip into its Item Branch and goes through Checks and review again.
+
+Note (Milestone 5): the engine stopped naming the feature workflow, so the trailer is now `Surt-Item` and the merge message says `Merge item <key>` ([A. Git Integration](../architecture/A-git-integration.md#integration)). The decision is unchanged.

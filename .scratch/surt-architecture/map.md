@@ -54,7 +54,7 @@ Nothing. The map has reached its destination: the A–L plan is in `docs/archite
 - **Local daemon/supervisor and `--detach`** — to be evaluated later; the process model only needs to not prevent it.
 - **External integrations** (GitHub/Linear/Jira) — neither a provider contract nor a reserved column; `external_ref` comes in through an additive migration once there is a provider.
 - **A second real AI runtime** (Codex, Gemini CLI etc.) — the trait is designed against Claude Code + Fake Runtime.
-- **Overriding/customizing built-in workflows and project-specific workflows** — only `feature` and `task-cycle`, built into the binary; an edge case the schema does not prevent ([Workflow TOML schema](issues/06-workflow-toml-schema.md)).
+- **Overriding/customizing built-in workflows and project-specific workflows** — only `feature` and `task-cycle`, built into the binary; an edge case the schema does not prevent ([Workflow TOML schema](issues/06-workflow-toml-schema.md)). _Lifted by [Milestone 5](../milestone-5/spec.md): every workflow and Agent is a project file under `.surt/`, and the binary only writes the feature Template ([ADR 0013](../../docs/adr/0013-definitions-live-in-the-project.md))._
 - **Implementing Milestone 1** — it is the handoff at the end of the map, not part of it.
 - **Cancelling or abandoning a single Task, with partial delivery** — in M1 children only end together with the root, and the Shipper only delivers complete Features ([Builder ↔ Reviewer loop state machine](issues/10-builder-reviewer-loop.md)).
 - **Coordinating the rate-limit pause across Drivers** (other Features, other projects on the same machine) — v1 pauses only the Driver that hit the limit.

@@ -140,7 +140,7 @@ On Unix, an agent's process group can outlive a Driver killed with `kill -9`. Th
 
 ```
 ⚠ found orphan builder for task B (pid 50122, alive) — stopping it
-↻ task B build #1: attempt 2
+↻ item B build #1: attempt 2
 ```
 
 Adoption is rejected because the orphan's stdout was a pipe to the dead Driver: its stream and final `result` are lost and its output could not be validated. [I. Recovery](I-recovery.md#stale-executions-and-orphans) handles what the orphan left behind (a dirty worktree, or a commit made but not recorded).

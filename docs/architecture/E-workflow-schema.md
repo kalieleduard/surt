@@ -91,7 +91,7 @@ A Step Run whose `when` is false ends as **SKIPPED**. SKIPPED is a state, not an
 - A required input with no Revision is a static validation error when no step before it (via `needs`) produces it. It is a runtime error otherwise. An optional input with no Revision is simply absent, for example `feedback` on the first Iteration.
 - Steps read the latest Revision, not "the Revision a gate approved". The guarantee that nothing unapproved flows downstream is therefore enforced by the revalidation policy of [H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md): a driving command refuses while an artifact that passed a gate has a newer, unapproved Revision, and an approved Revision already read as an Input is pinned.
   ```
-  $ surt plan 20261016-add-login
+  $ surt continue 20261016-add-login
   ✖ spec changed after approval (rev 2 not approved)
     review it, then: surt approve 20261016-add-login
   ```
@@ -360,7 +360,7 @@ How the Task Cycle behaves:
 
 - `check` = `failed` → `review` and `integrate` are SKIPPED → a new Iteration starts, and the Builder reads `check-report`.
 - `review` = `changes_requested` → `integrate` is SKIPPED → a new Iteration starts, and the Builder reads `feedback`.
-- `integrate` = `conflict` → a new Iteration starts. The Builder reads `conflict`, merges the Integration Branch tip into its Task Branch, and the new commit goes through `check` and `review` again ([A. Git Integration](A-git-integration.md#conflicts)). The review covers the whole commit, focused on the resolution delta ([G](G-state-machines.md#what-the-reviewer-reads-after-the-first-iteration)).
+- `integrate` = `conflict` → a new Iteration starts. The Builder reads `conflict`, merges the Integration Branch tip into its Item Branch, and the new commit goes through `check` and `review` again ([A. Git Integration](A-git-integration.md#conflicts)). The review covers the whole commit, focused on the resolution delta ([G](G-state-machines.md#what-the-reviewer-reads-after-the-first-iteration)).
 - `review` = `approved` and `integrate` = `merged` → the Loop is `done` and the Task is complete.
 
 Operations, Checks, the `check-report` and `conflict` artifacts, and the opt-in merge into the Base are specified in [A. Git Integration](A-git-integration.md).

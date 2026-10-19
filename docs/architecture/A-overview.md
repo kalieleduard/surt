@@ -6,11 +6,11 @@ Part of section A (Architecture): the parts of Surt and how they depend on each 
 
 ```mermaid
 flowchart TD
-  CLI["<b>surt</b> (bin)<br/>clap · phases · messages · exit codes<br/>Catalog: feature + task-cycle + 5 Agents"] --> P
+  CLI["<b>surt</b> (bin)<br/>clap · run/continue · messages · exit codes<br/>feature Template: bytes for surt init"] --> P
 
   subgraph engine["<b>surt-engine</b> (lib, generic)"]
     P["project<br/>facade Project · finds .surt/ · configuration"]
-    P --> W["workflow<br/>parse TOML · merge Agents · freeze + SHA-256"]
+    P --> W["workflow<br/>read .surt/ · parse TOML · validate · freeze + SHA-256"]
     P --> D["drive<br/>tick loop · decide() · limits · pause"]
     P --> CL["cleanup<br/>after terminal · delete"]
     D --> R["reconcile<br/>Intentions × Git and processes"]
@@ -39,7 +39,7 @@ flowchart TD
 
 - Arrows are compile-time dependencies. Only `project` is visible to the CLI.
 - `runtime` is the only module behind a trait ([B](B-workspace.md#traits)). `git`, `store` and `platform` talk to the real tool, database and OS, in production and in tests.
-- Nothing in `surt-engine` knows the feature workflow. It arrives as data, the `Catalog` the CLI passes to `Project::open`.
+- Nothing in `surt-engine` knows the feature workflow, and neither does the CLI. Every Workflow Definition and Agent is a project file under `.surt/workflows/` and `.surt/agents/`, read and frozen when a root run is created; the CLI only holds the feature Template's bytes, which `Project::init` writes on `surt init --template feature` ([ADR 0013](../adr/0013-definitions-live-in-the-project.md)).
 
 ## One driving command, end to end
 
@@ -50,8 +50,8 @@ sequenceDiagram
   participant P as Project::drive
   participant S as store
   participant RT as AgentRuntime
-  U->>C: surt start add-login
-  C->>P: open → find_subject → status (precondition: manifest approved?)
+  U->>C: surt continue add-login
+  C->>P: open → resolve_subject → active run (no gate precondition)
   C->>P: drive(run, &ClaudeCodeRuntime, progress, stop)
   P->>P: try_lock run · reconcile
   loop every tick (~1 s)

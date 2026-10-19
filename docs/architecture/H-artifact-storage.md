@@ -60,7 +60,7 @@ Surt rewrites a Working Copy file whenever it publishes a newer Revision of that
 
 ## Edit detection
 
-- **When:** every command that acts on a Subject scans that Subject's Working Copy first and records what it finds: `approve`, `reject`, `feature`, `plan`, `start`. Read commands (`status`, `inspect`, `show`, `logs`) compare and show an edit but never record it ([J. Reading never writes](J-cli.md#reading-never-writes)). A Driver also scans before it launches each Execution, because that is when inputs are resolved, and before it rewrites a Working Copy file.
+- **When:** every command that acts on a Subject scans that Subject's Working Copy first and records what it finds: `approve`, `reject`, `continue`. Read commands (`status`, `inspect`, `show`, `logs`) compare and show an edit but never record it ([J. Reading never writes](J-cli.md#reading-never-writes)). A Driver also scans before it launches each Execution, because that is when inputs are resolved, and before it rewrites a Working Copy file.
 - **How:** a full SHA-256 of every file compared with its baseline. Modification times are never used, because their granularity and behaviour differ across APFS, NTFS and ext4, and the files are small.
 - **Edit:** if any file differs from its baseline, the artifact's new content becomes a **human-origin Revision**, and its hashes become the new baseline:
   ```
@@ -98,7 +98,7 @@ Steps read artifacts by name, at the latest Revision ([ADR 0003](../adr/0003-inp
 **Approved, not yet consumed.** An edit is recorded as Revision N+1 with no Approval. Every driving command refuses until a human approves it:
 
 ```
-$ surt plan 20261016-add-login
+$ surt continue 20261016-add-login
 ✖ spec changed after approval (rev 2 not approved)
   review it, then: surt approve 20261016-add-login
 ```
@@ -113,12 +113,12 @@ $ surt plan 20261016-add-login
 - the way out is `surt restore` (undo the edit) or `surt cancel` followed by a new run.
 
 ```
-$ surt start 20261016-add-login
+$ surt continue 20261016-add-login
 …
 ✖ tasks/C.md changed, but manifest rev 1 is pinned (implementation already started)
   running work finished; nothing new was launched
   undo:     surt restore 20261016-add-login manifest
-  replan:   surt cancel 20261016-add-login, then surt feature …
+  replan:   surt cancel 20261016-add-login, then surt continue 20261016-add-login --new-run
 ```
 
 Both cases on one timeline:
