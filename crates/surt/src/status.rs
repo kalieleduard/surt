@@ -14,10 +14,10 @@ use crate::symbols::printable;
 
 #[derive(clap::Args)]
 pub(crate) struct StatusArgs {
-    feature: Option<String>,
-    #[arg(long, conflicts_with = "feature")]
+    subject: Option<String>,
+    #[arg(long, conflicts_with = "subject")]
     all: bool,
-    #[arg(long, value_name = "N", requires = "feature")]
+    #[arg(long, value_name = "N", requires = "subject")]
     run: Option<u32>,
     #[arg(long)]
     json: bool,
@@ -25,14 +25,14 @@ pub(crate) struct StatusArgs {
 
 pub(crate) async fn run(cwd: &Path, args: StatusArgs) -> Result<(), Failure> {
     let project = Project::open_read_only(cwd).await?;
-    if let Some(feature) = &args.feature {
+    if let Some(subject) = &args.subject {
         let statuses = project
-            .status(StatusScope::Feature(feature, run_selector(args.run)))
+            .status(StatusScope::Feature(subject, run_selector(args.run)))
             .await?;
         if args.json {
             return statuses
                 .first()
-                .map_or(Ok(()), |status| crate::json::print(json::feature(status)));
+                .map_or(Ok(()), |status| crate::json::print(json::subject(status)));
         }
         for status in statuses {
             anstream::print!("{}", printable(&detail::render(&status)));
@@ -46,10 +46,10 @@ pub(crate) async fn run(cwd: &Path, args: StatusArgs) -> Result<(), Failure> {
     };
     let statuses = project.status(scope).await?;
     if args.json {
-        return crate::json::print(json::features(&statuses));
+        return crate::json::print(json::subjects(&statuses));
     }
     if statuses.is_empty() {
-        anstream::eprintln!("no feature has an active run (surt status --all lists finished ones)");
+        anstream::eprintln!("no subject has an active run (surt status --all lists finished ones)");
         return Ok(());
     }
     anstream::print!("{}", printable(&overview::render(&statuses)));
@@ -61,10 +61,12 @@ pub(crate) fn run_selector(run: Option<u32>) -> RunSelector {
 }
 
 pub(crate) const STATE_SEPARATOR: &str = " + ";
-const INDEX_FILES: usize = 1;
 
-pub(crate) fn item_files(files: usize) -> Option<usize> {
-    (files > INDEX_FILES).then(|| files - INDEX_FILES)
+pub(crate) fn item_count(count: usize) -> String {
+    match count {
+        1 => "1 item".to_owned(),
+        _ => format!("{count} items"),
+    }
 }
 
 pub(crate) fn state_name(state: RunState) -> &'static str {

@@ -9,12 +9,12 @@ use crate::symbols::ELLIPSIS;
 
 #[derive(clap::Args)]
 pub(crate) struct StopArgs {
-    feature: String,
+    subject: String,
 }
 
 pub(crate) async fn run(cwd: &Path, args: StopArgs) -> Result<(), Failure> {
     let project = Project::open(cwd).await?;
-    let subject = project.resolve_subject(&args.feature).await?;
+    let subject = project.resolve_subject(&args.subject).await?;
     let request = project.request_stop(&subject.name).await?;
     requested(request.driver, request.executions).print(Mark::Waiting);
     project.wait_for_driver(&request.run).await?;

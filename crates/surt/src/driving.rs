@@ -78,7 +78,7 @@ impl Driven<'_> {
     async fn succeeded(&self) -> Result<(), Failure> {
         if let Some(branch) = self.project.integration_branch(self.run).await? {
             Message::new(format!(
-                "shipper delivered {DASH} {} @ {}",
+                "delivered {DASH} {} @ {}",
                 branch.name,
                 short(&branch.tip)
             ))

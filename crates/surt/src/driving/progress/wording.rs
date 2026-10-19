@@ -10,7 +10,7 @@ use crate::symbols::{DASH, ELLIPSIS, SEPARATOR};
 
 fn subject(step: &StepLabel) -> String {
     match &step.item {
-        Some(item) => format!("task {item}"),
+        Some(item) => format!("item {item}"),
         None => step.key.clone(),
     }
 }

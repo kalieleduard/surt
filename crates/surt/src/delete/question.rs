@@ -15,7 +15,7 @@ const UNITS: [&str; 4] = ["B", "KB", "MB", "GB"];
 const UNIT_STEP: u64 = 1024;
 
 pub(super) fn question(impact: &DeleteImpact) -> String {
-    let mut text = format!("delete feature {} and all its history?\n", impact.subject);
+    let mut text = format!("delete subject {} and all its history?\n", impact.subject);
     field(&mut text, "runs", &[runs(impact)]);
     field(&mut text, "git", &git(impact));
     field(&mut text, "disk", &[disk(impact)]);

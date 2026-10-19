@@ -2,13 +2,14 @@ use std::path::PathBuf;
 
 use surt_engine::project::{
     AgentSlots, BlockReason, BlockedStep, CleanupState, Commit, Conflict, Driver, GateStatus,
-    GateView, IntegrationBranch, ItemState, ItemStatus, Kept, LaunchPause, Left, MergeIntoBase,
-    PendingIntegration, RevisionOrigin, RevisionSummary, RunState, RunStatus, StepLabel,
-    Unattended,
+    GateView, IntegrationBranch, ItemListSummary, ItemState, ItemStatus, Kept, LaunchPause, Left,
+    MergeIntoBase, PendingIntegration, RevisionOrigin, RevisionSummary, RunState, RunStatus,
+    StepLabel, Unattended,
 };
 
 use serde_json::json;
 
+mod items;
 mod merge;
 
 use super::{detail, json, overview};
@@ -51,6 +52,7 @@ fn gate_over(
                 origin: RevisionOrigin::Human,
                 sha256: SHA256.to_owned(),
                 files: files.iter().map(|file| (*file).to_owned()).collect(),
+                item_list: None,
             }),
         },
         decided_by: None,
@@ -61,7 +63,14 @@ fn gate_over(
     }
 }
 
-fn task(key: &str, state: ItemState) -> ItemStatus {
+fn listed(mut gate: GateView, items: usize, item_files: usize) -> GateView {
+    if let Some(revision) = gate.revision.as_mut() {
+        revision.item_list = Some(ItemListSummary { items, item_files });
+    }
+    gate
+}
+
+fn item(key: &str, state: ItemState) -> ItemStatus {
     ItemStatus {
         key: key.to_owned(),
         state,
@@ -96,6 +105,7 @@ fn stopped_with_everything_pending() -> RunStatus {
         merge: None,
         slots: slots(3),
         paused: None,
+        item_step: Some("implement".to_owned()),
         gates: vec![
             gate(
                 "approve-spec",
@@ -112,23 +122,23 @@ fn stopped_with_everything_pending() -> RunStatus {
             ),
         ],
         items: vec![
-            task("A", ItemState::Queued),
+            item("A", ItemState::Queued),
             ItemStatus {
                 conflict: Some(Conflict::Merge {
                     paths: vec!["src/auth.rs".to_owned(), "src/user.rs".to_owned()],
                 }),
-                ..task("B", ItemState::Interrupted)
+                ..item("B", ItemState::Interrupted)
             },
-            task("C", ItemState::Cancelled),
+            item("C", ItemState::Cancelled),
             ItemStatus {
                 waits_for: vec!["B".to_owned(), "C".to_owned()],
-                ..task("D", ItemState::Pending)
+                ..item("D", ItemState::Pending)
             },
             ItemStatus {
                 conflict: Some(Conflict::Checks {
                     failed: vec!["test".to_owned()],
                 }),
-                ..task("E", ItemState::Running)
+                ..item("E", ItemState::Running)
             },
         ],
         blocked: vec![BlockedStep {
@@ -167,13 +177,18 @@ fn cancelled_and_cleaned() -> RunStatus {
         merge: None,
         slots: slots(0),
         paused: None,
-        gates: vec![gate_over(
-            "approve-tasks",
-            "manifest",
-            GateStatus::Approved { revision: 1 },
-            &[],
-            &["manifest.json", "tasks/A.md", "tasks/B.md"],
+        gates: vec![listed(
+            gate_over(
+                "approve-tasks",
+                "manifest",
+                GateStatus::Approved { revision: 1 },
+                &[],
+                &["manifest.json", "tasks/A.md", "tasks/B.md"],
+            ),
+            2,
+            2,
         )],
+        item_step: None,
         items: Vec::new(),
         blocked: Vec::new(),
         unattended: Vec::new(),
@@ -187,7 +202,7 @@ fn cancelled_and_cleaned() -> RunStatus {
 }
 
 #[test]
-fn the_detail_names_the_run_among_several_and_every_task_state_unattended_agent_and_pending_integration()
+fn the_detail_names_the_run_among_several_and_every_item_state_unattended_agent_and_pending_integration()
  {
     let text = detail::render(&stopped_with_everything_pending());
 
@@ -205,10 +220,10 @@ fn the_detail_names_the_run_among_several_and_every_task_state_unattended_agent_
              C  ✖ cancelled\n    \
              D  ⏸ pending   waits for B, C\n    \
              E  ● build     iter 2 · attempt 1 · checks: test\n  \
-             ⛔ task B check iter 2 blocked: iterations exhausted\n  \
+             ⛔ item B check iter 2 blocked: iterations exhausted\n  \
              resume: surt continue {SUBJECT}\n  \
-             ⚠ task A build iter 2 still running unattended (pid 50122) — stopped on next: surt continue {SUBJECT}\n  \
-             ⟳ task B integrate   surt/{SUBJECT}: 9e04b7d → 3c1aa20 (pending)\n"
+             ⚠ item A build iter 2 still running unattended (pid 50122) — stopped on next: surt continue {SUBJECT}\n  \
+             ⟳ item B integrate   surt/{SUBJECT}: 9e04b7d → 3c1aa20 (pending)\n"
         )
     );
 }
@@ -222,7 +237,7 @@ fn a_cleaned_terminal_run_shows_what_its_cleanup_kept_and_no_driver_column() {
         format!(
             "{SUBJECT} · run 1   CANCELLED\n  \
              branch   surt/{SUBJECT} @ 3c1aa20 · merge into base: never\n  \
-             manifest rev 1 (human) ✔ approved · 2 tasks\n  \
+             manifest rev 1 (human) ✔ approved · 2 items\n  \
              cleanup  done\n           \
              kept surt/{SUBJECT} — moved outside surt\n"
         )
@@ -261,7 +276,7 @@ fn the_overview_joins_simultaneous_states_and_falls_back_to_the_blocked_step() {
     assert_eq!(
         text,
         format!(
-            "FEATURE             RUN  STATE                        DRIVER  PROGRESS\n\
+            "SUBJECT             RUN  STATE                        DRIVER  PROGRESS\n\
              {SUBJECT}  2    AWAITING APPROVAL + BLOCKED  —       spec blocked\n\
              {SUBJECT}  1    CANCELLED                    —       —\n\
              agent slots: 3/3 in use\n"
@@ -270,7 +285,7 @@ fn the_overview_joins_simultaneous_states_and_falls_back_to_the_blocked_step() {
 }
 
 #[test]
-fn the_overview_prints_the_project_wide_slot_count_once_not_once_per_feature() {
+fn the_overview_prints_the_project_wide_slot_count_once_not_once_per_subject() {
     let mut first = stopped_with_everything_pending();
     first.slots = slots(1);
     let mut second = cancelled_and_cleaned();
@@ -299,10 +314,10 @@ fn the_detail_in_ascii_mode_replaces_every_glyph() {
              C  [error] cancelled\n    \
              D  [paused] pending   waits for B, C\n    \
              E  * build     iter 2 | attempt 1 | checks: test\n  \
-             [blocked] task B check iter 2 blocked: iterations exhausted\n  \
+             [blocked] item B check iter 2 blocked: iterations exhausted\n  \
              resume: surt continue {SUBJECT}\n  \
-             [warn] task A build iter 2 still running unattended (pid 50122) - stopped on next: surt continue {SUBJECT}\n  \
-             [integrating] task B integrate   surt/{SUBJECT}: 9e04b7d -> 3c1aa20 (pending)\n"
+             [warn] item A build iter 2 still running unattended (pid 50122) - stopped on next: surt continue {SUBJECT}\n  \
+             [integrating] item B integrate   surt/{SUBJECT}: 9e04b7d -> 3c1aa20 (pending)\n"
         )
     );
 }
@@ -324,7 +339,7 @@ fn status_json_carries_the_cleanup_state_the_detail_shows() {
     let cleanup = |state| {
         let mut status = cancelled_and_cleaned();
         status.cleanup = state;
-        serde_json::Value::from(json::feature(&status))["cleanup"].clone()
+        serde_json::Value::from(json::subject(&status))["cleanup"].clone()
     };
     let moved = Kept::MovedBranch {
         branch: format!("surt/{SUBJECT}"),
@@ -360,7 +375,7 @@ fn status_json_carries_the_cleanup_state_the_detail_shows() {
 
 const RESET: i64 = 1_792_900_800;
 
-fn paused_with_a_task_waiting(resets_at: Option<i64>) -> RunStatus {
+fn paused_with_an_item_waiting(resets_at: Option<i64>) -> RunStatus {
     RunStatus {
         states: vec![RunState::Running],
         driver: Some(Driver {
@@ -376,11 +391,11 @@ fn paused_with_a_task_waiting(resets_at: Option<i64>) -> RunStatus {
         items: vec![
             ItemStatus {
                 iteration: Some(1),
-                ..task("A", ItemState::Queued)
+                ..item("A", ItemState::Queued)
             },
             ItemStatus {
                 iteration: Some(1),
-                ..task("B", ItemState::Running)
+                ..item("B", ItemState::Running)
             },
         ],
         blocked: Vec::new(),
@@ -394,7 +409,7 @@ fn paused_with_a_task_waiting(resets_at: Option<i64>) -> RunStatus {
 fn a_paused_run_stays_running_and_names_the_error_code_and_the_reset_time() {
     let at = local_time(RESET).expect("a local time");
 
-    let text = detail::render(&paused_with_a_task_waiting(Some(RESET)));
+    let text = detail::render(&paused_with_an_item_waiting(Some(RESET)));
 
     assert_eq!(
         text,
@@ -411,7 +426,7 @@ fn a_paused_run_stays_running_and_names_the_error_code_and_the_reset_time() {
 
 #[test]
 fn a_pause_without_a_reset_time_retries_with_backoff_and_reads_in_ascii() {
-    let text = detail::render(&paused_with_a_task_waiting(None));
+    let text = detail::render(&paused_with_an_item_waiting(None));
 
     let ascii = Symbols::Ascii.render(&text);
 
@@ -425,7 +440,7 @@ fn a_pause_without_a_reset_time_retries_with_backoff_and_reads_in_ascii() {
 #[test]
 fn status_json_carries_the_pause_with_its_reset_time_when_known() {
     let paused = |resets_at| {
-        serde_json::Value::from(json::feature(&paused_with_a_task_waiting(resets_at)))["paused"]
+        serde_json::Value::from(json::subject(&paused_with_an_item_waiting(resets_at)))["paused"]
             .clone()
     };
 
@@ -434,6 +449,6 @@ fn status_json_carries_the_pause_with_its_reset_time_when_known() {
         json!({"code": "rate_limit", "resets_at": "2026-10-25T04:00:00Z"})
     );
     assert_eq!(paused(None), json!({"code": "rate_limit"}));
-    let running = serde_json::Value::from(json::feature(&cancelled_and_cleaned()));
+    let running = serde_json::Value::from(json::subject(&cancelled_and_cleaned()));
     assert_eq!(running.get("paused"), None);
 }

@@ -1,6 +1,8 @@
+use std::collections::BTreeSet;
 use std::path::Path;
 
-use super::{GateView, RevisionSummary};
+use super::{GateView, ItemListSummary, RevisionSummary};
+use crate::artifacts::listed_items;
 use crate::artifacts::working_copy::{self, Comparison};
 use crate::project::gates::approval_step;
 use crate::project::{Error, GateStatus, Layout, RevisionOrigin};
@@ -20,14 +22,18 @@ pub(super) async fn views(
     let dir = layout.working_copy(&run.subject);
     let mut views = Vec::new();
     for row in store.gate_views(root).await? {
-        let artifact = approval_step(store, root, &row.definition, &row.key)
-            .await?
-            .artifact;
+        let gate = approval_step(store, root, &row.definition, &row.key).await?;
+        let artifact = gate.artifact;
         let latest = store.latest_revision_number(root, &artifact).await?;
         let status = status(&row, latest);
         let comparison = compare(&dir, working_copy.iter().find(|w| w.name == artifact))?;
+        let revision = Revision {
+            artifact: &artifact,
+            status,
+            item_list: gate.item_list,
+        };
         views.push(GateView {
-            revision: summary(store, root, &artifact, status).await?,
+            revision: summary(store, root, revision).await?,
             step: row.key,
             artifact,
             status,
@@ -62,28 +68,50 @@ fn status(row: &GateViewRow, latest: Option<u32>) -> GateStatus {
     }
 }
 
+struct Revision<'a> {
+    artifact: &'a str,
+    status: GateStatus,
+    item_list: bool,
+}
+
 async fn summary(
     store: &Store,
     root: &str,
-    artifact: &str,
-    status: GateStatus,
+    wanted: Revision<'_>,
 ) -> Result<Option<RevisionSummary>, Error> {
-    let number = match status {
+    let number = match wanted.status {
         GateStatus::Waiting { revision }
         | GateStatus::Approved { revision }
         | GateStatus::Rejected { revision } => revision,
         GateStatus::NotReached => return Ok(None),
     };
-    let Some(id) = store.revision_id(root, artifact, Some(number)).await? else {
+    let Some(id) = store
+        .revision_id(root, wanted.artifact, Some(number))
+        .await?
+    else {
         return Ok(None);
     };
     let revision = store.revision(&id).await?;
+    let item_list = wanted
+        .item_list
+        .then(|| item_list(&revision.files))
+        .flatten();
     Ok(Some(RevisionSummary {
         number,
         origin: origin(&revision.producer),
         sha256: revision.sha256,
         files: revision.files.into_iter().map(|(path, _)| path).collect(),
+        item_list,
     }))
+}
+
+fn item_list(files: &[(String, Vec<u8>)]) -> Option<ItemListSummary> {
+    let items = listed_items(files)?;
+    let item_files: BTreeSet<&String> = items.iter().flat_map(|item| item.files.values()).collect();
+    Some(ItemListSummary {
+        items: items.len(),
+        item_files: item_files.len(),
+    })
 }
 
 fn compare(dir: &Path, artifact: Option<&WorkingCopyArtifact>) -> Result<Comparison, Error> {

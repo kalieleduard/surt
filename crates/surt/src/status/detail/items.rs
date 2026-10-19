@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use surt_engine::project::{AgentSlots, Conflict, ItemState, ItemStatus};
+use surt_engine::project::{AgentSlots, Conflict, ItemState, ItemStatus, RunStatus};
 
 use super::line;
 use crate::driving::{local_time, short};
@@ -9,33 +9,35 @@ use crate::symbols::{BLOCKED, ERROR, PAUSED, SEPARATOR, STARTED, STOPPED, SUCCES
 
 const LIST_SEPARATOR: &str = ", ";
 const WORD_WIDTH: usize = 9;
-const TASK_STEP: &str = "implement";
+const UNTITLED: &str = "items";
 
-pub(super) fn render(text: &mut String, tasks: &[ItemStatus], slots: AgentSlots, paused: bool) {
-    if tasks.is_empty() {
+pub(super) fn render(text: &mut String, status: &RunStatus) {
+    if status.items.is_empty() {
         return;
     }
-    line(text, TASK_STEP);
-    let width = tasks
+    line(text, status.item_step.as_deref().unwrap_or(UNTITLED));
+    let width = status
+        .items
         .iter()
-        .map(|task| task.key.chars().count())
+        .map(|item| item.key.chars().count())
         .max()
         .unwrap_or_default();
-    for task in tasks {
-        let (mark, word) = look(task);
+    let paused = status.paused.is_some();
+    for item in &status.items {
+        let (mark, word) = look(item);
         let entry = format!(
             "    {:<width$}  {mark} {word:<WORD_WIDTH$} {}",
-            task.key,
-            details(task, slots, paused)
+            item.key,
+            details(item, status.slots, paused)
         );
         let _ = writeln!(text, "{}", entry.trim_end());
     }
 }
 
-fn look(task: &ItemStatus) -> (&'static str, String) {
-    let step = || task.step.clone().unwrap_or_default();
-    let named = || item_state_name(task.state).to_owned();
-    match task.state {
+fn look(item: &ItemStatus) -> (&'static str, String) {
+    let step = || item.step.clone().unwrap_or_default();
+    let named = || item_state_name(item.state).to_owned();
+    match item.state {
         ItemState::Succeeded => (SUCCESS, "merged".to_owned()),
         ItemState::Running => (STARTED, step()),
         ItemState::Queued => (WAITING, named()),
@@ -46,40 +48,40 @@ fn look(task: &ItemStatus) -> (&'static str, String) {
     }
 }
 
-fn details(task: &ItemStatus, slots: AgentSlots, paused: bool) -> String {
+fn details(item: &ItemStatus, slots: AgentSlots, paused: bool) -> String {
     let mut parts = Vec::new();
-    let iteration = task.iteration.map(|iteration| format!("iter {iteration}"));
-    match task.state {
+    let iteration = item.iteration.map(|iteration| format!("iter {iteration}"));
+    match item.state {
         ItemState::Succeeded => {
             parts.extend(iteration);
             parts.extend(
-                task.merged_as
+                item.merged_as
                     .as_deref()
                     .map(|sha| format!("as {}", short(sha))),
             );
         }
         ItemState::Running => {
             parts.extend(iteration);
-            parts.extend(attempt(task));
+            parts.extend(attempt(item));
             parts.extend(
-                task.since
+                item.since
                     .and_then(local_time)
                     .map(|time| format!("since {time}")),
             );
         }
         ItemState::Queued | ItemState::Interrupted | ItemState::Blocked => {
-            parts.extend(task.step.as_deref().map(|step| match &iteration {
+            parts.extend(item.step.as_deref().map(|step| match &iteration {
                 Some(iteration) => format!("{step} {iteration}"),
                 None => step.to_owned(),
             }));
-            parts.extend(attempt(task));
+            parts.extend(attempt(item));
         }
-        ItemState::Pending if !task.waits_for.is_empty() => {
-            parts.push(format!("waits for {}", task.waits_for.join(LIST_SEPARATOR)));
+        ItemState::Pending if !item.waits_for.is_empty() => {
+            parts.push(format!("waits for {}", item.waits_for.join(LIST_SEPARATOR)));
         }
         ItemState::Pending | ItemState::Cancelled => {}
     }
-    match (task.state, paused) {
+    match (item.state, paused) {
         (ItemState::Queued, true) => parts.push("waiting for agent launches to resume".to_owned()),
         (ItemState::Queued, false) => parts.push(format!(
             "waiting for agent slot ({}/{} in use)",
@@ -87,12 +89,12 @@ fn details(task: &ItemStatus, slots: AgentSlots, paused: bool) -> String {
         )),
         _ => {}
     }
-    parts.extend(task.conflict.as_ref().map(conflict));
+    parts.extend(item.conflict.as_ref().map(conflict));
     parts.join(SEPARATOR)
 }
 
-fn attempt(task: &ItemStatus) -> Option<String> {
-    task.attempt.map(|attempt| format!("attempt {attempt}"))
+fn attempt(item: &ItemStatus) -> Option<String> {
+    item.attempt.map(|attempt| format!("attempt {attempt}"))
 }
 
 fn conflict(conflict: &Conflict) -> String {

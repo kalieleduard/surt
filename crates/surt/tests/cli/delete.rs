@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::delivering::{feature_name, planned};
+use crate::delivering::{planned, subject_name};
 use crate::scripts::{build, crash_in, review, ship, spec, tasks};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
@@ -31,7 +31,7 @@ fn subjects(sandbox: &Sandbox) -> Vec<String> {
     sandbox.texts("SELECT name FROM subject")
 }
 
-fn cancelled_with_a_blocked_task(name: &str) -> Sandbox {
+fn cancelled_with_a_blocked_item(name: &str) -> Sandbox {
     let sandbox = planned(
         name,
         &[
@@ -66,8 +66,8 @@ fn delivered_as_run_two(sandbox: &Sandbox, name: &str) {
 
 #[test]
 fn delete_after_a_cancelled_and_a_succeeded_run_keeps_only_the_delivered_branch() {
-    let name = feature_name();
-    let sandbox = cancelled_with_a_blocked_task(&name);
+    let name = subject_name();
+    let sandbox = cancelled_with_a_blocked_item(&name);
     delivered_as_run_two(&sandbox, &name);
     let refs = surt_refs(&sandbox);
     assert!(
@@ -112,7 +112,7 @@ fn delete_after_a_cancelled_and_a_succeeded_run_keeps_only_the_delivered_branch(
 
 #[test]
 fn delete_without_a_terminal_and_without_yes_refuses_and_changes_nothing() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = planned(&name, &[tasks(1, &["A"])]);
     ok(surt(&sandbox, &["cancel", "--yes", &name]));
 
@@ -130,8 +130,8 @@ fn delete_without_a_terminal_and_without_yes_refuses_and_changes_nothing() {
 }
 
 #[test]
-fn delete_of_a_feature_with_an_active_run_points_at_cancel_and_changes_nothing() {
-    let name = feature_name();
+fn delete_of_a_subject_with_an_active_run_points_at_cancel_and_changes_nothing() {
+    let name = subject_name();
     let sandbox = planned(&name, &[tasks(1, &["A"])]);
 
     for args in [vec!["delete", &name], vec!["delete", &name, "--yes"]] {
@@ -150,7 +150,7 @@ fn delete_of_a_feature_with_an_active_run_points_at_cancel_and_changes_nothing()
 
 #[test]
 fn a_delete_that_cannot_remove_a_directory_exits_1_and_the_rerun_finishes() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = planned(&name, &[tasks(1, &["A"])]);
     ok(surt(&sandbox, &["cancel", "--yes", &name]));
     let logs = sandbox.dot_surt().join("logs").join(&name);

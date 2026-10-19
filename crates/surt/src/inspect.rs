@@ -19,8 +19,8 @@ const EARLIER_DAY: &str = "%Y-%m-%d %H:%M:%S";
 
 #[derive(clap::Args)]
 pub(crate) struct InspectArgs {
-    feature: String,
-    task: Option<String>,
+    subject: String,
+    item: Option<String>,
     #[arg(long, value_name = "N")]
     run: Option<u32>,
     #[arg(long)]
@@ -29,8 +29,8 @@ pub(crate) struct InspectArgs {
 
 pub(crate) async fn run(cwd: &Path, args: InspectArgs) -> Result<(), Failure> {
     let project = Project::open_read_only(cwd).await?;
-    if let (None, None) = (&args.task, args.run)
-        && let Reference::Execution(id) = project.reference(&args.feature).await?
+    if let (None, None) = (&args.item, args.run)
+        && let Reference::Execution(id) = project.reference(&args.subject).await?
     {
         let detail = project.inspect_execution(&id).await?;
         if args.json {
@@ -41,10 +41,10 @@ pub(crate) async fn run(cwd: &Path, args: InspectArgs) -> Result<(), Failure> {
         return Ok(());
     }
     let request = InspectRequest {
-        item: args.task.as_deref(),
+        item: args.item.as_deref(),
         run: run_selector(args.run),
     };
-    let timeline = project.inspect(&args.feature, request).await?;
+    let timeline = project.inspect(&args.subject, request).await?;
     if args.json {
         return crate::json::print(json::timeline(&timeline));
     }
@@ -101,7 +101,7 @@ pub(crate) fn scope(
     attempt: Option<u32>,
 ) -> Vec<String> {
     let mut parts = Vec::new();
-    parts.extend(item.map(|item| format!("task {item}")));
+    parts.extend(item.map(|item| format!("item {item}")));
     parts.extend(step.map(|step| match iteration {
         Some(iteration) => format!("{step} iter {iteration}"),
         None => step.to_owned(),

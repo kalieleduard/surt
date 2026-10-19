@@ -8,9 +8,9 @@ use crate::states::execution_state_name;
 
 pub(super) fn timeline(timeline: &Timeline) -> Fields {
     Fields::new()
-        .with("feature", timeline.subject.as_str())
+        .with("subject", timeline.subject.as_str())
         .with("run", timeline.run)
-        .maybe("task", timeline.item.as_deref())
+        .maybe("item", timeline.item.as_deref())
         .with(
             "events",
             timeline.events.iter().map(event).collect::<Vec<_>>(),
@@ -21,7 +21,7 @@ fn event(event: &TimelineEvent) -> Value {
     Fields::new()
         .time("at", Some(event.at))
         .with("kind", event.kind.as_str())
-        .maybe("task", event.item.as_deref())
+        .maybe("item", event.item.as_deref())
         .maybe("step", event.step.as_deref())
         .maybe("iteration", event.iteration)
         .maybe("attempt", event.attempt)
@@ -33,9 +33,9 @@ fn event(event: &TimelineEvent) -> Value {
 pub(super) fn execution(detail: &ExecutionDetail) -> Fields {
     let execution = Fields::new()
         .with("id", detail.id.as_str())
-        .with("feature", detail.subject.as_str())
+        .with("subject", detail.subject.as_str())
         .with("run", detail.run)
-        .maybe("task", detail.item.as_deref())
+        .maybe("item", detail.item.as_deref())
         .with("step", detail.step.as_str())
         .maybe("iteration", detail.iteration)
         .with("attempt", detail.attempt)
@@ -120,6 +120,6 @@ fn input(input: &ExecutionInput) -> Value {
         .with("artifact", input.artifact.as_str())
         .with("revision", input.revision)
         .with("sha256", input.sha256.as_str())
-        .maybe("task", input.item.as_deref())
+        .maybe("item", input.item.as_deref())
         .into()
 }

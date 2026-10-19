@@ -64,7 +64,7 @@ fn impact() -> DeleteImpact {
 fn the_question_lists_runs_refs_disk_and_history() {
     assert_eq!(
         question(&impact()),
-        "delete feature 20261017-add-login and all its history?\n\
+        "delete subject 20261017-add-login and all its history?\n\
          \x20 runs      1 cancelled · 2 succeeded\n\
          \x20 git       delete surt/20261017-add-login (run 1, cancelled)\n\
          \x20           delete surt/task/20261017-add-login/{A,B} · surt/task/20261017-add-login.2/C · 1 salvage ref\n\
@@ -90,7 +90,7 @@ fn the_question_says_when_git_and_disk_hold_nothing() {
 
     assert_eq!(
         question(&empty),
-        "delete feature 20261017-add-login and all its history?\n\
+        "delete subject 20261017-add-login and all its history?\n\
          \x20 runs      1 cancelled\n\
          \x20 git       delete 2 salvage refs\n\
          \x20 disk      nothing\n\

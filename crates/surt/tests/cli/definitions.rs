@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::delivering::feature_name;
+use crate::delivering::subject_name;
 use crate::scripts::{build, review, ship, spec, tasks};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
@@ -49,7 +49,7 @@ fn the_creation_line_stands_alone_without_a_local_agents_line() {
 }
 
 #[test]
-fn an_invalid_agent_file_refuses_the_feature_with_exit_3_before_any_row_is_written() {
+fn an_invalid_agent_file_refuses_the_subject_with_exit_3_before_any_row_is_written() {
     let sandbox = project(&[spec(1, "# Spec 1\n")]);
     edit(
         &sandbox,
@@ -99,7 +99,7 @@ fn removing_the_outcome_a_declared_check_names_is_refused_at_outcomes() {
 }
 
 #[test]
-fn without_the_feature_workflow_the_feature_is_refused_listing_the_workflows() {
+fn without_the_feature_workflow_the_run_is_refused_listing_the_workflows() {
     let sandbox = project(&[spec(1, "# Spec 1\n")]);
     fs::remove_file(sandbox.dot_surt().join("workflows/feature.toml")).expect("removed");
 
@@ -133,7 +133,7 @@ fn a_project_initialized_without_a_template_is_pointed_at_it() {
 }
 
 #[test]
-fn plan_and_start_drive_a_feature_whose_builder_model_was_edited() {
+fn plan_and_start_drive_a_subject_whose_builder_model_was_edited() {
     let sandbox = project(&[
         spec(1, "# Spec 1\n"),
         tasks(1, &["A"]),
@@ -147,7 +147,7 @@ fn plan_and_start_drive_a_feature_whose_builder_model_was_edited() {
         TEMPLATE_MODEL,
         &format!("model = \"{EDITED_MODEL}\""),
     );
-    let name = feature_name();
+    let name = subject_name();
 
     ok(sandbox.run_feature("add login", &[]));
     ok(surt(&sandbox, &["approve", &name]));
@@ -174,7 +174,7 @@ fn editing_an_agent_after_creation_leaves_the_run_on_the_frozen_definition() {
         review("A", 1, "approved"),
         ship(),
     ]);
-    let name = feature_name();
+    let name = subject_name();
 
     ok(sandbox.run_feature("add login", &[]));
     edit(

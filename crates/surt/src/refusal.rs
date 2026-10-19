@@ -61,7 +61,7 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
                 .way("retry", format!("surt delete {subject}"))
         }
         Refusal::SubjectChangedWhileDeleting { subject } => {
-            Message::new("feature changed while deleting; run again")
+            Message::new("subject changed while deleting; run again")
                 .way("retry", format!("surt delete {subject}"))
         }
         Refusal::ActiveRunExists { subject } => {
@@ -81,7 +81,7 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             declared,
         } => inputs::invalid(workflow, problem, declared),
         Refusal::UnknownSubject { reference } => {
-            Message::new(format!("no feature matches {}", quoted(reference)))
+            Message::new(format!("no subject matches {}", quoted(reference)))
                 .way("inspect", "surt status")
         }
         Refusal::AmbiguousSubject {
@@ -182,7 +182,7 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             subject,
             item,
             known,
-        } => reading::unknown_task(subject, item, known),
+        } => reading::unknown_item(subject, item, known),
         Refusal::UnknownRun { subject, run, runs } => reading::unknown_run(subject, *run, runs),
         Refusal::NoRevisionInIteration {
             subject,
@@ -213,7 +213,7 @@ fn short(sha: &str) -> &str {
 
 fn ambiguous(reference: &str, candidates: &[Candidate]) -> Message {
     let headline = format!(
-        "{} matches {} features:",
+        "{} matches {} subjects:",
         quoted(reference),
         candidates.len()
     );
@@ -264,7 +264,7 @@ fn managed_worktree(path: &Path, project: Option<&Path>) -> Message {
         "{} is inside a surt-managed worktree",
         path.display()
     ))
-    .context("surt commands run from the project, not from a task's worktree");
+    .context("surt commands run from the project, not from an item's worktree");
     match project {
         Some(project) => message.way("fix", format!("cd {}", project.display())),
         None => message.way("fix", "cd <your repository>"),

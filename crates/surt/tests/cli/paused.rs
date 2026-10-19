@@ -9,7 +9,7 @@ use jiff::tz::TimeZone;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
-use crate::delivering::{feature_name, planned};
+use crate::delivering::{planned, subject_name};
 use crate::scripts::{limit_failure_in, tasks};
 use crate::support::{Run, Sandbox};
 
@@ -101,7 +101,7 @@ fn ok(run: Run) -> String {
 
 #[test]
 fn status_from_another_terminal_shows_a_paused_driver_and_writes_nothing() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = planned(
         &name,
         &[

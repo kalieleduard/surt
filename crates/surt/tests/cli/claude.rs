@@ -76,7 +76,7 @@ fn an_outdated_claude_code_blocks_the_step_at_once_and_its_version_is_recorded()
 }
 
 #[test]
-fn each_execution_writes_its_stream_and_stderr_to_the_feature_log_directory() {
+fn each_execution_writes_its_stream_and_stderr_to_the_subject_log_directory() {
     let sandbox = project();
     install_claude(
         &sandbox,

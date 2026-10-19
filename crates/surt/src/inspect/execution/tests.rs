@@ -124,7 +124,7 @@ fn a_failed_builder_shows_everything_one_screen_needs() {
         text,
         format!(
             "execution {ID}\n\
-             \x20 feature   {SUBJECT} · run 2 · task B\n\
+             \x20 subject   {SUBJECT} · run 2 · item B\n\
              \x20 step      build iter 2 · attempt 1 · agent-0\n\
              \x20 role      builder\n\
              \x20 state     failed (retryable) · invalid_delivery — final JSON missing \"outputs\"\n\
@@ -151,7 +151,7 @@ fn values_the_runtime_did_not_report_are_left_out() {
         text,
         format!(
             "execution {ID}\n\
-             \x20 feature  {SUBJECT} · run 1\n\
+             \x20 subject  {SUBJECT} · run 1\n\
              \x20 step     write · attempt 1\n\
              \x20 role     writer\n\
              \x20 state    succeeded (done)\n\

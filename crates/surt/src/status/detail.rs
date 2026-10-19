@@ -1,6 +1,6 @@
 mod gates;
+mod items;
 mod merge;
-mod tasks;
 
 use std::fmt::Write;
 
@@ -40,12 +40,7 @@ pub(super) fn render(status: &RunStatus) -> String {
         );
     }
     gates::render(&mut text, status);
-    tasks::render(
-        &mut text,
-        &status.items,
-        status.slots,
-        status.paused.is_some(),
-    );
+    items::render(&mut text, status);
     blocked(&mut text, status, &resume);
     for unattended in &status.unattended {
         line(

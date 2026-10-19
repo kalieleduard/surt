@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::delivering::feature_name;
+use crate::delivering::subject_name;
 use crate::scripts::{build, review, ship, spec, tasks};
 use crate::support::{Run, Sandbox};
 
@@ -28,7 +28,7 @@ pub(super) fn surt(sandbox: &Sandbox, args: &[&str]) -> Run {
 }
 
 pub(super) fn planned(sandbox: &Sandbox) -> String {
-    let name = feature_name();
+    let name = subject_name();
     let created = sandbox.run_feature("add login", &[]);
     assert_eq!(created.code, Some(0), "{}", created.stderr);
     surt(sandbox, &["approve", &name]);
@@ -92,7 +92,7 @@ fn a_base_branch_checked_out_nowhere_is_fast_forwarded_after_the_shipper() {
     assert_eq!(sha(&sandbox, &main), tip);
     assert!(
         started.stderr.contains(&format!(
-            "✔ shipper delivered — surt/{name} @ {}\n✔ merged into {main} (fast-forward {} → {})\n✔ run succeeded\n",
+            "✔ delivered — surt/{name} @ {}\n✔ merged into {main} (fast-forward {} → {})\n✔ run succeeded\n",
             short(&tip),
             short(&base),
             short(&tip)

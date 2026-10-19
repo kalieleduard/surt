@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::delivering::feature_name;
+use crate::delivering::subject_name;
 use crate::scripts::{build, crash_in, review, ship, spec, tasks};
 use crate::status::{assert_unchanged, hashes};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
@@ -59,17 +59,17 @@ fn details<'a>(timeline: &'a str, kind: &str) -> Vec<&'a str> {
 
 #[test]
 fn inspect_explains_a_rejected_spec_and_a_new_builder_iteration_after_cleanup_without_logs() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = delivered_after_a_rejected_review(&name);
     fs::remove_dir_all(sandbox.dot_surt().join("logs")).expect("the logs are removed");
     let before = hashes(&sandbox.dot_surt());
 
     let run = ok(surt(&sandbox, &["inspect", &name]));
-    let task = ok(surt(&sandbox, &["inspect", &name, "A", "--run", "1"]));
+    let item = ok(surt(&sandbox, &["inspect", &name, "A", "--run", "1"]));
     let crashed = ok(surt(&sandbox, &["inspect", &name, "B"]));
 
     assert_unchanged(&sandbox.dot_surt(), before);
-    assert_eq!(details(&run, "run.created")[1..], ["task A", "task B"]);
+    assert_eq!(details(&run, "run.created")[1..], ["item A", "item B"]);
     assert_eq!(
         details(&run, "approval.recorded")[0],
         "approve-spec iter 1 · spec rev 1 rejected — \"needs OAuth\" · by tester@example.com"
@@ -85,21 +85,21 @@ fn inspect_explains_a_rejected_spec_and_a_new_builder_iteration_after_cleanup_wi
             .all(|step| !step.starts_with("build"))
     );
     assert_eq!(
-        details(&task, "step.done")[2..4],
+        details(&item, "step.done")[2..4],
         ["check iter 1 · passed", "review iter 1 · changes_requested"]
     );
     assert_eq!(
-        details(&task, "iteration.started"),
+        details(&item, "iteration.started"),
         ["cycle · iter 1", "cycle · iter 2 until integrate not met"]
     );
-    let builds: Vec<_> = details(&task, "execution.started")
+    let builds: Vec<_> = details(&item, "execution.started")
         .into_iter()
         .filter(|started| started.starts_with("build"))
         .collect();
-    assert_eq!(builds.len(), 2, "{task}");
+    assert_eq!(builds.len(), 2, "{item}");
     assert!(
         builds[1].starts_with("build iter 2 · attempt 1 · agent-"),
-        "{task}"
+        "{item}"
     );
     let failed = details(&crashed, "execution.failed");
     assert_eq!(failed.len(), 1, "{crashed}");
@@ -110,18 +110,18 @@ fn inspect_explains_a_rejected_spec_and_a_new_builder_iteration_after_cleanup_wi
 }
 
 #[test]
-fn inspect_of_an_unknown_task_or_run_refuses_and_lists_what_exists() {
-    let name = feature_name();
+fn inspect_of_an_unknown_item_or_run_refuses_and_lists_what_exists() {
+    let name = subject_name();
     let sandbox = delivered_after_a_rejected_review(&name);
 
-    let task = surt(&sandbox, &["inspect", &name, "Z"]);
+    let item = surt(&sandbox, &["inspect", &name, "Z"]);
     let run = surt(&sandbox, &["inspect", &name, "--run", "2"]);
 
-    assert_eq!(task.code, Some(REFUSED_EXIT_CODE), "{}", task.stderr);
-    assert!(task.stdout.is_empty(), "{}", task.stdout);
+    assert_eq!(item.code, Some(REFUSED_EXIT_CODE), "{}", item.stderr);
+    assert!(item.stdout.is_empty(), "{}", item.stdout);
     assert_eq!(
-        task.stderr,
-        format!("✖ {name} has no task \"Z\"\n  tasks: A, B\n  inspect: surt status {name}\n")
+        item.stderr,
+        format!("✖ {name} has no item \"Z\"\n  items: A, B\n  inspect: surt status {name}\n")
     );
     assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
 }
@@ -150,7 +150,7 @@ fn copy_execution(sandbox: &Sandbox, from: &str, id: &str, attempt: u32) {
 
 #[test]
 fn inspect_shows_one_execution_by_its_full_id_after_cleanup_without_logs() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = delivered_after_a_rejected_review(&name);
     let id = crashed_build(&sandbox);
     fs::remove_dir_all(sandbox.dot_surt().join("logs")).expect("the logs are removed");
@@ -171,7 +171,7 @@ fn inspect_shows_one_execution_by_its_full_id_after_cleanup_without_logs() {
     );
     let lines: Vec<&str> = shown.lines().collect();
     assert_eq!(lines[0], format!("execution {id}"));
-    assert_eq!(lines[1], format!("  feature   {name} · run 1 · task B"));
+    assert_eq!(lines[1], format!("  subject   {name} · run 1 · item B"));
     assert!(
         lines[2].starts_with("  step      build iter 1 · attempt 1 · agent-"),
         "{shown}"
@@ -209,7 +209,7 @@ fn inspect_shows_one_execution_by_its_full_id_after_cleanup_without_logs() {
 
 #[test]
 fn inspect_finds_an_execution_by_an_eight_character_prefix() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = delivered_after_a_rejected_review(&name);
     copy_execution(&sandbox, &crashed_build(&sandbox), TWIN, 101);
 
@@ -225,7 +225,7 @@ fn inspect_finds_an_execution_by_an_eight_character_prefix() {
 
 #[test]
 fn inspect_refuses_a_too_short_or_ambiguous_prefix_and_lists_the_candidates() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = delivered_after_a_rejected_review(&name);
     let crashed = crashed_build(&sandbox);
     copy_execution(&sandbox, &crashed, TWIN, 101);
@@ -241,7 +241,7 @@ fn inspect_refuses_a_too_short_or_ambiguous_prefix_and_lists_the_candidates() {
     }
     let listed = |id: &str, attempt: u32| {
         format!(
-            "    {id}  {name} · run 1 · task B · build iter 1 · attempt {attempt}  interrupted\n"
+            "    {id}  {name} · run 1 · item B · build iter 1 · attempt {attempt}  interrupted\n"
         )
     };
     assert_eq!(
@@ -263,6 +263,6 @@ fn inspect_refuses_a_too_short_or_ambiguous_prefix_and_lists_the_candidates() {
     );
     assert_eq!(
         unknown.stderr,
-        "✖ no feature or execution matches \"bbbbbbbb\"\n  inspect: surt status\n"
+        "✖ no subject or execution matches \"bbbbbbbb\"\n  inspect: surt status\n"
     );
 }

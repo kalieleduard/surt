@@ -268,11 +268,11 @@ fn reading_refusals_list_what_exists_and_how_to_look_it_up() {
              inspect: surt show 20261017-add-login\n",
             "✖ spec has no rev 3; the latest is rev 2\n  \
              inspect: surt show 20261017-add-login spec --rev 2\n",
-            "✖ 20261017-add-login has no task \"Z\"\n  \
-             tasks: A, B\n  \
+            "✖ 20261017-add-login has no item \"Z\"\n  \
+             items: A, B\n  \
              inspect: surt status 20261017-add-login\n",
-            "✖ 20261017-add-login has no task \"A\"\n  \
-             it has no tasks yet\n  \
+            "✖ 20261017-add-login has no item \"A\"\n  \
+             it has no items yet\n  \
              inspect: surt status 20261017-add-login\n",
         ]
     );
@@ -489,17 +489,17 @@ fn an_invalid_edit_says_what_is_wrong_and_how_to_undo_it() {
 }
 
 #[test]
-fn an_unknown_feature_points_at_the_list_of_features() {
+fn an_unknown_subject_points_at_the_list_of_subjects() {
     let refusal = &every_refusal()[17];
 
     assert_eq!(
         text(refusal),
-        "✖ no feature matches \"login\"\n  inspect: surt status\n"
+        "✖ no subject matches \"login\"\n  inspect: surt status\n"
     );
 }
 
 #[test]
-fn an_ambiguous_feature_lists_every_candidate_and_asks_for_the_full_name() {
+fn an_ambiguous_subject_lists_every_candidate_and_asks_for_the_full_name() {
     let refusal = Refusal::AmbiguousSubject {
         reference: "add-login".to_owned(),
         candidates: vec![
@@ -529,7 +529,7 @@ fn an_ambiguous_feature_lists_every_candidate_and_asks_for_the_full_name() {
 
     assert_eq!(
         text(&refusal),
-        "✖ \"add-login\" matches 3 features:\n    \
+        "✖ \"add-login\" matches 3 subjects:\n    \
          20261015-add-login    AWAITING APPROVAL (spec rev 1)\n    \
          20261017-add-login    RUNNING\n    \
          20261017-add-login-2  AWAITING APPROVAL (manifest rev 2) + BLOCKED\n  \
@@ -561,7 +561,7 @@ fn delete_refusals_point_at_cancel_or_at_running_the_delete_again() {
              fix: surt cancel 20261017-add-login\n",
             "✖ another surt process is working on 20261017-add-login\n  \
              retry: surt delete 20261017-add-login\n",
-            "✖ feature changed while deleting; run again\n  \
+            "✖ subject changed while deleting; run again\n  \
              retry: surt delete 20261017-add-login\n",
         ]
     );

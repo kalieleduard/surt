@@ -1,11 +1,11 @@
 use std::fmt::Write;
 
-use surt_engine::project::{GateStatus, GateView, RunStatus};
+use surt_engine::project::{GateStatus, GateView, ItemListSummary, RunStatus};
 
 use super::{CONTINUATION, field, line};
 use crate::driving::local_time;
 use crate::show::origin;
-use crate::status::item_files;
+use crate::status::item_count;
 use crate::symbols::{DASH, EDITED, ELLIPSIS, ERROR, PAUSED, SEPARATOR, SUCCESS, WARNING};
 
 pub(super) fn render(text: &mut String, status: &RunStatus) {
@@ -17,7 +17,7 @@ pub(super) fn render(text: &mut String, status: &RunStatus) {
             "rev {} ({}){}",
             revision.number,
             origin(revision.origin),
-            decision(gate, item_files(revision.files.len()))
+            decision(gate, revision.item_list)
         );
         field(text, &gate.artifact, &summary);
         if matches!(gate.status, GateStatus::Waiting { .. }) {
@@ -43,7 +43,7 @@ pub(super) fn render(text: &mut String, status: &RunStatus) {
     }
 }
 
-fn decision(gate: &GateView, covered: Option<usize>) -> String {
+fn decision(gate: &GateView, item_list: Option<ItemListSummary>) -> String {
     let by = |verb: &str| {
         let actor = gate
             .decided_by
@@ -57,20 +57,23 @@ fn decision(gate: &GateView, covered: Option<usize>) -> String {
             .unwrap_or_default();
         format!("{verb}{actor}{at}")
     };
-    let items = covered.map(tasks).unwrap_or_default();
-    match (gate.status, covered) {
-        (GateStatus::Approved { .. }, _) => {
+    let items = item_list
+        .map(|list| format!("{SEPARATOR}{}", item_count(list.items)))
+        .unwrap_or_default();
+    let item_files = item_list.map_or(0, |list| list.item_files);
+    match gate.status {
+        GateStatus::Approved { .. } => {
             format!("{}{items}", by(&format!(" {SUCCESS} approved")))
         }
-        (GateStatus::Rejected { .. }, _) => format!("{}{items}", by(&format!(" {ERROR} rejected"))),
-        (GateStatus::Waiting { .. }, Some(count)) => format!(
-            " {PAUSED} awaiting approval {DASH} approving covers the {} and all {count} task files:",
+        GateStatus::Rejected { .. } => format!("{}{items}", by(&format!(" {ERROR} rejected"))),
+        GateStatus::Waiting { .. } if item_files > 0 => format!(
+            " {PAUSED} awaiting approval {DASH} approving covers the {} and all {item_files} item files:",
             gate.artifact
         ),
-        (GateStatus::Waiting { .. }, None) => {
+        GateStatus::Waiting { .. } => {
             format!(" {PAUSED} awaiting approval {DASH} approving covers:")
         }
-        (GateStatus::NotReached, _) => String::new(),
+        GateStatus::NotReached => String::new(),
     }
 }
 
@@ -89,12 +92,5 @@ fn changes(text: &mut String, gate: &GateView, revision: u32) {
             text,
             "{CONTINUATION}{WARNING} {file} missing from the Working Copy"
         );
-    }
-}
-
-fn tasks(count: usize) -> String {
-    match count {
-        1 => format!("{SEPARATOR}1 task"),
-        _ => format!("{SEPARATOR}{count} tasks"),
     }
 }

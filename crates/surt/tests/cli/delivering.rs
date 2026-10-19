@@ -11,7 +11,7 @@ const BLOCKED_EXIT_CODE: i32 = 4;
 const RESET_DELAY_SECONDS: i64 = 2;
 const E2E_CEILING: Duration = Duration::from_secs(60);
 
-pub fn feature_name() -> String {
+pub fn subject_name() -> String {
     format!("{}-add-login", Zoned::now().date().strftime("%Y%m%d"))
 }
 
@@ -65,7 +65,7 @@ fn merged_as(sandbox: &Sandbox, item: &str) -> String {
 }
 
 #[test]
-fn the_brief_delivers_a_feature_from_its_description_to_the_integration_branch() {
+fn the_brief_delivers_a_subject_from_its_description_to_the_integration_branch() {
     let clock = Instant::now();
     let sandbox = project(&[
         spec(1, "# Spec 1\n"),
@@ -80,7 +80,7 @@ fn the_brief_delivers_a_feature_from_its_description_to_the_integration_branch()
         review("B", 1, "approved"),
         ship(),
     ]);
-    let name = feature_name();
+    let name = subject_name();
     let base = rev_parse(&sandbox, "HEAD");
     let base_branch = sandbox
         .git_output(&sandbox.repo(), &["symbolic-ref", "--short", "HEAD"])
@@ -98,17 +98,17 @@ fn the_brief_delivers_a_feature_from_its_description_to_the_integration_branch()
     let branch = format!("surt/{name}");
     let tip = rev_parse(&sandbox, &branch);
     for line in [
-        format!("✔ task A merged ({})\n", short(&merged_as(&sandbox, "A"))),
-        format!("✔ task B merged ({})\n", short(&merged_as(&sandbox, "B"))),
-        "↻ task B build attempt 2\n".to_owned(),
-        "● task A build iter 2 started\n".to_owned(),
+        format!("✔ item A merged ({})\n", short(&merged_as(&sandbox, "A"))),
+        format!("✔ item B merged ({})\n", short(&merged_as(&sandbox, "B"))),
+        "↻ item B build attempt 2\n".to_owned(),
+        "● item A build iter 2 started\n".to_owned(),
     ] {
         assert!(started.contains(&line), "{line}\n{started}");
     }
     assert!(
         started.ends_with(&format!(
-            "✔ shipper delivered — {branch} @ {}\n✔ run succeeded\n\
-             ↻ cleanup 2 worktrees · 2 task branches · working copy\n",
+            "✔ delivered — {branch} @ {}\n✔ run succeeded\n\
+             ↻ cleanup 2 worktrees · 2 item branches · working copy\n",
             short(&tip)
         )),
         "{started}"
@@ -234,8 +234,8 @@ fn last_failure(sandbox: &Sandbox, item: &str) -> (String, String) {
 }
 
 #[test]
-fn a_rate_limited_task_pauses_and_merges_while_a_blocked_task_stops_start_with_exit_4() {
-    let name = feature_name();
+fn a_rate_limited_item_pauses_and_merges_while_a_blocked_item_stops_start_with_exit_4() {
+    let name = subject_name();
     let sandbox = planned(
         &name,
         &[
@@ -284,15 +284,15 @@ fn a_rate_limited_task_pauses_and_merges_while_a_blocked_task_stops_start_with_e
         run.stderr
     );
     assert!(
-        rest.contains("\n↻ task C build attempt 2\n"),
+        rest.contains("\n↻ item C build attempt 2\n"),
         "{}",
         run.stderr
     );
-    for task in ["A", "C"] {
+    for item in ["A", "C"] {
         assert!(
             run.stderr.contains(&format!(
-                "✔ task {task} merged ({})\n",
-                short(&merged_as(&sandbox, task))
+                "✔ item {item} merged ({})\n",
+                short(&merged_as(&sandbox, item))
             )),
             "{}",
             run.stderr
@@ -300,7 +300,7 @@ fn a_rate_limited_task_pauses_and_merges_while_a_blocked_task_stops_start_with_e
     }
     assert!(
         run.stderr.ends_with(&format!(
-            "⛔ task B build blocked: attempts exhausted\n  \
+            "⛔ item B build blocked: attempts exhausted\n  \
              attempt 3 failed (exit_code): {b_message}\n  \
              inspect: surt inspect {b_execution}\n  \
              logs: surt logs {b_execution}\n  \
@@ -320,7 +320,7 @@ fn a_rate_limited_task_pauses_and_merges_while_a_blocked_task_stops_start_with_e
 #[test]
 fn continue_at_the_manifest_gate_runs_nothing_and_ends_at_the_gate_again() {
     let sandbox = project(&[spec(1, "# Spec 1\n"), tasks(1, &["A"])]);
-    let name = feature_name();
+    let name = subject_name();
     ok(sandbox.run_feature("add login", &[]));
     ok(surt(&sandbox, &["approve", &name]));
     ok(surt(&sandbox, &["continue", &name]));
@@ -339,7 +339,7 @@ fn continue_at_the_manifest_gate_runs_nothing_and_ends_at_the_gate_again() {
 
 #[test]
 fn continue_finishes_a_pending_cleanup_of_the_subject() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = planned(
         &name,
         &[
@@ -377,7 +377,7 @@ fn continue_finishes_a_pending_cleanup_of_the_subject() {
 
 #[test]
 fn a_cleanup_keeps_an_edited_file_and_says_how_to_retry_what_it_could_not_remove() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = planned(
         &name,
         &[
@@ -443,7 +443,7 @@ fn a_cleanup_keeps_an_edited_file_and_says_how_to_retry_what_it_could_not_remove
 
 #[test]
 fn start_refuses_while_the_integration_branch_was_moved_and_resumes_once_restored() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = planned(
         &name,
         &[
@@ -486,7 +486,7 @@ fn start_refuses_while_the_integration_branch_was_moved_and_resumes_once_restore
 
     assert!(
         resumed
-            .ends_with("✔ run succeeded\n↻ cleanup 2 worktrees · 2 task branches · working copy\n"),
+            .ends_with("✔ run succeeded\n↻ cleanup 2 worktrees · 2 item branches · working copy\n"),
         "{resumed}"
     );
 }

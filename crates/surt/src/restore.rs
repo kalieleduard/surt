@@ -10,7 +10,7 @@ use crate::table;
 
 #[derive(clap::Args)]
 pub(crate) struct RestoreArgs {
-    feature: String,
+    subject: String,
     artifact: String,
     #[arg(short = 'y', long)]
     yes: bool,
@@ -18,7 +18,7 @@ pub(crate) struct RestoreArgs {
 
 pub(crate) async fn run(cwd: &Path, args: RestoreArgs) -> Result<(), Failure> {
     let project = Project::open(cwd).await?;
-    let subject = project.resolve_subject(&args.feature).await?.name;
+    let subject = project.resolve_subject(&args.subject).await?.name;
     let impact = project.restore_impact(&subject, &args.artifact).await?;
     if impact.changes.is_empty() {
         unchanged(&impact).print_success();

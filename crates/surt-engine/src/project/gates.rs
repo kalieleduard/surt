@@ -2,7 +2,7 @@ use super::{Error, Project, Refusal, RunId, open_store};
 use crate::artifacts::working_copy::WorkingCopy;
 use crate::drive::{CorruptSnapshot, Frozen};
 use crate::store::{Decision, DecisionOutcome, NewDecision, Store, WaitingGate};
-use crate::workflow::StepSpec;
+use crate::workflow::{Format, StepSpec};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Decided {
@@ -205,6 +205,7 @@ pub(super) struct GateArtifacts {
     pub(super) artifact: String,
     rejection_artifact: String,
     producer: Option<String>,
+    pub(super) item_list: bool,
 }
 
 pub(super) async fn approval_step(
@@ -219,9 +220,17 @@ pub(super) async fn approval_step(
         return Err(CorruptSnapshot::new(key, "not an approval step").into());
     };
     let producer = frozen.producer(definition, &spec.artifact)?;
+    let item_list = producer.is_some_and(|(_, agent)| {
+        agent
+            .contract
+            .outputs
+            .get(&spec.artifact)
+            .is_some_and(|output| output.format == Format::ItemList)
+    });
     Ok(GateArtifacts {
         artifact: spec.artifact.clone(),
         rejection_artifact: spec.rejection_artifact.clone(),
         producer: producer.map(|(step, _)| step.to_owned()),
+        item_list,
     })
 }
