@@ -1,5 +1,5 @@
 use super::{AgentContract, Auth, Format, OutputSpec, Profile, RuntimeKind};
-use crate::workflow::catalog::AgentAssets;
+use crate::workflow::catalog::{AgentAssets, DeliveryCheck};
 use crate::workflow::error::Problem;
 
 const SCHEMA_VERSION: i64 = 1;
@@ -25,6 +25,31 @@ impl AgentContract {
             }),
             None => Ok(()),
         }
+    }
+
+    pub(crate) fn check_deliveries(
+        &self,
+        checks: &[(String, DeliveryCheck)],
+    ) -> Result<(), Problem> {
+        for (output, check) in checks {
+            let delivered_as_json = self
+                .outputs
+                .get(output)
+                .is_some_and(|spec| spec.format == Format::Json);
+            if !delivered_as_json {
+                return Err(Problem::MissingCheckedOutput {
+                    output: output.clone(),
+                });
+            }
+            if let DeliveryCheck::NoBlockingFinding { outcome } = check
+                && !self.outcomes().iter().any(|declared| declared == outcome)
+            {
+                return Err(Problem::MissingCheckedOutcome {
+                    outcome: (*outcome).to_owned(),
+                });
+            }
+        }
+        Ok(())
     }
 
     fn check_formats(&self) -> Result<(), Problem> {

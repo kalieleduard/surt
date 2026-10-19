@@ -110,6 +110,12 @@ pub enum Problem {
     },
     StrayAgentFile,
     TestOnlyRuntime,
+    MissingCheckedOutput {
+        output: String,
+    },
+    MissingCheckedOutcome {
+        outcome: String,
+    },
 }
 
 impl InvalidDefinition {

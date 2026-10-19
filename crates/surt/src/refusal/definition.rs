@@ -75,6 +75,12 @@ pub(super) fn describe(problem: &Problem) -> String {
         Problem::UnknownAgentDirectory { known } => {
             format!("not a built-in agent; agents: {}", known.join(", "))
         }
+        Problem::MissingCheckedOutput { output } => {
+            format!("a delivery check needs the JSON output \"{output}\"")
+        }
+        Problem::MissingCheckedOutcome { outcome } => {
+            format!("a delivery check needs the outcome \"{outcome}\"")
+        }
         Problem::TestOnlyRuntime => "runtime \"fake\" is test-only".to_owned(),
         Problem::StrayAgentFile => {
             "surt reads only agent.toml, instructions.md and schemas/ here".to_owned()

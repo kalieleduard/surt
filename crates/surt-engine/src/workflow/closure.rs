@@ -109,6 +109,15 @@ impl Resolver<'_> {
             })?;
             let toml = self.catalog.agent_toml(&spec.agent).unwrap_or(assets.toml);
             let contract = AgentContract::parse(&spec.agent, toml, assets)?;
+            contract
+                .check_deliveries(self.catalog.delivery_checks(&spec.agent))
+                .map_err(|problem| {
+                    InvalidDefinition::new(
+                        DefinitionFile::Workflow(definition.name.clone()),
+                        Some(&step.key),
+                        problem,
+                    )
+                })?;
             self.agents.insert(spec.agent.clone(), contract);
         }
         Ok(())
