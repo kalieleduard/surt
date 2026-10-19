@@ -44,7 +44,7 @@ Ten of the fourteen commands of [J](J-cli.md#commands). A command or flag that i
 | `show <feature> [<artifact>] [--rev N] [--task <key>]` | `--iter`, `--file`, `--run`, `--json`: M2 |
 | — | `stop`, `inspect`, `logs`, `restore`, `delete`: M2 |
 
-Every command and flag marked M2 above now exists: Milestone 2 implemented them ([After Milestone 1](#after-milestone-1)). `--merge`/`--no-merge`, marked M4, exist too: Milestone 4 implemented them, on creation and on `--new-run`.
+Every command and flag marked M2 above now exists: Milestone 2 implemented them ([After Milestone 1](#after-milestone-1)). `--merge`/`--no-merge`, marked M4, exist too: Milestone 4 implemented them, on creation and on `--new-run`. Milestone 5 then made the driving commands generic: `feature "<description>"` is `run feature --input request="<description>"` (`--base <ref>` is `--input base=<ref>`), `feature <feature>`, `plan` and `start` are all `continue <subject>`, `feature <feature> --new-run` is `continue <subject> --new-run`, and `show --task` is `show --item` ([J](J-cli.md#commands)). The mock and the table above show Milestone 1's CLI.
 
 ### Mechanisms deferred
 
@@ -109,14 +109,16 @@ docs/smoke-claude-code.md                # manual smoke checklist
 
 `docs/architecture/schemas/*.schema.json` move to the crate that owns them: Operation outputs to `surt-engine/schemas/`, agent outputs (`manifest`, `commit`, `feedback`, `delivery`) to their Agent in `surt/assets/agents/`.
 
+The tree is Milestone 1's. Milestone 5 moved the feature workflow's files to `crates/surt/assets/templates/feature/`, and replaced `builtin.rs` and the `feature`, `plan` and `start` commands with the Template table (`src/template/`), `run` and `continue` ([B](B-workspace.md#definitions-in-the-project-the-template-in-the-binary)).
+
 ## After Milestone 1
 
 | Milestone | Goal | Contents | Status |
 |---|---|---|---|
 | **M2 Operate and debug** | understand and fix a run without opening SQLite | `inspect`, `logs [-f] [--raw]`, full `show`, `--json` on reads, `--run`, `stop`, `restore`, `delete`, `--new-run`, the TTY footer, the 5-minute line, ASCII symbols | implemented; shipped once CI passes on macOS, Linux and Windows and the manual macOS smoke passes |
-| **M3 Run unattended** | leave a long `surt start` running without coming back to restart it | the Transient Failure pause (reset time and backoff), agent slots across processes, `~/.surt/config.toml` | implemented; shipped once CI passes on macOS, Linux and Windows and the manual macOS smoke passes |
+| **M3 Run unattended** | leave a long drive running without coming back to restart it | the Transient Failure pause (reset time and backoff), agent slots across processes, `~/.surt/config.toml` | implemented; shipped once CI passes on macOS, Linux and Windows and the manual macOS smoke passes |
 | **M4 Fit the project** | adapt agents and delivery to the repository | `.surt/agents/` overrides, `merge_into_base = "ff-only"` with `--merge`/`--no-merge`, `on_success = "keep"` | implemented; shipped once CI passes on macOS, Linux and Windows and the manual macOS smoke passes |
-| **M5 The project owns its workflows** | let a project read, change and add its workflows and Agents | definitions under `.surt/workflows/` and `.surt/agents/`, `surt init --template feature`, workflow-declared run inputs, delivery checks on outputs, `surt run`/`surt continue` | specified ([Milestone 5](../../.scratch/milestone-5/spec.md), [ADR 0013](../adr/0013-definitions-live-in-the-project.md)) |
+| **M5 The project owns its workflows** | let a project read, change and add its workflows and Agents | definitions under `.surt/workflows/` and `.surt/agents/`, `surt init --template feature`, workflow-declared run inputs, delivery checks on outputs, `surt run`/`surt continue` | implemented; shipped once CI passes on macOS, Linux and Windows and the manual macOS smoke passes |
 
 **Milestone 2 is implemented** with the spec [Milestone 2](../../.scratch/milestone-2/spec.md): a run is operated and debugged through `inspect`, `logs`, `show`, `--json`, `stop`, `restore`, `delete` and `--new-run`, and every M2 change to sections B, D, H, I and J is written there. As with Milestone 1, it ships once `cargo test --features test-support` passes in CI on macOS, Linux and Windows and the manual smoke with the real Claude Code ([`docs/smoke-claude-code.md`](../smoke-claude-code.md)) passes on macOS.
 
@@ -124,6 +126,8 @@ docs/smoke-claude-code.md                # manual smoke checklist
 
 **Milestone 4 is implemented** with the spec [Milestone 4](../../.scratch/milestone-4/spec.md): files under `.surt/agents/<id>/` override a built-in Agent when a root run is created, `merge_into_base = "ff-only"` fast-forwards the Base branch after the Shipper (chosen per run with `--merge`/`--no-merge`), and `on_success = "keep"` keeps a `succeeded` run until `surt delete`. Every M4 change to sections A, B, D, E, F, I and J and to `CONTEXT.md` is written there. It ships the same way, once the suite passes in CI on the three OSes and the Milestone 4 section of the manual smoke passes on macOS.
 
-**v1 is complete** once M4 ships: every mechanism sections A–J describe exists, and no mechanism above is deferred any more.
+**Milestone 5 is implemented** with the spec [Milestone 5](../../.scratch/milestone-5/spec.md) and [ADR 0013](../adr/0013-definitions-live-in-the-project.md): every Workflow Definition and Agent is a file of the project under `.surt/workflows/` and `.surt/agents/`, read and frozen when a root run is created, with no definitions in the binary and no merge over defaults; `surt init --template feature` writes the feature workflow once and never overwrites a file; a workflow declares its Run Inputs (`[inputs]`, `[subject]`), which `surt run <workflow> --input …` supplies; delivery checks are declared on Agent outputs and frozen with them; `surt continue <subject>` replaces `feature`, `plan` and `start`, and the CLI, its JSON and the engine's paths, branches and integration artifact say subject and item. Every M5 change to sections A, B, C, D, E, F, G, H, I and J and to `CONTEXT.md` is written there. It ships the same way, once the suite passes in CI on the three OSes and the Milestone 5 section of the manual smoke passes on macOS. A project initialized before M5 runs `surt init --template feature` once; nothing migrates its earlier runs.
 
-**v1 is the end of M4**: everything sections A–J describe. M2 comes before M3 because a blocked run in Milestone 1 already says what to do, while debugging a review rejected three times with only `tail` hurts every time; a rate limit blocks with a time to come back, which is rarer. What the map ruled out of scope stays out.
+**v1 is complete** once M5 ships: every mechanism sections A–J describe exists, and no mechanism above is deferred any more.
+
+**v1 was planned to end with M4**, everything sections A–J described then; using Surt on real repositories added M5 before any release, so v1 now ends with M5. M2 comes before M3 because a blocked run in Milestone 1 already says what to do, while debugging a review rejected three times with only `tail` hurts every time; a rate limit blocks with a time to come back, which is rarer. What the map ruled out of scope stays out, except project-specific workflows, which Milestone 5 lifted ([map](../../.scratch/surt-architecture/map.md#out-of-scope)).
