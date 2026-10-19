@@ -37,6 +37,7 @@ pub(crate) async fn settle_fast_forward(
         Found::Moved => Ok(Settled::Recorded(merged(intended))),
         Found::NotMoved => {
             if let Some(worktree) = &intended.worktree_path
+                && worktree.is_dir()
                 && !git::is_clean(worktree).await?
             {
                 return Ok(Settled::Interrupted);
