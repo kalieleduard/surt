@@ -133,6 +133,22 @@ fn describe(problem: &Problem) -> String {
         Problem::StrayAgentFile => {
             "surt reads only agent.toml, instructions.md and schemas/ here".to_owned()
         }
+        Problem::MisplacedInputDefault { input } => {
+            format!("input \"{input}\" has a default; only git_ref inputs take one")
+        }
+        Problem::UnknownSubjectInput { input } => {
+            format!("the subject comes from \"{input}\", which is not a declared input")
+        }
+        Problem::SubjectInputNotText { input, format } => format!(
+            "the subject comes from \"{input}\", a {} input; it must be text or markdown",
+            format.name()
+        ),
+        Problem::InputsInChildWorkflow => {
+            "a per_item child workflow takes no inputs; it reads item and pass".to_owned()
+        }
+        Problem::GitInputNotGitRef { input } => {
+            format!("needs \"{input}\" from an input with format = \"git_ref\"")
+        }
     }
 }
 

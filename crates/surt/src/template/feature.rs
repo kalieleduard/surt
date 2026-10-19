@@ -105,4 +105,5 @@ pub(super) const TEMPLATE: Template = Template {
         ("reviewer", REVIEWER),
         ("shipper", SHIPPER),
     ],
+    next: "surt run feature --input request=\"<what you want to build>\"",
 };

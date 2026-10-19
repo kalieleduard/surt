@@ -3,6 +3,9 @@ use crate::workflow::error::Problem;
 const KEY_SEPARATOR: &str = ".";
 const OUTPUTS: &str = "outputs";
 const FORMAT: &str = "format";
+pub(super) const INPUTS: &str = "inputs";
+const DEFAULT: &str = "default";
+const SUBJECT_FROM: &str = "subject.from";
 
 pub(super) fn agent_field(problem: &Problem, text: &str) -> Option<String> {
     let field = match problem {
@@ -23,6 +26,12 @@ pub(super) fn agent_field(problem: &Problem, text: &str) -> Option<String> {
 pub(super) fn workflow_field(problem: &Problem, text: &str) -> Option<String> {
     match problem {
         Problem::NameMismatch { .. } => Some("name".to_owned()),
+        Problem::MisplacedInputDefault { input } => {
+            Some([INPUTS, input, DEFAULT].join(KEY_SEPARATOR))
+        }
+        Problem::UnknownSubjectInput { .. } | Problem::SubjectInputNotText { .. } => {
+            Some(SUBJECT_FROM.to_owned())
+        }
         _ => common_field(problem, text),
     }
 }

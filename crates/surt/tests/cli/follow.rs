@@ -113,7 +113,7 @@ impl Gated {
             review("B", 1, "approved"),
             ship(),
         ]);
-        ok(sandbox.feature(&["add login"]));
+        ok(sandbox.run_feature("add login", &[]));
         for command in ["approve", "plan", "approve"] {
             ok(sandbox.surt(&sandbox.repo(), &[command, &name]));
         }

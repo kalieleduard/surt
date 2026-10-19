@@ -36,7 +36,7 @@ fn frozen_mode(sandbox: &Sandbox, name: &str) -> String {
 
 fn cancelled() -> Sandbox {
     let sandbox = project();
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
     ok(surt(&sandbox, &["cancel", "--yes", &feature_name()]));
     sandbox
 }
@@ -45,7 +45,7 @@ fn cancelled() -> Sandbox {
 fn merge_freezes_ff_only_and_names_the_flag_under_the_creation_line() {
     let sandbox = project();
 
-    let created = ok(sandbox.feature(&["add login", "--merge"]));
+    let created = ok(sandbox.run_feature("add login", &["--merge"]));
 
     assert!(created.starts_with("✔ created "), "{created}");
     assert_eq!(
@@ -61,7 +61,7 @@ fn no_merge_freezes_never_over_a_project_file_that_says_ff_only() {
     let sandbox = project();
     sandbox.write_config("[git]\nmerge_into_base = \"ff-only\"\n");
 
-    let created = ok(sandbox.feature(&["add login", "--no-merge"]));
+    let created = ok(sandbox.run_feature("add login", &["--no-merge"]));
 
     assert_eq!(
         second_line(&created),
@@ -76,7 +76,7 @@ fn a_project_file_that_says_ff_only_is_named_without_a_flag() {
     let sandbox = project();
     sandbox.write_config("[git]\nmerge_into_base = \"ff-only\"\n");
 
-    let created = ok(sandbox.feature(&["add login"]));
+    let created = ok(sandbox.run_feature("add login", &[]));
 
     assert_eq!(
         second_line(&created),
@@ -89,7 +89,7 @@ fn a_project_file_that_says_ff_only_is_named_without_a_flag() {
 fn the_default_never_without_a_flag_prints_nothing_extra() {
     let sandbox = project();
 
-    let created = ok(sandbox.feature(&["add login"]));
+    let created = ok(sandbox.run_feature("add login", &[]));
 
     assert!(!created.contains("merge into base"), "{created}");
 }
@@ -98,7 +98,7 @@ fn the_default_never_without_a_flag_prints_nothing_extra() {
 fn merge_and_no_merge_together_are_a_usage_error() {
     let sandbox = project();
 
-    let both = sandbox.feature(&["add login", "--merge", "--no-merge"]);
+    let both = sandbox.run_feature("add login", &["--merge", "--no-merge"]);
 
     assert_eq!(both.code, Some(USAGE_EXIT_CODE), "{}", both.stderr);
     assert!(sandbox.texts("SELECT id FROM workflow_run").is_empty());
@@ -143,7 +143,7 @@ fn a_new_run_freezes_no_merge_over_the_project_file() {
 fn either_flag_on_resume_refuses_naming_the_frozen_value_and_the_new_run() {
     let name = feature_name();
     let sandbox = project();
-    ok(sandbox.feature(&["add login", "--merge"]));
+    ok(sandbox.run_feature("add login", &["--merge"]));
 
     for flag in ["--merge", "--no-merge"] {
         let resumed = sandbox.feature(&[&name, flag]);

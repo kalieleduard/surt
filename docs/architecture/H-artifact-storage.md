@@ -159,19 +159,20 @@ The Context Assembler points the agent at `inputs/`, and the runtime adds `Read`
 
 ## Subject naming
 
-`surt feature "<description>"` derives the Subject name `YYYYMMDD-<slug>`:
+`surt run` derives the Subject name `YYYYMMDD-<slug>` from `--name`, else from the input the workflow's `[subject] from` names (the feature Template's `request`), else from the workflow name ([E](E-workflow-schema.md#run-inputs-inputs-and-subject)):
 
 1. `YYYYMMDD` is the **local** date. If the local offset cannot be determined, Surt uses UTC without warning.
-2. The slug is the description transliterated to ASCII, lowercased, reduced to `[a-z0-9-]`, with runs of hyphens collapsed and no leading or trailing hyphen. It is truncated to 40 characters at a word boundary. `"Add Login with Google / OAuth"` → `20261016-add-login-with-google-oauth`.
+2. The slug is the text transliterated to ASCII, lowercased, reduced to `[a-z0-9-]`, with runs of hyphens collapsed and no leading or trailing hyphen. It is truncated to 40 characters at a word boundary. `"Add Login with Google / OAuth"` → `20261016-add-login-with-google-oauth`.
 3. Windows reserved names (`CON`, `NUL`, `COM1`…) cannot occur, because the name always starts with digits. Lowercase removes case-insensitive collisions on APFS and NTFS. A trailing dot or space cannot survive the slug.
-4. If a Subject with that name already exists, Surt appends `-2`, `-3`… Exception: when a Feature with the same slug (ignoring date and suffix) has an active run, `surt feature` refuses and points at resuming it, unless `--new` is given ([J](J-cli.md#surt-feature-create-resume-or-start-again)):
+4. If a Subject with that name already exists, Surt appends `-2`, `-3`… Exception: when a Subject with the same slug (ignoring date and suffix) has an active run, `surt run` refuses and points at resuming it, unless `--new` is given ([J](J-cli.md#surt-run-create-a-run-and-drive-it)):
    ```
-   $ surt feature "add login"
-   ✔ created 20261016-add-login-2   (20261016-add-login already exists)
+   $ surt run feature --input request="add login" --new
+   ✔ created 20261016-add-login-2   workflow: feature   base: main @ a11c9d0
+     20261016-add-login already exists
    ```
-5. If the slug is empty (a description only in kanji or emoji), Surt refuses:
+5. If the slug is empty (a request only in kanji or emoji), Surt refuses:
    ```
-   ✖ cannot derive a name from the description; pass --name <slug>
+   ✖ cannot derive a name from the subject input; pass --name <slug>
    ```
    `--name` may be given in any case and goes through the same rules, except the date prefix, which is always added.
 

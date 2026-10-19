@@ -5,9 +5,9 @@ use surt_engine::project::{FileState, InitFile, Initialized, Project};
 use crate::failure::Failure;
 use crate::message::Message;
 use crate::symbols::SUCCESS;
-use crate::template::{self, FEATURE_TEMPLATE, TEMPLATES};
+use crate::template::{self, FEATURE_TEMPLATE, TEMPLATES, Template};
 
-const NEXT_COMMAND: &str = "surt feature \"<what you want to build>\"";
+const NO_TEMPLATE_NEXT: &str = "add a workflow under .surt/workflows/";
 const DOT_SURT: &str = ".surt";
 const STATE_GAP: usize = 2;
 
@@ -18,18 +18,22 @@ pub(crate) struct InitArgs {
 }
 
 pub(crate) async fn run(cwd: &Path, args: InitArgs) -> Result<(), Failure> {
-    let files = match &args.template {
-        Some(name) => template::named(name)
-            .ok_or_else(|| Failure::Refused(unknown_template(name)))?
-            .files(),
-        None => Vec::new(),
+    let template = match &args.template {
+        Some(name) => {
+            Some(template::named(name).ok_or_else(|| Failure::Refused(unknown_template(name)))?)
+        }
+        None => None,
     };
+    let files = template.as_ref().map(Template::files).unwrap_or_default();
     let written: Vec<(&str, &[u8])> = files
         .iter()
         .map(|(path, text)| (path.as_str(), text.as_bytes()))
         .collect();
     let initialized = Project::init(cwd, &written).await?;
-    report(&initialized).print_success();
+    let next = template
+        .as_ref()
+        .map_or(NO_TEMPLATE_NEXT, Template::next_command);
+    report(&initialized, next).print_success();
     Ok(())
 }
 
@@ -39,7 +43,7 @@ fn unknown_template(name: &str) -> Message {
         .way("fix", format!("surt init --template {FEATURE_TEMPLATE}"))
 }
 
-fn report(initialized: &Initialized) -> Message {
+fn report(initialized: &Initialized, next: &str) -> Message {
     let dot_surt = initialized.dot_surt.display();
     let headline = if initialized.was_already_initialized() {
         format!("surt is already initialized in {dot_surt}")
@@ -64,7 +68,7 @@ fn report(initialized: &Initialized) -> Message {
             "git {} {SUCCESS}  identity {} {SUCCESS}",
             initialized.git, initialized.identity
         ))
-        .way("next", NEXT_COMMAND)
+        .way("next", next)
 }
 
 fn file_path(file: &InitFile) -> String {

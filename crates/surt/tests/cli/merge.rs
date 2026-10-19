@@ -29,7 +29,7 @@ pub(super) fn surt(sandbox: &Sandbox, args: &[&str]) -> Run {
 
 pub(super) fn planned(sandbox: &Sandbox) -> String {
     let name = feature_name();
-    let created = sandbox.feature(&["add login"]);
+    let created = sandbox.run_feature("add login", &[]);
     assert_eq!(created.code, Some(0), "{}", created.stderr);
     surt(sandbox, &["approve", &name]);
     surt(sandbox, &["plan", &name]);

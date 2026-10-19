@@ -182,7 +182,7 @@ fn a_check_shows_its_combined_output_under_one_header_per_check() {
         review("A", 1, "approved"),
         ship(),
     ]);
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
     for command in ["approve", "plan", "approve", "start"] {
         ok(surt(&sandbox, &[command, &name]));
     }

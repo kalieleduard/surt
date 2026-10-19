@@ -1,6 +1,6 @@
 use std::fs;
 
-use super::super::fixtures::{SUBJECT, initial};
+use super::super::fixtures::{SUBJECT, input};
 use super::fixtures::{ACTOR, Feature};
 use super::planned::plan;
 use super::working_copy::at_gate;
@@ -10,13 +10,11 @@ use crate::runtime::Script;
 
 const REQUEST: &str = "request";
 
-fn next_run(feature: &Feature, workflow: &str) -> NewRun {
-    let base = feature.base();
-    let base_json = format!(r#"{{"ref": "main", "sha": "{base}"}}"#);
+fn next_run(workflow: &str) -> NewRun {
     NewRun {
         subject: SUBJECT.to_owned(),
         workflow: workflow.to_owned(),
-        initial_artifacts: vec![initial("base", "base.json", base_json.as_bytes())],
+        inputs: vec![input("base", "main")],
         carried: vec![REQUEST.to_owned()],
         merge_into_base: None,
         actor: ACTOR.to_owned(),
@@ -27,7 +25,7 @@ fn review_next_run() -> NewRun {
     NewRun {
         subject: SUBJECT.to_owned(),
         workflow: "review".to_owned(),
-        initial_artifacts: Vec::new(),
+        inputs: Vec::new(),
         carried: vec![REQUEST.to_owned()],
         merge_into_base: None,
         actor: ACTOR.to_owned(),
@@ -58,7 +56,7 @@ async fn a_new_run_carries_the_request_and_works_on_dot_two_branches_and_worktre
 
     feature.run = feature
         .project
-        .create_run(next_run(&feature, "tracked"))
+        .create_run(next_run("tracked"))
         .await
         .expect("run 2 is created")
         .run;

@@ -100,6 +100,9 @@ const NOTED_WORKFLOW: &str = r#"
 schema = 1
 name = "noted"
 
+[inputs.request]
+format = "text"
+
 [steps.note]
 kind = "agent"
 agent = "noter"

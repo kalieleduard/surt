@@ -20,7 +20,7 @@ const WAL_READ_MARKS: &str = "surt.db-shm";
 fn second_feature(sandbox: &Sandbox) -> String {
     let name = feature_name().replace("-add-login", "-fix-cache");
     for args in [
-        vec!["feature", "fix cache"],
+        vec!["run", "feature", "--input", "request=fix cache"],
         vec!["approve", &name],
         vec!["plan", &name],
         vec!["approve", &name],

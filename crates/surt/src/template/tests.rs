@@ -11,7 +11,7 @@ use tempfile::TempDir;
 use toml::{Table, Value};
 
 use super::{
-    BASE_ARTIFACT, FEATURE_TEMPLATE, FEATURE_WORKFLOW, REQUEST_ARTIFACT, TEMPLATES, Template, named,
+    BASE_INPUT, FEATURE_TEMPLATE, FEATURE_WORKFLOW, REQUEST_INPUT, TEMPLATES, Template, named,
 };
 
 fn feature() -> Template {
@@ -75,11 +75,7 @@ pub(super) fn owned_files() -> Vec<(String, String)> {
 fn the_written_feature_template_passes_the_engines_static_validation() {
     let project = written(&owned_files());
 
-    let checked = check_workflow(
-        project.path(),
-        FEATURE_WORKFLOW,
-        &[REQUEST_ARTIFACT, BASE_ARTIFACT],
-    );
+    let checked = check_workflow(project.path(), FEATURE_WORKFLOW);
 
     assert!(checked.is_ok(), "{checked:?}");
 }
@@ -126,4 +122,24 @@ fn the_template_holds_exactly_five_agents_each_with_its_instructions() {
             "{id}"
         );
     }
+}
+
+#[test]
+fn the_feature_workflow_takes_a_text_request_and_a_git_base_defaulting_to_head() {
+    let workflow: Table = file("workflows/feature.toml")
+        .expect("the feature workflow")
+        .parse()
+        .expect("the workflow TOML parses");
+    let inputs = &workflow["inputs"];
+
+    assert_eq!(inputs[REQUEST_INPUT]["format"].as_str(), Some("text"));
+    assert_eq!(inputs[BASE_INPUT]["format"].as_str(), Some("git_ref"));
+    assert_eq!(inputs[BASE_INPUT]["default"].as_str(), Some("HEAD"));
+    assert!(inputs[REQUEST_INPUT].get("description").is_some());
+    assert!(inputs[BASE_INPUT].get("description").is_some());
+    assert_eq!(workflow["subject"]["from"].as_str(), Some(REQUEST_INPUT));
+    assert_eq!(
+        feature().next_command(),
+        "surt run feature --input request=\"<what you want to build>\""
+    );
 }

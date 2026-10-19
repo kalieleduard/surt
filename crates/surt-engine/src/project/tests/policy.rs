@@ -7,6 +7,9 @@ const KEEPING_PARENT: &str = r#"
 schema = 1
 name = "flow"
 
+[inputs.request]
+format = "text"
+
 [cleanup]
 on_success = "keep"
 
@@ -25,6 +28,9 @@ needs = ["plan"]
 const CLEANING_PARENT: &str = r#"
 schema = 1
 name = "flow"
+
+[inputs.request]
+format = "text"
 
 [steps.plan]
 kind = "agent"

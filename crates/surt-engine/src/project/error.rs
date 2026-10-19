@@ -2,7 +2,7 @@ use std::error::Error as StdError;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::ExecutionState;
+use super::{DeclaredInput, ExecutionState, InputProblem};
 use crate::git::{GitError, GitVersion};
 use crate::store::StoreError;
 use crate::workflow::{FreezeError, InvalidDefinition};
@@ -206,6 +206,11 @@ pub enum Refusal {
     UnknownWorkflow {
         name: String,
         known: Vec<String>,
+    },
+    InvalidInput {
+        workflow: String,
+        problem: InputProblem,
+        declared: Vec<DeclaredInput>,
     },
     IntegrationBranchMoved {
         subject: String,

@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use super::agent::{AgentContract, Format};
 use super::definition::{Definition, Step};
 use super::error::{DefinitionFile, InvalidDefinition, Problem};
-use super::steps::{AgentStep, PerItemStep, StepSpec};
+use super::steps::{AgentStep, StepSpec};
 use super::structure::dependencies;
 use crate::operations::Operation;
 
@@ -11,30 +11,27 @@ pub(crate) type Available = BTreeMap<String, Option<Format>>;
 
 pub(crate) type Agents = BTreeMap<String, AgentContract>;
 
-const ITEM: &str = "item";
+mod external;
 
-pub(super) struct ChildUse {
-    pub(super) step: String,
-    pub(super) workflow: String,
-    pub(super) external: Available,
-}
+use external::child_use;
+pub(super) use external::{ChildUse, External};
 
 pub(super) fn check(
     definition: &Definition,
     agents: &Agents,
-    external: &Available,
+    external: &External,
 ) -> Result<Vec<ChildUse>, Box<InvalidDefinition>> {
     let mut children = Vec::new();
     for step in &definition.steps {
-        let available = available_at(definition, agents, external, step);
+        let available = available_at(definition, agents, &external.artifacts, step);
         let checked = match &step.spec {
             StepSpec::Agent(spec) => check_agent(spec, agents, &available),
             StepSpec::Operation(spec) => Operation::find(&spec.run).map_or(Ok(()), |operation| {
-                require(operation.inputs().iter().copied(), &available)
+                check_operation(operation, external, &available)
             }),
             StepSpec::Approval(spec) => produced(&spec.artifact, &available).map(|_| ()),
             StepSpec::PerItem(spec) => {
-                child_use(step, spec, &available).map(|child| children.push(child))
+                child_use(step, spec, external, &available).map(|child| children.push(child))
             }
             StepSpec::Loop(_) => Ok(()),
         };
@@ -70,6 +67,24 @@ fn check_agent(spec: &AgentStep, agents: &Agents, available: &Available) -> Resu
     require(required, available)
 }
 
+fn check_operation(
+    operation: Operation,
+    external: &External,
+    available: &Available,
+) -> Result<(), Problem> {
+    require(operation.inputs().iter().copied(), available)?;
+    match operation
+        .git_inputs()
+        .iter()
+        .find(|input| !external.git_refs.contains(**input))
+    {
+        Some(input) => Err(Problem::GitInputNotGitRef {
+            input: (*input).to_owned(),
+        }),
+        None => Ok(()),
+    }
+}
+
 fn require<'a>(
     mut inputs: impl Iterator<Item = &'a str>,
     available: &Available,
@@ -89,23 +104,6 @@ fn produced(artifact: &str, available: &Available) -> Result<Option<Format>, Pro
         .ok_or_else(|| Problem::UnproducedArtifact {
             artifact: artifact.to_owned(),
         })
-}
-
-fn child_use(step: &Step, spec: &PerItemStep, available: &Available) -> Result<ChildUse, Problem> {
-    if produced(&spec.items, available)? != Some(Format::ItemList) {
-        return Err(Problem::NotAnItemList {
-            artifact: spec.items.clone(),
-        });
-    }
-    let mut external = Available::from([(ITEM.to_owned(), Some(Format::Json))]);
-    for name in &spec.pass {
-        external.insert(name.clone(), produced(name, available)?);
-    }
-    Ok(ChildUse {
-        step: step.key.clone(),
-        workflow: spec.workflow.clone(),
-        external,
-    })
 }
 
 fn available_at(

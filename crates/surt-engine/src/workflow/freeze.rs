@@ -5,6 +5,7 @@ use super::closure::{self, Closure};
 use super::definition::{Definition, OnSuccess};
 use super::error::{AGENT_FILE, INSTRUCTIONS_FILE, InvalidDefinition};
 use super::files::DefinitionSource;
+use super::inputs::RunInputs;
 use super::references::local_references;
 use super::steps::StepKind;
 use crate::artifacts::{identity, sha256_hex};
@@ -38,6 +39,7 @@ pub(crate) struct FrozenRun {
     pub(crate) config_sha256: String,
     pub(crate) snapshots: Vec<Snapshot>,
     pub(crate) steps: Vec<TopLevelStep>,
+    pub(crate) inputs: RunInputs,
 }
 
 pub(crate) struct TopLevelStep {
@@ -85,13 +87,12 @@ impl SnapshotFile {
     }
 }
 
-pub(crate) fn freeze<'a>(
+pub(crate) fn freeze(
     source: &impl DefinitionSource,
     workflow: &str,
-    initial_artifacts: impl IntoIterator<Item = &'a str>,
     config: impl FnOnce(OnSuccess) -> Result<String, toml::ser::Error>,
 ) -> Result<FrozenRun, FreezeError> {
-    let closure = closure::resolve(source, workflow, initial_artifacts)?;
+    let closure = closure::resolve(source, workflow)?;
     let root = workflow_snapshot(&closure.root)?;
     let definition_sha256 = root.sha256.clone();
     let mut snapshots = vec![root];
@@ -109,6 +110,7 @@ pub(crate) fn freeze<'a>(
         config_sha256,
         snapshots,
         steps,
+        inputs: closure.root.inputs,
     })
 }
 

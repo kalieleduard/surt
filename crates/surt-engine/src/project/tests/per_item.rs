@@ -25,6 +25,9 @@ const PARENT: &str = r#"
 schema = 1
 name = "flow"
 
+[inputs.request]
+format = "text"
+
 [steps.plan]
 kind = "agent"
 agent = "planner"
@@ -94,6 +97,9 @@ async fn a_child_reads_only_its_item_and_what_the_parent_passes() {
 schema = 1
 name = "flow"
 
+[inputs.request]
+format = "text"
+
 [steps.plan]
 kind = "agent"
 agent = "planner"
@@ -128,6 +134,9 @@ async fn items_must_be_an_item_list_produced_before_the_step() {
 schema = 1
 name = "flow"
 
+[inputs.request]
+format = "text"
+
 [steps.implement]
 kind = "per_item"
 items = "request"
@@ -140,6 +149,9 @@ workflow = "child"
         r#"
 schema = 1
 name = "flow"
+
+[inputs.request]
+format = "text"
 
 [steps.implement]
 kind = "per_item"
@@ -176,6 +188,9 @@ async fn pass_names_an_artifact_the_parent_has_before_the_step() {
         r#"
 schema = 1
 name = "flow"
+
+[inputs.request]
+format = "text"
 
 [steps.plan]
 kind = "agent"

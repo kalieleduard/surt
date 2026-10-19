@@ -4,9 +4,11 @@ use super::agent::AgentContract;
 use super::agent_schemas;
 use super::definition::Definition;
 use super::error::{DefinitionFile, InvalidDefinition, Problem};
+use super::fields::INPUTS;
 use super::files::{AgentFiles, DefinitionSource};
-use super::flow::{self, Agents, Available};
+use super::flow::{self, Agents, External};
 use super::freeze::FreezeError;
+use super::inputs::RunInputs;
 use super::steps::StepSpec;
 use super::{outcomes, structure};
 
@@ -30,23 +32,14 @@ struct Resolver<'a, S> {
     stack: Vec<String>,
 }
 
-pub(crate) fn validate<'a>(
+pub(crate) fn validate(
     source: &impl DefinitionSource,
     root: &str,
-    initial_artifacts: impl IntoIterator<Item = &'a str>,
-) -> Result<(), FreezeError> {
-    resolve(source, root, initial_artifacts).map(|_| ())
+) -> Result<RunInputs, FreezeError> {
+    resolve(source, root).map(|closure| closure.root.inputs)
 }
 
-pub(super) fn resolve<'a>(
-    source: &impl DefinitionSource,
-    root: &str,
-    initial_artifacts: impl IntoIterator<Item = &'a str>,
-) -> Result<Closure, FreezeError> {
-    let external: Available = initial_artifacts
-        .into_iter()
-        .map(|name| (name.to_owned(), None))
-        .collect();
+pub(super) fn resolve(source: &impl DefinitionSource, root: &str) -> Result<Closure, FreezeError> {
     let mut resolver = Resolver {
         source,
         children: Vec::new(),
@@ -54,7 +47,7 @@ pub(super) fn resolve<'a>(
         files: BTreeMap::new(),
         stack: Vec::new(),
     };
-    let root = resolver.visit(root, None, &external)?;
+    let root = resolver.visit(root, None)?;
     Ok(Closure {
         root,
         children: resolver.children,
@@ -67,21 +60,22 @@ impl<S: DefinitionSource> Resolver<'_, S> {
     fn visit(
         &mut self,
         name: &str,
-        referrer: Option<Referrer>,
-        external: &Available,
+        child: Option<(Referrer, External)>,
     ) -> Result<Definition, FreezeError> {
+        let (referrer, external) = child.unzip();
         let definition = self.definition(name, referrer)?;
+        let external = external_of(&definition, external)?;
         structure::check(&definition)?;
         self.load_agents(&definition)?;
         outcomes::check(&definition, &self.agents)?;
-        let uses = flow::check(&definition, &self.agents, external)?;
+        let uses = flow::check(&definition, &self.agents, &external)?;
         self.stack.push(name.to_owned());
         for child in uses {
             let referrer = Referrer {
                 workflow: name,
                 step: &child.step,
             };
-            let visited = self.visit(&child.workflow, Some(referrer), &child.external)?;
+            let visited = self.visit(&child.workflow, Some((referrer, child.external)))?;
             if self.children.iter().all(|known| known.name != visited.name) {
                 self.children.push(visited);
             }
@@ -142,5 +136,21 @@ impl<S: DefinitionSource> Resolver<'_, S> {
             self.files.insert(spec.agent.clone(), files);
         }
         Ok(())
+    }
+}
+
+fn external_of(
+    definition: &Definition,
+    child: Option<External>,
+) -> Result<External, Box<InvalidDefinition>> {
+    match child {
+        None => Ok(External::of_inputs(&definition.inputs)),
+        Some(_) if !definition.inputs.declared.is_empty() => Err(InvalidDefinition::new(
+            DefinitionFile::Workflow(definition.name.clone()),
+            None,
+            Problem::InputsInChildWorkflow,
+        )
+        .with_field(Some(INPUTS.to_owned()))),
+        Some(external) => Ok(external),
     }
 }

@@ -6,7 +6,7 @@ The commands of v1 ([K](K-roadmap.md) lists the subset Milestone 1 ships), how t
 
 ```
 surt init [--template <name>]
-surt feature "<description>" [--name <slug>] [--base <ref>] [--merge | --no-merge] [--new]
+surt run <workflow> [--input <name>=<value> | --input <name>=@<path>]... [--name <slug>] [--new] [--merge | --no-merge]
 surt feature <feature> [--new-run [--base <ref>] [--merge | --no-merge]]
 surt plan    <feature>
 surt start   <feature>
@@ -27,7 +27,7 @@ surt delete  <feature>
 | Command | Drives? | What it does |
 |---|---|---|
 | `init` | no | Creates `.surt/` in the project and, with `--template`, writes a Template's workflows and Agents into it ([below](#surt-init-and-finding-the-project)). |
-| `feature "<description>"` | yes | Creates a Feature and its first run, drives to the spec Approval Gate. |
+| `run <workflow>` | yes | Creates a Subject and the first run of `.surt/workflows/<workflow>.toml` from its declared inputs, drives to the first Approval Gate or the end ([below](#surt-run-create-a-run-and-drive-it)). |
 | `feature <feature>` | yes | Resumes the spec phase of the active run; with `--new-run`, starts a new run of the Subject. |
 | `plan` | yes | Drives the Task Agent to the task-manifest Approval Gate. Requires the spec approved. |
 | `start` | yes | Drives implementation to the Shipper's delivery and the opt-in fast-forward. Requires the manifest approved. |
@@ -80,8 +80,10 @@ $ surt init --template feature
   …
   .surt/agents/shipper/schemas/base.schema.json            created
   git 2.47.0 ✔  identity you@example.com ✔
-  next: surt feature "<what you want to build>"
+  next: surt run feature --input request="<what you want to build>"
 ```
+
+The `next:` line names the Template's first run when `--template` wrote (or kept) its files; plain `surt init` prints `next: add a workflow under .surt/workflows/`.
 
 - **Explicit.** Every other command refuses outside an initialized project (exit `3`); none creates `.surt/` on its own:
   ```
@@ -99,24 +101,47 @@ $ surt init --template feature
   ```
 - **Idempotent.** Running it again lists every file with `created` or `kept`. It never overwrites a file that exists: `config.toml`, `.gitignore` and any Template file are written only when missing, so rerunning `surt init --template feature` restores a deleted file and keeps every edit. Once written, the Template's files are the project's; a Surt upgrade never changes them.
 
-## `surt feature`: create, resume or start again
+## `surt run`: create a run and drive it
 
-1. **Reference or description.** The argument is a reference only when it is **exactly** the full name of an existing Feature. Anything else is a description, from which the name is derived ([H. Subject naming](H-artifact-storage.md#subject-naming)).
-2. **Re-running a description resumes nothing and duplicates nothing.** If the description's slug equals the slug of a Feature with an **active run**, ignoring the date prefix and any `-N` suffix, the command refuses instead of creating `-2`. This holds after midnight too, when the date prefix would differ:
+```
+$ surt run feature --input request="add login" --input base=main --merge
+✔ created 20261019-add-login   workflow: feature   base: main @ a11c9d0
+  merge into base: ff-only (--merge)
+```
+
+1. **Inputs.** `--input <name>=<value>` is repeatable and split at the first `=`; `<name>=@<path>` reads the value from a file, relative to the current directory (UTF-8 text). The workflow's `[inputs]` say what it takes ([E](E-workflow-schema.md#run-inputs-inputs-and-subject)); a workflow with no inputs runs with `surt run <workflow>`. A missing `name=` is a usage error (exit `2`).
+2. **Input refusals** (exit `3`, nothing written) name the problem, list every declared input with its format, whether it is optional (and its default) and its description, and say how to fix it. They are the one refusal whose context is longer than two lines:
    ```
-   $ surt feature "add login"          # ↑ Enter after a Ctrl-C
-   ✖ 20261017-add-login already has an active run for "add login" (INTERRUPTED)
-     resume it:       surt feature 20261017-add-login
-     or create anew:  surt feature "add login" --new
+   $ surt run feature
+   ✖ input "request" is required
+     inputs of feature:
+       request  text     required  what to build
+       base     git_ref  optional  branch, tag or commit to start from (default HEAD)
+     fix: pass --input request=<value>
    ```
-   `--new` skips this guard. Without an active run of the same slug, the `-N` suffix stays automatic.
-3. **Resuming.** `surt feature <full-name>` drives the active run up to the spec Approval Gate, regenerating after a rejection. When the spec is already approved there is nothing to do in this phase:
+   The other problems read `workflow feature has no input "colour"` (fix: drop it or declare it), `input "request" is given twice`, `input "request" is empty`, `input "settings" is not JSON: <parser message>` and `input "base": "no-such-branch" does not name a commit`; a `base` of `HEAD` in a repository without commits says so and suggests `git commit --allow-empty -m "first commit"`. An `@path` that cannot be read refuses with the path and the system's reason.
+3. **Name.** The Subject's slug comes from `--name`, else from the value of the input `[subject] from` names, else from the workflow name, with the date prefix and `-N` suffix of [H. Subject naming](H-artifact-storage.md#subject-naming). A value with no portable character refuses with `fix: … --name <slug>`.
+4. **Re-running resumes nothing and duplicates nothing.** If the slug equals the slug of a Subject with an **active run**, ignoring the date prefix and any `-N` suffix, the command refuses instead of creating `-2`. This holds after midnight too, when the date prefix would differ:
+   ```
+   $ surt run feature --input request="add login"          # ↑ Enter after a Ctrl-C
+   ✖ 20261017-add-login already has an active run
+     resume: surt continue 20261017-add-login
+     or: surt run feature --input request="add login" --new
+   ```
+   `--new` skips this guard. Without an active run of the same slug, the `-N` suffix stays automatic. (`surt continue` arrives with Milestone 5's next step; until then `surt feature <subject>` resumes.)
+5. **Creation line.** `created <subject>   workflow: <name>`, then `   <input>: <branch> @ <short sha>` (or the short sha alone when detached) for each `git_ref` input, then the `merge into base:` line below. The run is then driven like the phase commands drive theirs.
+
+## `surt feature`: resume or start again
+
+`surt feature` no longer creates a Subject: its argument is a reference to an existing one (an unknown reference refuses), and `surt run` creates.
+
+1. **Resuming.** `surt feature <full-name>` drives the active run up to the spec Approval Gate, regenerating after a rejection. When the spec is already approved there is nothing to do in this phase:
    ```
    $ surt feature 20261017-add-login
    ✔ spec rev 2 already approved — next: surt plan 20261017-add-login
    ```
    It exits `0` and changes nothing.
-4. **A new run of the same Subject** needs `--new-run`. Without it, a Subject with no active run refuses:
+2. **A new run of the same Subject** needs `--new-run`. Without it, a Subject with no active run refuses:
    ```
    $ surt feature 20261017-add-login
    ✖ 20261017-add-login has no active run (run 1 cancelled at 15:02)
@@ -125,15 +150,15 @@ $ surt init --template feature
    $ surt feature 20261017-add-login --new-run
    ✔ run 2 of 20261017-add-login   base main @ b22e310   branch surt/20261017-add-login.2
    ```
-   It refuses with exit `3` while the Working Copy holds an unrecorded edit left by the previous run ([I](I-cleanup.md#unrecorded-working-copy-edits)). Run `N+1` takes the Subject's latest `request` Revision as a new human-origin Initial Artifact. Its Base is the current `HEAD`, or `--base`. It reads the workflow and its Agents from `.surt/` again and freezes them with the configuration. A `succeeded` Subject works the same way. A cleanup the previous run left pending is finished first, under that run's lock: the command drives the previous root run, which cleans and returns at once because it is terminal, then creates run `N+1` ([I. Cleanup](I-cleanup.md#when-cleanup-runs)).
+   It refuses with exit `3` while the Working Copy holds an unrecorded edit left by the previous run ([I](I-cleanup.md#unrecorded-working-copy-edits)). Run `N+1` carries the Subject's latest `request` Revision as a new human-origin Initial Artifact. Its `base` input is `--base`, or the workflow's default (`HEAD`). It reads the workflow and its Agents from `.surt/` again and freezes them with the configuration. A `succeeded` Subject works the same way. A cleanup the previous run left pending is finished first, under that run's lock: the command drives the previous root run, which cleans and returns at once because it is terminal, then creates run `N+1` ([I. Cleanup](I-cleanup.md#when-cleanup-runs)).
 
-`--base <ref>` resolves `<ref>` to a commit when the run is created; the default is `HEAD`.
+`--base <ref>` (only with `--new-run`) is the value of the `base` input, resolved to a commit when the run is created; without it the input's `default` applies.
 
-`--merge` and `--no-merge` override `[git] merge_into_base` for this run only, as `ff-only` and `never`, before the configuration is frozen. They apply wherever the command creates a root run: the description form and `--new-run`. Together they are a usage error (exit `2`). They exist on no other command. The creation line names the frozen mode, and the flag when one chose it:
+`--merge` and `--no-merge` override `[git] merge_into_base` for this run only, as `ff-only` and `never`, before the configuration is frozen. They apply wherever a command creates a root run: `surt run` and `surt feature --new-run`. Together they are a usage error (exit `2`). They exist on no other command. The creation line names the frozen mode, and the flag when one chose it:
 
 ```
-$ surt feature "add login" --merge
-✔ created 20261017-add-login   base: main @ a11c9d0
+$ surt run feature --input request="add login" --merge
+✔ created 20261017-add-login   workflow: feature   base: main @ a11c9d0
   merge into base: ff-only (--merge)
 ```
 

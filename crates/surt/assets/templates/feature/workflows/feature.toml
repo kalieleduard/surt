@@ -5,6 +5,18 @@ description = "Specify, plan, build and ship one Feature."
 [cleanup]
 on_success = "clean"
 
+[inputs.request]
+format = "text"
+description = "what to build"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
+description = "branch, tag or commit to start from"
+
+[subject]
+from = "request"
+
 [steps.spec]
 kind = "agent"
 agent = "spec"

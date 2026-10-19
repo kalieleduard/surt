@@ -109,7 +109,7 @@ fn a_misspelled_cleanup_policy_refuses_every_command_with_its_line() {
     for args in [
         &["status"][..],
         &["start", "anything"],
-        &["feature", "add login"],
+        &["run", "feature", "--input", "request=add login"],
     ] {
         let run = surt(&sandbox, args);
 

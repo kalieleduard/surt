@@ -2,7 +2,8 @@ mod catalog;
 mod refusals;
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{FromRow, Sqlite, SqlitePool};
@@ -10,7 +11,7 @@ use tempfile::TempDir;
 
 use crate::project::layout::Layout;
 use crate::project::{Access, SurtHome, open_store};
-use crate::project::{ArtifactFile, Config, GlobalConfig, InitialArtifact, NewRun, Project};
+use crate::project::{Config, GlobalConfig, NewRun, Project};
 #[cfg(feature = "test-support")]
 use crate::store::Faults;
 pub(super) use catalog::{
@@ -24,28 +25,36 @@ pub(super) fn default_config() -> Config {
     Config::default()
 }
 
+pub(super) const REQUEST: &str = "add login";
+
 pub(super) fn new_run(workflow: &str) -> NewRun {
     NewRun {
         subject: SUBJECT.to_owned(),
         workflow: workflow.to_owned(),
-        initial_artifacts: vec![
-            initial("request", "request.txt", b"add login"),
-            initial("base", "base.json", br#"{"sha": "abc"}"#),
-        ],
+        inputs: vec![input("request", REQUEST)],
         carried: Vec::new(),
         merge_into_base: None,
         actor: "dev@example.com".to_owned(),
     }
 }
 
-pub(super) fn initial(name: &str, rel_path: &str, bytes: &[u8]) -> InitialArtifact {
-    InitialArtifact {
-        name: name.to_owned(),
-        files: vec![ArtifactFile {
-            rel_path: rel_path.to_owned(),
-            bytes: bytes.to_vec(),
-        }],
-    }
+pub(super) fn input(name: &str, value: &str) -> (String, String) {
+    (name.to_owned(), value.to_owned())
+}
+
+pub(super) fn git(cwd: &Path, args: &[&str]) -> String {
+    let output = Command::new("git")
+        .args(["-c", "commit.gpgsign=false"])
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .expect("git runs");
+    assert!(
+        output.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8_lossy(&output.stdout).trim().to_owned()
 }
 
 pub(super) struct ProjectDir {
@@ -82,7 +91,34 @@ impl ProjectDir {
         self.layout().database()
     }
 
+    pub(super) fn ensure_repository(&self) {
+        let root = self.path();
+        if root.join(".git").exists() {
+            return;
+        }
+        git(&root, &["init", "--quiet", "--initial-branch=main"]);
+        git(
+            &root,
+            &[
+                "-c",
+                "user.name=Surt Tester",
+                "-c",
+                "user.email=tester@example.com",
+                "commit",
+                "--quiet",
+                "--allow-empty",
+                "-m",
+                "initial",
+            ],
+        );
+    }
+
+    pub(super) fn head(&self) -> String {
+        git(&self.path(), &["rev-parse", "HEAD"])
+    }
+
     pub(super) async fn project(&self, catalog: Catalog, config: Config) -> Project {
+        self.ensure_repository();
         catalog.write(&self.layout().dot_surt());
         open_store(&self.layout())
             .await

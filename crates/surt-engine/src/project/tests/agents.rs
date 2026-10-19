@@ -6,6 +6,9 @@ const FLOW: &str = r#"
 schema = 1
 name = "flow"
 
+[inputs.request]
+format = "text"
+
 [steps.work]
 kind = "agent"
 agent = "worker"

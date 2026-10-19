@@ -50,6 +50,13 @@ const READER_WORKFLOW: &str = r#"
 schema = 1
 name = "read"
 
+[inputs.request]
+format = "text"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
+
 [steps.read]
 kind = "agent"
 agent = "reader"
@@ -151,6 +158,7 @@ async fn initial_artifacts_become_human_first_revisions_of_the_root_run() {
     let dir = ProjectDir::new();
 
     created(&dir).await;
+    let base = format!(r#"{{"ref":"main","sha":"{}"}}"#, dir.head());
 
     let revisions: Vec<RevisionRow> = dir
         .rows("SELECT a.name, r.number, r.origin, r.human_action, r.actor, f.rel_path, b.bytes FROM artifact a JOIN artifact_revision r ON r.artifact_id = a.id JOIN revision_file f ON f.revision_id = r.id JOIN blob b ON b.sha256 = f.blob_sha256 ORDER BY a.name")
@@ -169,7 +177,7 @@ async fn initial_artifacts_become_human_first_revisions_of_the_root_run() {
     assert_eq!(
         revisions,
         [
-            human("base", "base.json", br#"{"sha": "abc"}"#),
+            human("base", "base.json", base.as_bytes()),
             human("request", "request.txt", b"add login"),
         ]
     );

@@ -20,6 +20,14 @@ description = "Build, review and integrate one Task."   # optional
 [cleanup]
 on_success = "clean"          # "clean" (default) | "keep"
 
+[inputs.request]              # root workflows only: what `surt run` must be given
+format = "text"               # "text" | "markdown" | "json" | "git_ref"
+optional = false              # default false
+description = "what to build" # shown when an input is refused
+
+[subject]
+from = "request"              # optional: the text or markdown input the Subject is named after
+
 [steps.review]                # one table per step; the id is unique by TOML itself
 kind = "agent"                # required on every step
 needs = ["check"]             # optional: steps that must finish first
@@ -30,6 +38,26 @@ agent = "reviewer"            # the fields of the kind
 `[cleanup] on_success` parses `"clean"` and `"keep"`, and the canonical form keeps the value. The **effective policy** of a root run is the project configuration's `[cleanup] on_success` when it is set ([J](J-cli.md#configuration)), else the root Workflow Definition's (`clean` for the Template's `feature`). Child definitions' values are not consulted: cleanup is per root run ([I](I-cleanup.md#when-cleanup-runs)). The effective policy is frozen into the `config` snapshot when the root run is created.
 
 The `toml` crate is used with `preserve_order`. File order matters only for display, never for semantics. Unknown fields are errors (`deny_unknown_fields`).
+
+### Run inputs: `[inputs]` and `[subject]`
+
+A root workflow declares what a run needs in `[inputs.<name>]`. Each declared input is an **initial artifact** of the run: `surt run <workflow> --input <name>=<value>` ([J](J-cli.md#surt-run-create-a-run-and-drive-it)) supplies it, and the engine stores it as the first, human-origin Revision of the artifact of the same name, with one file:
+
+| `format` | Value | File |
+|---|---|---|
+| `text` | non-empty UTF-8 text | `<name>.txt` |
+| `markdown` | non-empty UTF-8 text | `<name>.md` |
+| `json` | text that parses as JSON | `<name>.json`, the bytes given |
+| `git_ref` | a branch, tag or commit, resolved when the run is created | `<name>.json` = `{"ref": <branch or null>, "sha": <full sha>}` |
+
+- `optional` (default `false`): a required input must be given (or have a `default`). An optional one that is not given has no Revision.
+- `default` is a string and is accepted only on a `git_ref` input (the Template's `base` defaults to `HEAD`); on any other format it is refused at `inputs.<name>.default`.
+- `description` is free text shown in the input refusal.
+- A `git_ref` that names a branch records the branch in `ref`; a tag or a commit records `null` (a detached base, [A](A-git-integration.md#the-base)).
+- Only root workflows take inputs. A workflow used as a `per_item` child that declares `[inputs]` is refused at `inputs`: a child reads `item` and the parent's `pass`.
+- The engine checks the values against the frozen root definition before it writes any row: an undeclared name, the same name twice, a required input missing, an empty `text`/`markdown`, `json` that does not parse, or a `git_ref` that names no commit refuses with `InvalidInput`, which lists every declared input with its format, whether it is optional and its description ([J](J-cli.md#surt-run-create-a-run-and-drive-it)).
+
+`[subject] from = "<input>"` names the `text` or `markdown` input the Subject's slug is derived from; naming an undeclared input or another format is refused at `subject.from`. The slug comes from `--name` when given, else from that input's value, else from the workflow name. Both tables are part of the canonical form, hence of the definition's identity; a workflow that declares neither serializes as before.
 
 ### Where definitions live
 
@@ -68,7 +96,7 @@ A Step Run whose `when` is false ends as **SKIPPED**. SKIPPED is a state, not an
     review it, then: surt approve 20261016-add-login
   ```
 - Some names are supplied, not produced by a step:
-  - **Initial artifacts** of a root run, given by the command that creates it and stored as human-origin Revisions. The feature workflow uses two: `request`, the text given to `surt feature "<description>"`, and `base`, the commit the Feature starts from ([A. Git Integration](A-git-integration.md#the-base)). The engine does not know what either means.
+  - **Initial artifacts** of a root run: its declared [run inputs](#run-inputs-inputs-and-subject), given to `surt run` and stored as human-origin Revisions. The feature Template declares two: `request` (`text`), what to build, and `base` (`git_ref`, default `HEAD`), the commit the run starts from ([A. Git Integration](A-git-integration.md#the-base)). The engine does not know what either means beyond its format.
   - `item`: in a Child Workflow Run, its item of the parent's Item List, together with that item's named files when present. It references the approved Item List Revision, not a new Revision.
 
 ## Ordering
@@ -151,9 +179,25 @@ Checks:
 3. Every id in `needs`, `body`, `when.step` and `until.step` exists. `body` members belong to exactly one Loop, and Loops do not nest.
 4. The `needs` rules of [Ordering](#ordering) hold, and the graph is acyclic.
 5. `when` and `until` reference an Outcome the referenced step's kind, agent or operation declares. `until.step` is in the Loop's `body`.
-6. Every `agent` exists. Every required input of an agent or Operation is produced by a step before it (via `needs`, including earlier steps of the same body), is an initial artifact the creating command supplies (`request`, `base`), is `item`, or is passed by the parent (`pass`).
+6. Every `agent` exists. Every required input of an agent or Operation is produced by a step before it (via `needs`, including earlier steps of the same body), is a declared input of the root workflow (`[inputs]`), is `item`, or is passed by the parent (`pass`). An artifact a Git Operation reads as a Git reference (`base`, see [the Operations' artifact contract](#the-operations-artifact-contract)) must come from a `git_ref` input; any other source is refused at the step.
 7. Every `run` is a registered operation. Every `workflow` of a `per_item` exists, and its `items` artifact is produced by a step before it in the Item List format. Any `item_files` declarations have valid names and supported file formats; actual item references and bytes are validated at delivery and expansion.
 8. Every `approval` names an `artifact` produced before it and a `rejection_artifact` unique in the definition.
+9. `[inputs]`: known formats and fields, `default` only on `git_ref`, none in a `per_item` child; `[subject] from` names a declared `text` or `markdown` input.
+
+## The Operations' artifact contract
+
+Operations read and write artifacts by fixed names; these names are the contract a workflow must satisfy around each Operation (Outcomes and Git behaviour: [A. Git Integration](A-git-integration.md#operation-registry)).
+
+| Operation | Reads | Writes | Outcomes |
+|---|---|---|---|
+| `git.create_run_branch` | `base` (a `git_ref` input) | — | `done` |
+| `git.create_child_worktree` | `item` | — | `done` |
+| `checks.run` | `commit` | `check-report` | `passed` · `failed` |
+| `git.integrate` | `commit`, `feedback` | `conflict` (on conflict) | `merged` · `conflict` |
+| `git.snapshot_run_branch` | `base` (a `git_ref` input) | `integration` | `done` |
+| `git.merge_into_base` | `base` (a `git_ref` input), `integration` | — | `merged` · `skipped` |
+
+`base` is read as a Git reference, so a root workflow that runs any of the three Operations reading it declares `[inputs.base] format = "git_ref"`. The JSON artifacts the engine writes (`check-report`, `conflict`, `integration`) and `base` itself follow the schemas the engine embeds; an Agent that reads one references its own copy in `schemas/` ([F](F-agent-contract.md)).
 
 ## The feature Template
 
@@ -168,6 +212,18 @@ description = "Specify, plan, build and ship one Feature."
 
 [cleanup]
 on_success = "clean"
+
+[inputs.request]
+format = "text"
+description = "what to build"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
+description = "branch, tag or commit to start from"
+
+[subject]
+from = "request"
 
 # --- spec: the Spec Agent writes it, you approve or reject it -------------
 

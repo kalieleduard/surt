@@ -1,5 +1,7 @@
 use super::fixtures::Catalog;
-use super::fixtures::{ProjectDir, default_config, in_step, new_run, workflow_refusal, writer};
+use super::fixtures::{
+    ProjectDir, default_config, in_step, input, new_run, workflow_refusal, writer,
+};
 use crate::project::{Problem, StepField};
 
 fn unknown_outcome(field: StepField, step: &str, outcome: &str, declared: &[&str]) -> Problem {
@@ -197,6 +199,9 @@ async fn an_approval_needs_its_artifact_produced_by_a_step_it_needs() {
 schema = 1
 name = "flow"
 
+[inputs.request]
+format = "text"
+
 [steps.write]
 kind = "agent"
 agent = "writer"
@@ -256,16 +261,21 @@ async fn a_renamed_input_is_satisfied_by_the_artifact_it_names() {
 schema = 1
 name = "flow"
 
+[inputs.brief]
+format = "text"
+
 [steps.write]
 kind = "agent"
 agent = "writer"
-inputs = { request = "base" }
+inputs = { request = "brief" }
 "#,
         )
         .agent("writer", writer());
     let project = dir.project(catalog, default_config()).await;
+    let mut new_run = new_run("flow");
+    new_run.inputs = vec![input("brief", "add login")];
 
-    let created = project.create_run(new_run("flow")).await;
+    let created = project.create_run(new_run).await;
 
     assert!(created.is_ok(), "{created:?}");
 }

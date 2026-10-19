@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::error::{DefinitionFile, InvalidDefinition, Problem};
 use super::fields;
+use super::inputs::{DeclaredInputs, RunInputs, SubjectSpec};
 use super::steps::{StepKind, StepSpec};
 
 const SCHEMA_VERSION: i64 = 1;
@@ -11,6 +12,7 @@ pub(crate) struct Definition {
     pub(crate) name: String,
     description: Option<String>,
     cleanup: CleanupPolicy,
+    pub(crate) inputs: RunInputs,
     pub(crate) steps: Vec<Step>,
 }
 
@@ -42,6 +44,9 @@ struct Document {
     description: Option<String>,
     #[serde(default)]
     cleanup: CleanupPolicy,
+    #[serde(default)]
+    inputs: DeclaredInputs,
+    subject: Option<SubjectSpec>,
     steps: toml::Table,
 }
 
@@ -52,6 +57,10 @@ struct Canonical<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     description: Option<&'a str>,
     cleanup: &'a CleanupPolicy,
+    #[serde(skip_serializing_if = "DeclaredInputs::is_empty")]
+    inputs: &'a DeclaredInputs,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    subject: Option<SubjectSpec>,
     steps: CanonicalSteps<'a>,
 }
 
@@ -92,6 +101,8 @@ impl Definition {
                 },
             ));
         }
+        let inputs = RunInputs::new(document.inputs, document.subject)
+            .map_err(|problem| invalid(None, problem))?;
         let steps = document
             .steps
             .into_iter()
@@ -108,6 +119,7 @@ impl Definition {
             name: document.name,
             description: document.description,
             cleanup: document.cleanup,
+            inputs,
             steps,
         })
     }
@@ -132,6 +144,8 @@ impl Definition {
             name: &self.name,
             description: self.description.as_deref(),
             cleanup: &self.cleanup,
+            inputs: &self.inputs.declared,
+            subject: self.inputs.subject_spec(),
             steps: CanonicalSteps(&self.steps),
         };
         toml::to_string(&canonical)

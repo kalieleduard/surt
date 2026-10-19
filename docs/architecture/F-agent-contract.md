@@ -65,10 +65,10 @@ An Agent is a directory of the project; there are no built-in Agents and nothing
 
 `surt init --template feature` writes `spec`, `tasks`, `builder`, `reviewer` and `shipper` from the feature Template, never overwriting a file that exists; from then on they are the project's files, and a Surt upgrade never changes them. An Agent that reads an Operation's artifact (`check-report`, `conflict`, `integration`, `base`) holds its own copy of the engine's schema under `schemas/`, written by the Template like any other file. A schema path is relative to its Agent's directory. Only local schema files are supported: no network references. Revisions are stored as content-addressed blobs in SQLite ([H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md)); the physical tables, including agent snapshots, are in [D. Database Schema](D-database.md#snapshots).
 
-**When they are read.** `Project::create_run` reads an Agent's directory when a root run is created and one of the closure's workflows names it (`surt feature "<description>"`, `surt feature <feature> --new-run`), and nowhere else; driving commands never look at the directory, a run keeps the Agents it froze whatever happens to the files afterwards, and a broken Agent that no workflow of the closure names never refuses. `agent.toml` must satisfy the complete schema with `deny_unknown_fields` at every level and the profile checks of [Model and effort validation](#model-and-effort-validation) and [Effective `agent.toml`](#effective-agenttoml). Any failure refuses the creation with `InvalidDefinition` (exit `3`, no row written), which carries the file under `.surt/`, the field path when one applies (`profile.limits.max_turns`), otherwise the line, and the reason:
+**When they are read.** `Project::create_run` reads an Agent's directory when a root run is created and one of the closure's workflows names it (`surt run <workflow>`, `surt feature <feature> --new-run`), and nowhere else; driving commands never look at the directory, a run keeps the Agents it froze whatever happens to the files afterwards, and a broken Agent that no workflow of the closure names never refuses. `agent.toml` must satisfy the complete schema with `deny_unknown_fields` at every level and the profile checks of [Model and effort validation](#model-and-effort-validation) and [Effective `agent.toml`](#effective-agenttoml). Any failure refuses the creation with `InvalidDefinition` (exit `3`, no row written), which carries the file under `.surt/`, the field path when one applies (`profile.limits.max_turns`), otherwise the line, and the reason:
 
 ```
-$ surt feature "add login"
+$ surt run feature --input request="add login"
 ✖ .surt/agents/builder/agent.toml: profile.effort: unknown variant `huge`, expected one of `low`, `medium`, `high`, `xhigh`, `max`
   fix: edit .surt/agents/builder/agent.toml
 ```
@@ -84,7 +84,7 @@ A file that is not UTF-8 is refused; a missing `agent.toml` or `instructions.md`
 **Workflow validation and declared checks.** The closure's workflows are validated against the Agents read with them: Outcomes named by `until` and `when`, inputs and outputs by name, Item List files ([E](E-workflow-schema.md#static-validation)). A workflow step that no longer matches its Agent refuses at that step of the workflow file, for instance when the Agent no longer declares an Outcome a `when` or `until` waits for, or requires an input nothing supplies. The [delivery checks](#delivery-checks) an output declares are part of `agent.toml`, so they validate with it: a checked output that is not JSON, or an Outcome a `no_blocking_finding` names that the Agent does not declare, refuses at that field:
 
 ```
-$ surt feature "add login"
+$ surt run feature --input request="add login"
 ✖ .surt/agents/reviewer/agent.toml: outcomes: a delivery check needs the outcome "approved"
   fix: edit .surt/agents/reviewer/agent.toml
 ```

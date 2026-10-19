@@ -28,7 +28,7 @@ fn with_two_specs(name: &str) -> Sandbox {
     sandbox.commit_something();
     sandbox.init();
     sandbox.script(&[spec(1, SPEC_1), spec(2, SPEC_2), tasks(1, &["A", "B"])]);
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
     ok(surt(
         &sandbox,
         &["reject", name, "-m", "falta o fluxo OAuth"],

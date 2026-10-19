@@ -1,14 +1,15 @@
 mod definition;
 mod edits;
 mod executions;
+mod inputs;
 mod reading;
 
 use std::path::Path;
 
 use surt_engine::project::{Candidate, Refusal, RunState};
 
-use crate::feature::quoted;
 use crate::message::Message;
+use crate::retry::quoted;
 use crate::status::{STATE_SEPARATOR, state_name, state_names};
 
 const GIT_DOWNLOADS: &str = "https://git-scm.com/downloads";
@@ -73,6 +74,11 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
         } => edits::blocking_new_run(subject, *run, files),
         Refusal::InvalidDefinition(invalid) => definition::invalid(invalid),
         Refusal::UnknownWorkflow { name, known } => definition::unknown_workflow(name, known),
+        Refusal::InvalidInput {
+            workflow,
+            problem,
+            declared,
+        } => inputs::invalid(workflow, problem, declared),
         Refusal::UnknownSubject { reference } => {
             Message::new(format!("no feature matches {}", quoted(reference)))
                 .way("inspect", "surt status")

@@ -21,14 +21,10 @@ pub(crate) struct ProjectDefinitions {
     agents: PathBuf,
 }
 
-pub fn check_workflow(
-    root: &Path,
-    workflow: &str,
-    initial_artifacts: &[&str],
-) -> Result<(), Error> {
+pub fn check_workflow(root: &Path, workflow: &str) -> Result<(), Error> {
     let definitions = ProjectDefinitions::new(&Layout::new(root.to_path_buf()));
     definitions.require(workflow)?;
-    validate(&definitions, workflow, initial_artifacts.iter().copied())?;
+    validate(&definitions, workflow)?;
     Ok(())
 }
 
