@@ -1,4 +1,5 @@
 mod cleanup;
+mod merge;
 
 use serde_json::Value;
 use surt_engine::project::{
@@ -64,6 +65,7 @@ fn repository(fields: Fields, status: &RunStatus) -> Fields {
             }),
         )
         .with("merge_into_base", merge_into_base(status.merge_into_base))
+        .maybe("merge", status.merge.as_ref().map(merge::merge))
 }
 
 fn work(fields: Fields, status: &RunStatus, resume: &str) -> Fields {

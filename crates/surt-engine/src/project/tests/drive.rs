@@ -26,6 +26,7 @@ mod live_limit;
 mod logging;
 mod merge_choices;
 mod merge_recovery;
+mod merge_status;
 mod merge_table;
 mod merging;
 mod new_runs;
