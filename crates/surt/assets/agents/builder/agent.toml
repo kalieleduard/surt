@@ -25,6 +25,7 @@ optional = true
 [outputs.commit]
 format = "json"
 json_schema = "schemas/commit.schema.json"
+checks = [{ kind = "commit_evidence" }]
 
 [profile]
 runtime = "claude-code"

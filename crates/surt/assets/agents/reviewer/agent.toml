@@ -29,6 +29,7 @@ optional = true
 [outputs.feedback]
 format = "json"
 json_schema = "schemas/feedback.schema.json"
+checks = [{ kind = "reviewed_commit" }, { kind = "no_blocking_finding", outcome = "approved" }]
 
 [profile]
 runtime = "claude-code"

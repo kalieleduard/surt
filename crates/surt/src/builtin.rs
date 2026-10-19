@@ -1,6 +1,5 @@
 use surt_engine::project::{
-    AgentAssets, BASE_SCHEMA, CHECK_REPORT_SCHEMA, CONFLICT_SCHEMA, Catalog, DeliveryCheck,
-    INTEGRATION_SCHEMA,
+    AgentAssets, BASE_SCHEMA, CHECK_REPORT_SCHEMA, CONFLICT_SCHEMA, Catalog, INTEGRATION_SCHEMA,
 };
 
 pub(crate) const FEATURE_WORKFLOW: &str = "feature";
@@ -9,10 +8,7 @@ pub(crate) const BASE_ARTIFACT: &str = "base";
 
 const TASK_CYCLE_WORKFLOW: &str = "task-cycle";
 const BUILDER: &str = "builder";
-const COMMIT_OUTPUT: &str = "commit";
 const REVIEWER: &str = "reviewer";
-const FEEDBACK_OUTPUT: &str = "feedback";
-const APPROVED: &str = "approved";
 
 const MANIFEST_SCHEMA: (&str, &str) = (
     "schemas/manifest.schema.json",
@@ -98,13 +94,6 @@ pub(crate) fn catalog() -> Catalog {
         .workflow(
             TASK_CYCLE_WORKFLOW,
             include_str!("../assets/workflows/task-cycle.toml"),
-        )
-        .delivery_check(BUILDER, COMMIT_OUTPUT, DeliveryCheck::CommitEvidence)
-        .delivery_check(REVIEWER, FEEDBACK_OUTPUT, DeliveryCheck::ReviewedCommit)
-        .delivery_check(
-            REVIEWER,
-            FEEDBACK_OUTPUT,
-            DeliveryCheck::NoBlockingFinding { outcome: APPROVED },
         );
     AGENTS
         .into_iter()

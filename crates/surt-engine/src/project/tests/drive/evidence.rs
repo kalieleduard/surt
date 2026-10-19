@@ -9,7 +9,7 @@ use super::super::fixtures::SUBJECT;
 use super::fixtures::{ACTOR, Feature, agent, preserved};
 use super::planned::{PLANNER, plan};
 use super::repository::{commit_file, git};
-use crate::project::{Catalog, Config, DeliveryCheck, DriveOutcome};
+use crate::project::{Catalog, Config, DriveOutcome};
 use crate::runtime::{
     AgentRuntime, Behavior, Delivery, FakeRuntime, RuntimeCompletion, RuntimeError,
     RuntimeEventSink, RuntimeRequest, Script, StopSignal,
@@ -42,7 +42,7 @@ pass = ["request"]
 needs = ["approve"]
 "#;
 
-const BUILD_WORKFLOW: &str = r#"
+pub(super) const BUILD_WORKFLOW: &str = r#"
 schema = 1
 name = "task"
 
@@ -72,6 +72,7 @@ optional = true
 
 [outputs.commit]
 format = "json"
+checks = [{ kind = "commit_evidence" }]
 
 [profile]
 runtime = "fake"
@@ -167,7 +168,6 @@ pub(super) fn committed_catalog(task: &'static str) -> Catalog {
         .agent("planner", agent(PLANNER))
         .agent("builder", agent(COMMITTER))
         .agent("reviewer", agent(CHECKED_REVIEWER))
-        .delivery_check("builder", "commit", DeliveryCheck::CommitEvidence)
 }
 
 pub(super) async fn committed(task: &'static str, config: Config) -> Feature {

@@ -2,7 +2,6 @@ mod schemas;
 
 use std::collections::BTreeSet;
 
-use surt_engine::project::DeliveryCheck;
 use toml::{Table, Value};
 
 use super::{AGENTS, BASE_ARTIFACT, FEATURE_WORKFLOW, REQUEST_ARTIFACT, catalog};
@@ -122,22 +121,30 @@ fn each_role_gets_the_tools_and_approvals_of_its_row_in_the_agent_contract() {
 
 #[test]
 fn the_builders_commit_is_proven_by_git_and_the_reviewers_verdict_is_bound_to_it() {
-    let catalog = catalog();
+    let declared = |id: &str, output: &str| agent(id)["outputs"][output].get("checks").cloned();
+    let expected = |text: &str| {
+        let table: Table = text.parse().expect("the expected checks parse");
+        table.get("checks").cloned()
+    };
 
-    for (id, _) in AGENTS {
-        let expected: Vec<(String, DeliveryCheck)> = match id {
-            "builder" => vec![("commit".to_owned(), DeliveryCheck::CommitEvidence)],
-            "reviewer" => vec![
-                ("feedback".to_owned(), DeliveryCheck::ReviewedCommit),
-                (
-                    "feedback".to_owned(),
-                    DeliveryCheck::NoBlockingFinding {
-                        outcome: "approved",
-                    },
-                ),
-            ],
-            _ => Vec::new(),
-        };
-        assert_eq!(catalog.delivery_checks(id), expected.as_slice(), "{id}");
+    assert_eq!(
+        declared("builder", "commit"),
+        expected(r#"checks = [{ kind = "commit_evidence" }]"#)
+    );
+    assert_eq!(
+        declared("reviewer", "feedback"),
+        expected(
+            r#"checks = [{ kind = "reviewed_commit" }, { kind = "no_blocking_finding", outcome = "approved" }]"#
+        )
+    );
+    for id in ["spec", "tasks", "shipper"] {
+        let agent = agent(id);
+        let outputs = agent["outputs"].as_table().expect("outputs");
+        assert!(
+            outputs
+                .values()
+                .all(|output| output.get("checks").is_none()),
+            "{id}"
+        );
     }
 }

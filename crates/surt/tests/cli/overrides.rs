@@ -131,7 +131,7 @@ fn an_invalid_override_refuses_the_feature_with_exit_3_before_any_row_is_written
 }
 
 #[test]
-fn an_override_removing_an_outcome_the_reviewer_must_declare_names_the_workflow_step() {
+fn an_override_removing_the_outcome_a_declared_check_names_is_refused_at_outcomes() {
     let sandbox = project(&[spec(1, "# Spec 1\n")]);
     write_local(&sandbox, "reviewer", "outcomes = [\"changes_requested\"]\n");
 
@@ -140,8 +140,7 @@ fn an_override_removing_an_outcome_the_reviewer_must_declare_names_the_workflow_
     assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
     assert_eq!(
         run.stderr,
-        "✖ .surt/agents/reviewer/agent.toml: a delivery check needs the outcome \"approved\"\n  \
-         needed by: task-cycle step review (delivery check)\n  \
+        "✖ .surt/agents/reviewer/agent.toml: outcomes: a delivery check needs the outcome \"approved\"\n  \
          fix: edit .surt/agents/reviewer/agent.toml\n"
     );
     assert_eq!(

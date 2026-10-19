@@ -11,14 +11,6 @@ pub struct Catalog {
     agents: BTreeMap<String, AgentAssets>,
     effective_tomls: BTreeMap<String, String>,
     local_assets: BTreeMap<String, LocalAssets>,
-    checks: BTreeMap<String, Vec<(String, DeliveryCheck)>>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DeliveryCheck {
-    CommitEvidence,
-    ReviewedCommit,
-    NoBlockingFinding { outcome: &'static str },
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -43,14 +35,6 @@ impl Catalog {
         self
     }
 
-    pub fn delivery_check(mut self, agent: &str, output: &str, check: DeliveryCheck) -> Catalog {
-        self.checks
-            .entry(agent.to_owned())
-            .or_default()
-            .push((output.to_owned(), check));
-        self
-    }
-
     pub fn check(
         &self,
         workflow: &str,
@@ -65,10 +49,6 @@ impl Catalog {
 
     pub(crate) fn workflow_text(&self, name: &str) -> Option<&'static str> {
         self.workflows.get(name).copied()
-    }
-
-    pub fn delivery_checks(&self, agent: &str) -> &[(String, DeliveryCheck)] {
-        self.checks.get(agent).map_or(&[], Vec::as_slice)
     }
 
     pub(crate) fn agent_assets(&self, id: &str) -> Option<&AgentAssets> {

@@ -1,6 +1,8 @@
 use crate::workflow::error::Problem;
 
 const KEY_SEPARATOR: &str = ".";
+const OUTPUTS: &str = "outputs";
+const FORMAT: &str = "format";
 
 pub(super) fn field_of(problem: &Problem, merged: &str) -> Option<String> {
     let field = match problem {
@@ -13,6 +15,10 @@ pub(super) fn field_of(problem: &Problem, merged: &str) -> Option<String> {
         Problem::MisplacedApiKeyEnv => "profile.claude.api_key_env",
         Problem::InvalidBudget => "profile.limits.max_budget_usd",
         Problem::TestOnlyRuntime => "profile.runtime",
+        Problem::MissingCheckedOutcome { .. } => "outcomes",
+        Problem::MissingCheckedOutput { output } => {
+            return Some([OUTPUTS, output, FORMAT].join(KEY_SEPARATOR));
+        }
         _ => return None,
     };
     Some(field.to_owned())

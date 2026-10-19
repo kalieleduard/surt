@@ -35,7 +35,6 @@ fn step_use(field: StepUse) -> &'static str {
         StepUse::When => "when",
         StepUse::Until => "until",
         StepUse::Input => "input",
-        StepUse::DeliveryCheck => "delivery check",
     }
 }
 

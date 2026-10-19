@@ -7,7 +7,10 @@ use super::error::{DefinitionFile, InvalidDefinition, Problem};
 use super::sources::SchemaSource;
 
 mod checks;
+mod deliveries;
 mod names;
+
+pub(crate) use deliveries::DeliveryCheck;
 
 const DEFAULT_OUTCOME: &str = "done";
 
@@ -52,6 +55,8 @@ pub(crate) struct OutputSpec {
     pub(crate) json_schema: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) item_files: BTreeMap<String, ItemFileSpec>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    checks: Vec<DeliveryCheck>,
 }
 
 #[derive(Deserialize, Serialize)]
