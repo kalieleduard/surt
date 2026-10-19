@@ -3,11 +3,11 @@ use surt_engine::project::{CleanupState, GateStatus, ItemState, RunStatus};
 use super::state_names;
 use crate::driving::label;
 use crate::phase::Phase;
+use crate::symbols::{DASH, SEPARATOR};
 use crate::table;
 
 const HEADERS: [&str; 5] = ["FEATURE", "RUN", "STATE", "DRIVER", "PROGRESS"];
-const NONE: &str = "—";
-const SEPARATOR: &str = " · ";
+const NONE: &str = DASH;
 const COUNTED: [(ItemState, &str); 3] = [
     (ItemState::Running, "running"),
     (ItemState::Queued, "queued"),
@@ -18,11 +18,10 @@ pub(super) fn render(statuses: &[RunStatus]) -> String {
     let mut rows = vec![HEADERS.map(str::to_owned)];
     rows.extend(statuses.iter().map(row));
     let mut text = table::render(&rows);
-    if let Some(first) = statuses.first() {
-        let in_use: u32 = statuses.iter().map(|status| status.slots.in_use).sum();
+    if let Some(project_wide) = statuses.first().map(|status| status.slots) {
         text.push_str(&format!(
-            "agent slots: {in_use}/{} in use\n",
-            first.slots.total
+            "agent slots: {}/{} in use\n",
+            project_wide.in_use, project_wide.total
         ));
     }
     text
@@ -55,8 +54,10 @@ fn progress(status: &RunStatus) -> String {
                 .map(|blocked| format!("{} blocked", label(&blocked.step))),
         );
     }
-    if let Some(CleanupState::Pending { .. }) = status.cleanup {
-        parts.push("cleanup pending".to_owned());
+    match status.cleanup {
+        Some(CleanupState::Pending { .. }) => parts.push("cleanup pending".to_owned()),
+        Some(CleanupState::Kept) => parts.push("kept".to_owned()),
+        _ => {}
     }
     if parts.is_empty() {
         return NONE.to_owned();

@@ -2,13 +2,17 @@ use serde::Deserialize;
 
 use super::{CleanupState, PendingIntegration, Unattended};
 use crate::cleanup::{Kept, Left};
+use crate::drive::BaseMerge;
 use crate::git;
+use crate::operations::Operation;
 use crate::platform;
 use crate::project::{Commit, Error};
 use crate::store::{RootRunRow, Store};
+use crate::workflow::OnSuccess;
 
 const BASE_ARTIFACT: &str = "base";
 const ACTIVE: &str = "active";
+const SUCCEEDED: &str = "succeeded";
 
 #[derive(Default, Deserialize)]
 struct CleanupData {
@@ -25,7 +29,7 @@ struct BaseData {
     sha: String,
 }
 
-pub(super) async fn base(store: &Store, root: &str) -> Result<Option<Commit>, Error> {
+pub(in crate::project) async fn base(store: &Store, root: &str) -> Result<Option<Commit>, Error> {
     let Some(id) = store.revision_id(root, BASE_ARTIFACT, None).await? else {
         return Ok(None);
     };
@@ -38,6 +42,16 @@ pub(super) async fn base(store: &Store, root: &str) -> Result<Option<Commit>, Er
                 branch: base.reference,
             })
     }))
+}
+
+pub(in crate::project) async fn merge(
+    store: &Store,
+    root: &str,
+) -> Result<Option<BaseMerge>, Error> {
+    let done = store
+        .last_operation_done(root, Operation::MergeIntoBase.id())
+        .await?;
+    Ok(done.as_deref().and_then(BaseMerge::from_data))
 }
 
 pub(super) async fn unattended(
@@ -83,9 +97,13 @@ pub(super) async fn integrating(
 pub(super) async fn cleanup(
     store: &Store,
     run: &RootRunRow,
+    on_success: OnSuccess,
 ) -> Result<Option<CleanupState>, Error> {
     if run.state == ACTIVE {
         return Ok(None);
+    }
+    if run.state == SUCCEEDED && !run.cleaned && on_success == OnSuccess::Keep {
+        return Ok(Some(CleanupState::Kept));
     }
     let data: CleanupData = store
         .last_cleanup(&run.id)

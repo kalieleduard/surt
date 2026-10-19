@@ -1,17 +1,23 @@
 use std::path::PathBuf;
 
+mod agent_problems;
+mod executions;
+mod overrides;
 mod problems;
 
 use surt_engine::project::{
     AwaitedRevision, Candidate, DefinitionFile, GitVersion, InvalidDefinition, Problem, Refusal,
-    RunState,
+    RunState, StepField,
 };
 
 use super::message;
+use crate::symbols::Symbols;
+use overrides::invalid_override;
 
 const MAX_CONTEXT_LINES: usize = 2;
 const MAX_WAYS_OUT: usize = 3;
-const LABELS: [&str; 9] = [
+const LABELS: [&str; 10] = [
+    "retry:",
     "fix:",
     "next:",
     "resume:",
@@ -69,9 +75,6 @@ fn every_refusal() -> Vec<Refusal> {
             line: None,
             reason: "invalid TOML".to_owned(),
         },
-        Refusal::MergeIntoBaseUnsupported {
-            path: path.join(".surt/config.toml"),
-        },
         Refusal::InvalidDefinition(Box::new(InvalidDefinition {
             file: DefinitionFile::Workflow("feature".to_owned()),
             step: Some("ship".to_owned()),
@@ -104,9 +107,7 @@ fn every_refusal() -> Vec<Refusal> {
         Refusal::UnknownSubject {
             reference: "login".to_owned(),
         },
-        Refusal::AgentOverrides {
-            path: path.join(".surt/agents"),
-        },
+        invalid_override(Some("profile.effort")),
         Refusal::UnapprovedRevision {
             subject: "20261017-add-login".to_owned(),
             artifact: "spec".to_owned(),
@@ -167,10 +168,71 @@ fn every_refusal() -> Vec<Refusal> {
             item: "A".to_owned(),
             known: Vec::new(),
         },
+        not_restorable("request", &["manifest", "spec"]),
+        not_restorable("spec", &[]),
+        terminal_run(),
+        Refusal::NoLiveDriver {
+            subject: "20261017-add-login".to_owned(),
+            states: vec![RunState::AwaitingApproval, RunState::Blocked],
+        },
+        Refusal::ActiveRunBlocksDelete {
+            subject: "20261017-add-login".to_owned(),
+        },
+        Refusal::RunLockBusy {
+            subject: "20261017-add-login".to_owned(),
+        },
+        Refusal::SubjectChangedWhileDeleting {
+            subject: "20261017-add-login".to_owned(),
+        },
+        Refusal::UnrecordedEditsBlockNewRun {
+            subject: "20261017-add-login".to_owned(),
+            run: 1,
+            files: vec!["spec.md".to_owned(), "notes.md".to_owned()],
+        },
         Refusal::ActiveRunExists {
             subject: "20261017-add-login".to_owned(),
         },
     ]
+}
+
+fn not_restorable(artifact: &str, restorable: &[&str]) -> Refusal {
+    Refusal::NotRestorable {
+        subject: "20261017-add-login".to_owned(),
+        artifact: artifact.to_owned(),
+        restorable: restorable.iter().map(|name| (*name).to_owned()).collect(),
+    }
+}
+
+fn terminal_run() -> Refusal {
+    Refusal::TerminalRun {
+        subject: "20261017-add-login".to_owned(),
+        run: 1,
+        files: vec!["spec.md".to_owned()],
+    }
+}
+
+#[test]
+fn an_artifact_without_a_working_copy_lists_the_restorable_ones() {
+    let texts = [
+        text(&not_restorable("request", &["manifest", "spec"])),
+        text(&not_restorable("spec", &[])),
+    ];
+
+    assert_eq!(
+        texts,
+        [
+            "✖ request has no working copy to restore\n  restorable: manifest, spec\n  inspect: surt status 20261017-add-login\n",
+            "✖ spec has no working copy to restore\n  20261017-add-login has no artifact with a working copy\n  inspect: surt status 20261017-add-login\n",
+        ]
+    );
+}
+
+#[test]
+fn a_terminal_run_keeps_the_edited_file_and_says_to_move_or_delete_it() {
+    assert_eq!(
+        text(&terminal_run()),
+        "✖ 20261017-add-login run 1 has ended; restore only rewrites an active run\n    .surt/features/20261017-add-login/spec.md\n  fix: move or delete the file\n"
+    );
 }
 
 #[test]
@@ -305,7 +367,7 @@ fn a_managed_worktree_points_back_at_the_project_when_it_is_known() {
 
 #[test]
 fn an_invalid_definition_names_the_file_and_the_step() {
-    let refusal = &every_refusal()[12];
+    let refusal = &every_refusal()[11];
 
     assert!(
         text(refusal).starts_with("✖ invalid built-in definition: workflow feature [steps.ship]\n"),
@@ -320,6 +382,7 @@ fn an_invalid_definition_says_in_words_what_is_wrong() {
         file: DefinitionFile::Workflow("task-cycle".to_owned()),
         step: Some("cycle".to_owned()),
         problem: Problem::UnknownOutcome {
+            field: StepField::Until,
             step: "integrate".to_owned(),
             outcome: "merge".to_owned(),
             declared: vec!["merged".to_owned(), "conflict".to_owned()],
@@ -334,17 +397,17 @@ fn an_invalid_definition_says_in_words_what_is_wrong() {
 
 #[test]
 fn a_live_driver_is_named_by_its_pid() {
-    let refusal = &every_refusal()[14];
+    let refusal = &every_refusal()[13];
 
     assert_eq!(
         text(refusal),
-        "✖ 20261017-add-login is being driven by pid 48213\n  fix: stop it with Ctrl-C in its terminal, then rerun\n"
+        "✖ 20261017-add-login is being driven by pid 48213\n  fix: surt stop 20261017-add-login, or Ctrl-C in its terminal, then rerun\n"
     );
 }
 
 #[test]
 fn a_stale_revision_names_the_latest_and_how_to_read_it() {
-    let refusal = &every_refusal()[17];
+    let refusal = &every_refusal()[16];
 
     assert_eq!(
         text(refusal),
@@ -363,8 +426,28 @@ fn an_active_run_points_at_resuming_the_feature() {
 }
 
 #[test]
+fn unrecorded_edits_left_by_the_previous_run_are_listed_before_a_new_run() {
+    let single = Refusal::UnrecordedEditsBlockNewRun {
+        subject: "20261017-add-login".to_owned(),
+        run: 1,
+        files: vec!["spec.md".to_owned()],
+    };
+    let refusals = every_refusal();
+    let several = &refusals[refusals.len() - 2];
+
+    assert_eq!(
+        text(&single),
+        "✖ working copy has unrecorded edits from run 1\n    .surt/features/20261017-add-login/spec.md\n  fix: move or delete the file, then run again\n"
+    );
+    assert_eq!(
+        text(several),
+        "✖ working copy has unrecorded edits from run 1\n    .surt/features/20261017-add-login/spec.md .surt/features/20261017-add-login/notes.md\n  fix: move or delete the files, then run again\n"
+    );
+}
+
+#[test]
 fn an_unapproved_edit_points_at_approving_it() {
-    let refusal = &every_refusal()[20];
+    let refusal = &every_refusal()[19];
 
     assert_eq!(
         text(refusal),
@@ -373,28 +456,28 @@ fn an_unapproved_edit_points_at_approving_it() {
 }
 
 #[test]
-fn an_edit_to_a_pinned_revision_says_which_files_to_remove() {
-    let refusal = &every_refusal()[21];
+fn an_edit_to_a_pinned_revision_says_how_to_undo_it() {
+    let refusal = &every_refusal()[20];
 
     assert_eq!(
         text(refusal),
-        "✖ tasks/B.md, tasks/C.md changed, but manifest rev 1 is pinned (a later step already read it)\n  the edit was not recorded\n  fix: rm .surt/features/20261017-add-login/tasks/B.md .surt/features/20261017-add-login/tasks/C.md, then rerun\n"
+        "✖ tasks/B.md, tasks/C.md changed, but manifest rev 1 is pinned (a later step already read it)\n  the edit was not recorded\n  undo: surt restore 20261017-add-login manifest\n"
     );
 }
 
 #[test]
-fn an_invalid_edit_says_what_is_wrong_and_which_files_to_remove() {
-    let refusal = &every_refusal()[22];
+fn an_invalid_edit_says_what_is_wrong_and_how_to_undo_it() {
+    let refusal = &every_refusal()[21];
 
     assert_eq!(
         text(refusal),
-        "✖ manifest edit is invalid, no revision recorded:\n    manifest.json: tasks/C.md is not referenced by any item\n  fix: rm .surt/features/20261017-add-login/tasks/C.md, then rerun\n"
+        "✖ manifest edit is invalid, no revision recorded:\n    manifest.json: tasks/C.md is not referenced by any item\n  undo: surt restore 20261017-add-login manifest\n"
     );
 }
 
 #[test]
 fn an_unknown_feature_points_at_the_list_of_features() {
-    let refusal = &every_refusal()[18];
+    let refusal = &every_refusal()[17];
 
     assert_eq!(
         text(refusal),
@@ -438,5 +521,35 @@ fn an_ambiguous_feature_lists_every_candidate_and_asks_for_the_full_name() {
          20261017-add-login    RUNNING\n    \
          20261017-add-login-2  AWAITING APPROVAL (manifest rev 2) + BLOCKED\n  \
          use the full name\n"
+    );
+}
+
+#[test]
+fn every_refusal_prints_only_ascii_in_ascii_mode() {
+    for refusal in every_refusal() {
+        let text = text(&refusal);
+
+        assert!(Symbols::Ascii.render(&text).is_ascii(), "{text}");
+    }
+}
+
+#[test]
+fn delete_refusals_point_at_cancel_or_at_running_the_delete_again() {
+    let refusals = every_refusal();
+    let texts: Vec<String> = refusals[refusals.len() - 5..refusals.len() - 2]
+        .iter()
+        .map(text)
+        .collect();
+
+    assert_eq!(
+        texts,
+        [
+            "✖ 20261017-add-login has an active run; delete never stops agents\n  \
+             fix: surt cancel 20261017-add-login\n",
+            "✖ another surt process is working on 20261017-add-login\n  \
+             retry: surt delete 20261017-add-login\n",
+            "✖ feature changed while deleting; run again\n  \
+             retry: surt delete 20261017-add-login\n",
+        ]
     );
 }

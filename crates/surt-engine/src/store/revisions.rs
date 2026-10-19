@@ -1,5 +1,6 @@
 use sqlx::{FromRow, SqliteConnection};
 
+use super::columns::number;
 use super::runs::new_id;
 use super::{Store, StoreError};
 use crate::artifacts::{identity, sha256_hex};
@@ -24,6 +25,7 @@ pub(crate) struct Published {
 #[derive(Clone, Debug)]
 pub(crate) struct StoredRevision {
     pub(crate) number: u32,
+    pub(crate) sha256: String,
     pub(crate) files: Vec<(String, Vec<u8>)>,
     pub(crate) producer: Producer,
 }
@@ -37,6 +39,7 @@ pub(crate) enum Producer {
 #[derive(FromRow)]
 struct ProducerRow {
     number: i64,
+    identity_sha256: String,
     human_action: Option<String>,
     step_key: Option<String>,
     iteration: Option<i64>,
@@ -45,7 +48,7 @@ struct ProducerRow {
 impl Store {
     pub(crate) async fn revision(&self, id: &str) -> Result<StoredRevision, StoreError> {
         let row: ProducerRow = sqlx::query_as(
-            "SELECT r.number, r.human_action, coalesce(s.step_key, g.step_key) AS step_key, \
+            "SELECT r.number, r.identity_sha256, r.human_action, coalesce(s.step_key, g.step_key) AS step_key, \
              coalesce(s.iteration, g.iteration) AS iteration FROM artifact_revision r \
              LEFT JOIN execution e ON e.id = r.execution_id \
              LEFT JOIN step_run s ON s.id = e.step_run_id \
@@ -71,6 +74,7 @@ impl Store {
         };
         Ok(StoredRevision {
             number: number(row.number),
+            sha256: row.identity_sha256,
             files,
             producer,
         })
@@ -84,10 +88,6 @@ impl Store {
         .fetch_all(&self.pool)
         .await?)
     }
-}
-
-pub(super) fn number(value: i64) -> u32 {
-    u32::try_from(value).unwrap_or(u32::MAX)
 }
 
 pub(super) async fn artifact_id(

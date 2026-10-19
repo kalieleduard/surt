@@ -1,7 +1,7 @@
 use sqlx::FromRow;
 
-use super::revisions::number;
-use super::{About, Checkpoint, Store, StoreError, record_event, unix_now};
+use super::columns::number;
+use super::{About, Checkpoint, Store, StoreError, record_event_data, unix_now};
 use crate::drive::StepLabel;
 use crate::drive::graph::RunId;
 use crate::platform::ProcessIdentity;
@@ -49,7 +49,7 @@ impl Store {
         let mut transaction = self.begin_write().await?;
         sqlx::query(
             "UPDATE workflow_run SET driver_pid = ?, driver_since = ?, driver_start_time = ?, \
-             driver_boot_id = ? WHERE id = ?",
+             driver_boot_id = ?, stop_requested_at = NULL, stop_requested_by = NULL WHERE id = ?",
         )
         .bind(i64::from(pid))
         .bind(now)
@@ -58,7 +58,15 @@ impl Store {
         .bind(root)
         .execute(&mut *transaction)
         .await?;
-        record_event(&mut transaction, About::Run(root), DRIVER_STARTED, now).await?;
+        let data = serde_json::json!({ "pid": pid });
+        record_event_data(
+            &mut transaction,
+            About::Run(root),
+            DRIVER_STARTED,
+            now,
+            &data,
+        )
+        .await?;
         Ok(transaction.commit().await?)
     }
 

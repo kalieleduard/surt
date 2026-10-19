@@ -1,7 +1,7 @@
 use sqlx::SqliteConnection;
 
 use super::runs::new_id;
-use super::{About, Checkpoint, Store, StoreError, record_event, unix_now};
+use super::{About, Checkpoint, Store, StoreError, record_event, record_event_data, unix_now};
 
 const RUN_CREATED: &str = "run.created";
 
@@ -149,5 +149,6 @@ async fn insert_child(
         .execute(&mut *connection)
         .await?;
     }
-    record_event(connection, About::Run(&run), RUN_CREATED, now).await
+    let data = serde_json::json!({ "item": child.item });
+    record_event_data(connection, About::Run(&run), RUN_CREATED, now, &data).await
 }

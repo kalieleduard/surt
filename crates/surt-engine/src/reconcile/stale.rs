@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use serde_json::json;
 
 use super::Reconcile;
@@ -8,7 +6,6 @@ use crate::platform;
 use crate::project::Error;
 use crate::store::{ExecutionEnd, StaleExecution};
 
-const STOP_GRACE_PERIOD: Duration = Duration::from_secs(10);
 const ORPHAN_STOPPED: &str = "execution.orphan_stopped";
 
 impl Reconcile<'_> {
@@ -22,7 +19,7 @@ impl Reconcile<'_> {
 
     async fn end_stale(&self, stale: StaleExecution) -> Result<Option<Progress>, Error> {
         let stopped = match stale.identity.as_ref().filter(|_| stale.running) {
-            Some(identity) if platform::stop(identity, STOP_GRACE_PERIOD).await => {
+            Some(identity) if platform::stop(identity, self.stop_grace_period).await => {
                 Some(identity.pid)
             }
             _ => None,

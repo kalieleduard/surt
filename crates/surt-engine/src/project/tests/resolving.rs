@@ -7,7 +7,13 @@ async fn project_with(dir: &ProjectDir, subjects: &[&str]) -> (Project, Vec<RunI
     for subject in subjects {
         let mut run = new_run("draft");
         run.subject = (*subject).to_owned();
-        runs.push(project.create_run(run).await.expect("the run is created"));
+        runs.push(
+            project
+                .create_run(run)
+                .await
+                .expect("the run is created")
+                .run,
+        );
     }
     (project, runs)
 }

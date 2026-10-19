@@ -33,10 +33,7 @@ pub(super) async fn views(
             status,
             decided_by: row.actor,
             decided_at: row.decided_at,
-            working_copy: dir
-                .strip_prefix(layout.root())
-                .unwrap_or(&dir)
-                .to_path_buf(),
+            working_copy: layout.relative(&dir),
             edited: comparison.edited,
             missing: comparison.missing,
         });
@@ -84,6 +81,7 @@ async fn summary(
     Ok(Some(RevisionSummary {
         number,
         origin: origin(&revision.producer),
+        sha256: revision.sha256,
         files: revision.files.into_iter().map(|(path, _)| path).collect(),
     }))
 }

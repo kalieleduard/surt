@@ -1,5 +1,7 @@
 use surt_engine::project::{Problem, StepField};
 
+use crate::symbols::ARROW;
+
 pub(super) fn describe(problem: &Problem) -> String {
     match problem {
         Problem::Syntax {
@@ -27,7 +29,10 @@ pub(super) fn describe(problem: &Problem) -> String {
         }
         Problem::SharedBodyStep { name } => format!("\"{name}\" is in the body of two loops"),
         Problem::NestedLoop { name } => format!("loop \"{name}\" is inside another loop"),
-        Problem::Cycle { path } => format!("the steps form a cycle: {}", path.join(" → ")),
+        Problem::Cycle { path } => format!(
+            "the steps form a cycle: {}",
+            path.join(&format!(" {ARROW} "))
+        ),
         Problem::UntilOutsideBody { name } => {
             format!("until names \"{name}\", which is not in the loop's body")
         }
@@ -35,6 +40,7 @@ pub(super) fn describe(problem: &Problem) -> String {
             step,
             outcome,
             declared,
+            ..
         } => format!(
             "expects outcome \"{outcome}\" of \"{step}\", which declares: {}",
             declared.join(", ")
@@ -52,7 +58,13 @@ pub(super) fn describe(problem: &Problem) -> String {
         Problem::DuplicateRejectionArtifact { artifact } => {
             format!("rejection artifact \"{artifact}\" is declared twice")
         }
-        Problem::MissingAsset { path } => format!("\"{path}\" is not bundled with the agent"),
+        Problem::MissingAsset { path } => {
+            format!("\"{path}\" is neither a local file nor bundled with the agent")
+        }
+        Problem::NonLocalReference { reference } => {
+            format!("$ref \"{reference}\" is not a file in the agent's schemas directory")
+        }
+        Problem::InvalidSchema { detail } => format!("not a valid JSON Schema: {detail}"),
         Problem::MisplacedJsonSchema { name } => {
             format!("\"{name}\" has a json_schema but is neither json nor item_list")
         }
@@ -67,6 +79,19 @@ pub(super) fn describe(problem: &Problem) -> String {
         }
         Problem::MisplacedApiKeyEnv => "api_key_env needs auth = \"api_key\"".to_owned(),
         Problem::InvalidBudget => "max_budget_usd must be a positive number".to_owned(),
+        Problem::UnknownAgentDirectory { known } => {
+            format!("not a built-in agent; agents: {}", known.join(", "))
+        }
+        Problem::MissingCheckedOutput { output } => {
+            format!("a delivery check needs the JSON output \"{output}\"")
+        }
+        Problem::MissingCheckedOutcome { outcome } => {
+            format!("a delivery check needs the outcome \"{outcome}\"")
+        }
+        Problem::TestOnlyRuntime => "runtime \"fake\" is test-only".to_owned(),
+        Problem::StrayAgentFile => {
+            "surt reads only agent.toml, instructions.md and schemas/ here".to_owned()
+        }
     }
 }
 

@@ -80,6 +80,10 @@ _Avoid_: Sign-off, acceptance
 The single process that advances one root Workflow Run, together with all its Child Workflow Runs. A root Workflow Run has at most one Driver at a time, and none while it waits on a human.
 _Avoid_: Runner, worker, daemon
 
+**Agent Slot**:
+One of the project's `max_concurrent_agents` places that an agent Execution must hold to run. Slots belong to the project, not to a Driver: every Driver of the project takes one before launching an agent and gives it back when the agent ends, so two Features driven at once share the limit.
+_Avoid_: Worker, seat
+
 **Interruption**:
 Stopping a Driver, for example with Ctrl-C or a stop request from another terminal, without ending its Workflow Run. Running Executions are stopped, and the run can be resumed later with new Attempts.
 _Avoid_: Cancel (which ends the run), abort, pause
@@ -101,7 +105,7 @@ A reference that keeps whatever an Attempt left behind in a worktree (uncommitte
 _Avoid_: Stash, backup
 
 **Transient Failure**:
-A technical failure caused by something outside the agent that passes by itself, such as a rate limit or a network outage. Surt waits and tries again without spending an Attempt.
+A technical failure caused by something outside the agent that passes by itself, such as a rate limit or a network outage. Surt pauses every agent launch of the Driver until the reported reset time or a backoff ends, then tries again without spending an Attempt.
 _Avoid_: Retryable failure (which spends an Attempt), outage
 
 **Blocked**:
@@ -109,7 +113,7 @@ A Step Run that cannot go on without a human, because it reached its Attempt or 
 _Avoid_: Failed, stuck, error
 
 **Cleanup**:
-What Surt removes after a Workflow Run ends: the views and scratch space it can rebuild or never accepted, such as the Working Copy and the Task worktrees. It never removes history, logs, a human's unrecorded edit, or the Integration Branch, and a cancelled run keeps its unintegrated work as refs. A cleanup that could not finish is pending and is finished by the next command that takes over the run.
+What Surt removes after a Workflow Run ends: the views and scratch space it can rebuild or never accepted, such as the Working Copy and the Task worktrees. It never removes history, logs, a human's unrecorded edit, or the Integration Branch, and a cancelled run keeps its unintegrated work as refs. A cleanup that could not finish is pending and is finished by the next command that takes over the run. A `succeeded` run whose effective policy is `on_success = "keep"` is kept instead: it has no cleanup until `surt delete`.
 _Avoid_: Garbage collection, purge, archive
 
 **Purge**:
@@ -125,6 +129,10 @@ _Avoid_: Persona, bot
 **Agent Profile**:
 The concrete way of running an Agent: runtime, model, effort, permissions and limits. Each Agent has exactly one, used by every Execution of it; repeating work never switches to another model.
 _Avoid_: Model config, agent config
+
+**Agent Override**:
+Files under `.surt/agents/<id>/` merged over a built-in Agent when a root run is created.
+_Avoid_: Custom agent, plugin
 
 **Agent Runtime**:
 The adapter that knows how to launch and follow one kind of agent, such as Claude Code or the Fake Runtime used in tests.

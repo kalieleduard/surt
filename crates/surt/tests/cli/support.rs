@@ -16,7 +16,7 @@ const SYSTEM_DIRECTORIES: [&str; 2] = ["/usr/bin", "/bin"];
 const IDENTITY_CONFIG: &str = "[user]\n\tname = Surt Tester\n\temail = tester@example.com\n";
 const NO_IDENTITY_CONFIG: &str = "[user]\n\tuseConfigOnly = true\n";
 
-const INHERITED_VARIABLES: [&str; 11] = [
+const INHERITED_VARIABLES: [&str; 14] = [
     "EMAIL",
     "GIT_AUTHOR_NAME",
     "GIT_AUTHOR_EMAIL",
@@ -28,6 +28,9 @@ const INHERITED_VARIABLES: [&str; 11] = [
     "NO_COLOR",
     "CLICOLOR",
     "CLICOLOR_FORCE",
+    "LC_ALL",
+    "LC_CTYPE",
+    "LANG",
 ];
 
 pub struct Sandbox {
@@ -146,6 +149,12 @@ impl Sandbox {
 
     pub fn write_config(&self, contents: &str) {
         fs::write(self.dot_surt().join("config.toml"), contents).expect("the config");
+    }
+
+    pub fn write_global_config(&self, contents: &str) {
+        let dot_surt = self.home().join(".surt");
+        fs::create_dir_all(&dot_surt).expect("the global .surt directory");
+        fs::write(dot_surt.join("config.toml"), contents).expect("the global config");
     }
 
     pub fn surt(&self, cwd: &Path, args: &[&str]) -> Run {

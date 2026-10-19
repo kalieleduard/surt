@@ -1,3 +1,5 @@
+mod merge_flag;
+mod new_run;
 mod retry;
 
 use std::path::Path;
@@ -5,7 +7,7 @@ use std::path::Path;
 use clap::builder::NonEmptyStringValueParser;
 use jiff::Zoned;
 use surt_engine::project::{
-    ArtifactFile, Commit, FreeName, InitialArtifact, NewRun, Project, Slug,
+    ArtifactFile, Commit, FreeName, InitialArtifact, LocalFiles, NewRun, Project, Slug,
 };
 
 use crate::builtin::{self, BASE_ARTIFACT, FEATURE_WORKFLOW, REQUEST_ARTIFACT};
@@ -13,8 +15,9 @@ use crate::failure::Failure;
 use crate::message::Message;
 use crate::phase::SPEC;
 use crate::runtime;
+use merge_flag::{MergeFlag, already_frozen, with_merge_line};
 use retry::Retry;
-pub(crate) use retry::quoted;
+pub(crate) use retry::{quoted, word};
 
 const DEFAULT_BASE: &str = "HEAD";
 const REQUEST_FILE: &str = "request.txt";
@@ -31,20 +34,44 @@ pub(crate) struct FeatureArgs {
     base: Option<String>,
     #[arg(long)]
     new: bool,
+    #[arg(long = "new-run", conflicts_with_all = ["name", "new"])]
+    new_run: bool,
+    #[arg(long, conflicts_with = "no_merge")]
+    merge: bool,
+    #[arg(long = "no-merge")]
+    no_merge: bool,
 }
 
 pub(crate) async fn run(cwd: &Path, args: FeatureArgs) -> Result<(), Failure> {
     let project = Project::open(cwd, builtin::catalog()).await?;
+    let merge = MergeFlag::chosen(args.merge, args.no_merge);
+    if args.new_run {
+        return new_run::start(&project, &args.description, args.base.as_deref(), merge).await;
+    }
     if let Some(subject) = project.subject_named(&args.description).await? {
-        if SPEC.finish_cleanup(&project, &subject).await? {
-            return Ok(());
+        if let Some(flag) = merge
+            && let Some(status) = new_run::current(&project, &subject.name).await?
+        {
+            return Err(Failure::Refused(already_frozen(
+                &subject.name,
+                &status,
+                flag,
+            )));
+        }
+        SPEC.finish_cleanup(&project, &subject).await?;
+        if subject.active_run.is_none() {
+            return Err(new_run::suggested(&project, &subject.name).await);
         }
         return SPEC.resume(&project, &subject).await;
     }
-    create(&project, &args).await
+    create(&project, &args, merge).await
 }
 
-async fn create(project: &Project, args: &FeatureArgs) -> Result<(), Failure> {
+async fn create(
+    project: &Project,
+    args: &FeatureArgs,
+    merge: Option<MergeFlag>,
+) -> Result<(), Failure> {
     let source = args.name.as_deref().unwrap_or(&args.description);
     let slug = Slug::derive(source).ok_or_else(|| Failure::Refused(no_slug(args)))?;
     if !args.new
@@ -64,12 +91,16 @@ async fn create(project: &Project, args: &FeatureArgs) -> Result<(), Failure> {
         subject: name.name.clone(),
         workflow: FEATURE_WORKFLOW.to_owned(),
         initial_artifacts: vec![request(&args.description), base_artifact(&base)],
+        carried: Vec::new(),
+        merge_into_base: merge.map(MergeFlag::mode),
         actor: project.actor().await?,
     };
-    let runtime = runtime::select()?;
-    let run = project.create_run(new_run).await?;
-    created(&name, &base).print_success();
-    SPEC.drive(project, &name.name, &run, &runtime).await
+    let runtime = runtime::select(project)?;
+    let created_run = project.create_run(new_run).await?;
+    let created_line = with_local_agents(created(&name, &base), &created_run.local_agents);
+    with_merge_line(created_line, created_run.merge_into_base, merge).print_success();
+    SPEC.drive(project, &name.name, &created_run.run, &runtime)
+        .await
 }
 
 fn request(description: &str) -> InitialArtifact {
@@ -78,6 +109,14 @@ fn request(description: &str) -> InitialArtifact {
         REQUEST_FILE,
         description.as_bytes().to_vec(),
     )
+}
+
+fn short_base(base: &Commit) -> String {
+    let short = base.sha.get(..SHORT_SHA_CHARS).unwrap_or(&base.sha);
+    match &base.branch {
+        Some(branch) => format!("{branch} @ {short}"),
+        None => short.to_owned(),
+    }
 }
 
 fn base_artifact(base: &Commit) -> InitialArtifact {
@@ -96,16 +135,26 @@ fn single_file(name: &str, rel_path: &str, bytes: Vec<u8>) -> InitialArtifact {
 }
 
 fn created(name: &FreeName, base: &Commit) -> Message {
-    let short = base.sha.get(..SHORT_SHA_CHARS).unwrap_or(&base.sha);
-    let base = match &base.branch {
-        Some(branch) => format!("{branch} @ {short}"),
-        None => short.to_owned(),
-    };
-    let message = Message::new(format!("created {}   base: {base}", name.name));
+    let message = Message::new(format!(
+        "created {}   base: {}",
+        name.name,
+        short_base(base)
+    ));
     if name.is_suffixed() {
         return message.context(format!("{} already exists", name.stem));
     }
     message
+}
+
+fn with_local_agents(message: Message, local_agents: &[LocalFiles]) -> Message {
+    if local_agents.is_empty() {
+        return message;
+    }
+    let agents: Vec<String> = local_agents
+        .iter()
+        .map(|local| format!("{} ({})", local.agent, local.files.join(", ")))
+        .collect();
+    message.context(format!("local agents: {}", agents.join(", ")))
 }
 
 fn no_slug(args: &FeatureArgs) -> Message {

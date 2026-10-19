@@ -84,3 +84,23 @@ pub(crate) async fn move_ref(
     run(cwd, &["update-ref", "--no-deref", reference, new, expected]).await?;
     Ok(())
 }
+
+pub(crate) async fn fast_forward_ref(
+    cwd: &Path,
+    reference: &str,
+    new: &str,
+    expected: &str,
+    message: &str,
+) -> Result<(), GitError> {
+    let args = [
+        "update-ref",
+        "--no-deref",
+        "-m",
+        message,
+        reference,
+        new,
+        expected,
+    ];
+    run(cwd, &args).await?;
+    Ok(())
+}

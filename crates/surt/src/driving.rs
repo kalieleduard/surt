@@ -1,3 +1,4 @@
+pub(crate) mod base_merge;
 mod blocked;
 mod cleanup;
 mod interruption;
@@ -10,6 +11,7 @@ use tokio::sync::mpsc;
 use crate::failure::Failure;
 use crate::message::{Mark, Message};
 use crate::refusal;
+use crate::symbols::DASH;
 pub(crate) use cleanup::report as report_cleanup;
 use interruption::Interruptions;
 pub(crate) use progress::print as print_progress;
@@ -30,26 +32,31 @@ impl Driven<'_> {
         let (sink, events) = mpsc::unbounded_channel();
         let stop = StopSignal::new();
         let relay = tokio::spawn(interruption::relay(Interruptions::listen()?, stop.clone()));
-        let (outcome, cleaned) = tokio::join!(
+        let (outcome, printed) = tokio::join!(
             self.project.drive(self.run, runtime, sink, stop),
             progress::print(events)
         );
         relay.abort();
-        let concluded = self.conclude(outcome?).await;
-        if let Some(cleanup) = cleaned {
+        let concluded = self.conclude(outcome?, printed.stop_requested).await;
+        if let Some(cleanup) = printed.cleaned {
             cleanup::report(&cleanup, self.resume_command());
+        }
+        if printed.kept {
+            cleanup::report_kept(self.subject);
         }
         concluded
     }
 
-    async fn conclude(&self, outcome: DriveOutcome) -> Result<(), Failure> {
+    async fn conclude(&self, outcome: DriveOutcome, stopped: bool) -> Result<(), Failure> {
         match outcome {
             DriveOutcome::AtGate { gates } => self.awaiting(&gates).await,
             DriveOutcome::Succeeded => self.succeeded().await,
             DriveOutcome::Blocked { .. } => {
                 let steps = self.project.blocked_steps(self.run).await?;
+                let interrupted = self.project.interrupted_merge(self.run).await?;
                 Err(Failure::Blocked(blocked::report(
                     &steps,
+                    interrupted.as_ref(),
                     self.resume_command(),
                 )))
             }
@@ -62,7 +69,7 @@ impl Driven<'_> {
                 Ok(())
             }
             DriveOutcome::Interrupted => Err(Failure::Interrupted(
-                Message::new("interrupted").way("resume", self.resume_command()),
+                Message::new(interruption(stopped)).way("resume", self.resume_command()),
             )),
             DriveOutcome::Halted(refusal) => Err(Failure::Refused(refusal::message(&refusal))),
         }
@@ -71,11 +78,17 @@ impl Driven<'_> {
     async fn succeeded(&self) -> Result<(), Failure> {
         if let Some(branch) = self.project.integration_branch(self.run).await? {
             Message::new(format!(
-                "shipper delivered — {} @ {}",
+                "shipper delivered {DASH} {} @ {}",
                 branch.name,
                 short(&branch.tip)
             ))
             .print_success();
+            let report = self.project.base_merge(self.run).await?;
+            if let Some((mark, line)) =
+                report.and_then(|report| base_merge::line(&report, &branch.name))
+            {
+                line.print(mark);
+            }
         }
         Message::new("run succeeded").print_success();
         Ok(())
@@ -101,5 +114,13 @@ impl Driven<'_> {
             .print(Mark::Paused);
         }
         Ok(())
+    }
+}
+
+fn interruption(stopped: bool) -> &'static str {
+    if stopped {
+        "stopped by surt stop (from another terminal)"
+    } else {
+        "interrupted"
     }
 }

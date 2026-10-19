@@ -98,7 +98,7 @@ impl Resolver<'_> {
             if self.agents.contains_key(&spec.agent) {
                 continue;
             }
-            let assets = self.catalog.agent_assets(&spec.agent).ok_or_else(|| {
+            let sources = self.catalog.agent_sources(&spec.agent).ok_or_else(|| {
                 InvalidDefinition::new(
                     DefinitionFile::Workflow(definition.name.clone()),
                     Some(&step.key),
@@ -107,7 +107,20 @@ impl Resolver<'_> {
                     },
                 )
             })?;
-            let contract = AgentContract::parse(&spec.agent, assets)?;
+            let toml = self
+                .catalog
+                .agent_toml(&spec.agent)
+                .unwrap_or(sources.assets.toml);
+            let contract = AgentContract::parse(&spec.agent, toml, &sources)?;
+            contract
+                .check_deliveries(self.catalog.delivery_checks(&spec.agent))
+                .map_err(|problem| {
+                    InvalidDefinition::new(
+                        DefinitionFile::Workflow(definition.name.clone()),
+                        Some(&step.key),
+                        problem,
+                    )
+                })?;
             self.agents.insert(spec.agent.clone(), contract);
         }
         Ok(())

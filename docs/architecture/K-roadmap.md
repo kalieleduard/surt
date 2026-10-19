@@ -44,34 +44,19 @@ Ten of the fourteen commands of [J](J-cli.md#commands). A command or flag that i
 | `show <feature> [<artifact>] [--rev N] [--task <key>]` | `--iter`, `--file`, `--run`, `--json`: M2 |
 | — | `stop`, `inspect`, `logs`, `restore`, `delete`: M2 |
 
-What replaces the cut commands in Milestone 1:
-
-- **`stop`:** Ctrl-C in the driving terminal performs the same Interruption.
-- **`inspect` and `logs`:** `status <feature>` prints the log path of a blocked step. The stream files are written exactly as in [I. Cleanup](I-cleanup.md#logs).
-  ```
-  $ surt status add-login
-    implement
-      A  ✔ merged    iter 1 · as 3c1aa20
-      B  ⛔ blocked   build iter 2 · 3 attempts failed · invalid_delivery
-                     log: .surt/logs/20261017-add-login/0192f3a8-…/stream.jsonl
-                     resume: surt start 20261017-add-login
-  ```
-- **`restore`:** removing the edited file. A missing Working Copy file is recreated from the latest Revision ([H](H-artifact-storage.md#edit-detection)). The refusals of [H](H-artifact-storage.md#revalidation) print `fix: rm <file>, then rerun` instead of `surt restore`.
-- **`delete`:** nothing. Features and logs accumulate; nothing breaks.
-- **`--new-run`:** `surt feature "<description>"` after a cancel creates a `-2` Feature, because the slug guard only looks at **active** runs ([J](J-cli.md#surt-feature-create-resume-or-start-again)).
-- **`--json`:** tests verify final state by reading Git and SQLite directly.
+Every command and flag marked M2 above now exists: Milestone 2 implemented them ([After Milestone 1](#after-milestone-1)). `--merge`/`--no-merge`, marked M4, exist too: Milestone 4 implemented them, on creation and on `--new-run`.
 
 ### Mechanisms deferred
 
 | Mechanism | Milestone 1 behaviour | Full design | Arrives | Migration? |
 |---|---|---|---|---|
-| Pause on Transient Failure | A `transient` failure blocks the Step Run at once without spending an Attempt: Execution `failed` with `failure_class = 'transient'`, Step Run `blocked` with `blocked_reason = 'not_retryable'`, exit `4`. The message names the reset time when the stream gives one. | [I. Recovery](I-recovery.md#transient-failures-network-and-rate-limits) | M3 | no |
-| `[git] merge_into_base = "ff-only"` | `feature.toml` has no `merge` step. Only `"never"` is accepted; `"ff-only"` refuses with exit `3`. Frozen definitions keep old runs unaffected when the step is added. | [A. Git Integration](A-git-integration.md), [ADR 0006](../adr/0006-merge-into-base-is-opt-in-fast-forward.md) | M4 | no |
-| `[cleanup] on_success = "keep"` | Only `"clean"` parses. A `succeeded` run always cleans. | [I. Cleanup](I-cleanup.md#what-each-ending-removes) | M4 | no |
-| Agent overrides in `.surt/agents/` | Only the built-in `Catalog`. Driving commands refuse with exit `3` when `.surt/agents/` exists, rather than ignoring it. `init` still lists `agents/` as versioned. | [F](F-agent-contract.md#built-in-defaults-and-local-overrides) | M4 | no |
-| Global `~/.surt/config.toml` | Not read. `stop_grace_period` is fixed at 10 s. | [J](J-cli.md#global-surtconfigtoml-optional) | M3 | no |
-| Agent slots across processes | `max_concurrent_agents` is a per-Driver semaphore. Two Features driven at once may use 3 + 3. `status` omits `agent slots`. `execution.slot` is still written. | [A. Process Model](A-process-model.md#agent-concurrency-limit) | M3 | no |
-| TTY footer, 5-minute line without a TTY, ASCII symbols | Event lines only. | [J](J-cli.md#foreground-progress) | M2 | no |
+| Pause on Transient Failure | A `transient` failure blocks the Step Run at once without spending an Attempt: Execution `failed` with `failure_class = 'transient'`, Step Run `blocked` with `blocked_reason = 'not_retryable'`, exit `4`. The message names the reset time when the stream gives one. | [I. Recovery](I-recovery.md#transient-failures-network-and-rate-limits) | M3 (implemented: every agent launch of the Driver pauses until the latest reset time or a backoff of 1, 2, 4, 8, then 15 minutes, with no Attempt spent; a Step Run an older binary blocked this way resumes with a fresh budget) | no |
+| `[git] merge_into_base = "ff-only"` | `feature.toml` has no `merge` step. Only `"never"` is accepted; `"ff-only"` refuses with exit `3`. Frozen definitions keep old runs unaffected when the step is added. | [A. Git Integration](A-git-integration.md), [ADR 0006](../adr/0006-merge-into-base-is-opt-in-fast-forward.md) | M4 (implemented: `ff-only` parses, `feature.toml` ends with the `merge` step and runs frozen before it have none; the Base branch is fast-forwarded by compare-and-swap when no worktree holds it, or inside its worktree when that worktree is clean, and every other case is skipped with a recorded reason; `--merge`/`--no-merge` choose per run; `status` shows the result) | no |
+| `[cleanup] on_success = "keep"` | Only `"clean"` parses. A `succeeded` run always cleans. | [I. Cleanup](I-cleanup.md#what-each-ending-removes) | M4 (implemented: `.surt/config.toml` and Workflow Definitions accept `"keep"`; the effective policy is frozen in the `config` snapshot; a kept run keeps everything until `surt delete` and shows `kept` in `status`) | no |
+| Agent overrides in `.surt/agents/` | Only the built-in `Catalog`. Driving commands refuse with exit `3` when `.surt/agents/` exists, rather than ignoring it. `init` still lists `agents/` as versioned. | [F](F-agent-contract.md#built-in-defaults-and-local-overrides) | M4 (implemented: `create_run` merges a local `agent.toml` over the built-in one, a local `instructions.md` replaces the built-in text and a local schema overlays the built-in one of the same path; an override that would break a run refuses with `InvalidAgentOverride` and writes nothing; the creation line lists the local files; driving commands no longer refuse) | no |
+| Global `~/.surt/config.toml` | Not read. `stop_grace_period` is fixed at 10 s. | [J](J-cli.md#global-surtconfigtoml-optional) | M3 (implemented) | no |
+| Agent slots across processes | `max_concurrent_agents` is a per-Driver semaphore. Two Features driven at once may use 3 + 3. `status` omits `agent slots`. `execution.slot` is still written. | [A. Process Model](A-process-model.md#agent-concurrency-limit) | M3 (implemented) | no |
+| TTY footer, 5-minute line without a TTY, ASCII symbols | Event lines only. | [J](J-cli.md#foreground-progress) | M2 (implemented) | no |
 
 **Kept in Milestone 1** although they could have been cut: the whole Recovery of [I](I-recovery.md#what-a-driving-command-does-when-it-takes-the-lock), Salvage Refs (worktree preparation is one code path for the normal flow and recovery, and salvage protects human work for a handful of Git commands), Checks, cleanup with its pending retry, and `cleaned_at`.
 
@@ -126,10 +111,18 @@ docs/smoke-claude-code.md                # manual smoke checklist
 
 ## After Milestone 1
 
-| Milestone | Goal | Contents |
-|---|---|---|
-| **M2 Operate and debug** | understand and fix a run without opening SQLite | `inspect`, `logs [-f] [--raw]`, full `show`, `--json` on reads, `--run`, `stop`, `restore`, `delete`, `--new-run`, the TTY footer, the 5-minute line, ASCII symbols |
-| **M3 Run unattended** | leave a long `surt start` running without coming back to restart it | the Transient Failure pause (reset time and backoff), agent slots across processes, `~/.surt/config.toml` |
-| **M4 Fit the project** | adapt agents and delivery to the repository | `.surt/agents/` overrides, `merge_into_base = "ff-only"` with `--merge`/`--no-merge`, `on_success = "keep"` |
+| Milestone | Goal | Contents | Status |
+|---|---|---|---|
+| **M2 Operate and debug** | understand and fix a run without opening SQLite | `inspect`, `logs [-f] [--raw]`, full `show`, `--json` on reads, `--run`, `stop`, `restore`, `delete`, `--new-run`, the TTY footer, the 5-minute line, ASCII symbols | implemented; shipped once CI passes on macOS, Linux and Windows and the manual macOS smoke passes |
+| **M3 Run unattended** | leave a long `surt start` running without coming back to restart it | the Transient Failure pause (reset time and backoff), agent slots across processes, `~/.surt/config.toml` | implemented; shipped once CI passes on macOS, Linux and Windows and the manual macOS smoke passes |
+| **M4 Fit the project** | adapt agents and delivery to the repository | `.surt/agents/` overrides, `merge_into_base = "ff-only"` with `--merge`/`--no-merge`, `on_success = "keep"` | implemented; shipped once CI passes on macOS, Linux and Windows and the manual macOS smoke passes |
+
+**Milestone 2 is implemented** with the spec [Milestone 2](../../.scratch/milestone-2/spec.md): a run is operated and debugged through `inspect`, `logs`, `show`, `--json`, `stop`, `restore`, `delete` and `--new-run`, and every M2 change to sections B, D, H, I and J is written there. As with Milestone 1, it ships once `cargo test --features test-support` passes in CI on macOS, Linux and Windows and the manual smoke with the real Claude Code ([`docs/smoke-claude-code.md`](../smoke-claude-code.md)) passes on macOS.
+
+**Milestone 3 is implemented** with the spec [Milestone 3](../../.scratch/milestone-3/spec.md): a Transient Failure pauses every agent launch of the Driver instead of blocking, agent slots are lock files shared by every Driver of the project with `max_concurrent_agents` read live, and `~/.surt/config.toml` sets `stop_grace_period`. Every M3 change to sections A, B, D, G, I and J and to `CONTEXT.md` is written there. It ships the same way, once the suite passes in CI on the three OSes and the Milestone 3 section of the manual smoke passes on macOS.
+
+**Milestone 4 is implemented** with the spec [Milestone 4](../../.scratch/milestone-4/spec.md): files under `.surt/agents/<id>/` override a built-in Agent when a root run is created, `merge_into_base = "ff-only"` fast-forwards the Base branch after the Shipper (chosen per run with `--merge`/`--no-merge`), and `on_success = "keep"` keeps a `succeeded` run until `surt delete`. Every M4 change to sections A, B, D, E, F, I and J and to `CONTEXT.md` is written there. It ships the same way, once the suite passes in CI on the three OSes and the Milestone 4 section of the manual smoke passes on macOS.
+
+**v1 is complete** once M4 ships: every mechanism sections A–J describe exists, and no mechanism above is deferred any more.
 
 **v1 is the end of M4**: everything sections A–J describe. M2 comes before M3 because a blocked run in Milestone 1 already says what to do, while debugging a review rejected three times with only `tail` hurts every time; a rate limit blocks with a time to come back, which is rarer. What the map ruled out of scope stays out.

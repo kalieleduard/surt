@@ -1,52 +1,82 @@
+mod base_merge;
 mod blocked;
 mod cancelling;
 mod config;
 mod create_run;
+mod deleting;
 mod delivery;
 mod discovery;
 mod driving;
 mod error;
+mod execution_state;
 mod gate_status;
 mod gates;
 mod init;
+mod inspect;
+mod interrupted_merge;
 mod layout;
+mod logs;
 mod naming;
 mod repository;
 mod resolving;
+mod restoring;
 mod show;
 mod status;
+mod stopping;
 mod subjects;
 
 use std::path::Path;
+use std::time::Duration;
 
+pub use crate::artifacts::working_copy::restoring::{Change, FileChange};
 pub use crate::cleanup::{Cleanup, Kept, Left};
 pub use crate::drive::cancel::Cancellation;
 pub use crate::drive::graph::BlockReason;
-pub use crate::drive::{DriveOutcome, Gate, Progress, ProgressSink, StepLabel};
+pub use crate::drive::{
+    ActivityPause, ActivitySnapshot, BaseMerge, DriveOutcome, Gate, NotMerged, Progress,
+    ProgressSink, RunningStep, StepLabel,
+};
 pub use crate::git::GitVersion;
 pub use crate::operations::checks::REPORT_SCHEMA as CHECK_REPORT_SCHEMA;
 pub use crate::operations::{BASE_SCHEMA, CONFLICT_SCHEMA, INTEGRATION_SCHEMA};
+pub use crate::platform::{console_outputs_utf8, stderr_columns};
+pub use crate::runtime::LogFiles;
 pub use crate::workflow::{
-    AgentAssets, Catalog, DefinitionFile, DeliveryCheck, InvalidDefinition, Problem, StepField,
+    AgentAssets, Catalog, DefinitionFile, DeliveryCheck, InvalidDefinition, InvalidOverride,
+    OnSuccess, Problem, StepField, StepUse, WorkflowStep,
 };
+pub use base_merge::BaseMergeReport;
 pub use blocked::{BlockedStep, LastFailure};
 pub use cancelling::CancelImpact;
-pub(crate) use config::parse_timeout;
-pub use config::{Check, Config, GitConfig, MergeIntoBase};
-pub use create_run::{ArtifactFile, InitialArtifact, NewRun, RunId};
+pub use config::{Check, CleanupConfig, Config, GitConfig, GlobalConfig, MergeIntoBase};
+pub(crate) use config::{live_max_concurrent_agents, parse_timeout};
+pub use create_run::{ArtifactFile, CreatedRun, InitialArtifact, LocalFiles, NewRun, RunId};
+pub use deleting::{BranchFate, DeleteImpact, DeletedRun, Deletion, Directory};
 pub use delivery::IntegrationBranch;
-pub use error::{AwaitedRevision, Candidate, Error, InternalError, Refusal, RunState};
+pub use error::{
+    AwaitedRevision, Candidate, Error, ExecutionCandidate, InternalError, KnownRun, Refusal,
+    RunState,
+};
+pub use execution_state::ExecutionState;
 pub use gate_status::GateStatus;
 pub use gates::{Decided, RevisionOrigin};
 pub use init::{FileState, InitFile, Initialized};
+pub use inspect::{
+    AgentProfile, ExecutionDetail, ExecutionFailure, ExecutionInput, InspectRequest, Performer,
+    RuntimeInfo, Timeline, TimelineEvent, Usage,
+};
+pub use interrupted_merge::InterruptedMerge;
+pub use logs::{LogRequest, LogSource, Logs};
 pub use naming::Slug;
 pub use repository::Commit;
-pub use resolving::Subject;
-pub use show::{ArtifactSummary, ShowRequest, Shown};
+pub use resolving::{Reference, RunSelector, Subject};
+pub use restoring::RestoreImpact;
+pub use show::{ArtifactSummary, RevisionApproval, ShowRequest, Shown, ShownFile};
 pub use status::{
-    AgentSlots, CleanupState, Conflict, Driver, GateView, ItemState, ItemStatus,
+    AgentSlots, CleanupState, Conflict, Driver, GateView, ItemState, ItemStatus, LaunchPause,
     PendingIntegration, RevisionSummary, RunStatus, StatusScope, Unattended,
 };
+pub use stopping::StopRequest;
 pub use subjects::FreeName;
 
 #[cfg(feature = "test-support")]
@@ -61,6 +91,7 @@ pub struct Project {
     layout: Layout,
     id: String,
     config: Config,
+    global: GlobalConfig,
     catalog: Catalog,
     home: SurtHome,
     access: Access,
@@ -80,15 +111,11 @@ impl Project {
     }
 
     pub async fn open(cwd: &Path, catalog: Catalog) -> Result<Project, Error> {
-        Self::open_in(cwd, &SurtHome::from_env(), catalog).await
+        Self::open_with(cwd, &SurtHome::from_env(), catalog, Access::ReadWrite).await
     }
 
     pub async fn open_read_only(cwd: &Path) -> Result<Project, Error> {
         Self::open_with(cwd, &SurtHome::from_env(), Catalog::new(), Access::ReadOnly).await
-    }
-
-    async fn open_in(cwd: &Path, home: &SurtHome, catalog: Catalog) -> Result<Project, Error> {
-        Self::open_with(cwd, home, catalog, Access::ReadWrite).await
     }
 
     async fn open_with(
@@ -99,6 +126,9 @@ impl Project {
     ) -> Result<Project, Error> {
         let layout = discovery::find_project(cwd, home).await?;
         let config = config::load(&layout.config())?;
+        let global = home
+            .config()
+            .map_or_else(|| Ok(GlobalConfig::default()), config::read)?;
         let store = open(&layout, access).await?;
         let id = store.project_id().await;
         store.close().await;
@@ -106,6 +136,7 @@ impl Project {
             layout,
             id: id?,
             config,
+            global,
             catalog,
             home: home.clone(),
             access,
@@ -130,9 +161,18 @@ impl Project {
         &self.config
     }
 
+    pub fn stop_grace_period(&self) -> Duration {
+        self.global.stop_grace_period
+    }
+
     #[cfg(feature = "test-support")]
     pub fn crash_after(&self, checkpoint: Checkpoint) {
         self.faults.arm(checkpoint);
+    }
+
+    #[cfg(feature = "test-support")]
+    pub fn interleave_before_purge(&self, work: impl Future<Output = ()> + Send + 'static) {
+        self.faults.interleave_before_purge(Box::pin(work));
     }
 
     async fn store(&self) -> Result<Store, Error> {
@@ -140,14 +180,6 @@ impl Project {
         #[cfg(feature = "test-support")]
         let store = store.with_faults(self.faults.clone());
         Ok(store)
-    }
-
-    fn refuse_agent_overrides(&self) -> Result<(), Error> {
-        let agents = self.layout.agents();
-        if agents.exists() {
-            return Err(Refusal::AgentOverrides { path: agents }.into());
-        }
-        Ok(())
     }
 }
 

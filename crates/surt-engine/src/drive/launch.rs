@@ -2,6 +2,7 @@ use std::fs::{self, OpenOptions};
 use std::path::Path;
 use std::sync::atomic::Ordering;
 
+use serde_json::json;
 use tokio::sync::mpsc::{self, UnboundedReceiver};
 use uuid::Uuid;
 
@@ -12,13 +13,15 @@ use super::graph::{StepRunId, StepRunState};
 use super::inputs::scoped;
 use super::load::{Loaded, label};
 use super::outcome::Progress;
+use super::pausing::{AgentEnd, unix_now};
 use super::record::WorkingCopy;
 use crate::artifacts::{AcceptedDelivery, DeliveryContract};
 use crate::context::{Assembly, ContextInput, PreviousIteration};
 use crate::platform;
 use crate::project::Error;
 use crate::runtime::{
-    AgentRuntime, Rejection, RuntimeEvent, RuntimeRequest, StepAttempt, StopLevel, Verdict, accept,
+    AgentRuntime, FailureClass, Rejection, RuntimeEvent, RuntimeRequest, STDERR_LOG, STREAM_LOG,
+    StepAttempt, StopLevel, Verdict, accept,
 };
 use crate::store::{
     ExecutionEnd, ExecutionKind, ExecutionStart, RunBranch, StartedExecution, StepRow,
@@ -27,14 +30,16 @@ use crate::workflow::{DeliveryCheck, StepSpec};
 
 const DELIVERY_DIR: &str = "delivery";
 const LAUNCH_DIR: &str = "launch";
-const LOG_FILES: [&str; 2] = ["stream.jsonl", "stderr.log"];
+const LOG_FILES: [&str; 2] = [STREAM_LOG, STDERR_LOG];
 const SKIPPED: &str = "SKIPPED";
 const FIRST_ITERATION: u32 = 1;
+const RUNTIME_VERSION: &str = "runtime_version";
 
 pub(super) struct Launch {
     pub(super) slot: usize,
     pub(super) row: StepRow,
     pub(super) started: StartedExecution,
+    launched_at: i64,
     request: RuntimeRequest,
     contract: DeliveryContract,
     pub(super) working_copy: Option<WorkingCopy>,
@@ -46,6 +51,24 @@ enum Ending {
     Accepted(AcceptedDelivery),
     Ended(ExecutionEnd),
     Cancelled,
+}
+
+impl Ending {
+    fn agent_end(&self, launched_at: i64) -> AgentEnd<'_> {
+        match self {
+            Ending::Ended(ExecutionEnd::Failed {
+                class: FailureClass::Transient,
+                code,
+                resets_at,
+                ..
+            }) => AgentEnd::Transient {
+                code,
+                resets_at: *resets_at,
+                launched_at,
+            },
+            _ => AgentEnd::Other,
+        }
+    }
 }
 
 impl<R: AgentRuntime> Driver<'_, R> {
@@ -67,6 +90,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             kind: ExecutionKind::Agent {
                 snapshot: &agent.snapshot,
                 slot,
+                runtime: agent.contract.runtime(),
             },
             inputs: self.input_requests(
                 loaded,
@@ -95,6 +119,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             slot,
             row: row.clone(),
             started,
+            launched_at: unix_now(),
             request,
             contract,
             working_copy: self.working_copy(loaded, row, definition),
@@ -104,15 +129,12 @@ impl<R: AgentRuntime> Driver<'_, R> {
     }
 
     pub(super) async fn carry(&self, launch: Launch) -> Result<(), Error> {
-        if let Some(branch) = &launch.worktree {
-            let prepared = self
-                .prepare_worktree(&launch.row, &launch.started, branch)
-                .await;
-            if let Some(end) = failed(prepared)? {
-                return self.end(&launch.row, &launch.started, end).await;
-            }
-        }
-        match self.execute(&launch).await? {
+        let ending = match self.unprepared(&launch).await? {
+            Some(end) => Ending::Ended(end),
+            None => self.execute(&launch).await?,
+        };
+        self.learn(&ending.agent_end(launch.launched_at));
+        match ending {
             Ending::Accepted(delivery) => match failed(self.prove(&launch, &delivery).await)? {
                 Some(end) => self.end(&launch.row, &launch.started, end).await,
                 None => self.publish(&launch, delivery).await,
@@ -120,6 +142,16 @@ impl<R: AgentRuntime> Driver<'_, R> {
             Ending::Ended(end) => self.end(&launch.row, &launch.started, end).await,
             Ending::Cancelled => Ok(()),
         }
+    }
+
+    async fn unprepared(&self, launch: &Launch) -> Result<Option<ExecutionEnd>, Error> {
+        let Some(branch) = &launch.worktree else {
+            return Ok(None);
+        };
+        failed(
+            self.prepare_worktree(&launch.row, &launch.started, branch)
+                .await,
+        )
     }
 
     async fn prepare(
@@ -222,7 +254,13 @@ impl<R: AgentRuntime> Driver<'_, R> {
             let store = self.driving.store;
             match event {
                 RuntimeEvent::Identified { version } => {
-                    store.record_runtime_version(execution, &version).await?;
+                    let fields = json!({ RUNTIME_VERSION: version });
+                    store.record_runtime_info(execution, &fields).await?;
+                }
+                RuntimeEvent::Reported(report) => {
+                    store
+                        .record_runtime_info(execution, &report.fields())
+                        .await?;
                 }
                 RuntimeEvent::Launched { pid: Some(pid) } => {
                     if let Some(identity) = platform::identify(pid) {
@@ -286,3 +324,6 @@ fn create_logs(log_dir: &Path) -> std::io::Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

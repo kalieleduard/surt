@@ -1,6 +1,6 @@
 use sqlx::FromRow;
 
-use super::{About, Store, StoreError, record_event, unix_now};
+use super::{About, Store, StoreError, record_event_data, unix_now};
 
 #[derive(FromRow)]
 pub(crate) struct ImpactRow {
@@ -24,13 +24,9 @@ impl Store {
         .await?
         .rows_affected();
         if requested > 0 {
-            record_event(
-                &mut transaction,
-                About::Run(root),
-                "run.cancel_requested",
-                now,
-            )
-            .await?;
+            let data = serde_json::json!({ "actor": actor });
+            let about = About::Run(root);
+            record_event_data(&mut transaction, about, "run.cancel_requested", now, &data).await?;
         }
         Ok(transaction.commit().await?)
     }

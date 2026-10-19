@@ -43,6 +43,8 @@ enum ScriptedBehavior {
     LimitFailure {
         #[serde(default)]
         resets_at: Option<i64>,
+        #[serde(default)]
+        resets_in: Option<i64>,
     },
     WaitUntilStopped {},
 }
@@ -93,7 +95,13 @@ impl From<ScriptedBehavior> for Behavior {
                 delivery: delivery.into(),
             },
             ScriptedBehavior::Crash { exit_code } => Behavior::Crash { exit_code },
-            ScriptedBehavior::LimitFailure { resets_at } => Behavior::LimitFailure { resets_at },
+            ScriptedBehavior::LimitFailure {
+                resets_in: Some(seconds),
+                ..
+            } => Behavior::LimitFailureIn { seconds },
+            ScriptedBehavior::LimitFailure { resets_at, .. } => {
+                Behavior::LimitFailure { resets_at }
+            }
             ScriptedBehavior::WaitUntilStopped {} => Behavior::WaitUntilStopped,
         }
     }

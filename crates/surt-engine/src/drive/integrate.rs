@@ -49,10 +49,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 .input_text(&launch.started, FEEDBACK_INPUT, REVIEWED_COMMIT_FIELD)
                 .await?
                 .ok_or_else(|| {
-                    Failure::not_retryable(
-                        "invalid_input",
-                        "the feedback input names no reviewed commit".into(),
-                    )
+                    Failure::invalid_input("the feedback input names no reviewed commit".into())
                 })?,
             into,
         };
@@ -121,6 +118,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             ref_name: integration.into.ref_name.clone(),
             old_sha: tip.clone(),
             new_sha: merge,
+            worktree_path: None,
         };
         self.move_tip(launch, intended).await
     }
@@ -141,6 +139,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 ref_name,
                 old_sha,
                 new_sha,
+                ..
             } = &intended;
             git::move_ref(root, ref_name, new_sha, old_sha).await?;
         }
@@ -204,6 +203,7 @@ fn merged(merge: String) -> Finished {
         outcome: MERGED,
         outputs: Vec::new(),
         merged: Some(merge),
+        recorded: None,
     }
 }
 
@@ -217,5 +217,6 @@ fn conflicted(conflict: &Value) -> Result<Finished, OperationError> {
             working_copy: false,
         }],
         merged: None,
+        recorded: None,
     })
 }

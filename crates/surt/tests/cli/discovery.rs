@@ -89,18 +89,59 @@ fn an_unknown_config_key_is_refused_with_its_location() {
 }
 
 #[test]
-fn merge_into_base_fast_forward_only_is_refused() {
+fn an_invalid_global_config_refuses_every_command_with_its_location() {
     let sandbox = Sandbox::with_repository();
     sandbox.init();
-    sandbox.write_config("[git]\nmerge_into_base = \"ff-only\"\n");
+    sandbox.write_global_config("# this machine\nstop_grace_period = \"ten\"\n");
+    let global = sandbox.home().join(".surt").join("config.toml");
+
+    for args in [&["status"][..], &["start", "add-login"][..]] {
+        let run = sandbox.surt(&sandbox.repo(), args);
+
+        assert_eq!(
+            run.code,
+            Some(REFUSED_EXIT_CODE),
+            "{args:?}: {}",
+            run.stderr
+        );
+        assert!(
+            run.stderr.starts_with(&format!(
+                "✖ invalid configuration in {}:2",
+                global.display()
+            )),
+            "{}",
+            run.stderr
+        );
+        assert!(run.stderr.contains("stop_grace_period"), "{}", run.stderr);
+        assert!(run.stderr.contains("  fix: edit "), "{}", run.stderr);
+    }
+}
+
+#[test]
+fn a_project_key_in_the_global_config_is_refused_as_unknown() {
+    let sandbox = Sandbox::with_repository();
+    sandbox.init();
+    sandbox.write_global_config("max_concurrent_agents = 2\n");
 
     let run = sandbox.surt(&sandbox.repo(), &["status"]);
 
     assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
+    assert!(run.stderr.contains("config.toml:1"), "{}", run.stderr);
     assert!(
         run.stderr
-            .starts_with("✖ merge_into_base = \"ff-only\" is not supported yet"),
+            .contains("unknown field `max_concurrent_agents`, expected `stop_grace_period`"),
         "{}",
         run.stderr
     );
+}
+
+#[test]
+fn a_valid_global_config_leaves_commands_working() {
+    let sandbox = Sandbox::with_repository();
+    sandbox.init();
+    sandbox.write_global_config("stop_grace_period = \"30s\"\n");
+
+    let run = sandbox.surt(&sandbox.repo(), &["status"]);
+
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
 }

@@ -103,7 +103,44 @@ pub enum Progress {
     CancelRequested {
         driver: Option<u32>,
     },
+    StopRequested,
+    ConfigInvalid {
+        path: PathBuf,
+        line: Option<usize>,
+        reason: String,
+        limit: usize,
+    },
+    Paused {
+        pause: ActivityPause,
+        waiting: usize,
+    },
+    Resumed {
+        paused_seconds: i64,
+    },
     CleanedUp(Cleanup),
+    RunKept,
+    Activity(ActivitySnapshot),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ActivitySnapshot {
+    pub running: Vec<RunningStep>,
+    pub queued: usize,
+    pub slots_in_use: usize,
+    pub slots_limit: usize,
+    pub paused: Option<ActivityPause>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ActivityPause {
+    pub until: i64,
+    pub backoff: Option<i64>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RunningStep {
+    pub step: StepLabel,
+    pub started_at: i64,
 }
 
 pub type ProgressSink = UnboundedSender<Progress>;

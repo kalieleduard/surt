@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 
 use crate::scripts::{build, crash_in, review, ship, spec, tasks};
 use crate::start::{feature_name, planned};
-use crate::support::{Run, Sandbox};
+use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const BLOCKED_EXIT_CODE: i32 = 4;
 const SHORT_SHA_CHARS: usize = 7;
@@ -17,7 +17,7 @@ const SQLITE_SHARED_MEMORY: &str = "surt.db-shm";
 const SQLITE_WRITE_AHEAD_LOG: &str = "surt.db-wal";
 const EMPTY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-fn hashes(root: &Path) -> BTreeMap<String, String> {
+pub fn hashes(root: &Path) -> BTreeMap<String, String> {
     let mut found = BTreeMap::new();
     let mut pending = vec![root.to_path_buf()];
     while let Some(directory) = pending.pop() {
@@ -32,19 +32,31 @@ fn hashes(root: &Path) -> BTreeMap<String, String> {
                 found.insert(relative, "directory".to_owned());
                 pending.push(path);
             } else {
-                let bytes = fs::read(&path).expect("a readable file");
-                let hex: String = Sha256::digest(&bytes)
-                    .iter()
-                    .map(|byte| format!("{byte:02x}"))
-                    .collect();
-                found.insert(relative, hex);
+                found.insert(relative, fingerprint(&path));
             }
         }
     }
     found
 }
 
-fn at_the_manifest_gate(name: &str) -> Sandbox {
+fn fingerprint(path: &Path) -> String {
+    match fs::read(path) {
+        Ok(bytes) => Sha256::digest(&bytes)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect(),
+        Err(_) => {
+            let metadata = fs::metadata(path).expect("a locked file's metadata");
+            format!(
+                "locked, {} bytes, modified {:?}",
+                metadata.len(),
+                metadata.modified().expect("a modification time")
+            )
+        }
+    }
+}
+
+pub fn at_the_manifest_gate(name: &str) -> Sandbox {
     let sandbox = project(&[spec(1, "# Spec 1\n"), tasks(1, &["A", "B"])]);
     ok(sandbox.feature(&["add login"]));
     ok(surt(&sandbox, &["approve", name]));
@@ -103,7 +115,7 @@ fn short(sha: &str) -> &str {
     &sha[..SHORT_SHA_CHARS]
 }
 
-fn with_a_blocked_task(name: &str) -> Sandbox {
+pub fn with_a_blocked_task(name: &str) -> Sandbox {
     let sandbox = planned(
         name,
         &[
@@ -175,14 +187,15 @@ fn status_of_a_blocked_feature_shows_each_task_and_how_to_resume_each_blocked_st
              B  ⛔ blocked   build iter 1 · attempt 3\n  \
              ⛔ task B build blocked: attempts exhausted\n     \
              attempt 3 failed (exit_code): the agent exited with code 1\n     \
-             inspect: .surt/logs/{name}/{execution}/stream.jsonl\n  \
+             inspect: surt inspect {execution}\n     \
+             logs: surt logs {execution}\n  \
              resume: surt start {name}\n",
             short(&merged)
         )
     );
 }
 
-fn delivered(name: &str) -> Sandbox {
+pub fn delivered(name: &str) -> Sandbox {
     let sandbox = planned(
         name,
         &[
@@ -273,31 +286,121 @@ fn show_reads_any_revision_after_cleanup_including_a_tasks_own_artifacts() {
 }
 
 #[test]
+fn status_run_1_of_a_single_run_feature_is_the_detail_shown_by_default() {
+    let name = feature_name();
+    let sandbox = at_the_manifest_gate(&name);
+
+    let selected = ok(surt(&sandbox, &["status", &name, "--run", "1"]));
+
+    assert_eq!(selected, ok(surt(&sandbox, &["status", &name])));
+    assert!(
+        selected.starts_with(&format!("{name} · run 1 ")),
+        "{selected}"
+    );
+}
+
+#[test]
 fn status_and_show_write_nothing_to_the_database_or_the_working_copy() {
     let name = feature_name();
     let sandbox = at_the_manifest_gate(&name);
     let working_copy = sandbox.dot_surt().join("features").join(&name);
     fs::write(working_copy.join("tasks/A.md"), "# Task A, edited\n").expect("an edit");
     fs::remove_file(working_copy.join("tasks/B.md")).expect("a removed file");
-    let before = hashes(&sandbox.dot_surt());
+    let execution = sandbox
+        .texts("SELECT id FROM execution ORDER BY id LIMIT 1")
+        .concat();
+    let mut before = hashes(&sandbox.dot_surt());
+    before.retain(|path, _| !path.starts_with("surt.db-"));
 
     for args in [
+        vec!["status", "--json"],
+        vec!["status", "--all", "--json"],
+        vec!["status", &name, "--json"],
+        vec!["status", &name, "--run", "1", "--json"],
+        vec!["show", &name, "--json"],
+        vec!["show", &name, "manifest", "--json"],
+        vec!["show", &name, "manifest", "--file", "tasks/A.md", "--json"],
+        vec!["inspect", &name, "--json"],
+        vec!["inspect", &execution, "--json"],
         vec!["status"],
         vec!["status", "--all"],
         vec!["status", &name],
+        vec!["status", &name, "--run", "1"],
         vec!["show", &name],
         vec!["show", &name, "manifest"],
         vec!["show", &name, "spec", "--rev", "1"],
+        vec!["show", &name, "--run", "1"],
+        vec!["inspect", &name],
+        vec!["inspect", &name, "--run", "1"],
+        vec!["logs", &name],
+        vec!["logs", &name, "--run", "1"],
+        vec!["logs", &name, "--raw"],
+        vec!["show", &name, "manifest", "--run", "1"],
+        vec!["show", &name, "manifest", "--file", "tasks/A.md"],
+        vec![
+            "show",
+            &name,
+            "manifest",
+            "--file",
+            "tasks/B.md",
+            "--run",
+            "1",
+        ],
     ] {
         ok(surt(&sandbox, &args));
     }
+    let refused = surt(
+        &sandbox,
+        &["show", &name, "manifest", "--file", "tasks/Z.md"],
+    );
+    let no_task = surt(&sandbox, &["inspect", &name, "A"]);
 
-    let mut after = hashes(&sandbox.dot_surt());
+    assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
+    assert_eq!(no_task.code, Some(REFUSED_EXIT_CODE), "{}", no_task.stderr);
+    assert_unchanged(&sandbox.dot_surt(), before);
+    assert!(!working_copy.join("tasks/B.md").exists());
+}
+
+#[test]
+fn show_of_an_iteration_writes_nothing_to_the_database() {
+    let name = feature_name();
+    let sandbox = delivered(&name);
+    let before = hashes(&sandbox.dot_surt());
+
+    for args in [
+        vec!["show", &name, "feedback", "--task", "A", "--iter", "1"],
+        vec![
+            "show", &name, "feedback", "--task", "A", "--iter", "1", "--run", "1",
+        ],
+        vec![
+            "show",
+            &name,
+            "feedback",
+            "--task",
+            "A",
+            "--iter",
+            "1",
+            "--file",
+            "feedback.json",
+        ],
+    ] {
+        ok(surt(&sandbox, &args));
+    }
+    let refused = surt(
+        &sandbox,
+        &["show", &name, "feedback", "--task", "A", "--iter", "2"],
+    );
+
+    assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
+    assert_unchanged(&sandbox.dot_surt(), before);
+}
+
+pub fn assert_unchanged(root: &Path, before: BTreeMap<String, String>) {
+    let mut after = hashes(root);
     let shared_memory = after.remove(SQLITE_SHARED_MEMORY);
     let log = after.remove(SQLITE_WRITE_AHEAD_LOG);
     assert_eq!(after, before);
     assert!(shared_memory.is_none() || log.as_deref() == Some(EMPTY_SHA256));
-    assert!(!working_copy.join("tasks/B.md").exists());
 }
 
 fn project(scripts: &[String]) -> Sandbox {

@@ -1,6 +1,6 @@
 use sqlx::SqliteConnection;
 
-use super::{About, Store, StoreError, record_event, unix_now};
+use super::{About, Store, StoreError, record_event, record_event_data, unix_now};
 use crate::drive::graph::RunId;
 
 impl Store {
@@ -17,15 +17,18 @@ impl Store {
         )
         .await?;
         for step in &blocked {
-            sqlx::query(
+            let base: i64 = sqlx::query_scalar(
                 "UPDATE step_run SET state = 'running', blocked_reason = NULL, budget_base = CASE kind \
                  WHEN 'loop' THEN (SELECT coalesce(max(iteration), 0) FROM step_run WHERE loop_step_run_id = ?1) \
-                 ELSE (SELECT count(*) FROM execution WHERE step_run_id = ?1) END WHERE id = ?1",
+                 ELSE (SELECT count(*) FROM execution WHERE step_run_id = ?1) END WHERE id = ?1 \
+                 RETURNING budget_base",
             )
             .bind(step)
-            .execute(&mut *transaction)
+            .fetch_one(&mut *transaction)
             .await?;
-            record_event(&mut transaction, About::Step(step), "step.unblocked", now).await?;
+            let data = serde_json::json!({ "budget_base": base });
+            let about = About::Step(step);
+            record_event_data(&mut transaction, about, "step.unblocked", now, &data).await?;
         }
         Ok(transaction.commit().await?)
     }

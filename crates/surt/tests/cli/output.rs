@@ -1,8 +1,11 @@
 use std::fs;
 
+use crate::scripts::{build, review, ship, tasks};
+use crate::start::{feature_name, planned};
 use crate::support::{INTERNAL_ERROR_EXIT_CODE, REFUSED_EXIT_CODE, Sandbox};
 
 const ESCAPE: char = '\u{1b}';
+const EVENT_MARKS: [char; 4] = ['●', '✔', '↻', ' '];
 const NOT_A_DATABASE: &str = "this file is not an SQLite database, it only pretends to be one";
 const CORRUPT_COPIES: usize = 128;
 
@@ -69,4 +72,96 @@ fn no_color_wins_over_forced_colour() {
         "{}",
         plain.stderr
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_non_utf8_locale_prints_ascii_symbols() {
+    let sandbox = Sandbox::with_repository();
+
+    let run = sandbox.surt_with(&sandbox.repo(), &["init"], &[("LC_ALL", "C")]);
+
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
+    assert!(run.stderr.is_ascii(), "{}", run.stderr);
+    assert!(
+        run.stderr.starts_with("[ok] initialized surt in"),
+        "{}",
+        run.stderr
+    );
+    assert!(
+        run.stderr.contains("identity tester@example.com [ok]"),
+        "{}",
+        run.stderr
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn no_color_and_the_ascii_symbols_are_independent() {
+    let sandbox = Sandbox::with_repository();
+
+    let coloured_ascii = sandbox.surt_with(
+        &sandbox.repo(),
+        &["status"],
+        &[("CLICOLOR_FORCE", "1"), ("LANG", "C")],
+    );
+    let plain_unicode = sandbox.surt_with(
+        &sandbox.repo(),
+        &["status"],
+        &[("NO_COLOR", "1"), ("LANG", "en_US.UTF-8")],
+    );
+
+    assert!(
+        coloured_ascii.stderr.contains(ESCAPE),
+        "{:?}",
+        coloured_ascii.stderr
+    );
+    assert!(
+        coloured_ascii
+            .stderr
+            .contains("[error]\u{1b}[0m not a surt project"),
+        "{:?}",
+        coloured_ascii.stderr
+    );
+    assert!(
+        !plain_unicode.stderr.contains(ESCAPE),
+        "{:?}",
+        plain_unicode.stderr
+    );
+    assert!(
+        plain_unicode.stderr.starts_with("✖ not a surt project"),
+        "{}",
+        plain_unicode.stderr
+    );
+}
+
+#[test]
+fn a_driving_command_without_a_tty_prints_only_event_lines() {
+    let name = feature_name();
+    let sandbox = planned(
+        &name,
+        &[
+            tasks(1, &["A", "B"]),
+            build("A", 1, 1, "login.txt", "login\n"),
+            review("A", 1, "approved"),
+            build("B", 1, 1, "logout.txt", "logout\n"),
+            review("B", 1, "approved"),
+            ship(),
+        ],
+    );
+
+    let run = sandbox.surt(&sandbox.repo(), &["start", &name]);
+
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
+    assert!(
+        run.stderr.contains("● task B build started\n"),
+        "{}",
+        run.stderr
+    );
+    assert!(!run.stderr.contains(['\r', ESCAPE]), "{:?}", run.stderr);
+    assert!(!run.stderr.contains("running ("), "{}", run.stderr);
+    assert!(!run.stderr.contains("still running"), "{}", run.stderr);
+    for line in run.stderr.lines() {
+        assert!(line.starts_with(EVENT_MARKS), "{line:?}\n{}", run.stderr);
+    }
 }

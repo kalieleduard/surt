@@ -1,8 +1,9 @@
 use surt_engine::project::{DefinitionFile, InvalidDefinition, Problem, Refusal, StepField};
 
 use super::text;
+use crate::symbols::Symbols;
 
-fn problem_line(problem: Problem) -> String {
+pub(super) fn problem_line(problem: Problem) -> String {
     let refusal = Refusal::InvalidDefinition(Box::new(InvalidDefinition {
         file: DefinitionFile::Workflow("feature".to_owned()),
         step: None,
@@ -16,12 +17,12 @@ fn problem_line(problem: Problem) -> String {
         .to_owned()
 }
 
-fn owned(text: &str) -> String {
+pub(super) fn owned(text: &str) -> String {
     text.to_owned()
 }
 
 #[test]
-fn every_definition_problem_is_described_in_one_line_of_words() {
+fn every_workflow_problem_is_described_in_one_line_of_words() {
     let cases = [
         (
             Problem::Syntax {
@@ -148,39 +149,21 @@ fn every_definition_problem_is_described_in_one_line_of_words() {
             },
             "rejection artifact \"x\" is declared twice",
         ),
-        (
-            Problem::MissingAsset {
-                path: owned("schemas/x.json"),
-            },
-            "\"schemas/x.json\" is not bundled with the agent",
-        ),
-        (
-            Problem::MisplacedJsonSchema { name: owned("x") },
-            "\"x\" has a json_schema but is neither json nor item_list",
-        ),
-        (
-            Problem::MisplacedItemFiles { name: owned("x") },
-            "\"x\" declares item_files but is not an item_list",
-        ),
-        (
-            Problem::UnsupportedItemFileFormat { name: owned("x") },
-            "item file \"x\" has an unsupported format",
-        ),
-        (
-            Problem::MissingClaudeProfile,
-            "runtime claude-code needs a [profile.claude] table",
-        ),
-        (
-            Problem::MisplacedApiKeyEnv,
-            "api_key_env needs auth = \"api_key\"",
-        ),
-        (
-            Problem::InvalidBudget,
-            "max_budget_usd must be a positive number",
-        ),
     ];
 
     for (problem, expected) in cases {
         assert_eq!(problem_line(problem), expected);
     }
+}
+
+#[test]
+fn a_cycle_in_ascii_mode_is_drawn_with_ascii_arrows() {
+    let line = problem_line(Problem::Cycle {
+        path: vec![owned("a"), owned("b"), owned("a")],
+    });
+
+    assert_eq!(
+        Symbols::Ascii.render(&line),
+        "the steps form a cycle: a -> b -> a"
+    );
 }

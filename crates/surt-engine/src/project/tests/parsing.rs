@@ -137,14 +137,14 @@ run = "git.create_run_branch"
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn cleanup_on_success_only_accepts_clean() {
+async fn cleanup_on_success_accepts_only_clean_or_keep() {
     let invalid = workflow_refusal(
         r#"
 schema = 1
 name = "flow"
 
 [cleanup]
-on_success = "keep"
+on_success = "keeep"
 
 [steps.prepare]
 kind = "operation"

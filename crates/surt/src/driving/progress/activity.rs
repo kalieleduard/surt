@@ -1,0 +1,129 @@
+use surt_engine::project::{ActivityPause, ActivitySnapshot, RunningStep};
+
+use crate::driving::local_time;
+use crate::duration::rounded;
+use crate::symbols::{DASH, ELLIPSIS, HORIZONTAL, PAUSED, SEPARATOR};
+
+const QUIET_LIMIT: i64 = 5 * 60;
+const FIRST: u32 = 1;
+const RULE_WIDTH: usize = 2;
+const LAST_COLUMN: usize = 1;
+const ELLIPSIS_ROOM: usize = 3;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Terminal {
+    Tty { width: usize },
+    Plain,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum Output {
+    Footer(String),
+    Line(String),
+}
+
+pub(super) struct Activity {
+    pub(super) snapshot: Option<ActivitySnapshot>,
+    pub(super) started: i64,
+    pub(super) last_line: i64,
+}
+
+pub(super) fn on_tick(activity: &Activity, now: i64, terminal: Terminal) -> Option<Output> {
+    let snapshot = activity.snapshot.as_ref()?;
+    match terminal {
+        Terminal::Tty { width } => Some(Output::Footer(fit(
+            &footer(snapshot, activity.started, now),
+            width,
+        ))),
+        Terminal::Plain => still_running(snapshot, activity.last_line, now).map(Output::Line),
+    }
+}
+
+fn footer(snapshot: &ActivitySnapshot, started: i64, now: i64) -> String {
+    let mut parts = vec![format!("{} running", snapshot.running.len())];
+    if !snapshot.running.is_empty() {
+        let running: Vec<String> = snapshot
+            .running
+            .iter()
+            .map(|step| format!("{} {}", name(step), rounded(now - step.started_at)))
+            .collect();
+        parts[0].push_str(&format!(" ({})", running.join(", ")));
+    }
+    match snapshot.paused {
+        Some(pause) => {
+            parts.push(format!("{PAUSED} {}", paused_until(pause)));
+            parts.push(format!("{} waiting", snapshot.queued));
+        }
+        None if snapshot.queued > 0 => parts.push(format!("{} queued", snapshot.queued)),
+        None => {}
+    }
+    parts.push(format!(
+        "slots {}/{}",
+        snapshot.slots_in_use, snapshot.slots_limit
+    ));
+    parts.push(rounded(now - started));
+    let rule = HORIZONTAL.repeat(RULE_WIDTH);
+    format!("{rule} {} {rule}", parts.join(SEPARATOR))
+}
+
+fn fit(text: &str, width: usize) -> String {
+    let limit = width.saturating_sub(LAST_COLUMN);
+    if text.chars().count() <= limit {
+        return text.to_owned();
+    }
+    let kept: String = text
+        .chars()
+        .take(limit.saturating_sub(ELLIPSIS_ROOM))
+        .collect();
+    format!("{}{ELLIPSIS}", kept.trim_end())
+}
+
+fn still_running(snapshot: &ActivitySnapshot, last_line: i64, now: i64) -> Option<String> {
+    if now - last_line < QUIET_LIMIT {
+        return None;
+    }
+    let mut parts = Vec::new();
+    if !snapshot.running.is_empty() {
+        let running: Vec<String> = snapshot
+            .running
+            .iter()
+            .map(|step| format!("{} ({})", name(step), rounded(now - step.started_at)))
+            .collect();
+        parts.push(format!("still running: {}", running.join(", ")));
+    }
+    if let Some(pause) = snapshot.paused {
+        parts.push(format!(
+            "agent launches {} {DASH} {} waiting",
+            paused_until(pause),
+            snapshot.queued
+        ));
+    }
+    if parts.is_empty() {
+        return None;
+    }
+    Some(format!("{ELLIPSIS} {}", parts.join(SEPARATOR)))
+}
+
+pub(super) fn paused_until(pause: ActivityPause) -> String {
+    let at = local_time(pause.until).unwrap_or_else(|| pause.until.to_string());
+    let delay = pause
+        .backoff
+        .map(|seconds| format!(" (backoff {})", rounded(seconds)))
+        .unwrap_or_default();
+    format!("paused until {at}{delay}")
+}
+
+fn name(running: &RunningStep) -> String {
+    let step = &running.step;
+    let mut text = match &step.item {
+        Some(item) => format!("{item} {}", step.key),
+        None => step.key.clone(),
+    };
+    if let Some(iteration) = step.iteration.filter(|iteration| *iteration > FIRST) {
+        text.push_str(&format!(" iter {iteration}"));
+    }
+    text
+}
+
+#[cfg(test)]
+mod tests;

@@ -10,14 +10,14 @@ use serde_json::{Map, Value, json};
 
 use super::{
     AgentRuntime, Exit, FailureClass, FinalResult, Initialization, RuntimeCompletion, RuntimeError,
-    RuntimeEvent, RuntimeEventSink, RuntimeRequest, StepAttempt, StopSignal,
+    RuntimeEvent, RuntimeEventSink, RuntimeReport, RuntimeRequest, STREAM_LOG, StepAttempt,
+    StopSignal,
 };
 
 pub use scripted::InvalidScript;
 use worktree::{WorktreeCommit, resolve_head};
 
 const SUCCESS_EXIT_CODE: i32 = 0;
-const STREAM_LOG: &str = "stream.jsonl";
 
 #[derive(Clone, Debug)]
 pub struct FakeRuntime {
@@ -41,6 +41,9 @@ pub enum Behavior {
     },
     LimitFailure {
         resets_at: Option<i64>,
+    },
+    LimitFailureIn {
+        seconds: i64,
     },
     WaitUntilStopped,
 }
@@ -163,7 +166,24 @@ impl AgentRuntime for FakeRuntime {
             log(&request.log_dir, &event)?;
             let _ = events.send(event);
         }
-        behavior.play(&request, initialization, &stop).await
+        let played = behavior.play(&request, initialization.clone(), &stop).await;
+        let _ = events.send(RuntimeEvent::Reported(simulated(initialization, &played)));
+        played
+    }
+}
+
+fn simulated(
+    initialization: Initialization,
+    played: &Result<RuntimeCompletion, RuntimeError>,
+) -> RuntimeReport {
+    RuntimeReport {
+        session_id: Some(initialization.session_id.to_string()),
+        model: Some(initialization.model),
+        exit_code: played
+            .as_ref()
+            .ok()
+            .and_then(|completion| completion.exit.code()),
+        ..RuntimeReport::default()
     }
 }
 
@@ -204,6 +224,12 @@ impl Behavior {
                 "the scripted usage limit was reached",
             )
             .resetting_at(*resets_at)),
+            Behavior::LimitFailureIn { seconds } => Err(RuntimeError::new(
+                FailureClass::Transient,
+                "rate_limit",
+                "the scripted usage limit was reached",
+            )
+            .resetting_at(Some(jiff::Timestamp::now().as_second() + seconds))),
             Behavior::WaitUntilStopped => {
                 stop.requested().await;
                 Ok(ended(Exit::Stopped, None))

@@ -1,6 +1,6 @@
 use super::catalog::Catalog;
 use super::closure::{self, Closure};
-use super::definition::Definition;
+use super::definition::{Definition, OnSuccess};
 use super::error::InvalidDefinition;
 use super::flow::Available;
 use super::references::local_references;
@@ -77,7 +77,7 @@ pub(crate) fn freeze<'a>(
     catalog: &Catalog,
     workflow: &str,
     initial_artifacts: impl IntoIterator<Item = &'a str>,
-    config: String,
+    config: impl FnOnce(OnSuccess) -> Result<String, toml::ser::Error>,
 ) -> Result<FrozenRun, FreezeError> {
     let external: Available = initial_artifacts
         .into_iter()
@@ -91,6 +91,7 @@ pub(crate) fn freeze<'a>(
         snapshots.push(workflow_snapshot(child)?);
     }
     snapshots.extend(agent_snapshots(catalog, &closure)?);
+    let config = config(closure.root.on_success())?;
     let config = single_file(SnapshotKind::Config, CONFIG_NAME, CONFIG_FILE, config);
     let config_sha256 = config.sha256.clone();
     snapshots.push(config);
@@ -125,16 +126,19 @@ fn single_file(kind: SnapshotKind, name: &str, rel_path: &str, text: String) -> 
 fn agent_snapshots(catalog: &Catalog, closure: &Closure) -> Result<Vec<Snapshot>, FreezeError> {
     let mut snapshots = Vec::new();
     for (id, contract) in &closure.agents {
-        let Some(assets) = catalog.agent_assets(id) else {
+        let Some(sources) = catalog.agent_sources(id) else {
             continue;
         };
         let mut files = vec![
             SnapshotFile::new(AGENT_FILE, contract.canonical()?.into_bytes()),
-            SnapshotFile::new(INSTRUCTIONS_FILE, assets.instructions.as_bytes().to_vec()),
+            SnapshotFile::new(
+                INSTRUCTIONS_FILE,
+                sources.instructions().as_bytes().to_vec(),
+            ),
         ];
         let mut pending: Vec<String> = contract.schema_paths().map(str::to_owned).collect();
         while let Some(path) = pending.pop() {
-            let Some(text) = assets.schema(&path) else {
+            let Some(text) = sources.schema(&path) else {
                 continue;
             };
             if files.iter().any(|file| file.rel_path == path) {

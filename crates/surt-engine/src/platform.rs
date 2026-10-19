@@ -3,10 +3,13 @@ use std::io;
 use std::path::Path;
 
 mod children;
+mod console;
 mod executable;
 mod process;
 
 pub(crate) use children::{contain, exit_code, interrupt};
+pub use console::outputs_utf8 as console_outputs_utf8;
+pub use console::stderr_columns;
 pub(crate) use executable::find_executable;
 pub(crate) use process::{ProcessIdentity, identify, is_alive, stop};
 
@@ -17,19 +20,25 @@ pub(crate) const GIT_SETTINGS: &[(&str, &str)] = if cfg!(windows) {
 };
 
 pub(crate) struct ExclusiveLock {
-    _file: File,
+    file: File,
+}
+
+impl Drop for ExclusiveLock {
+    fn drop(&mut self) {
+        let _ = self.file.unlock();
+    }
 }
 
 pub(crate) fn lock_exclusive(path: &Path) -> io::Result<ExclusiveLock> {
     let file = lock_file(path)?;
     file.lock()?;
-    Ok(ExclusiveLock { _file: file })
+    Ok(ExclusiveLock { file })
 }
 
 pub(crate) fn try_lock_exclusive(path: &Path) -> io::Result<Option<ExclusiveLock>> {
     let file = lock_file(path)?;
     match file.try_lock() {
-        Ok(()) => Ok(Some(ExclusiveLock { _file: file })),
+        Ok(()) => Ok(Some(ExclusiveLock { file })),
         Err(TryLockError::WouldBlock) => Ok(None),
         Err(TryLockError::Error(error)) => Err(error),
     }

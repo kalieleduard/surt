@@ -3,6 +3,7 @@ use std::io;
 use surt_engine::runtime::StopSignal;
 
 use crate::message::{Mark, Message};
+use crate::symbols::DASH;
 
 #[cfg(unix)]
 pub(super) struct Interruptions {
@@ -53,7 +54,7 @@ impl Interruptions {
 
 pub(super) async fn relay(mut interruptions: Interruptions, stop: StopSignal) {
     interruptions.next().await;
-    Message::new("stopping — press Ctrl-C again to force").print(Mark::Stopped);
+    Message::new(format!("stopping {DASH} press Ctrl-C again to force")).print(Mark::Stopped);
     stop.graceful();
     interruptions.next().await;
     stop.force();

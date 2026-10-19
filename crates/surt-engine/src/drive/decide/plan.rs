@@ -1,7 +1,7 @@
 use super::rules::{
     NextAttempt, all_finished, finished, holds, iteration_allowed, next_attempt, succeeded,
 };
-use super::{Action, Ctx, DriveOutcome, RunEnd, StopLevel};
+use super::{Action, Ctx, Decision, DriveOutcome, RunEnd, StopLevel};
 use crate::drive::graph::{
     Attempts, BlockReason, Condition, Item, Iterations, RunState, Step, StepRunId, StepRunState,
     Work, WorkflowRun,
@@ -14,6 +14,7 @@ pub(super) struct Plan<'a> {
     live: bool,
     gates: Vec<StepRunId>,
     blocked: Vec<StepRunId>,
+    queued: usize,
 }
 
 impl<'a> Plan<'a> {
@@ -25,12 +26,17 @@ impl<'a> Plan<'a> {
             live: false,
             gates: Vec::new(),
             blocked: Vec::new(),
+            queued: 0,
         }
     }
 
-    pub(super) fn visit(mut self, root: &WorkflowRun) -> Vec<Action> {
+    pub(super) fn visit(mut self, root: &WorkflowRun) -> Decision {
         self.visit_run(root);
-        self.finish()
+        let queued = self.queued;
+        Decision {
+            actions: self.finish(),
+            queued,
+        }
     }
 
     fn visit_run(&mut self, run: &WorkflowRun) {
@@ -125,7 +131,11 @@ impl<'a> Plan<'a> {
         let id = step.id.clone();
         let action = match &step.work {
             Work::Agent(_) => {
-                let Some(&slot) = self.free_slots.next() else {
+                let slot = (!self.ctx.paused())
+                    .then(|| self.free_slots.next())
+                    .flatten();
+                let Some(&slot) = slot else {
+                    self.queued += 1;
                     return;
                 };
                 Action::Launch { step: id, slot }
@@ -155,7 +165,9 @@ impl<'a> Plan<'a> {
     }
 
     fn finish(self) -> Vec<Action> {
-        let outcome = if self.ctx.stop != StopLevel::None {
+        let stopping = self.ctx.stop != StopLevel::None;
+        let agents_wait_to_launch = self.queued > 0 && !stopping;
+        let outcome = if stopping {
             DriveOutcome::Interrupted
         } else if !self.actions.is_empty() {
             return self.actions;
@@ -166,7 +178,7 @@ impl<'a> Plan<'a> {
         } else {
             DriveOutcome::AtGate { gates: self.gates }
         };
-        if self.live {
+        if self.live || agents_wait_to_launch {
             return vec![Action::Wait];
         }
         vec![Action::Return(outcome)]

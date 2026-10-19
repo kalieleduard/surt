@@ -1,23 +1,48 @@
+mod activity;
+mod screen;
+mod wording;
+
+use std::time::Duration;
+
 use surt_engine::project::{Cleanup, Progress, StepLabel};
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use super::cleanup::summary;
-use crate::message::{Mark, Message};
+use screen::{Screen, now};
+use wording::message;
 
 const FIRST: u32 = 1;
 const SHORT_SHA_CHARS: usize = 7;
+const REDRAW: Duration = Duration::from_secs(1);
 
-pub(crate) async fn print(mut events: UnboundedReceiver<Progress>) -> Option<Cleanup> {
-    let mut cleaned = None;
-    while let Some(event) = events.recv().await {
-        if let Progress::CleanedUp(cleanup) = event {
-            cleaned = Some(cleanup);
-            continue;
+#[derive(Default)]
+pub(crate) struct Printed {
+    pub(crate) cleaned: Option<Cleanup>,
+    pub(crate) kept: bool,
+    pub(crate) stop_requested: bool,
+}
+
+pub(crate) async fn print(mut events: UnboundedReceiver<Progress>) -> Printed {
+    let mut screen = Screen::new(now());
+    let mut redraw = tokio::time::interval(REDRAW);
+    let mut printed = Printed::default();
+    loop {
+        tokio::select! {
+            event = events.recv() => match event {
+                None => break,
+                Some(Progress::CleanedUp(cleanup)) => printed.cleaned = Some(cleanup),
+                Some(Progress::RunKept) => printed.kept = true,
+                Some(Progress::Activity(snapshot)) => screen.snapshot(snapshot, now()),
+                Some(event) => {
+                    printed.stop_requested |= event == Progress::StopRequested;
+                    let (mark, message) = message(&event);
+                    screen.line(mark, &message, now());
+                }
+            },
+            _ = redraw.tick() => screen.tick(now()),
         }
-        let (mark, message) = message(&event);
-        message.print(mark);
     }
-    cleaned
+    screen.finish();
+    printed
 }
 
 pub(crate) fn label(step: &StepLabel) -> String {
@@ -33,144 +58,6 @@ pub(crate) fn label(step: &StepLabel) -> String {
 
 pub(crate) fn short(sha: &str) -> &str {
     sha.get(..SHORT_SHA_CHARS).unwrap_or(sha)
-}
-
-fn subject(step: &StepLabel) -> String {
-    match &step.item {
-        Some(item) => format!("task {item}"),
-        None => step.key.clone(),
-    }
-}
-
-fn message(progress: &Progress) -> (Mark, Message) {
-    match progress {
-        Progress::StepStarted { step, attempt } if *attempt == FIRST => (
-            Mark::Started,
-            Message::new(format!("{} started", label(step))),
-        ),
-        Progress::StepStarted { step, attempt } => (
-            Mark::Retry,
-            Message::new(format!("{} attempt {attempt}", label(step))),
-        ),
-        Progress::StepFinished { step, outcome } => (
-            Mark::Success,
-            Message::new(format!("{} {outcome}", label(step))),
-        ),
-        Progress::Merged { step, merge } => (
-            Mark::Success,
-            Message::new(format!("{} merged ({})", subject(step), short(merge))),
-        ),
-        Progress::AttemptFailed {
-            step,
-            attempt,
-            code,
-            message,
-        } => (
-            Mark::Warning,
-            Message::new(format!(
-                "{} attempt {attempt} failed ({code}): {message}",
-                label(step)
-            )),
-        ),
-        Progress::AttemptInterrupted { step, attempt } => (
-            Mark::Stopped,
-            Message::new(format!("{} attempt {attempt} interrupted", label(step))),
-        ),
-        Progress::RevisionPublished { artifact, revision } => (
-            Mark::Success,
-            Message::new(format!("{artifact} rev {revision} published")),
-        ),
-        Progress::Salvaged { step, reference } => (
-            Mark::Warning,
-            Message::new(format!(
-                "{} worktree had leftovers — saved to {reference}",
-                label(step)
-            ))
-            .way("inspect", format!("git log -p {reference}")),
-        ),
-        Progress::WorktreeRepaired { step, path } => (
-            Mark::Warning,
-            Message::new(format!(
-                "worktree for {} was missing — recreated at {}",
-                label(step),
-                path.display()
-            )),
-        ),
-        Progress::EditRecorded { artifact, revision } => (
-            Mark::Success,
-            Message::new(format!(
-                "your edit to {artifact} was recorded as rev {revision}"
-            )),
-        ),
-        Progress::EditSuperseded { artifact, edit, by } => (
-            Mark::Warning,
-            Message::new(format!(
-                "your edit to {artifact} was saved as rev {edit} and superseded by the agent's rev {by}"
-            )),
-        ),
-        Progress::FileRestored {
-            artifact,
-            path,
-            revision,
-        } => (
-            Mark::Warning,
-            Message::new(format!(
-                "{path} was missing; recreated from {artifact} rev {revision}"
-            )),
-        ),
-        Progress::Recovering { driver } => (Mark::Warning, recovering(*driver)),
-        Progress::OrphanStopped { step, attempt, pid } => (
-            Mark::Warning,
-            Message::new(format!(
-                "{} attempt {attempt} (pid {pid}, alive) — stopped",
-                label(step)
-            )),
-        ),
-        Progress::Discarded { step, attempt } => (
-            Mark::Error,
-            Message::new(format!(
-                "{} attempt {attempt} exited but was never recorded — discarded",
-                label(step)
-            )),
-        ),
-        Progress::InterruptedWithDriver { step, attempt } => (
-            Mark::Warning,
-            Message::new(format!(
-                "{} attempt {attempt} was interrupted with the previous driver — discarded",
-                label(step)
-            )),
-        ),
-        Progress::IntegrationRecorded {
-            step,
-            branch,
-            merge,
-        } => (
-            Mark::Success,
-            Message::new(format!(
-                "{} had completed ({branch} @ {}) — recorded",
-                label(step),
-                short(merge)
-            )),
-        ),
-        Progress::CancelRequested { driver } => (Mark::Waiting, cancel_requested(*driver)),
-        Progress::CleanedUp(cleanup) => (Mark::Retry, Message::new(summary(cleanup))),
-    }
-}
-
-fn cancel_requested(driver: Option<u32>) -> Message {
-    match driver {
-        Some(pid) => Message::new(format!(
-            "cancel requested; driver pid {pid} is stopping it…"
-        )),
-        None => Message::new("cancel requested; waiting for the driver to stop…"),
-    }
-}
-
-fn recovering(driver: Option<u32>) -> Message {
-    match driver {
-        Some(pid) => Message::new(format!("previous driver (pid {pid}) is gone — recovering")),
-        None => Message::new("previous driver is gone — recovering"),
-    }
 }
 
 #[cfg(test)]

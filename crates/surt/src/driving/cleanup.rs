@@ -1,9 +1,9 @@
 use surt_engine::project::{Cleanup, Kept, Left};
 
 use crate::message::{Mark, Message};
+use crate::symbols::{DASH, SEPARATOR};
 
 const NOTHING_LEFT: &str = "done";
-const SEPARATOR: &str = " · ";
 
 pub(crate) fn report(cleanup: &Cleanup, retry: String) {
     if cleanup.is_complete() {
@@ -13,12 +13,19 @@ pub(crate) fn report(cleanup: &Cleanup, retry: String) {
         Message::new(kept_line(kept)).print(Mark::Warning);
     }
     if let Some((first, rest)) = cleanup.left.split_first() {
-        let mut message = Message::new(format!("cleanup incomplete — {}", left_line(first)));
+        let mut message = Message::new(format!("cleanup incomplete {DASH} {}", left_line(first)));
         for left in rest {
             message = message.context(left_line(left));
         }
         message.way("retry", retry).print(Mark::Warning);
     }
+}
+
+pub(crate) fn report_kept(subject: &str) {
+    Message::new(format!(
+        "cleanup kept (on_success = \"keep\") {DASH} remove with: surt delete {subject}"
+    ))
+    .print(Mark::Note);
 }
 
 pub(super) fn summary(cleanup: &Cleanup) -> String {
@@ -45,10 +52,10 @@ pub(super) fn summary(cleanup: &Cleanup) -> String {
 
 pub(crate) fn kept_line(kept: &Kept) -> String {
     match kept {
-        Kept::UnrecordedEdit { path } => format!("kept {} — unrecorded edit", path.display()),
-        Kept::MovedBranch { branch } => format!("kept {branch} — moved outside surt"),
+        Kept::UnrecordedEdit { path } => format!("kept {} {DASH} unrecorded edit", path.display()),
+        Kept::MovedBranch { branch } => format!("kept {branch} {DASH} moved outside surt"),
         Kept::ForeignPath { path } => {
-            format!("kept {} — not a worktree surt created", path.display())
+            format!("kept {} {DASH} not a worktree surt created", path.display())
         }
     }
 }

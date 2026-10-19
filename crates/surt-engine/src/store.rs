@@ -15,19 +15,32 @@ mod branches;
 mod cancelling;
 mod checkpoints;
 mod cleanup;
+mod columns;
 mod control;
+mod details;
 mod drivers;
+mod events;
+mod execution_detail;
 mod executions;
 mod frozen;
 mod graph;
 mod items;
+mod iterations;
+mod log_sources;
+mod paused;
+mod purge;
 mod reading;
+mod recorded;
 mod ref_moves;
+mod restoring;
+mod revision_approval;
 mod revisions;
 mod runs;
 mod runtime_info;
 mod steps;
+mod stopping;
 mod subjects;
+mod timeline;
 mod working_copy;
 
 pub(crate) use acceptance::{Acceptance, Integrated, PublishedOutput};
@@ -37,19 +50,27 @@ pub(crate) use branches::{PreviousExecution, RunBranch};
 pub use checkpoints::Checkpoint;
 #[cfg(feature = "test-support")]
 pub(crate) use checkpoints::Faults;
-pub(crate) use cleanup::{ChildBranch, CleanupRecord};
+pub(crate) use cleanup::{ChildBranch, CleanupRecord, Ending};
+pub(crate) use columns::{count, number};
 pub(crate) use drivers::StaleExecution;
+pub(crate) use execution_detail::{ExecutionDetailRow, ExecutionInputRow, ExecutionScopeRow};
 pub(crate) use executions::{
     ExecutionEnd, ExecutionKind, ExecutionStart, InputRequest, StartedExecution,
 };
 pub(crate) use frozen::FrozenFile;
 pub(crate) use graph::{RunRows, StepRow};
 pub(crate) use items::{Expansion, ListRevision, NewChild};
-pub(crate) use reading::{GateViewRow, ItemRunRow, RootRunRow};
+pub(crate) use log_sources::LogSourceRow;
+pub(crate) use paused::LastAgentEnd;
+pub(crate) use purge::{SubjectBranch, SubjectRun};
+pub(crate) use reading::{ArtifactSummaryRow, GateViewRow, ItemRunRow, RootRunRow};
 pub(crate) use ref_moves::{PendingRefMove, RefMove};
+pub(crate) use restoring::RestoreTarget;
+pub(crate) use revision_approval::ApprovalRow;
 pub(crate) use revisions::{Producer, StoredRevision};
 pub(crate) use runs::{NewInitialArtifact, NewRunRows, RunCreation};
 pub(crate) use subjects::SubjectRow;
+pub(crate) use timeline::EventRow;
 pub(crate) use working_copy::{BaselineFile, EditRecord, PendingFile, WorkingCopyArtifact};
 
 static MIGRATOR: Migrator = sqlx::migrate!();
@@ -178,21 +199,31 @@ pub(super) async fn record_event(
     kind: &str,
     at: i64,
 ) -> Result<(), sqlx::Error> {
+    record_event_data(connection, about, kind, at, &serde_json::json!({})).await
+}
+
+pub(super) async fn record_event_data(
+    connection: &mut SqliteConnection,
+    about: About<'_>,
+    kind: &str,
+    at: i64,
+    data: &serde_json::Value,
+) -> Result<(), sqlx::Error> {
     let (sql, id) = match about {
         About::Run(id) => (
-            "INSERT INTO event (at, root_run_id, workflow_run_id, kind) \
-             SELECT ?1, w.root_run_id, w.id, ?2 FROM workflow_run w WHERE w.id = ?3",
+            "INSERT INTO event (at, root_run_id, workflow_run_id, kind, data) \
+             SELECT ?1, w.root_run_id, w.id, ?2, ?4 FROM workflow_run w WHERE w.id = ?3",
             id,
         ),
         About::Step(id) => (
-            "INSERT INTO event (at, root_run_id, workflow_run_id, step_run_id, kind) \
-             SELECT ?1, w.root_run_id, w.id, s.id, ?2 FROM step_run s \
+            "INSERT INTO event (at, root_run_id, workflow_run_id, step_run_id, kind, data) \
+             SELECT ?1, w.root_run_id, w.id, s.id, ?2, ?4 FROM step_run s \
              JOIN workflow_run w ON w.id = s.workflow_run_id WHERE s.id = ?3",
             id,
         ),
         About::Execution(id) => (
-            "INSERT INTO event (at, root_run_id, workflow_run_id, step_run_id, execution_id, kind) \
-             SELECT ?1, w.root_run_id, w.id, s.id, e.id, ?2 FROM execution e \
+            "INSERT INTO event (at, root_run_id, workflow_run_id, step_run_id, execution_id, kind, data) \
+             SELECT ?1, w.root_run_id, w.id, s.id, e.id, ?2, ?4 FROM execution e \
              JOIN step_run s ON s.id = e.step_run_id \
              JOIN workflow_run w ON w.id = s.workflow_run_id WHERE e.id = ?3",
             id,
@@ -202,6 +233,7 @@ pub(super) async fn record_event(
         .bind(at)
         .bind(kind)
         .bind(id)
+        .bind(data.to_string())
         .execute(connection)
         .await?;
     Ok(())

@@ -1,9 +1,7 @@
 use std::collections::BTreeMap;
 
+use crate::workflow::{AgentContract, Format, ItemFileSpec, OutputSpec, compile_schema};
 use jsonschema::Validator;
-use serde_json::Value;
-
-use crate::workflow::{AgentContract, Format, ItemFileSpec, OutputSpec};
 
 #[derive(Debug)]
 pub(crate) struct DeliveryContract {
@@ -97,6 +95,5 @@ fn compile<'a>(
         detail,
     };
     let text = schema_text(path).ok_or_else(|| invalid("missing".to_owned()))?;
-    let schema: Value = serde_json::from_str(text).map_err(|error| invalid(error.to_string()))?;
-    jsonschema::draft7::new(&schema).map_err(|error| invalid(error.to_string()))
+    compile_schema(path, text, schema_text).map_err(invalid)
 }

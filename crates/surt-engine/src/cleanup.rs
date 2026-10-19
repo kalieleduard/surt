@@ -1,16 +1,22 @@
 mod disk;
+mod purge;
 mod repository;
 
+pub(crate) use purge::{RefKind, Targets, size};
+pub(crate) use repository::lock_git;
+
 use std::fmt::Display;
+use std::io;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::drive::RunEnd;
 use crate::drive::graph::RunId;
+use crate::drive::{Frozen, Progress, ProgressSink, RunEnd};
 use crate::project::{Error, Layout};
-use crate::store::{CleanupRecord, Store};
+use crate::store::{CleanupRecord, Ending, Store};
+use crate::workflow::OnSuccess;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Cleanup {
@@ -50,34 +56,90 @@ struct Sweep<'a> {
     report: Cleanup,
 }
 
-pub(crate) async fn clean_up(
+pub(crate) async fn finish(
     store: &Store,
     layout: &Layout,
     run: &RunId,
-) -> Result<Option<Cleanup>, Error> {
+    progress: &ProgressSink,
+) -> Result<(), Error> {
     let Some(ending) = store.ending(run).await? else {
-        return Ok(None);
+        return Ok(());
     };
     if ending.cleaned {
-        return Ok(None);
+        return Ok(());
     }
-    let root = run.as_str();
-    let mut sweep = Sweep {
-        store,
-        layout,
-        root,
-        end: ending.end,
-        report: Cleanup::default(),
+    if kept(store, run, ending).await? {
+        let _ = progress.send(Progress::RunKept);
+        return Ok(());
+    }
+    let report = clean_up(store, layout, run, ending.end).await?;
+    let _ = progress.send(Progress::CleanedUp(report));
+    Ok(())
+}
+
+pub(crate) async fn is_kept(store: &Store, run: &RunId) -> Result<bool, Error> {
+    match store.ending(run).await? {
+        Some(ending) => kept(store, run, ending).await,
+        None => Ok(false),
+    }
+}
+
+pub(crate) async fn clear_kept_working_copy(
+    store: &Store,
+    layout: &Layout,
+    run: &RunId,
+) -> Result<(), Error> {
+    let Some(ending) = store.ending(run).await? else {
+        return Ok(());
     };
+    if !kept(store, run, ending).await? {
+        return Ok(());
+    }
+    let mut sweep = Sweep::new(store, layout, run, ending.end);
+    sweep.working_copy().await?;
+    match sweep.report.left.into_iter().next() {
+        None => Ok(()),
+        Some(left) => Err(Error::internal(io::Error::other(format!(
+            "{}: {}",
+            left.item, left.reason
+        )))),
+    }
+}
+
+async fn kept(store: &Store, run: &RunId, ending: Ending) -> Result<bool, Error> {
+    if ending.cleaned || ending.end != RunEnd::Succeeded {
+        return Ok(false);
+    }
+    let frozen = Frozen::from_files(store.frozen_files(run.as_str()).await?)?;
+    Ok(frozen.on_success == OnSuccess::Keep)
+}
+
+async fn clean_up(
+    store: &Store,
+    layout: &Layout,
+    run: &RunId,
+    end: RunEnd,
+) -> Result<Cleanup, Error> {
+    let mut sweep = Sweep::new(store, layout, run, end);
     sweep.working_copy().await?;
     sweep.executions().await?;
     sweep.repository().await?;
     let report = sweep.report;
-    store.record_cleanup(root, record(&report)).await?;
-    Ok(Some(report))
+    store.record_cleanup(run.as_str(), record(&report)).await?;
+    Ok(report)
 }
 
-impl Sweep<'_> {
+impl<'a> Sweep<'a> {
+    fn new(store: &'a Store, layout: &'a Layout, run: &'a RunId, end: RunEnd) -> Sweep<'a> {
+        Sweep {
+            store,
+            layout,
+            root: run.as_str(),
+            end,
+            report: Cleanup::default(),
+        }
+    }
+
     fn leave(&mut self, item: impl Display, reason: impl Display) {
         self.report.left.push(Left {
             item: item.to_string(),
@@ -86,14 +148,8 @@ impl Sweep<'_> {
     }
 
     fn leave_path(&mut self, path: &Path, reason: impl Display) {
-        let shown = self.relative(path);
+        let shown = self.layout.relative(path);
         self.leave(shown.display(), reason);
-    }
-
-    fn relative(&self, path: &Path) -> PathBuf {
-        path.strip_prefix(self.layout.root())
-            .unwrap_or(path)
-            .to_path_buf()
     }
 }
 

@@ -50,7 +50,7 @@ agent = "writer"
 needs = ["setup"]
 "#;
 
-fn catalog(parent: &'static str, child: &'static str) -> Catalog {
+pub(super) fn catalog(parent: &'static str, child: &'static str) -> Catalog {
     Catalog::new()
         .workflow("flow", parent)
         .workflow("child", child)

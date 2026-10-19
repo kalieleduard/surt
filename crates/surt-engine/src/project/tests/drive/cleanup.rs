@@ -9,14 +9,14 @@ use super::team::{INTEGRATED_TASK, Team, Turn, builds, built, reviews, shipped, 
 use crate::project::{Cleanup, Config, DriveOutcome, Kept, Progress};
 use crate::runtime::{Behavior, Delivery};
 
-fn leaves_leftovers_and_crashes() -> Turn {
+pub(super) fn leaves_leftovers_and_crashes() -> Turn {
     Box::new(|worktree| {
         fs::write(worktree.join("scratch.txt"), "half done\n").expect("a leftover");
         Behavior::Crash { exit_code: 1 }
     })
 }
 
-fn delivered_team() -> Team {
+pub(super) fn delivered_team() -> Team {
     Team::new()
         .on("A/build", 1, 1, builds(login))
         .on("A/review", 1, 1, reviews("approved"))
@@ -33,7 +33,7 @@ fn shipping_after(meddle: impl Fn(&Path) + Send + Sync + 'static) -> Turn {
     })
 }
 
-fn cleanups(driven: &Driven) -> Vec<Cleanup> {
+pub(super) fn cleanups(driven: &Driven) -> Vec<Cleanup> {
     driven
         .progress
         .iter()
@@ -45,11 +45,11 @@ fn cleanups(driven: &Driven) -> Vec<Cleanup> {
 }
 
 impl Feature {
-    fn executions_dir(&self) -> PathBuf {
+    pub(super) fn executions_dir(&self) -> PathBuf {
         self.root().join(".surt/runtime/executions")
     }
 
-    async fn cleaned_at(&self) -> Option<i64> {
+    pub(super) async fn cleaned_at(&self) -> Option<i64> {
         let rows: Vec<(Option<i64>,)> = self
             .dir
             .rows("SELECT cleaned_at FROM workflow_run WHERE parent_step_run_id IS NULL")
@@ -57,7 +57,7 @@ impl Feature {
         rows[0].0
     }
 
-    async fn events(&self, kind: &str) -> Vec<String> {
+    pub(super) async fn events(&self, kind: &str) -> Vec<String> {
         let rows: Vec<(String,)> = self
             .dir
             .rows(&format!(
@@ -67,7 +67,7 @@ impl Feature {
         rows.into_iter().map(|(data,)| data).collect()
     }
 
-    fn surt_refs(&self) -> String {
+    pub(super) fn surt_refs(&self) -> String {
         self.git(&["for-each-ref", "--format=%(refname)", "refs/surt/"])
     }
 
@@ -76,7 +76,7 @@ impl Feature {
     }
 }
 
-fn entries(dir: &Path) -> Vec<String> {
+pub(super) fn entries(dir: &Path) -> Vec<String> {
     match fs::read_dir(dir) {
         Ok(entries) => entries
             .map(|entry| {
@@ -129,7 +129,7 @@ async fn a_succeeded_run_removes_its_scratch_space_and_keeps_its_product_and_his
     assert_eq!(feature.events("cleanup.finished").await, [r#"{"kept":[]}"#]);
 }
 
-fn leaves_leftovers_and_mismatches() -> Turn {
+pub(super) fn leaves_leftovers_and_mismatches() -> Turn {
     Box::new(|worktree| {
         fs::write(worktree.join("half.txt"), "half\n").expect("a leftover");
         Behavior::ModelMismatch {

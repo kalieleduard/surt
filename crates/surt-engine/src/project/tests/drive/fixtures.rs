@@ -128,12 +128,27 @@ impl Feature {
     }
 
     pub(super) async fn with_config(catalog: Catalog, workflow: &str, config: Config) -> Feature {
+        Feature::in_dir(ProjectDir::new(), catalog, workflow, config).await
+    }
+
+    pub(super) async fn review_with_local(agent: &str, rel_path: &str, text: &str) -> Feature {
         let dir = ProjectDir::new();
+        dir.write_local(agent, rel_path, text);
+        Feature::in_dir(dir, review_catalog(), "review", default_config()).await
+    }
+
+    pub(super) async fn in_dir(
+        dir: ProjectDir,
+        catalog: Catalog,
+        workflow: &str,
+        config: Config,
+    ) -> Feature {
         let project = dir.project(catalog, config).await;
         let run = project
             .create_run(new_run(workflow))
             .await
-            .expect("the run is created");
+            .expect("the run is created")
+            .run;
         Feature { dir, project, run }
     }
 
@@ -153,7 +168,9 @@ impl Feature {
             .await;
         let mut progress = Vec::new();
         while let Ok(event) = events.try_recv() {
-            progress.push(event);
+            if !matches!(event, Progress::Activity(_)) {
+                progress.push(event);
+            }
         }
         Driven { outcome, progress }
     }

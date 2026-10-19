@@ -2,22 +2,21 @@ use std::future::{Future, poll_fn};
 use std::pin::{Pin, pin};
 use std::task::{Context, Poll};
 
+use super::slots::Slot;
+
 pub(super) struct Flights<F> {
-    slots: usize,
-    flying: Vec<(Option<usize>, Pin<Box<F>>)>,
+    flying: Vec<(Option<Slot>, Pin<Box<F>>)>,
 }
 
 impl<F: Future> Flights<F> {
-    pub(super) fn new(slots: usize) -> Flights<F> {
-        Flights {
-            slots,
-            flying: Vec::new(),
-        }
+    pub(super) fn new() -> Flights<F> {
+        Flights { flying: Vec::new() }
     }
 
-    pub(super) fn free_slots(&self) -> Vec<usize> {
-        (0..self.slots)
-            .filter(|slot| self.flying.iter().all(|(taken, _)| *taken != Some(*slot)))
+    pub(super) fn held(&self) -> Vec<usize> {
+        self.flying
+            .iter()
+            .filter_map(|(slot, _)| slot.as_ref().map(Slot::index))
             .collect()
     }
 
@@ -25,7 +24,7 @@ impl<F: Future> Flights<F> {
         self.flying.is_empty()
     }
 
-    pub(super) fn push(&mut self, slot: Option<usize>, flight: F) {
+    pub(super) fn push(&mut self, slot: Option<Slot>, flight: F) {
         self.flying.push((slot, Box::pin(flight)));
     }
 

@@ -89,7 +89,17 @@ Every control action from another process goes **through SQLite, never through s
   ```
   .surt/runtime/slots/agent-0.lock … agent-{N-1}.lock
   ```
-  Before launching an agent, the Driver tries `try_lock` on each slot. If none is free, the Execution waits in a queued state and the Driver retries every ~500 ms. A Driver that dies frees its slots at once through the OS. SQLite records which slot an Execution holds, for display only (`status` shows `4/4 in use`). Each process reads N from its current config, so a changed limit applies to future launches.
+  On each tick, every Driver of the project tries `try_lock` on each slot below the limit that it does not already hold, and launches agents only into the slots it obtained. A slot taken for a launch is held until that agent Execution ends; slots tried but not used are released in the same tick. If none is free, the agent stays queued (no Execution is created yet) and the Driver retries on its next tick, about one second later. The directory is created on first use and the lock files are never deleted (`surt delete` leaves them alone: they belong to the project, not to a Subject). A Driver that dies frees its slots at once through the OS. SQLite records which slot an Execution holds, for display only (`status` shows `4/4 in use`).
+- **Live limit.** Every running Driver rereads `max_concurrent_agents` from `.surt/config.toml` before each tick, so a developer can throttle or speed up a long run without stopping it. Only this key is read live; the frozen keys of the `config` snapshot stay frozen ([J. Configuration](J-cli.md#configuration)).
+  - A lowered limit stops offering the slots at or above it. Agents already holding them finish; nothing is stopped.
+  - A raised limit offers the new slots on the next tick.
+  - A missing file keeps the limit in force.
+  - **Warning (decided here).** If the file stops parsing while a Driver runs, the Driver keeps its last valid limit and reports one warning progress event, printed on stderr. The warning repeats only after the file has parsed again and then broken again. The run never fails over it; the next command that opens the project refuses with the usual invalid-configuration message.
+  ```
+  ⚠ invalid configuration in .surt/config.toml:1 — keeping max_concurrent_agents = 2
+    string values must be quoted
+    fix: edit .surt/config.toml:1
+  ```
 - **Fairness:** none across processes in v1. Whichever Driver tries first takes the free slot. Inside one Driver, queued Executions go in a deterministic order (manifest order for Tasks). Starvation is bounded by the duration of one agent run. A shared FIFO can be added later without changing the model.
 
 ```

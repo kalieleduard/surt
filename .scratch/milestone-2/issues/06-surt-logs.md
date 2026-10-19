@@ -1,0 +1,23 @@
+# 06: `surt logs` for a feature, a Task or an Execution
+
+Spec: [Milestone 2](../spec.md) (stories 9, 10, 12, 13, 14, 15, 17, 77) · Slice: R2 Logs · Plan: [J. `surt logs`](../../../docs/architecture/J-cli.md#surt-logs), [I. Logs](../../../docs/architecture/I-cleanup.md#logs)
+
+**What to build:** a developer can skim what agents did without reading JSON. `surt logs <feature>` prints the latest Execution of each Task; `surt logs <feature> <task>` and `surt logs <execution-id>` narrow it. Each `stream.jsonl` line renders to zero or one display line: a tool call becomes `<Tool> <main argument>`, an assistant message becomes its first line in quotes, an accepted delivery becomes `✔ delivered …`. `surt status` stops printing a raw log path and points at the commands instead.
+
+**Blocked by:** 05 (`surt inspect <execution-id>`)
+
+**Status:** resolved
+
+- [x] The engine exposes each Execution's log directory path and the Execution selection (latest per Task, a Task, an Execution); the CLI opens and renders the files
+- [x] The renderer is a pure function in the `surt` crate; tool results, unknown event types and unknown fields render nothing and never error
+- [x] `output.log` and `stderr.log` lines pass through; process-running Operations (Checks, the integration re-check) show combined output with one header per Check
+- [x] The source prefix (`B build#2 │`) appears only when more than one source is printed
+- [x] `--raw` prints the original `stream.jsonl` lines untouched
+- [x] A missing log directory says so and points at `surt inspect <id>`
+- [x] `--run N` selects the run
+- [x] A blocked step in `surt status` prints `inspect: surt inspect <execution>` and `logs: surt logs <execution>` instead of a file path
+- [x] Renderer tests over the real Claude Code fixtures plus synthetic unknown lines; binary tests for the three targets, `--raw` and the missing directory; "reads never write" covers `logs`
+
+## Comments
+
+- 2026-10-18 (orchestrator): Implemented and green on macOS. Merged into `integration/milestone-2` at 727a0c5; code-review fixes at 2c96dfe. Resolved.

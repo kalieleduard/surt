@@ -1,5 +1,7 @@
 mod definition;
 mod edits;
+mod executions;
+mod overrides;
 mod reading;
 
 use std::path::Path;
@@ -8,7 +10,7 @@ use surt_engine::project::{Candidate, DefinitionFile, InvalidDefinition, Refusal
 
 use crate::feature::quoted;
 use crate::message::Message;
-use crate::status::{STATE_SEPARATOR, state_name};
+use crate::status::{STATE_SEPARATOR, state_name, state_names};
 
 const GIT_DOWNLOADS: &str = "https://git-scm.com/downloads";
 const SHORT_SHA_CHARS: usize = 7;
@@ -49,25 +51,29 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
         ))
         .way("fix", "upgrade surt"),
         Refusal::InvalidConfig { path, line, reason } => invalid_config(path, *line, reason),
-        Refusal::MergeIntoBaseUnsupported { path } => {
-            Message::new("merge_into_base = \"ff-only\" is not supported yet")
-                .context("this surt never merges into the base branch")
-                .way(
-                    "fix",
-                    format!("set merge_into_base = \"never\" in {}", path.display()),
-                )
+        Refusal::ActiveRunBlocksDelete { subject } => Message::new(format!(
+            "{subject} has an active run; delete never stops agents"
+        ))
+        .way("fix", format!("surt cancel {subject}")),
+        Refusal::RunLockBusy { subject } => {
+            Message::new(format!("another surt process is working on {subject}"))
+                .way("retry", format!("surt delete {subject}"))
+        }
+        Refusal::SubjectChangedWhileDeleting { subject } => {
+            Message::new("feature changed while deleting; run again")
+                .way("retry", format!("surt delete {subject}"))
         }
         Refusal::ActiveRunExists { subject } => {
             Message::new(format!("{subject} already has an active run"))
                 .way("resume", format!("surt feature {subject}"))
         }
+        Refusal::UnrecordedEditsBlockNewRun {
+            subject,
+            run,
+            files,
+        } => edits::blocking_new_run(subject, *run, files),
         Refusal::InvalidDefinition(invalid) => invalid_definition(invalid),
-        Refusal::AgentOverrides { path } => Message::new(format!(
-            "local agent overrides in {} are not supported yet",
-            path.display()
-        ))
-        .context("this surt runs only its built-in agents")
-        .way("fix", format!("move {} out of the project", path.display())),
+        Refusal::InvalidAgentOverride(invalid) => overrides::invalid_override(invalid),
         Refusal::UnknownSubject { reference } => {
             Message::new(format!("no feature matches {}", quoted(reference)))
                 .way("inspect", "surt status")
@@ -76,7 +82,22 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             reference,
             candidates,
         } => ambiguous(reference, candidates),
+        Refusal::UnknownExecution { reference } => executions::unknown(reference),
+        Refusal::ExecutionPrefixTooShort {
+            reference,
+            minimum,
+            candidates,
+        } => executions::too_short(reference, *minimum, candidates),
+        Refusal::AmbiguousExecution {
+            reference,
+            candidates,
+        } => executions::ambiguous(reference, candidates),
         Refusal::DriverLive { subject, pid, .. } => driver_live(subject, *pid),
+        Refusal::NoLiveDriver { subject, states } => Message::new(format!(
+            "{subject} has no live driver, nothing to stop ({})",
+            state_names(states)
+        ))
+        .way("inspect", format!("surt status {subject}")),
         Refusal::NoGateWaiting { subject } => {
             Message::new(format!("{subject} has no approval gate waiting"))
                 .way("run", format!("surt status {subject}"))
@@ -109,8 +130,18 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             subject,
             artifact,
             problem,
+            ..
+        } => edits::invalid(subject, artifact, problem),
+        Refusal::NotRestorable {
+            subject,
+            artifact,
+            restorable,
+        } => edits::not_restorable(subject, artifact, restorable),
+        Refusal::TerminalRun {
+            subject,
+            run,
             files,
-        } => edits::invalid(subject, artifact, problem, files),
+        } => edits::terminal_run(subject, *run, files),
         Refusal::IntegrationBranchMoved {
             subject,
             branch,
@@ -146,6 +177,27 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             item,
             known,
         } => reading::unknown_task(subject, item, known),
+        Refusal::UnknownRun { subject, run, runs } => reading::unknown_run(subject, *run, runs),
+        Refusal::NoRevisionInIteration {
+            subject,
+            item,
+            artifact,
+            iteration,
+            iterations,
+        } => reading::no_revision_in_iteration(
+            subject,
+            item.as_deref(),
+            artifact,
+            *iteration,
+            iterations,
+        ),
+        Refusal::UnknownFile {
+            artifact,
+            revision,
+            path,
+            files,
+            ..
+        } => reading::unknown_file(artifact, *revision, path, files),
     }
 }
 
@@ -195,8 +247,10 @@ fn driver_live(subject: &str, pid: Option<u32>) -> Message {
         Some(pid) => format!("pid {pid}"),
         None => "another surt process".to_owned(),
     };
-    Message::new(format!("{subject} is being driven by {driver}"))
-        .way("fix", "stop it with Ctrl-C in its terminal, then rerun")
+    Message::new(format!("{subject} is being driven by {driver}")).way(
+        "fix",
+        format!("surt stop {subject}, or Ctrl-C in its terminal, then rerun"),
+    )
 }
 
 fn invalid_definition(invalid: &InvalidDefinition) -> Message {
@@ -226,13 +280,17 @@ fn managed_worktree(path: &Path, project: Option<&Path>) -> Message {
 }
 
 fn invalid_config(path: &Path, line: Option<usize>, reason: &str) -> Message {
-    let location = match line {
-        Some(line) => format!("{}:{line}", path.display()),
-        None => path.display().to_string(),
-    };
+    let location = config_location(path, line);
     Message::new(format!("invalid configuration in {location}"))
         .context(reason)
         .way("fix", format!("edit {location}"))
+}
+
+pub(crate) fn config_location(path: &Path, line: Option<usize>) -> String {
+    match line {
+        Some(line) => format!("{}:{line}", path.display()),
+        None => path.display().to_string(),
+    }
 }
 
 #[cfg(test)]

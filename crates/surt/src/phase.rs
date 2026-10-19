@@ -5,6 +5,7 @@ use crate::driving::Driven;
 use crate::failure::Failure;
 use crate::message::Message;
 use crate::runtime;
+use crate::symbols::DASH;
 
 pub(crate) struct Phase {
     name: &'static str,
@@ -128,14 +129,14 @@ impl Phase {
         let run = active_run(subject)?;
         if let GateStatus::Approved { revision } = project.gate_status(run, self.gate).await? {
             Message::new(format!(
-                "{} rev {revision} already approved — next: {}",
+                "{} rev {revision} already approved {DASH} next: {}",
                 self.artifact,
                 self.next_command(&subject.name)
             ))
             .print_success();
             return Ok(());
         }
-        let runtime = runtime::select()?;
+        let runtime = runtime::select(project)?;
         self.drive(project, &subject.name, run, &runtime).await
     }
 
@@ -164,7 +165,7 @@ pub(crate) async fn finish_cleanup(
     let (None, Some(run)) = (&subject.active_run, &subject.pending_cleanup) else {
         return Ok(false);
     };
-    let runtime = runtime::select()?;
+    let runtime = runtime::select(project)?;
     let driven = Driven {
         project,
         subject: &subject.name,

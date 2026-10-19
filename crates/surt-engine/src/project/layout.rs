@@ -1,8 +1,10 @@
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 use super::naming::slug;
 
 const DOT_SURT: &str = ".surt";
+const PORTABLE_SEPARATOR: &str = "/";
 const DEFAULT_PROJECT_NAME: &str = "project";
 const MAX_PROJECT_NAME_CHARS: usize = 24;
 
@@ -17,6 +19,20 @@ impl Layout {
 
     pub(crate) fn root(&self) -> &Path {
         &self.root
+    }
+
+    pub(crate) fn relative(&self, path: &Path) -> PathBuf {
+        let Ok(inside) = path.strip_prefix(&self.root) else {
+            return path.to_path_buf();
+        };
+        let mut portable = OsString::new();
+        for (index, component) in inside.components().enumerate() {
+            if index > 0 {
+                portable.push(PORTABLE_SEPARATOR);
+            }
+            portable.push(component.as_os_str());
+        }
+        PathBuf::from(portable)
     }
 
     pub(crate) fn dot_surt(&self) -> PathBuf {
@@ -39,12 +55,22 @@ impl Layout {
         self.locks().join(format!("{run}.lock"))
     }
 
+    pub(crate) fn slot(&self, index: usize) -> PathBuf {
+        self.runtime()
+            .join("slots")
+            .join(format!("agent-{index}.lock"))
+    }
+
     pub(crate) fn execution(&self, execution: &str) -> PathBuf {
         self.runtime().join("executions").join(execution)
     }
 
     pub(crate) fn execution_logs(&self, subject: &str, execution: &str) -> PathBuf {
-        self.dot_surt().join("logs").join(subject).join(execution)
+        self.logs(subject).join(execution)
+    }
+
+    pub(crate) fn logs(&self, subject: &str) -> PathBuf {
+        self.dot_surt().join("logs").join(subject)
     }
 
     pub(crate) fn working_copy(&self, subject: &str) -> PathBuf {

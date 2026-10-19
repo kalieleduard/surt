@@ -74,17 +74,40 @@ pub(crate) struct Ctx {
     pub(crate) limits: Limits,
     pub(crate) free_slots: Vec<usize>,
     pub(crate) stop: StopLevel,
+    pub(crate) paused_until: Option<i64>,
+    pub(crate) now: i64,
 }
 
+impl Ctx {
+    pub(super) fn paused(&self) -> bool {
+        self.paused_until.is_some_and(|until| self.now < until)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Decision {
+    pub(crate) actions: Vec<Action>,
+    pub(crate) queued: usize,
+}
+
+#[cfg(test)]
 pub(crate) fn decide(graph: &RunGraph, ctx: &Ctx) -> Vec<Action> {
+    decision(graph, ctx).actions
+}
+
+pub(crate) fn decision(graph: &RunGraph, ctx: &Ctx) -> Decision {
     let root = &graph.root;
+    let only = |action| Decision {
+        actions: vec![action],
+        queued: 0,
+    };
     match root.state {
-        RunState::Succeeded => vec![Action::Return(DriveOutcome::Succeeded)],
-        RunState::Cancelled => vec![Action::Return(DriveOutcome::Cancelled)],
-        RunState::Active if graph.cancel_requested => vec![Action::FinishRun {
+        RunState::Succeeded => only(Action::Return(DriveOutcome::Succeeded)),
+        RunState::Cancelled => only(Action::Return(DriveOutcome::Cancelled)),
+        RunState::Active if graph.cancel_requested => only(Action::FinishRun {
             run: root.id.clone(),
             end: RunEnd::Cancelled,
-        }],
+        }),
         RunState::Active => Plan::new(ctx).visit(root),
     }
 }

@@ -66,7 +66,7 @@ One rule for every `ref_move` row, applied by the next Attempt of the Step Run t
 |---|---|---|
 | `new_sha` | the move happened | confirm: record the Operation's result (`git.integrate`: `tip_sha` = M, the child's `merged_as_sha` = M, Outcome `merged`), delete the row |
 | `old_sha` | the move did not happen | delete the row and redo the Operation from its start; a move with `worktree_path` whose worktree is not clean instead **keeps** its row and blocks ([below](#an-interrupted-fast-forward-into-the-base)) |
-| anything else | someone else moved it | delete the row; `git.integrate` → `blocked` (`not_retryable`, `integration_branch_moved`); `git.merge_into_base` → its normal `skipped` (base moved) |
+| anything else | someone else moved it | delete the row; `git.integrate` → `blocked` (`not_retryable`, `integration_branch_moved`); `git.merge_into_base` → its normal `skipped` ([`base_moved`](A-git-integration.md#merging-into-the-base-opt-in)) |
 
 A `ref_move` row exists only while its Step Run is `running`, or `blocked` on an interrupted fast-forward. Before it moves the ref, `git.integrate` still re-checks the merge result when the tip moved ([A. Git Integration](A-git-integration.md#integration)). A ref equal to `new_sha` therefore always passed the Checks, and confirmation never runs them again. The merge commit's dates still come from `step_run.started_at`, so a redone integration recomputes the same `M`. That is a second guarantee, not something recovery relies on.
 
@@ -195,6 +195,8 @@ With `merge_into_base = "ff-only"` and the Base branch checked out in the user's
 
 The row stays, so the next command's Attempt applies the same rule. After *finish it* the ref equals `new_sha`, so the Outcome is `merged`. After *undo it* the ref equals `old_sha` and the worktree is clean, so the fast-forward runs again. If nothing was done, the step blocks again.
 
+"Clean" is [A's definition](A-git-integration.md#merging-into-the-base-opt-in): no change to a tracked file and no operation in progress; untracked files do not count. The same case arises without a Ctrl-C when `git merge --ff-only` fails after updating some files (a file in use on Windows): that failure is a technical one (`git_failed`), its row stays, and the next Attempt lands here. A refusal to overwrite an untracked file is not this case, because Git refuses before touching anything; it ends the step `skipped` with reason [`worktree_not_clean`](A-git-integration.md#merging-into-the-base-opt-in). The ref-at-`new_sha` and ref-elsewhere rows record `merged` and [`base_moved`](A-git-integration.md#merging-into-the-base-opt-in) as for the not-checked-out case.
+
 ## Transient Failures: network and rate limits
 
 Claude Code already retries API errors by itself (`system/api_retry`). When it gives up, Surt classifies the failure from the stream (`assistant.error`, the `result`'s `terminal_reason`) instead of spending an Attempt on every kind:
@@ -210,17 +212,26 @@ Observed in the real streams of [Capture a real Claude Code stream as a fixture]
 **The pause.** An account rate limit hits every agent at once, so a Transient Failure pauses **every agent launch of that Driver**, not only its own Step Run:
 
 - Until the reset time when the stream reports one (`rate_limit_event`; it also arrives on normal runs with `rate_limit_info.status = "allowed"`, which is not a limit), otherwise with backoff: 1, 2, 4, 8 and then 15 minutes between tries.
-- Executions already running go on. If they hit the limit, they fail `transient` too.
+- When several failures report reset times, the pause ends at the latest one. A reset time that is not later than `now` counts as no reset time, so a skewed clock never makes Surt retry in a tight loop.
+- Executions already running go on. If they hit the limit, they fail `transient` too. Their failures extend the pause only to a later reset time; they never advance the backoff.
+- The backoff step advances once per resume that fails, not once per failure: only an agent launched after the latest pause ended (a resumed launch), or before any pause, takes the next step when it fails. Failures from agents that were already running when the pause began extend nothing beyond the latest reset; they do not advance the step, even when they end after the pause is over.
 - While paused, the Driver takes no new agent slot. Operations keep running: a Check or an integration does not need the API.
-- The backoff resets when an agent Execution ends in any other way.
-- There is no ceiling. The command is in the foreground, nothing is spent while it waits, and Ctrl-C turns the wait into an ordinary Interruption.
+- The backoff resets when an agent Execution ends in any other way (succeeded, `retryable`, `not_retryable`, interrupted).
+- No probe launch: when the pause ends, launches resume up to the free slots. A rate-limited resume costs no Attempt, so a single probe would add a state and save nothing.
+- There is no ceiling. The command is in the foreground, nothing is spent while it waits, and Ctrl-C or `surt stop` turns the wait into an ordinary Interruption (exit `130`).
 
 ```
-✖ task B build attempt 2: rate limited (resets 15:00)
+⚠ task B build attempt 2 failed (rate_limit): …
 ⏸ agent launches paused until 15:00 — 3 waiting · Ctrl-C to stop (resumable)
+↻ agent launches resumed after 2h05m
+↻ task B build attempt 3
 ```
 
-The pause lives in the Driver's memory. A new driving command starts unpaused and learns again from its first failure. Several Drivers (other Features, other projects) do not coordinate their pauses; account-wide pressure across Drivers stays open on the map.
+Without a reset time the paused line names the delay: `paused until 13:01 (backoff 1m)`. The Driver records `agents.paused` on the root run once an agent waits for the pause, and again whenever its end moves later, then `agents.resumed` when launches resume ([D](D-database.md#event-data)).
+
+From any other terminal, `surt status` shows the paused run as `RUNNING` with one line naming the error code and the reset time, or `retrying with backoff`, and `status --json` carries a `paused` object. Since nothing stores the pause, `status` derives it from the rows: a live Driver whose latest ended agent Execution failed `transient`, with no agent Execution started after it ([J](J-cli.md#surt-status)).
+
+The pause lives in the Driver's memory. A new driving command starts unpaused and learns again from its first failure. A Step Run that a Milestone 1 or 2 binary blocked on a Transient Failure (`blocked_reason = 'not_retryable'`) is unblocked by the next driving command with the usual fresh budget, like any other block ([G](G-state-machines.md#leaving-blocked)). Several Drivers (other Features, other projects) do not coordinate their pauses; account-wide pressure across Drivers stays open on the map.
 
 Operations never fail `transient`. Git lock contention from third parties is retried with backoff inside the Operation ([A](A-process-model.md#native-git-operations-across-processes)).
 
@@ -237,7 +248,7 @@ Every transition below is one `BEGIN IMMEDIATE` transaction with its `event`. Be
 | Intention | `run_branch` row, or `ref_move` row |
 | Execution accepted | Revisions, files and blobs, Outcome, Step Run transition, `tip_sha`, Working Copy pending values, `ref_move` deleted |
 | Working Copy written | pending values promoted to the baseline |
-| Execution ended otherwise | `failed`, `interrupted` or `cancelled`, with class and error; `blocked` when a limit or a `not_retryable` failure applies |
+| Execution ended otherwise | `failed`, `interrupted` or `cancelled`, with class and error; `blocked` when a limit or a `not_retryable` failure applies (never for `transient`) |
 
 ## Without a Driver: `surt cancel` and `surt status`
 

@@ -57,7 +57,8 @@ impl Project {
 
     pub async fn approve(&self, gate: GateRef, rev: RevisionRef) -> Result<(), Error>;
     pub async fn reject(&self, gate: GateRef, rev: RevisionRef, reason: String) -> Result<(), Error>;
-    pub async fn request_stop(&self, run: RunId) -> Result<(), Error>;
+    /// Refuses with the run's derived state when no Driver is live.
+    pub async fn request_stop(&self, subject: &str) -> Result<StopRequest, Error>;
     pub async fn cancel(&self, run: RunId) -> Result<CancelResult, Error>;
     pub async fn restore(&self, artifact: ArtifactRef) -> Result<(), Error>;
     pub async fn delete(&self, subject: SubjectRef) -> Result<DeleteResult, Error>;
@@ -81,7 +82,7 @@ Invariants of the interface:
 | Module | Hides | Dependency category |
 |---|---|---|
 | `project` | the facade; finding `.surt/`; project and global configuration; the `Catalog` of built-ins | — |
-| `workflow` | parsing the five `kind`s with `deny_unknown_fields`; static validation against agents and the Operation registry; merging `.surt/agents/` over the `Catalog` field by field; freezing the closure and its SHA-256 ([E](E-workflow-schema.md), [F](F-agent-contract.md#built-in-defaults-and-local-overrides)) | in-process, pure |
+| `workflow` | parsing the five `kind`s with `deny_unknown_fields`; static validation against agents and the Operation registry; merging `.surt/agents/<id>/`, read by `Project::create_run` and nowhere else, over the `Catalog` (`agent.toml` field by field, `instructions.md` and each schema replacing the built-in file of the same path); freezing the closure and its SHA-256 ([E](E-workflow-schema.md), [F](F-agent-contract.md#built-in-defaults-and-local-overrides)) | in-process, pure |
 | `drive` | the tick loop, the state machines of [G](G-state-machines.md), Iterations and Per-Item expansion, agent slots, the rate-limit pause, Interruption and Cancellation | orchestrates the others |
 | `reconcile` | the partial-state tables of [I. Recovery](I-recovery.md), orphans, Salvage Refs, preparing a clean worktree for every Attempt | real Git, real processes |
 | `artifacts` | blobs by SHA-256, atomic publication of Revisions, delivery validation, Working Copy, edit detection, pinning and revalidation ([H](H-artifact-storage.md)) | store + disk |
@@ -161,7 +162,7 @@ Inside `drive`, deciding what to do next is separated from doing it:
 pub(crate) enum Action {
     StartIteration { loop_: StepRunId },
     ExpandItems { step: StepRunId },
-    Launch { step: StepRunId },
+    Launch { step: StepRunId, slot: usize },
     RunOperation { step: StepRunId, op: OperationId },
     Block { step: StepRunId, reason: BlockReason },
     FinishRun { run: RunId, state: RunState },
@@ -169,10 +170,19 @@ pub(crate) enum Action {
     Wait,
 }
 
-pub(crate) struct Ctx { limits: FrozenLimits, free_slots: usize, paused_until: Option<Timestamp>, now: Timestamp, stop: StopLevel }
+pub(crate) struct Ctx {
+    limits: Limits,             // max_attempts, max_iterations, frozen at root run creation
+    free_slots: Vec<usize>,     // slot indices this Driver locked this tick (A), one per Launch
+    stop: StopLevel,
+    paused_until: Option<i64>,  // Unix seconds; no agent Launch while now < paused_until
+    now: i64,
+}
 
-pub(crate) fn decide(graph: &RunGraph, ctx: &Ctx) -> Vec<Action>;
+pub(crate) struct Decision { actions: Vec<Action>, queued: usize } // queued: ready agents left without a slot or paused
+pub(crate) fn decision(graph: &RunGraph, ctx: &Ctx) -> Decision;
 ```
+
+`paused_until` comes from the pause schedule, a pure function of the pause state, the failure just observed and `now` (`drive/pause.rs`; [I](I-recovery.md#transient-failures-network-and-rate-limits)), so neither it nor `decide` reads a clock. While the pause holds, `decide` still emits `RunOperation`: Checks and integrations do not wait.
 
 The hard rules of [G. State Machines](G-state-machines.md) (Attempt and Iteration limits, Transient Failures not spending an Attempt, dependents of a blocked Task waiting, a run ending only `succeeded` or `cancelled`) are table tests on `decide`: build a `RunGraph`, check the `Action`s. This is an internal seam of `drive`; it does not appear in the facade.
 
@@ -211,6 +221,7 @@ pub enum Refusal {
     SchemaTooNew { db: i64, supported: i64 },
     GitTooOld { found: Version, min: Version },
     NoDriverToStop,
+    InvalidAgentOverride(Box<InvalidOverride>),
     // …
 }
 ```
@@ -226,8 +237,10 @@ The engine never prints. It reports typed events, and the CLI renders lines, the
 ```rust
 pub enum Progress {
     StepStarted { .. }, StepFinished { .. }, AttemptRetry { .. }, Merged { key: ItemKey, sha: Sha },
-    Salvaged { .. }, OrphanStopped { .. }, Paused { until: Option<Timestamp> },
-    Running(Vec<RunningExecution>),   // input for the footer
+    Salvaged { .. }, OrphanStopped { .. },
+    Paused { pause: ActivityPause, waiting: usize }, Resumed { paused_seconds: i64 }, // ActivityPause { until: i64, backoff: Option<i64> }
+    ConfigInvalid { path: PathBuf, line: Option<usize>, reason: String, limit: usize }, // live limit kept (A)
+    Activity(ActivitySnapshot),       // running steps + start times, queued, project-wide slots, the pause: input for the footer
     Cleanup { .. },
 }
 pub type ProgressSink = tokio::sync::mpsc::UnboundedSender<Progress>;
@@ -235,6 +248,8 @@ pub type ProgressSink = tokio::sync::mpsc::UnboundedSender<Progress>;
 pub struct StopSignal(/* tokio::sync::watch<StopLevel> */);
 pub enum StopLevel { None, Graceful, Force }
 ```
+
+`drive` emits `Activity` when it changes, on the ticks where the Driver waits for running work, so a snapshot never shows a step it has just decided to launch as queued. The footer and the five-minute line are pure functions of (last snapshot, time of the last event line, `now`, whether stderr is a TTY) in the CLI's progress module; a one-second Tokio interval only calls them.
 
 The CLI's first Ctrl-C (or SIGHUP, or the console closing) calls `graceful()`, the second `force()`. A stop request written by `surt stop` is read by `drive` on its next tick and raised on the same signal, so both paths run the same Interruption ([A. Process Model](A-process-model.md#interruption-ctrl-c-and-cancellation)).
 
@@ -256,7 +271,7 @@ pub fn catalog() -> Catalog {
 ```
 
 - The table is explicit, with `include_str!`; no directory-embedding crate.
-- The engine merges `.surt/agents/<name>/` over the `Catalog`, validates and freezes. It does not know where the bytes came from.
+- `Project::create_run` reads `.surt/agents/<name>/` and `workflow` merges it over the `Catalog`, validates and freezes. Nothing else reads the directory: driving commands no longer refuse when it exists. The Milestone 1 refusals of the three M4 mechanisms are gone: `AgentOverrides` (a `.surt/agents/` directory), `MergeIntoBaseUnsupported` (`merge_into_base = "ff-only"`) and the refusal of `on_success = "keep"`. An override that would break a run refuses with `InvalidAgentOverride` instead ([F](F-agent-contract.md#built-in-defaults-and-local-overrides)). The engine does not know which bytes came from the binary.
 - The engine embeds only what it owns: its migrations and the schemas of the Artifacts that Operations produce (`base`, `check-report`, `conflict`, `integration`). Agent schemas (`manifest`, `commit`, `feedback`, `delivery`) travel with their Agents in `surt`.
 
 ## Toolchain and dependencies
@@ -285,7 +300,7 @@ Not used: `dirs`/`directories` (`std::env::home_dir` is correct on Windows and n
 Deviations of the Milestone 1 code from [`rules/`](../../rules) and from this document that are kept on purpose, in the rules' report format. [D](D-database.md#rule-exceptions) and [ADR 0012](../adr/0012-agent-runtime-is-the-only-trait.md) record the database and DIP ones.
 
 ```
-Exceptions: rust.md unsafe; surt-engine platform/process/{macos,windows,signals}.rs, platform/children/{unix,windows}.rs; process start time, boot id, signals, PR_SET_PDEATHSIG and console control events have no safe std API; every unsafe block is one libc/windows-sys call inside platform, which is the only module allowed to touch the OS
+Exceptions: rust.md unsafe; surt-engine platform/process/{macos,windows,signals}.rs, platform/children/{unix,windows}.rs, platform/console/{unix,windows}.rs; process start time, boot id, signals, PR_SET_PDEATHSIG, console control events, the console code page and the terminal width have no safe std API; every unsafe block is one libc/windows-sys call inside platform, which is the only module allowed to touch the OS
 Exceptions: B toolchain table (libc, windows-sys only); surt-engine Cargo.toml windows, platform/children/windows.rs:own_tree; process-wrap's CreationFlags takes windows::Win32::System::Threading::PROCESS_CREATION_FLAGS, and the windows crate is already in the build through process-wrap; it only names that type, every call goes through windows-sys
 Exceptions: spec "every OS #[cfg] lives in platform"; surt driving/interruption.rs:Interruptions; the rule governs the engine's module split, and tokio::signal exposes Ctrl-C/SIGHUP and Ctrl-C/console-close as different types per OS; the CLI keeps two cfg blocks instead of the engine owning console signals
 Exceptions: spec "every OS #[cfg] lives in platform"; #[cfg(unix)] on tests in crates/surt/tests/cli and src/**/tests; those tests send POSIX signals or run sh, which only exist on Unix; Windows CI does not run them
@@ -293,14 +308,15 @@ Exceptions: C rule 6 / B "the core never names Task"; drive/worktrees.rs branch 
 Exceptions: architecture.md avoid cycles; project::{error, layout, config} imported by drive, reconcile, cleanup, artifacts; the spec fixes the twelve engine modules and lists Error and Refusal as facade types of project; those submodules import nothing that imports them back, so files have no cycle, but the module-level edges project -> drive -> project remain, as do drive <-> reconcile (Progress) and store -> drive::graph (sanctioned above)
 Exceptions: clean-code.md primitive obsession; store/*.rs methods taking &str ids, ref_move(step), revision(id); runtime/error.rs:RuntimeError.code; rows carry the same TEXT ids the database holds and only the Driver and cancel paths hold a RunId (those methods take &RunId); RuntimeError.code relays Claude Code's open-ended error categories verbatim into execution.error_code, while the decision is the closed FailureClass
 Exceptions: rust.md typed errors; project/error.rs:InternalError(Box<dyn Error>); an internal error (exit 1) is reported, never matched, so one boxed type keeps StoreError, GitError, io and snapshot corruption out of the public API
-Exceptions: B facade method list; project:{open_read_only, resolve_subject, subject_named, gate_status, blocked_steps, integration_branch, cancel_impact, artifacts, free_subject_name, active_subject_with_slug, resolve_commit, actor}; the CLI needs them for J's read-only commands, next-command hints, naming and cancel confirmation; each is a read the facade's documented methods would otherwise duplicate
+Exceptions: B facade method list; project:{open_read_only, resolve_subject, subject_named, reference, resolve_execution, inspect_execution, logs, execution_logs, gate_status, blocked_steps, integration_branch, cancel_impact, restore_impact, delete_impact, wait_for_driver, artifacts, free_subject_name, active_subject_with_slug, resolve_commit, actor, base_merge, interrupted_merge}; the CLI needs them for J's read-only commands, next-command hints, naming, the cancel, restore and delete confirmations, `surt stop`'s wait, the merge line after `✔ shipper delivered` and the `merge_into_base_interrupted` block's how-to; each is a read the facade's documented methods would otherwise duplicate
 Exceptions: D budget_base; store/control.rs:unblock; it stores the number of Executions of any state (or Iterations) when the step last became running, and decide counts failed non-transient Attempts after that index; same budget as D, different base value, so the column is not comparable with D's examples
-Exceptions: A agent slots as lock files; drive/flights.rs:Flights; Milestone 1 counts slots inside one Driver, so two Drivers of one project can each use max_concurrent_agents; status shows the per-Driver count
-Exceptions: testing.md no timing in tests; platform/tests.rs, platform/process/tests.rs, runtime/claude_code/tests/stub.rs, project/tests/drive/recovery.rs, crates/surt/tests/cli/interrupt.rs; real processes and OS locks have no virtual clock, and tokio::time::pause() breaks sqlx's pool acquire (PoolTimedOut); every wait is bounded polling with a generous ceiling, never a fixed sleep that a result depends on
+Exceptions: testing.md no timing in tests; platform/tests.rs, platform/process/tests.rs, runtime/claude_code/tests/stub.rs, project/tests/drive/recovery.rs, crates/surt/tests/cli/interrupt.rs, crates/surt/tests/cli/follow.rs, crates/surt/tests/cli/slots.rs; real processes and OS locks have no virtual clock, and tokio::time::pause() breaks sqlx's pool acquire (PoolTimedOut); every wait is bounded polling with a generous ceiling, never a fixed sleep that a result depends on
 Exceptions: A orphan stop; platform/process/windows.rs:signal; on Windows a stale agent is stopped with TerminateProcess on its root pid only; the Job Object with kill-on-close already ends the tree when the Driver that owned it dies, so only a tree whose Job outlived its Driver can leave grandchildren
 Exceptions: Linux PR_SET_PDEATHSIG; platform/children/unix.rs:end_with_surt; the signal fires when the spawning thread exits, not the process; children are spawned from Tokio worker threads, which live until the runtime stops at exit, and never from spawn_blocking threads, which can idle out
-Exceptions: clean-code.md 200 lines/file; store/approvals.rs, store.rs, store/executions.rs, store/graph.rs, store/reading.rs, drive/launch.rs, drive/driver.rs, drive/load.rs, drive/frozen.rs, drive/integrate.rs, git.rs, artifacts/working_copy.rs, project/status.rs, project/gates.rs, project/error.rs, runtime/fake.rs, runtime/claude_code/invocation.rs, surt refusal.rs (201-303 lines); each holds one checkpoint family, one Operation or one enum and its rendering; splitting would separate a transaction from its row types or a match from its arms
-Exceptions: clean-code.md 20 lines/function (over 60); surt refusal.rs:message, driving/progress.rs:message, refusal/definition.rs:describe; one arm per Refusal, Progress or Problem variant, exhaustive on purpose so a new variant cannot ship without wording
+Exceptions: clean-code.md 200 lines/file; store/approvals.rs, store.rs, store/executions.rs, store/graph.rs, store/reading.rs, drive/launch.rs, drive/driver.rs, drive/load.rs, drive/frozen.rs, drive/integrate.rs, git.rs, artifacts/working_copy.rs, project/status.rs, project/gates.rs, project/error.rs, runtime/fake.rs, surt refusal.rs (212-323 lines); each holds one checkpoint family, one Operation or one enum and its rendering; splitting would separate a transaction from its row types or a match from its arms
+Exceptions: clean-code.md 200 lines/file; project.rs (203 lines); it is the facade: the module list, the public re-exports and the Project struct with its opening; the facade's methods live in the submodules, so the only way down is to scatter the re-exports, which is what this file exists to gather
+Exceptions: clean-code.md primitive obsession; drive/base_merge.rs:BaseMerge::Merged{from, to}, project/interrupted_merge.rs:InterruptedMerge{from, to}; full SHAs as String like every other SHA the store, git and the JSON documents carry (RefMove, Commit, run_branch rows); a Sha newtype would have to start at the store and git boundary to mean anything
+Exceptions: clean-code.md 20 lines/function (over 60); surt refusal.rs:message, driving/progress/wording.rs:message, refusal/definition.rs:describe; one arm per Refusal, Progress or Problem variant, exhaustive on purpose so a new variant cannot ship without wording
 Exceptions: clean-code.md 20 lines/function (over 60); store/approvals.rs:record_decision, store/executions.rs:start_execution, store/acceptance.rs:accept_execution; each is one BEGIN IMMEDIATE checkpoint that writes its rows and its event together, as this document requires
 ```
 

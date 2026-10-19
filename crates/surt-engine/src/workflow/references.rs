@@ -7,7 +7,22 @@ const SEPARATOR: char = '/';
 const CURRENT: &str = ".";
 const PARENT: &str = "..";
 
-pub(super) fn local_references(path: &str, text: &str) -> Vec<String> {
+pub(super) enum Reference {
+    Local(String),
+    Outside(String),
+}
+
+pub(crate) fn local_references(path: &str, text: &str) -> Vec<String> {
+    references(path, text)
+        .into_iter()
+        .filter_map(|reference| match reference {
+            Reference::Local(path) => Some(path),
+            Reference::Outside(_) => None,
+        })
+        .collect()
+}
+
+pub(super) fn references(path: &str, text: &str) -> Vec<Reference> {
     let Ok(schema) = serde_json::from_str::<Value>(text) else {
         return Vec::new();
     };
@@ -18,8 +33,19 @@ pub(super) fn local_references(path: &str, text: &str) -> Vec<String> {
         .into_iter()
         .filter_map(|reference| {
             let (file, _) = reference.split_once(FRAGMENT).unwrap_or((reference, ""));
-            let local = !file.is_empty() && !file.contains(SCHEME) && !file.starts_with(SEPARATOR);
-            local.then(|| resolve(directory, file)).flatten()
+            if file.is_empty() {
+                return None;
+            }
+            let local = !file.contains(SCHEME) && !file.starts_with(SEPARATOR);
+            Some(
+                local
+                    .then(|| resolve(directory, file))
+                    .flatten()
+                    .map_or_else(
+                        || Reference::Outside(reference.to_owned()),
+                        Reference::Local,
+                    ),
+            )
         })
         .collect()
 }

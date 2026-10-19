@@ -1,6 +1,6 @@
 use sqlx::FromRow;
 
-use super::revisions::number;
+use super::columns::number;
 use super::{Store, StoreError};
 use crate::platform::ProcessIdentity;
 
@@ -16,6 +16,8 @@ pub(crate) struct RootRunRow {
     driver_start_time: Option<i64>,
     driver_boot_id: Option<String>,
     pub(crate) driver_since: Option<i64>,
+    pub(crate) finished_at: Option<i64>,
+    runs: i64,
 }
 
 #[derive(Clone, Debug, FromRow)]
@@ -54,18 +56,55 @@ pub(crate) struct ArtifactSummaryRow {
     pub(crate) files: i64,
 }
 
+#[derive(Clone, Debug, FromRow)]
+pub(crate) struct SlotHoldersRow {
+    driver_pid: Option<i64>,
+    driver_start_time: Option<i64>,
+    driver_boot_id: Option<String>,
+    agents: i64,
+}
+
+impl SlotHoldersRow {
+    pub(crate) fn driver(&self) -> Option<ProcessIdentity> {
+        identity(
+            self.driver_pid,
+            self.driver_start_time,
+            self.driver_boot_id.as_deref(),
+        )
+    }
+
+    pub(crate) fn agents(&self) -> u32 {
+        number(self.agents)
+    }
+}
+
+fn identity(
+    pid: Option<i64>,
+    start_time: Option<i64>,
+    boot_id: Option<&str>,
+) -> Option<ProcessIdentity> {
+    Some(ProcessIdentity {
+        pid: u32::try_from(pid?).ok()?,
+        start_time: start_time?,
+        boot_id: boot_id?.to_owned(),
+    })
+}
+
 impl RootRunRow {
     pub(crate) fn driver(&self) -> Option<ProcessIdentity> {
-        let pid = u32::try_from(self.driver_pid?).ok()?;
-        Some(ProcessIdentity {
-            pid,
-            start_time: self.driver_start_time?,
-            boot_id: self.driver_boot_id.clone()?,
-        })
+        identity(
+            self.driver_pid,
+            self.driver_start_time,
+            self.driver_boot_id.as_deref(),
+        )
     }
 
     pub(crate) fn ordinal(&self) -> u32 {
         number(self.ordinal)
+    }
+
+    pub(crate) fn runs(&self) -> u32 {
+        number(self.runs)
     }
 }
 
@@ -78,7 +117,9 @@ impl Store {
         Ok(sqlx::query_as(
             "SELECT w.id, s.name AS subject, w.ordinal, w.state, w.definition_sha256 AS definition, \
              w.cleaned_at IS NOT NULL AS cleaned, \
-             w.driver_pid, w.driver_start_time, w.driver_boot_id, w.driver_since \
+             w.driver_pid, w.driver_start_time, w.driver_boot_id, w.driver_since, w.finished_at, \
+             (SELECT count(*) FROM workflow_run c WHERE c.subject_id = w.subject_id \
+              AND c.parent_step_run_id IS NULL) AS runs \
              FROM subject s JOIN workflow_run w ON w.id = ( \
                SELECT r.id FROM workflow_run r WHERE r.subject_id = s.id AND r.parent_step_run_id IS NULL \
                ORDER BY r.state = 'active' DESC, r.ordinal DESC LIMIT 1) \
@@ -111,16 +152,17 @@ impl Store {
         .await?)
     }
 
-    pub(crate) async fn running_agents(&self, root: &str) -> Result<u32, StoreError> {
-        let running: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM execution e JOIN step_run s ON s.id = e.step_run_id \
+    pub(crate) async fn slot_holders(&self) -> Result<Vec<SlotHoldersRow>, StoreError> {
+        Ok(sqlx::query_as(
+            "SELECT r.driver_pid, r.driver_start_time, r.driver_boot_id, count(*) AS agents \
+             FROM execution e JOIN step_run s ON s.id = e.step_run_id \
              JOIN workflow_run w ON w.id = s.workflow_run_id \
-             WHERE w.root_run_id = ? AND e.kind = 'agent' AND e.state = 'running'",
+             JOIN workflow_run r ON r.id = w.root_run_id \
+             WHERE e.kind = 'agent' AND e.state = 'running' AND e.slot IS NOT NULL \
+             GROUP BY r.id",
         )
-        .bind(root)
-        .fetch_one(&self.pool)
-        .await?;
-        Ok(number(running))
+        .fetch_all(&self.pool)
+        .await?)
     }
 
     pub(crate) async fn gate_views(&self, root: &str) -> Result<Vec<GateViewRow>, StoreError> {

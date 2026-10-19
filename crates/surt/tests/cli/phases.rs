@@ -269,7 +269,7 @@ fn approving_with_no_gate_waiting_is_refused() {
 }
 
 #[test]
-fn a_feature_without_an_active_run_is_refused_by_every_phase_command() {
+fn a_feature_without_an_active_run_is_refused_by_plan_approve_and_reject() {
     let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n")]);
     let name = feature_name();
     sandbox.execute(
@@ -277,7 +277,6 @@ fn a_feature_without_an_active_run_is_refused_by_every_phase_command() {
     );
 
     for args in [
-        vec!["feature", name.as_str()],
         vec!["plan", name.as_str()],
         vec!["approve", name.as_str()],
         vec!["reject", name.as_str(), "-m", "no"],
@@ -290,28 +289,6 @@ fn a_feature_without_an_active_run_is_refused_by_every_phase_command() {
             "{args:?}"
         );
     }
-}
-
-#[test]
-fn driving_commands_refuse_when_local_agent_overrides_exist() {
-    let sandbox = at_spec_gate(&[spec(1, "# Spec 1\n"), spec(2, "# Spec 2\n")]);
-    let name = feature_name();
-    ok(surt(&sandbox, &["reject", &name, "-m", "no"]));
-    let agents = sandbox.dot_surt().join("agents");
-    fs::create_dir_all(agents.join("spec")).expect("an override");
-
-    let resumed = refused(sandbox.feature(&[&name]));
-    let created = refused(sandbox.feature(&["other thing"]));
-
-    for refusal in [resumed, created] {
-        assert!(
-            refusal.starts_with("✖ local agent overrides in ")
-                && refusal.contains("/.surt/agents are not supported yet\n"),
-            "{refusal}"
-        );
-    }
-    assert_eq!(count(&sandbox, "subject"), "1");
-    assert_eq!(count(&sandbox, "execution"), "1");
 }
 
 #[test]
@@ -339,7 +316,7 @@ fn an_agent_that_keeps_failing_blocks_the_phase_with_exit_4() {
     assert!(
         run.stderr.ends_with(&format!(
             "⛔ spec blocked: attempts exhausted\n  attempt 3 failed (exit_code): the agent exited with code 1\n  \
-             inspect: .surt/logs/{name}/{execution}/stream.jsonl\n  resume: surt feature {name}\n"
+             inspect: surt inspect {execution}\n  logs: surt logs {execution}\n  resume: surt feature {name}\n"
         )),
         "{}",
         run.stderr
@@ -418,7 +395,7 @@ fn an_edit_to_a_pinned_spec_is_refused_until_the_edited_file_is_removed() {
     let approved = ok(surt(&sandbox, &["approve", &name]));
 
     let refusal = format!(
-        "✖ spec.md changed, but spec rev 1 is pinned (a later step already read it)\n  the edit was not recorded\n  fix: rm .surt/features/{name}/spec.md, then rerun\n"
+        "✖ spec.md changed, but spec rev 1 is pinned (a later step already read it)\n  the edit was not recorded\n  undo: surt restore {name} spec\n"
     );
     assert_eq!(approve, refusal);
     assert_eq!(plan, refusal);

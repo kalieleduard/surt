@@ -6,16 +6,22 @@ mod error;
 mod flow;
 mod freeze;
 mod outcomes;
+mod overrides;
 mod references;
+mod schemas;
+mod sources;
 mod steps;
 mod structure;
 
 pub(crate) use agent::{
-    AgentContract, Auth, ClaudeProfile, Effort, Format, ItemFileSpec, OutputSpec, PermissionMode,
-    Profile,
+    AgentContract, Auth, ClaudeProfile, Format, ItemFileSpec, OutputSpec, Profile,
 };
 pub use catalog::{AgentAssets, Catalog, DeliveryCheck};
-pub(crate) use definition::Definition;
+pub use definition::OnSuccess;
+pub(crate) use definition::{CleanupPolicy, Definition};
 pub use error::{DefinitionFile, InvalidDefinition, Problem, StepField};
 pub(crate) use freeze::{FreezeError, FrozenRun, Snapshot, freeze};
+pub use overrides::{InvalidOverride, StepUse, WorkflowStep};
+pub(crate) use overrides::{LocalAgent, LocalFile};
+pub(crate) use schemas::compile_schema;
 pub(crate) use steps::{PerItemStep, StepSpec};

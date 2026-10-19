@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use tempfile::TempDir;
 use tokio::sync::mpsc;
@@ -7,8 +7,8 @@ use uuid::Uuid;
 use crate::artifacts::{DeliveryContract, DeliveryRejection};
 use crate::runtime::{
     AgentLaunch, AgentRuntime, Behavior, Delivery, FailureClass, FakeRuntime, Rejection,
-    RuntimeCompletion, RuntimeError, RuntimeRequest, Script, StepAttempt, StopSignal, Verdict,
-    accept,
+    RuntimeCompletion, RuntimeError, RuntimeEvent, RuntimeReport, RuntimeRequest, Script,
+    StepAttempt, StopSignal, Verdict, accept,
 };
 use crate::workflow::{AgentAssets, AgentContract};
 
@@ -74,8 +74,9 @@ impl Execution {
         }
     }
 
-    pub(super) fn delivery_dir(&self) -> PathBuf {
-        self.request.delivery_dir.clone()
+    #[cfg(unix)]
+    pub(super) fn delivery_dir(&self) -> &Path {
+        &self.request.delivery_dir
     }
 
     pub(super) async fn run(&self, behavior: Behavior) -> Result<Verdict, RuntimeError> {
@@ -100,6 +101,21 @@ impl Execution {
         FakeRuntime::new(script)
             .execute(self.request.clone(), events, stop)
             .await
+    }
+
+    pub(super) async fn report(&self, behavior: Behavior) -> Option<RuntimeReport> {
+        let (events, mut received) = mpsc::unbounded_channel();
+        let script = Script::new().on(STEP, 1, 1, behavior);
+        let _ = FakeRuntime::new(script)
+            .execute(self.request.clone(), events, StopSignal::new())
+            .await;
+        let mut report = None;
+        while let Ok(event) = received.try_recv() {
+            if let RuntimeEvent::Reported(reported) = event {
+                report = Some(reported);
+            }
+        }
+        report
     }
 
     pub(super) fn verdict(&self, completion: &RuntimeCompletion) -> Verdict {
@@ -143,7 +159,8 @@ fn writer_launch(dir: &Path) -> AgentLaunch {
         instructions: "Write.",
         schemas: &[("schemas/data.schema.json", DATA_SCHEMA)],
     };
-    let agent = AgentContract::parse("writer", &assets).expect("a valid agent contract");
+    let agent =
+        AgentContract::parse("writer", assets.toml, &assets).expect("a valid agent contract");
     AgentLaunch::new(
         &agent,
         assets.instructions,
@@ -170,6 +187,6 @@ pub(super) fn contract(
         instructions: "Write.",
         schemas,
     };
-    let agent = AgentContract::parse(id, &assets).expect("a valid agent contract");
+    let agent = AgentContract::parse(id, assets.toml, &assets).expect("a valid agent contract");
     DeliveryContract::new(&agent, |path| assets.schema(path)).expect("compilable schemas")
 }

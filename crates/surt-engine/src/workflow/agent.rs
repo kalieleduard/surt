@@ -3,10 +3,11 @@ use std::num::NonZeroU32;
 
 use serde::{Deserialize, Serialize};
 
-use super::catalog::AgentAssets;
 use super::error::{DefinitionFile, InvalidDefinition, Problem};
+use super::sources::SchemaSource;
 
 mod checks;
+mod names;
 
 const DEFAULT_OUTCOME: &str = "done";
 
@@ -130,13 +131,22 @@ pub(crate) enum PermissionMode {
 impl AgentContract {
     pub(crate) fn parse(
         id: &str,
-        assets: &AgentAssets,
+        toml: &str,
+        schemas: &impl SchemaSource,
     ) -> Result<AgentContract, Box<InvalidDefinition>> {
-        let invalid =
-            |problem| InvalidDefinition::new(DefinitionFile::Agent(id.to_owned()), None, problem);
-        let contract: AgentContract = toml::from_str(assets.toml)
-            .map_err(|error| invalid(Problem::syntax(assets.toml, &error)))?;
-        contract.check(id, assets).map_err(invalid)?;
+        AgentContract::parse_effective(id, toml, schemas).map_err(|problem| {
+            InvalidDefinition::new(DefinitionFile::Agent(id.to_owned()), None, problem)
+        })
+    }
+
+    pub(crate) fn parse_effective(
+        id: &str,
+        toml: &str,
+        schemas: &impl SchemaSource,
+    ) -> Result<AgentContract, Problem> {
+        let contract: AgentContract =
+            toml::from_str(toml).map_err(|error| Problem::syntax(toml, &error))?;
+        contract.check(id, schemas)?;
         Ok(contract)
     }
 
@@ -146,6 +156,13 @@ impl AgentContract {
 
     pub(crate) fn model(&self) -> &str {
         &self.profile.model
+    }
+
+    pub(crate) fn runtime(&self) -> &'static str {
+        match self.profile.runtime {
+            RuntimeKind::ClaudeCode => "claude-code",
+            RuntimeKind::Fake => "fake",
+        }
     }
 
     pub(crate) fn outcomes(&self) -> Vec<String> {

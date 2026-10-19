@@ -1,6 +1,8 @@
+use serde_json::json;
+
 use super::faults::assert_crashed;
 use super::fixtures::{ACTOR, Feature};
-use super::integration::{integration_branch, login};
+use super::integration::{integration_branch, login, task_branch_of};
 use super::planned::plan;
 use super::team::{INTEGRATED_TASK, Team, builds, built, reviews, team_catalog};
 use crate::project::{Checkpoint, Config, DriveOutcome, Project};
@@ -9,11 +11,11 @@ use crate::runtime::{
     StopSignal,
 };
 
-struct CrashingAfter<'a> {
-    team: Team,
-    step: &'static str,
-    checkpoint: Checkpoint,
-    project: &'a Project,
+pub(super) struct CrashingAfter<'a> {
+    pub(super) team: Team,
+    pub(super) step: &'static str,
+    pub(super) checkpoint: Checkpoint,
+    pub(super) project: &'a Project,
 }
 
 impl AgentRuntime for CrashingAfter<'_> {
@@ -86,6 +88,49 @@ async fn a_crash_right_after_a_branch_is_intended_creates_it_once_on_the_next_dr
         .await;
     assert_eq!(branches, [(integration_branch(),)]);
     assert_eq!(feature.merges(), "1");
+    let confirmed = feature.dir.event_data("intention.confirmed").await;
+    assert_eq!(
+        confirmed[0],
+        json!({
+            "intention": "run_branch",
+            "ref": integration_branch(),
+            "sha": feature.base(),
+            "found": null,
+        })
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_crash_right_after_a_task_branch_is_intended_confirms_it_with_its_worktree_next_time() {
+    let catalog = team_catalog(INTEGRATED_TASK);
+    let feature = Feature::on_repository(catalog, "built", Config::default()).await;
+    let planned = Script::new().on("plan", 1, 1, plan(&[("A", &[])]));
+    feature.drive(planned).await;
+    feature
+        .project
+        .approve(&feature.run, None, ACTOR)
+        .await
+        .expect("the plan is approved");
+    feature.project.crash_after(Checkpoint::Intention);
+
+    assert_crashed(
+        feature.drive_with(&task_a()).await.outcome,
+        Checkpoint::Intention,
+    );
+    let finished = feature.drive_with(&task_a()).await.outcome;
+
+    assert_eq!(finished.expect("drive returns"), DriveOutcome::Succeeded);
+    let confirmed = feature.dir.event_data("intention.confirmed").await;
+    assert_eq!(
+        confirmed[0],
+        json!({
+            "intention": "run_branch",
+            "ref": task_branch_of("A"),
+            "sha": feature.base(),
+            "found": null,
+            "worktree": feature.worktree("A"),
+        })
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -117,4 +162,23 @@ async fn a_crash_right_after_a_merge_is_intended_merges_the_task_exactly_once() 
     assert!(left.is_empty(), "{left:?}");
     let reviews: Vec<(i64, String)> = feature.step_attempts("review").await;
     assert_eq!(reviews, [(1, "succeeded".to_owned())]);
+    let intended = json!({
+        "intention": "ref_move",
+        "ref": integration_branch(),
+        "old_sha": feature.base(),
+        "new_sha": feature.sha(&integration_branch()),
+    });
+    assert_eq!(
+        feature.dir.event_data("intention.discarded").await,
+        std::slice::from_ref(&intended),
+        "the move never happened, so recovery discards it and integrates again"
+    );
+    assert_eq!(
+        feature.dir.event_data("ref_move.intended").await,
+        [intended.clone(), intended.clone()]
+    );
+    assert_eq!(
+        feature.dir.event_data("intention.confirmed").await,
+        [intended]
+    );
 }

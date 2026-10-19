@@ -9,8 +9,8 @@ use super::streams::Stream;
 use crate::artifacts::DeliveryContract;
 use crate::runtime::claude_code::{Invocation, Transcript};
 use crate::runtime::{
-    AgentLaunch, Exit, RuntimeCompletion, RuntimeError, RuntimeRequest, StepAttempt, Verdict,
-    accept,
+    AgentLaunch, Exit, RuntimeCompletion, RuntimeError, RuntimeReport, RuntimeRequest, StepAttempt,
+    Verdict, accept,
 };
 use crate::workflow::{AgentAssets, AgentContract};
 
@@ -61,7 +61,8 @@ impl Execution {
             instructions: INSTRUCTIONS,
             schemas: &[],
         };
-        let agent = AgentContract::parse("noter", &assets).expect("a valid agent contract");
+        let agent =
+            AgentContract::parse("noter", assets.toml, &assets).expect("a valid agent contract");
         let contract =
             DeliveryContract::new(&agent, |path| assets.schema(path)).expect("compilable schemas");
         let launch = AgentLaunch::new(&agent, INSTRUCTIONS, working_dir, root.join("launch"));
@@ -120,6 +121,14 @@ impl Execution {
             transcript.observe(line.as_bytes());
         }
         transcript.conclude(exit)
+    }
+
+    pub(super) fn report(&self, stream: &Stream, exit: Exit) -> RuntimeReport {
+        let mut transcript = Transcript::new(self.invocation(&[]).expectation);
+        for line in stream.lines() {
+            transcript.observe(line.as_bytes());
+        }
+        transcript.report(exit)
     }
 
     pub(super) fn failure(&self, stream: &Stream, exit: Exit) -> RuntimeError {

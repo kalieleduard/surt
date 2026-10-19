@@ -25,9 +25,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         let base_sha = base
             .as_ref()
             .and_then(|base| text(base, SHA_FIELD))
-            .ok_or_else(|| {
-                Failure::not_retryable("invalid_input", "the base input names no commit".into())
-            })?;
+            .ok_or_else(|| Failure::invalid_input("the base input names no commit".into()))?;
         let branch = self
             .driving
             .store
@@ -62,6 +60,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 working_copy: false,
             }],
             merged: None,
+            recorded: None,
         })
     }
 

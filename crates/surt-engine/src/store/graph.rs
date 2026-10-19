@@ -1,6 +1,6 @@
 use sqlx::FromRow;
 
-use super::revisions::number;
+use super::columns::{count, number};
 use super::{Store, StoreError};
 use crate::drive::graph::{
     BlockReason, ExecutionState, FailureClass, Outcome, RunId, RunState, StepRunState,
@@ -14,6 +14,7 @@ pub(crate) struct RunRows {
     pub(crate) definition: String,
     pub(crate) state: RunState,
     pub(crate) cancel_requested: bool,
+    pub(crate) stop_requested: bool,
     pub(crate) children: Vec<ChildRow>,
     pub(crate) steps: Vec<StepRow>,
     pub(crate) executions: Vec<ExecutionRow>,
@@ -45,6 +46,7 @@ pub(crate) struct StepRow {
 pub(crate) struct ExecutionRow {
     pub(crate) step: String,
     pub(crate) state: ExecutionState,
+    pub(crate) started_at: Option<i64>,
 }
 
 #[derive(FromRow)]
@@ -55,6 +57,7 @@ struct RootRow {
     definition_sha256: String,
     state: String,
     cancel_requested: bool,
+    stop_requested: bool,
 }
 
 #[derive(FromRow)]
@@ -76,6 +79,7 @@ struct RawExecution {
     step_run_id: String,
     state: String,
     failure_class: Option<String>,
+    started_at: Option<i64>,
 }
 
 impl Store {
@@ -84,7 +88,8 @@ impl Store {
         let mut snapshot = self.pool.begin().await?;
         let run: RootRow = sqlx::query_as(
             "SELECT w.id, s.name AS subject, w.ordinal, w.definition_sha256, w.state, \
-             w.cancel_requested_at IS NOT NULL AS cancel_requested \
+             w.cancel_requested_at IS NOT NULL AS cancel_requested, \
+             w.stop_requested_at IS NOT NULL AS stop_requested \
              FROM workflow_run w JOIN subject s ON s.id = w.subject_id WHERE w.id = ?",
         )
         .bind(root)
@@ -107,7 +112,7 @@ impl Store {
         .fetch_all(&mut *snapshot)
         .await?;
         let executions: Vec<RawExecution> = sqlx::query_as(
-            "SELECT e.step_run_id, e.state, e.failure_class FROM execution e \
+            "SELECT e.step_run_id, e.state, e.failure_class, e.started_at FROM execution e \
              JOIN step_run s ON s.id = e.step_run_id JOIN workflow_run w ON w.id = s.workflow_run_id \
              WHERE w.root_run_id = ? ORDER BY e.step_run_id, e.attempt",
         )
@@ -122,6 +127,7 @@ impl Store {
             definition: run.definition_sha256,
             state: run_state(&run.state),
             cancel_requested: run.cancel_requested,
+            stop_requested: run.stop_requested,
             children,
             steps: steps.into_iter().map(StepRow::from).collect(),
             executions: executions.into_iter().map(ExecutionRow::from).collect(),
@@ -156,7 +162,7 @@ impl From<RawStep> for StepRow {
             loop_step: raw.loop_step_run_id,
             iteration: raw.iteration.map(number),
             state,
-            budget_base: usize::try_from(raw.budget_base).unwrap_or_default(),
+            budget_base: count(raw.budget_base),
         }
     }
 }
@@ -166,6 +172,7 @@ impl From<RawExecution> for ExecutionRow {
         ExecutionRow {
             state: execution_state(&raw.state, raw.failure_class.as_deref()),
             step: raw.step_run_id,
+            started_at: raw.started_at,
         }
     }
 }
@@ -175,15 +182,15 @@ pub(super) fn execution_state(state: &str, failure_class: Option<&str>) -> Execu
         ("queued", _) => ExecutionState::Queued,
         ("running", _) => ExecutionState::Running,
         ("succeeded", _) => ExecutionState::Succeeded,
-        ("failed", Some("transient")) => ExecutionState::Failed(FailureClass::Transient),
-        ("failed", Some("not_retryable")) => ExecutionState::Failed(FailureClass::NotRetryable),
-        ("failed", _) => ExecutionState::Failed(FailureClass::Retryable),
+        ("failed", class) => {
+            ExecutionState::Failed(class.map_or(FailureClass::Retryable, parse_failure_class))
+        }
         ("cancelled", _) => ExecutionState::Cancelled,
         _ => ExecutionState::Interrupted,
     }
 }
 
-fn run_state(state: &str) -> RunState {
+pub(super) fn run_state(state: &str) -> RunState {
     match state {
         "succeeded" => RunState::Succeeded,
         "cancelled" => RunState::Cancelled,
@@ -210,6 +217,14 @@ pub(super) fn block_reason_name(reason: BlockReason) -> &'static str {
         BlockReason::AttemptsExhausted => "attempts_exhausted",
         BlockReason::NotRetryable => "not_retryable",
         BlockReason::IterationsExhausted => "iterations_exhausted",
+    }
+}
+
+pub(super) fn parse_failure_class(name: &str) -> FailureClass {
+    match name {
+        "transient" => FailureClass::Transient,
+        "not_retryable" => FailureClass::NotRetryable,
+        _ => FailureClass::Retryable,
     }
 }
 

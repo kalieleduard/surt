@@ -1,10 +1,6 @@
-use std::io::{self, BufRead, Write};
-
 use surt_engine::project::CancelImpact;
 
-const PROMPT: &str = "[y/N] ";
-const ACCEPTED: [&str; 2] = ["y", "yes"];
-const SEPARATOR: &str = " · ";
+use crate::symbols::SEPARATOR;
 
 pub(super) fn question(subject: &str, impact: &CancelImpact) -> String {
     let mut stopped = vec![running(impact.executions)];
@@ -20,22 +16,9 @@ pub(super) fn question(subject: &str, impact: &CancelImpact) -> String {
     }
     format!(
         "cancel {subject}?\n  {}\n  worktrees are removed; task branches and salvage refs stay\n  \
-         starting over later needs a new feature: surt feature \"<description>\"\n",
+         starting over later needs a new run (surt feature {subject} --new-run)\n",
         stopped.join(SEPARATOR)
     )
-}
-
-pub(super) fn ask(
-    question: &str,
-    mut input: impl BufRead,
-    mut output: impl Write,
-) -> io::Result<bool> {
-    write!(output, "{question}{PROMPT}")?;
-    output.flush()?;
-    let mut answer = String::new();
-    input.read_line(&mut answer)?;
-    let answer = answer.trim().to_lowercase();
-    Ok(ACCEPTED.contains(&answer.as_str()))
 }
 
 fn running(executions: usize) -> String {

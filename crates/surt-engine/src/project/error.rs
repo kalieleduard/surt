@@ -2,9 +2,10 @@ use std::error::Error as StdError;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use super::ExecutionState;
 use crate::git::{GitError, GitVersion};
 use crate::store::StoreError;
-use crate::workflow::{FreezeError, InvalidDefinition};
+use crate::workflow::{FreezeError, InvalidDefinition, InvalidOverride};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -29,6 +30,24 @@ pub struct Candidate {
     pub name: String,
     pub states: Vec<RunState>,
     pub awaiting: Option<AwaitedRevision>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KnownRun {
+    pub run: u32,
+    pub states: Vec<RunState>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExecutionCandidate {
+    pub id: String,
+    pub subject: String,
+    pub run: u32,
+    pub item: Option<String>,
+    pub step: String,
+    pub iteration: Option<u32>,
+    pub attempt: u32,
+    pub state: ExecutionState,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -67,16 +86,31 @@ pub enum Refusal {
         line: Option<usize>,
         reason: String,
     },
-    MergeIntoBaseUnsupported {
-        path: PathBuf,
+    ActiveRunBlocksDelete {
+        subject: String,
+    },
+    RunLockBusy {
+        subject: String,
+    },
+    SubjectChangedWhileDeleting {
+        subject: String,
     },
     ActiveRunExists {
         subject: String,
+    },
+    UnrecordedEditsBlockNewRun {
+        subject: String,
+        run: u32,
+        files: Vec<String>,
     },
     DriverLive {
         subject: String,
         pid: Option<u32>,
         since: Option<i64>,
+    },
+    NoLiveDriver {
+        subject: String,
+        states: Vec<RunState>,
     },
     NoGateWaiting {
         subject: String,
@@ -104,8 +138,15 @@ pub enum Refusal {
         problem: String,
         files: Vec<String>,
     },
-    AgentOverrides {
-        path: PathBuf,
+    NotRestorable {
+        subject: String,
+        artifact: String,
+        restorable: Vec<String>,
+    },
+    TerminalRun {
+        subject: String,
+        run: u32,
+        files: Vec<String>,
     },
     UnknownSubject {
         reference: String,
@@ -113,6 +154,18 @@ pub enum Refusal {
     AmbiguousSubject {
         reference: String,
         candidates: Vec<Candidate>,
+    },
+    UnknownExecution {
+        reference: String,
+    },
+    ExecutionPrefixTooShort {
+        reference: String,
+        minimum: usize,
+        candidates: Vec<ExecutionCandidate>,
+    },
+    AmbiguousExecution {
+        reference: String,
+        candidates: Vec<ExecutionCandidate>,
     },
     UnknownArtifact {
         subject: String,
@@ -125,12 +178,32 @@ pub enum Refusal {
         revision: u32,
         latest: u32,
     },
+    UnknownRun {
+        subject: String,
+        run: u32,
+        runs: Vec<KnownRun>,
+    },
     UnknownItem {
         subject: String,
         item: String,
         known: Vec<String>,
     },
+    NoRevisionInIteration {
+        subject: String,
+        item: Option<String>,
+        artifact: String,
+        iteration: u32,
+        iterations: Vec<u32>,
+    },
+    UnknownFile {
+        subject: String,
+        artifact: String,
+        revision: u32,
+        path: String,
+        files: Vec<String>,
+    },
     InvalidDefinition(Box<InvalidDefinition>),
+    InvalidAgentOverride(Box<InvalidOverride>),
     IntegrationBranchMoved {
         subject: String,
         branch: String,

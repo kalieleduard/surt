@@ -6,7 +6,7 @@ Spec: [Milestone 1](../spec.md) (stories 87–93) · Slice: S5 Recovery and endi
 
 **Blocked by:** 16 (Reconcile on every driving command), 18 (Cleanup with pending retry)
 
-**Status:** ready-for-human
+**Status:** resolved
 
 - [x] `surt status` lists Features with an active run, their derived state (`RUNNING`, `AWAITING APPROVAL`, `BLOCKED`, `INTERRUPTED`), Driver and progress; `--all` adds terminal runs
 - [x] `surt status <feature>` shows the Base, the Integration Branch, each gate's Revision and Approval, and each Task's state, Iteration, Attempt and merged SHA; each blocked step prints its log path and resume command
@@ -14,8 +14,9 @@ Spec: [Milestone 1](../spec.md) (stories 87–93) · Slice: S5 Recovery and endi
 - [x] It warns when an agent is still running with no Driver, and shows pending integrations and cleanup pending
 - [x] `surt show <feature>` lists artifacts; `surt show <feature> <artifact> [--rev N] [--task <key>]` prints the content byte for byte to stdout and warns on stderr when the Working Copy holds an unrecorded edit
 - [x] A binary test hashes the database and the Working Copy before and after `status` and `show` and finds them identical
-- [ ] The full suite of the test strategy is green on the three OSes
+- [x] The full suite of the test strategy is green on the three OSes
 
 ## Comments
 
 - 2026-10-18 (orchestrator): Implemented and green on macOS. Open criterion: the full suite on Linux and Windows — waits for the first CI run of the matrix (needs the branch pushed). Merged into `integration/milestone-1` at a2f555d; code-review fixes at 931fc99.
+- 2026-10-18 (orchestrator): Resolved. The user validated the full suite on Linux and Windows.

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use sqlx::FromRow;
 
 use super::graph::execution_state;
-use super::{Checkpoint, Store, StoreError, unix_now};
+use super::{About, Checkpoint, Store, StoreError, record_event_data, unix_now};
 use crate::drive::graph::ExecutionState;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -120,18 +120,23 @@ impl Store {
         data: &serde_json::Value,
     ) -> Result<(), StoreError> {
         let mut transaction = self.begin_write().await?;
-        sqlx::query(
-            "INSERT INTO event (at, root_run_id, workflow_run_id, step_run_id, execution_id, kind, data) \
-             SELECT ?1, w.root_run_id, w.id, s.id, e.id, ?2, ?3 FROM execution e \
-             JOIN step_run s ON s.id = e.step_run_id \
-             JOIN workflow_run w ON w.id = s.workflow_run_id WHERE e.id = ?4",
-        )
-        .bind(unix_now())
-        .bind(kind)
-        .bind(data.to_string())
-        .bind(execution)
-        .execute(&mut *transaction)
-        .await?;
+        let about = About::Execution(execution);
+        record_event_data(&mut transaction, about, kind, unix_now(), data).await?;
         Ok(transaction.commit().await?)
+    }
+
+    pub(crate) async fn merged_children(
+        &self,
+        run: &str,
+    ) -> Result<Vec<(String, String)>, StoreError> {
+        Ok(sqlx::query_as(
+            "SELECT w.item_key, b.merged_as_sha FROM workflow_run w \
+             JOIN run_branch b ON b.workflow_run_id = w.id \
+             JOIN step_run p ON p.id = w.parent_step_run_id \
+             WHERE p.workflow_run_id = ? AND b.merged_as_sha IS NOT NULL ORDER BY w.item_key",
+        )
+        .bind(run)
+        .fetch_all(&self.pool)
+        .await?)
     }
 }

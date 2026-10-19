@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
-use super::AgentLaunch;
+use super::{AgentLaunch, RuntimeReport};
 
 #[derive(Clone, Debug)]
 pub struct RuntimeRequest {
@@ -53,6 +53,15 @@ pub enum Exit {
     Stopped,
 }
 
+impl Exit {
+    pub(crate) fn code(self) -> Option<i32> {
+        match self {
+            Exit::Code(code) => Some(code),
+            Exit::Stopped => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Initialization {
     pub(crate) session_id: Uuid,
@@ -65,11 +74,12 @@ pub struct FinalResult {
     pub(crate) structured_output: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum RuntimeEvent {
     Identified { version: String },
     Launched { pid: Option<u32> },
     Initialized(Initialization),
+    Reported(RuntimeReport),
 }
 
 pub type RuntimeEventSink = UnboundedSender<RuntimeEvent>;

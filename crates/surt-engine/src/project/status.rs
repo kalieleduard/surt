@@ -2,19 +2,21 @@ mod facts;
 mod gates;
 mod items;
 
+pub(in crate::project) use facts::{base as recorded_base, merge as recorded_merge};
 pub(super) use gates::origin;
 
 use std::path::PathBuf;
 
 use super::{
     BlockedStep, Commit, Error, GateStatus, IntegrationBranch, MergeIntoBase, Project,
-    RevisionOrigin, RunState,
+    RevisionOrigin, RunSelector, RunState,
 };
 use crate::cleanup::{Kept, Left};
-use crate::drive::{Frozen, StepLabel};
+use crate::drive::{BaseMerge, Frozen, StepLabel};
 use crate::git;
 use crate::platform;
-use crate::store::{RootRunRow, Store};
+use crate::runtime::FailureClass;
+use crate::store::{LastAgentEnd, RootRunRow, Store};
 
 const SUCCEEDED: &str = "succeeded";
 const CANCELLED: &str = "cancelled";
@@ -23,19 +25,23 @@ const CANCELLED: &str = "cancelled";
 pub enum StatusScope<'a> {
     Active,
     All,
-    Feature(&'a str),
+    Feature(&'a str, RunSelector),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RunStatus {
     pub subject: String,
     pub run: u32,
+    pub runs: u32,
     pub states: Vec<RunState>,
+    pub ended_at: Option<i64>,
     pub driver: Option<Driver>,
     pub base: Option<Commit>,
     pub branch: Option<IntegrationBranch>,
     pub merge_into_base: MergeIntoBase,
+    pub merge: Option<BaseMerge>,
     pub slots: AgentSlots,
+    pub paused: Option<LaunchPause>,
     pub gates: Vec<GateView>,
     pub items: Vec<ItemStatus>,
     pub blocked: Vec<BlockedStep>,
@@ -48,6 +54,12 @@ pub struct RunStatus {
 pub struct AgentSlots {
     pub in_use: u32,
     pub total: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaunchPause {
+    pub code: String,
+    pub resets_at: Option<i64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -73,6 +85,7 @@ pub struct GateView {
 pub struct RevisionSummary {
     pub number: u32,
     pub origin: RevisionOrigin,
+    pub sha256: String,
     pub files: Vec<String>,
 }
 
@@ -124,23 +137,37 @@ pub struct PendingIntegration {
 pub enum CleanupState {
     Pending { left: Vec<Left>, kept: Vec<Kept> },
     Finished { kept: Vec<Kept> },
+    Kept,
 }
 
 impl Project {
     pub async fn status(&self, scope: StatusScope<'_>) -> Result<Vec<RunStatus>, Error> {
-        let (subject, terminal) = match scope {
-            StatusScope::Active => (None, false),
-            StatusScope::All => (None, true),
-            StatusScope::Feature(reference) => {
-                (Some(self.resolve_subject(reference).await?.name), true)
+        let feature = match scope {
+            StatusScope::Feature(reference, run) => {
+                Some((self.resolve_subject(reference).await?.name, run))
             }
+            _ => None,
         };
         let store = self.reader().await?;
-        let statuses = self
-            .read_statuses(&store, subject.as_deref(), terminal)
-            .await;
+        let statuses = match &feature {
+            Some((subject, run)) => self.selected_status(&store, subject, *run).await,
+            None => {
+                self.read_statuses(&store, None, scope == StatusScope::All)
+                    .await
+            }
+        };
         store.close().await;
         statuses
+    }
+
+    async fn selected_status(
+        &self,
+        store: &Store,
+        subject: &str,
+        run: RunSelector,
+    ) -> Result<Vec<RunStatus>, Error> {
+        let run = self.select_run(store, subject, run).await?;
+        Ok(vec![self.run_status(store, &run).await?])
     }
 
     pub(super) async fn read_statuses(
@@ -156,7 +183,11 @@ impl Project {
         Ok(statuses)
     }
 
-    async fn run_status(&self, store: &Store, run: &RootRunRow) -> Result<RunStatus, Error> {
+    pub(super) async fn run_status(
+        &self,
+        store: &Store,
+        run: &RootRunRow,
+    ) -> Result<RunStatus, Error> {
         let root = run.id.as_str();
         let driver = run
             .driver()
@@ -169,24 +200,28 @@ impl Project {
             .blocked_steps(root)
             .await?
             .into_iter()
-            .map(|row| self.blocked_step(&run.subject, row))
+            .map(BlockedStep::from)
             .collect::<Vec<_>>();
         let waiting = !store.waiting_gates(root).await?.is_empty();
         let frozen = Frozen::from_files(store.frozen_files(root).await?)?;
         let slots = AgentSlots {
-            in_use: match driver {
-                Some(_) => store.running_agents(root).await?,
-                None => 0,
-            },
+            in_use: slots_in_use(store).await?,
             total: self.config.max_concurrent_agents.get(),
+        };
+        let paused = match driver {
+            Some(_) => store.last_agent_end(root).await?.and_then(pause),
+            None => None,
         };
         let readiness = items::Readiness {
             driven: driver.is_some(),
             slots_full: slots.in_use >= slots.total,
+            paused: paused.is_some(),
         };
         Ok(RunStatus {
             subject: run.subject.clone(),
             run: run.ordinal(),
+            runs: run.runs(),
+            ended_at: run.finished_at,
             states: states(&run.state, driver.is_some(), waiting, !blocked.is_empty()),
             base: facts::base(store, root).await?,
             branch: store
@@ -197,16 +232,42 @@ impl Project {
                     tip: branch.tip_sha,
                 }),
             merge_into_base: frozen.merge_into_base,
+            merge: facts::merge(store, root).await?,
             slots,
+            paused,
             gates: gates::views(store, &self.layout, run).await?,
             items: items::statuses(store, run, &frozen, readiness).await?,
             unattended: facts::unattended(store, root, driver.is_some()).await?,
             integrating: facts::integrating(store, root).await?,
-            cleanup: facts::cleanup(store, run).await?,
+            cleanup: facts::cleanup(store, run, frozen.on_success).await?,
             driver,
             blocked,
         })
     }
+}
+
+fn pause(end: LastAgentEnd) -> Option<LaunchPause> {
+    if end.failure_class() != Some(FailureClass::Transient) || end.started_after {
+        return None;
+    }
+    Some(LaunchPause {
+        code: end.error_code.unwrap_or_default(),
+        resets_at: end.resets_at.filter(|reset| *reset > end.finished_at),
+    })
+}
+
+async fn slots_in_use(store: &Store) -> Result<u32, Error> {
+    Ok(store
+        .slot_holders()
+        .await?
+        .iter()
+        .filter(|holders| {
+            holders
+                .driver()
+                .is_some_and(|driver| platform::is_alive(&driver))
+        })
+        .map(|holders| holders.agents())
+        .sum())
 }
 
 fn states(stored: &str, driven: bool, waiting: bool, blocked: bool) -> Vec<RunState> {

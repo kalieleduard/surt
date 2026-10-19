@@ -1,6 +1,21 @@
+mod executions;
+
 use super::naming::without_date;
-use super::{AwaitedRevision, Candidate, Error, GateStatus, Project, Refusal, RunId, RunStatus};
-use crate::store::{Store, SubjectRow};
+use super::{
+    AwaitedRevision, Candidate, Error, GateStatus, KnownRun, Project, Refusal, RunId, RunStatus,
+};
+use crate::cleanup;
+use crate::store::{RootRunRow, Store, SubjectRow};
+
+pub use executions::Reference;
+pub(crate) use executions::resolve as resolve_execution_in;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RunSelector {
+    #[default]
+    Current,
+    Ordinal(u32),
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Subject {
@@ -40,6 +55,55 @@ impl Project {
         }
     }
 
+    pub(super) async fn select_run(
+        &self,
+        store: &Store,
+        subject: &str,
+        selector: RunSelector,
+    ) -> Result<RootRunRow, Error> {
+        let runs = match selector {
+            RunSelector::Current => store.runs_to_show(Some(subject), true).await?,
+            RunSelector::Ordinal(_) => store.root_runs(subject).await?,
+        };
+        let found = runs.iter().find(|run| match selector {
+            RunSelector::Current => true,
+            RunSelector::Ordinal(ordinal) => run.ordinal() == ordinal,
+        });
+        match (found, selector) {
+            (Some(run), _) => Ok(run.clone()),
+            (None, RunSelector::Ordinal(run)) => {
+                Err(self.unknown_run(store, subject, run, &runs).await?)
+            }
+            (None, RunSelector::Current) => Err(Refusal::UnknownSubject {
+                reference: subject.to_owned(),
+            }
+            .into()),
+        }
+    }
+
+    async fn unknown_run(
+        &self,
+        store: &Store,
+        subject: &str,
+        run: u32,
+        runs: &[RootRunRow],
+    ) -> Result<Error, Error> {
+        let mut known = Vec::new();
+        for row in runs {
+            let status = self.run_status(store, row).await?;
+            known.push(KnownRun {
+                run: status.run,
+                states: status.states,
+            });
+        }
+        Ok(Refusal::UnknownRun {
+            subject: subject.to_owned(),
+            run,
+            runs: known,
+        }
+        .into())
+    }
+
     async fn candidates(&self, subjects: &[&Subject]) -> Result<Vec<Candidate>, Error> {
         let store = self.reader().await?;
         let candidates = self.read_candidates(&store, subjects).await;
@@ -62,9 +126,9 @@ impl Project {
 
     async fn subjects(&self) -> Result<Vec<Subject>, Error> {
         let store = self.reader().await?;
-        let rows = store.subjects().await;
+        let subjects = read_subjects(&store).await;
         store.close().await;
-        Ok(rows?.into_iter().map(Subject::from).collect())
+        subjects
     }
 }
 
@@ -82,6 +146,20 @@ fn candidate(name: &str, status: Option<RunStatus>) -> Candidate {
         }),
         states: status.map(|status| status.states).unwrap_or_default(),
     }
+}
+
+async fn read_subjects(store: &Store) -> Result<Vec<Subject>, Error> {
+    let mut subjects = Vec::new();
+    for row in store.subjects().await? {
+        let mut subject = Subject::from(row);
+        if let Some(run) = &subject.pending_cleanup
+            && cleanup::is_kept(store, run).await?
+        {
+            subject.pending_cleanup = None;
+        }
+        subjects.push(subject);
+    }
+    Ok(subjects)
 }
 
 fn matching(subjects: &[Subject], matches: impl Fn(&str) -> bool) -> Vec<&Subject> {

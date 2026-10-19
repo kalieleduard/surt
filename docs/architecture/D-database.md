@@ -108,7 +108,7 @@ No table, column or value names Feature, Task, Spec, Builder, Reviewer or Shippe
 - An agent Execution references its Agent's frozen snapshot (`agent_snapshot_sha256`). An Operation Execution references its `operation_id`. Only agent Executions can be `queued` or hold a `slot`.
 - A `failed` Execution has a `failure_class` (`retryable`, `not_retryable` or `transient`), which the Agent Runtime or Operation sets. A `transient` failure does not count toward the Attempt limit ([I](I-recovery.md#transient-failures-network-and-rate-limits)). `error_code` and `error_message` are its diagnosis.
 - `pid`, `process_start_time` and `process_boot_id` identify the process tree so recovery can stop an orphan without mistaking a reused pid ([A. Process Model](A-process-model.md#orphaned-agents)). An Operation that spawns a long-running tree (a Check) records that tree's identity in the same columns while it runs.
-- `runtime_info` is JSON: Claude Code version, session id, reported model, requested effort, exit code, turn count, usage, cost, permission denials. It is what `inspect` shows when the log files are gone ([I. Cleanup](I-cleanup.md#logs)). Unknown values are absent, never zero ([F](F-agent-contract.md)).
+- `runtime_info` is JSON: Claude Code version, session id, reported model, requested effort, exit code, turn count, usage, cost, permission denials. It is what `inspect` shows when the log files are gone ([I. Cleanup](I-cleanup.md#logs)). Unknown values are absent, never zero ([F](F-agent-contract.md)). The keys are `runtime_version`, `session_id`, `model` (as the runtime reported it), `effort` (as Surt requested it), `exit_code` (absent when Surt stopped the process), `turns`, `usage` (the reported `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`), `cost_usd`, `permission_denials` (the reported array, each entry cut to `tool_name` and `tool_use_id`; the tool input is never stored) and, for a transient failure, `resets_at`. The runtime reports them once, when its process ends, whether or not a result event arrived; the Fake reports `session_id`, `model` and `exit_code`.
 
 ### Artifacts, Revisions and Approvals
 
@@ -133,7 +133,7 @@ A snapshot is a set of files with an identity hash, shared by every run that fro
 |---|---|---|
 | `workflow` | the canonical definition | SHA-256 of the canonical form ([E](E-workflow-schema.md#freezing-and-identity)) |
 | `agent` | effective `agent.toml`, instructions and every local schema it references | as in [F](F-agent-contract.md) |
-| `config` | the effective project configuration frozen at root run creation: `[[checks]]`, `max_attempts`, `max_iterations`, `[git] merge_into_base` and any per-run override | SHA-256 of its canonical form |
+| `config` | the effective project configuration frozen at root run creation: `[[checks]]`, `max_attempts`, `max_iterations`, `[git] merge_into_base`, the effective `[cleanup] on_success` ([I](I-cleanup.md#when-cleanup-runs)) and any per-run override | SHA-256 of its canonical form |
 
 `run_snapshot` lists what a root run froze. `workflow_run.definition_sha256`, `workflow_run.config_sha256` and `execution.agent_snapshot_sha256` point at snapshots. The engine guarantees they belong to their root's `run_snapshot` set; a foreign key cannot express that.
 
@@ -168,8 +168,40 @@ $ surt inspect 20261017-add-login B
 16:10:00  step.unblocked      budget_base 3
 ```
 
-- `kind` is an open set, not a CHECK, so a new kind needs no table rebuild. Initial kinds: `run.created`, `run.cancel_requested`, `run.stop_requested`, `run.cancelled`, `run.succeeded`, `driver.started`, `driver.stopped`, `driver.recovered`, `intention.confirmed`, `intention.discarded`, `worktree.salvaged`, `worktree.repaired`, `agents.paused`, `agents.resumed`, `iteration.started`, `step.running`, `step.done`, `step.skipped`, `step.blocked`, `step.unblocked`, `step.cancelled`, `execution.queued`, `execution.started`, `execution.succeeded`, `execution.failed`, `execution.interrupted`, `execution.cancelled`, `execution.orphan_stopped`, `revision.published`, `revision.pinned`, `working_copy.edit_detected`, `working_copy.edit_refused`, `approval.recorded`, `cleanup.finished`, `cleanup.incomplete`.
+- `kind` is an open set, not a CHECK, so a new kind needs no table rebuild. Initial kinds: `run.created`, `run.cancel_requested`, `run.stop_requested`, `run.cancelled`, `run.succeeded`, `driver.started`, `driver.stopped`, `driver.recovered`, `intention.confirmed`, `intention.discarded`, `worktree.salvaged`, `worktree.repaired`, `agents.paused`, `agents.resumed`, `iteration.started`, `step.running`, `step.done`, `step.skipped`, `step.blocked`, `step.unblocked`, `step.cancelled`, `execution.queued`, `execution.started`, `execution.succeeded`, `execution.failed`, `execution.interrupted`, `execution.cancelled`, `execution.orphan_stopped`, `revision.published`, `revision.pinned`, `working_copy.edit_detected`, `working_copy.edit_refused`, `working_copy.restored`, `working_copy.written`, `ref_move.intended`, `approval.recorded`, `cleanup.finished`, `cleanup.incomplete`.
 - A trigger aborts any `UPDATE`. Rows leave only with their Subject.
+- Every insert goes through one store helper that takes the kind and its `data`.
+
+#### Event data
+
+`data` holds display details only, written with the event. A timeline renders from it without joins. The engine never reads it to decide anything; `status` only shows the last `cleanup.*` event's lists. A missing field, or the `{}` of a Milestone 1 event, renders as the bare kind. Kinds not listed carry `{}`.
+
+| Kind | `data` |
+|---|---|
+| `run.created` | root run: `base` (the `base` Initial Artifact's JSON, e.g. `{"ref", "sha"}`), `actor`; child run: `item` |
+| `run.cancel_requested`, `run.stop_requested` | `actor` |
+| `driver.started`, `driver.stopped` | `pid`. `driver.stopped` is written on every Driver exit that returns normally after `driver.started`; a crash or a kill writes none |
+| `driver.recovered` | `previous_pid`, `found`: one object per finding, each with `kind`, `step`, `item`, `iteration` plus `attempt` and `pid` (`orphan_stopped`), `attempt` (`discarded`, `interrupted_with_driver`), `branch` and `merge` (`integration_recorded`), `attempt` and `code` (`attempt_failed`). Written only when reconciliation found something |
+| `ref_move.intended`, `intention.confirmed`, `intention.discarded` for a ref move | `intention` = `ref_move`, `ref`, `old_sha`, `new_sha`, and `worktree_path` when the move is a checkout in that worktree. Confirmed when the Operation's result deletes the row, discarded when the row is deleted because the move did not happen or happened elsewhere |
+| `intention.confirmed`, `intention.discarded` for a run's branch | `intention` = `run_branch`, `ref`, `sha` (the recorded tip), `found` (the ref's SHA before settling, `null` when absent), `worktree` for a child run. Written when an Attempt finds the `run_branch` row an earlier Attempt recorded: confirmed when the branch (and worktree) is now in place, discarded when it is not |
+| `iteration.started` | `iteration`, `cause`: `loop_started` for the first, else `until_not_met` with the `until` `step` and its `outcome` in the previous Iteration |
+| `step.done` | `outcome`. For `git.merge_into_base` also `reason` on `skipped` (`disabled`, `no_base_branch`, `base_moved`, `worktree_not_clean`) with `found` (the branch's SHA, `null` when it is gone) on `base_moved` and `worktree` (the worktree's path, display only) on `worktree_not_clean`, or `from` and `to` on `merged` ([A](A-git-integration.md#merging-into-the-base-opt-in)) |
+| `step.blocked` | `reason` |
+| `step.unblocked` | `budget_base`, the new budget base |
+| `execution.started` | `attempt`, and `slot` and `runtime` (`claude-code`, `fake`) for an agent or `operation` for an Operation |
+| `execution.succeeded` | `outcome` |
+| `execution.failed` | `code`, `message` |
+| `execution.orphan_stopped` | `pid` |
+| `agents.paused` | on the root run, once an agent waits for the pause and again whenever its end moves later: `until` (Unix seconds), `code` (the error code of the failure that set `until`), `backoff_step` (1 for the first step; absent when the reset time came from the stream), `waiting` (agent Step Runs ready to launch) |
+| `agents.resumed` | on the root run: `paused_seconds`, from the first `agents.paused` of the pause to the resume |
+| `worktree.repaired` | `path`, `repair` |
+| `worktree.salvaged` | `ref`, the Salvage Ref |
+| `revision.published` | `artifact`, `revision` (its number), `origin` = `execution` |
+| `working_copy.edit_detected` | `artifact`, `revision`, `origin` = `human`, `actor` |
+| `working_copy.edit_refused` | `artifact`, `files`, `reason`: `pinned` with `revision`, or `invalid` with `problem` |
+| `working_copy.restored` | `artifact`, `revision` restored, and the paths it rewrote: `changed`, `new` (removed), `missing` (recreated) |
+| `approval.recorded` | `decision` (`approve`, `reject`), `artifact`, `revision`, `actor`, `reason` (first line of a rejection's reason, else `null`) |
+| `cleanup.finished`, `cleanup.incomplete` | `kept`, and `left` when incomplete |
 
 ## When rows are created
 

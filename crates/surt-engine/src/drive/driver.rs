@@ -3,16 +3,22 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+use serde_json::json;
 use tokio::sync::Mutex;
 
+use super::activity::SlotUsage;
 use super::decide::{self, Action, Ctx, RunEnd};
 use super::ending;
 use super::flights::Flights;
 use super::frozen::{CorruptSnapshot, Frozen};
 use super::graph::{RunId, StepRunId};
+use super::limit::LiveLimit;
 use super::load::Loaded;
 use super::operate::Flight;
-use super::outcome::{DriveOutcome, Progress, ProgressSink};
+use super::outcome::{ActivitySnapshot, DriveOutcome, Progress, ProgressSink};
+use super::pausing::{PauseTracker, unix_now};
+use super::recovered;
+use super::slots::FreeSlots;
 use crate::artifacts::working_copy::{WorkingCopy, finish_pending_writes};
 use crate::platform;
 use crate::project::{Error, Layout, Refusal};
@@ -23,6 +29,7 @@ use crate::workflow::{Catalog, Definition};
 
 const TICK: Duration = Duration::from_secs(1);
 const DONE: &str = "done";
+const DRIVER_STOPPED: &str = "driver.stopped";
 
 pub(crate) struct Driving<'a> {
     pub(crate) store: &'a Store,
@@ -32,6 +39,7 @@ pub(crate) struct Driving<'a> {
     pub(crate) worktrees: Option<PathBuf>,
     pub(crate) actor: &'a str,
     pub(crate) catalog: &'a Catalog,
+    pub(crate) stop_grace_period: Duration,
 }
 
 pub(super) struct Driver<'a, R> {
@@ -44,6 +52,8 @@ pub(super) struct Driver<'a, R> {
     pub(super) agents: StopSignal,
     pub(super) cancelling: AtomicBool,
     pub(super) branches: Mutex<()>,
+    pub(super) activity: std::sync::Mutex<Option<ActivitySnapshot>>,
+    pub(super) pause: std::sync::Mutex<PauseTracker>,
 }
 
 enum Tick {
@@ -69,13 +79,30 @@ pub(crate) async fn drive<R: AgentRuntime>(
     if let Some(outcome) = ending::ended_before(&driving, &progress).await? {
         return Ok(outcome);
     }
-    let store = driving.store;
+    let (store, root) = (driving.store, driving.root);
     let reconcile = Reconcile {
         store,
         repository: driving.layout.root(),
-        root: driving.root.as_str(),
+        root: root.as_str(),
+        stop_grace_period: driving.stop_grace_period,
     };
     recover(&driving, &reconcile, &progress).await?;
+    let outcome = drive_recovered(driving, &reconcile, runtime, progress, stop).await?;
+    let stopped = json!({ "pid": std::process::id() });
+    store
+        .record_run_event(root.as_str(), DRIVER_STOPPED, &stopped)
+        .await?;
+    Ok(outcome)
+}
+
+async fn drive_recovered<R: AgentRuntime>(
+    driving: Driving<'_>,
+    reconcile: &Reconcile<'_>,
+    runtime: &R,
+    progress: ProgressSink,
+    stop: StopSignal,
+) -> Result<DriveOutcome, Error> {
+    let store = driving.store;
     let frozen = Frozen::from_files(store.frozen_files(driving.root.as_str()).await?)?;
     let working_copy =
         WorkingCopy::load(store, driving.layout, driving.root.as_str(), &frozen).await?;
@@ -89,6 +116,8 @@ pub(crate) async fn drive<R: AgentRuntime>(
         agents: StopSignal::new(),
         cancelling: AtomicBool::new(false),
         branches: Mutex::new(()),
+        activity: std::sync::Mutex::new(None),
+        pause: std::sync::Mutex::new(PauseTracker::default()),
     };
     if let Some(refusal) = driver.guard().await? {
         return Ok(DriveOutcome::Halted(refusal));
@@ -116,6 +145,11 @@ async fn recover(
     let found = reconcile.settle().await?;
     if !found.is_empty() {
         let driver = previous.and_then(|pid| u32::try_from(pid).ok());
+        let data = recovered::recovered(driver, &found);
+        let root = driving.root.as_str();
+        store
+            .record_run_event(root, recovered::DRIVER_RECOVERED, &data)
+            .await?;
         let _ = progress.send(Progress::Recovering { driver });
         for recovered in found {
             let _ = progress.send(recovered);
@@ -142,25 +176,36 @@ impl<R: AgentRuntime> Driver<'_, R> {
     }
 
     async fn run(&self) -> Result<DriveOutcome, Error> {
-        let mut flights = Flights::new(self.driving.max_agents);
+        let mut flights = Flights::new();
+        let config = self.driving.layout.config();
+        let mut live = LiveLimit::new(config, self.driving.max_agents);
         loop {
             let level = self.stop.level();
             self.agents.raise(level);
             if level == StopLevel::Force {
                 return Ok(DriveOutcome::Interrupted);
             }
-            let free_slots = flights.free_slots();
-            let (tick, landed) = flights.alongside(self.tick(free_slots)).await;
+            let limit = live.reread(|warning| self.report(warning));
+            let held = flights.held();
+            let mut free = FreeSlots::take(self.driving.layout, limit, &held)?;
+            let slots = SlotUsage::counted(limit, free.len(), &held);
+            let (tick, landed) = flights.alongside(self.tick(free.indices(), slots)).await;
             let stale = !landed.is_empty();
             settle(landed)?;
-            match tick? {
-                Tick::Again => {}
-                Tick::Wait | Tick::Return(_) if stale => {}
+            let tick = match tick? {
                 Tick::Launched(launches) => {
                     for flight in launches {
-                        flights.push(flight.slot(), self.fly(flight));
+                        let slot = flight.slot().and_then(|index| free.claim(index));
+                        flights.push(slot, self.fly(flight));
                     }
+                    continue;
                 }
+                unlaunched => unlaunched,
+            };
+            drop(free);
+            match tick {
+                Tick::Again | Tick::Launched(_) => {}
+                Tick::Wait | Tick::Return(_) if stale => {}
                 Tick::Return(outcome) if flights.is_empty() => return Ok(outcome),
                 Tick::Return(_) | Tick::Wait => self.wait(&mut flights, level).await?,
                 Tick::Cancel => self.cancel(&mut flights).await?,
@@ -173,9 +218,10 @@ impl<R: AgentRuntime> Driver<'_, R> {
         F: Future<Output = Result<(), Error>>,
     {
         let busy = !flights.is_empty();
+        let nap = self.pause_left().map_or(TICK, |left| left.min(TICK));
         tokio::select! {
             landed = flights.landed(), if busy => settle(landed),
-            () = tokio::time::sleep(TICK) => Ok(()),
+            () = tokio::time::sleep(nap) => Ok(()),
             () = self.stop.raised_above(seen) => Ok(()),
         }
     }
@@ -192,17 +238,23 @@ impl<R: AgentRuntime> Driver<'_, R> {
         Ok(self.driving.store.cancel_run(self.driving.root).await?)
     }
 
-    async fn tick(&self, free_slots: Vec<usize>) -> Result<Tick, Error> {
+    async fn tick(&self, free_slots: Vec<usize>, slots: SlotUsage) -> Result<Tick, Error> {
         let rows = self.driving.store.run_rows(self.driving.root).await?;
+        self.read_stop_request(rows.stop_requested);
         let lists = self.item_lists(&rows).await?;
         let loaded = Loaded::new(&self.frozen, rows, &lists)?;
+        let now = unix_now();
         let ctx = Ctx {
             limits: self.frozen.limits,
             free_slots,
             stop: stop_level(self.stop.level()),
+            paused_until: self.paused_until(now).await?,
+            now,
         };
         let mut launches = Vec::new();
-        let actions = decide::decide(&loaded.graph, &ctx);
+        let decision = decide::decision(&loaded.graph, &ctx);
+        self.announce(&ctx, decision.queued).await?;
+        let actions = decision.actions;
         if let Some(refusal) = self.guard_readers(&actions).await? {
             return Ok(Tick::Return(DriveOutcome::Halted(refusal)));
         }
@@ -222,7 +274,11 @@ impl<R: AgentRuntime> Driver<'_, R> {
                     end: RunEnd::Cancelled,
                     ..
                 } => return Ok(Tick::Cancel),
-                Action::Wait => return Ok(Tick::Wait),
+                Action::Wait => {
+                    let paused = self.activity_pause(ctx.paused_until);
+                    self.observe(&loaded, decision.queued, slots, paused);
+                    return Ok(Tick::Wait);
+                }
                 Action::Return(outcome) => {
                     return Ok(Tick::Return(self.public(&loaded, outcome)?));
                 }
@@ -233,6 +289,13 @@ impl<R: AgentRuntime> Driver<'_, R> {
             Ok(Tick::Again)
         } else {
             Ok(Tick::Launched(launches))
+        }
+    }
+
+    fn read_stop_request(&self, requested: bool) {
+        if requested && self.stop.level() == StopLevel::None {
+            self.stop.graceful();
+            self.report(Progress::StopRequested);
         }
     }
 

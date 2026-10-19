@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use super::{environment, rules};
 use crate::runtime::{FailureClass, RuntimeError, RuntimeRequest};
-use crate::workflow::{Auth, ClaudeProfile, Effort, PermissionMode};
+use crate::workflow::{Auth, ClaudeProfile};
 
 const STRUCTURED_OUTPUT_TOOL: &str = "StructuredOutput";
 const INSTRUCTIONS_FILE: &str = "instructions.md";
@@ -28,6 +28,7 @@ pub(super) struct Invocation {
 pub(super) struct Expectation {
     pub(super) session_id: Uuid,
     pub(super) model: String,
+    pub(super) effort: &'static str,
     pub(super) permission_mode: &'static str,
     pub(super) tools: BTreeSet<String>,
     pub(super) subscription: bool,
@@ -74,7 +75,8 @@ impl Expectation {
         Expectation {
             session_id: request.session_id,
             model: request.model.clone(),
-            permission_mode: permission_mode(claude.permission_mode),
+            effort: request.launch.profile.effort.name(),
+            permission_mode: claude.permission_mode.name(),
             tools,
             subscription: claude.auth == Auth::Subscription,
         }
@@ -95,9 +97,9 @@ fn arguments(request: &RuntimeRequest, claude: &ClaudeProfile) -> Vec<OsString> 
         "--model",
         &request.model,
         "--effort",
-        effort(launch.profile.effort),
+        launch.profile.effort.name(),
         "--permission-mode",
-        permission_mode(claude.permission_mode),
+        claude.permission_mode.name(),
         "--permission-prompts",
         "none",
         "--tools",
@@ -187,21 +189,4 @@ fn claude_profile(request: &RuntimeRequest) -> Result<&ClaudeProfile, RuntimeErr
             "the agent profile has no [profile.claude] table for the claude-code runtime",
         )
     })
-}
-
-fn permission_mode(mode: PermissionMode) -> &'static str {
-    match mode {
-        PermissionMode::DontAsk => "dontAsk",
-        PermissionMode::BypassPermissions => "bypassPermissions",
-    }
-}
-
-fn effort(effort: Effort) -> &'static str {
-    match effort {
-        Effort::Low => "low",
-        Effort::Medium => "medium",
-        Effort::High => "high",
-        Effort::Xhigh => "xhigh",
-        Effort::Max => "max",
-    }
 }

@@ -71,6 +71,41 @@ Project-local files are optional:
 
 The binary contains complete defaults for `spec`, `tasks`, `builder`, `reviewer` and `shipper`. Local files replace or override those defaults; Surt does not overwrite them on upgrade. A schema path is relative to its agent's asset directory. Only local schema assets are supported: no network references. Freeze the transitive closure of local schema references too. Revisions are stored as content-addressed blobs in SQLite ([H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md)); the physical tables, including agent snapshots, are in [D. Database Schema](D-database.md#snapshots).
 
+**When they are read.** `Project::create_run` reads `.surt/agents/` when a root run is created (`surt feature "<description>"`, `surt feature <feature> --new-run`) and nowhere else; driving commands never look at the directory, and a run keeps the Agents it froze whatever happens to the files afterwards. The merged `agent.toml` must satisfy the complete schema with `deny_unknown_fields` at every level and the profile checks of [Model and effort validation](#model-and-effort-validation) and [Effective `agent.toml`](#effective-agenttoml). Any failure refuses the creation with `InvalidAgentOverride` (exit `3`, no row written), which carries the project-relative file, the field path when one applies (`profile.limits.max_turns`) and the reason:
+
+```
+$ surt feature "add login"
+✖ .surt/agents/builder/agent.toml: profile.effort: unknown variant `huge`, expected one of `low`, `medium`, `high`, `xhigh`, `max`
+  fix: edit .surt/agents/builder/agent.toml
+```
+
+A local `agent.toml` with CRLF line endings freezes to the same identity as its LF version, because the snapshot stores the canonical effective TOML.
+
+**Directory hygiene.** Every entry directly under `.surt/agents/` must be a directory named by a built-in Agent id; anything else (a misspelt directory, a stray `builder.toml`) refuses with the entry's path and the list of known ids. Inside an Agent directory only `agent.toml`, `instructions.md` and files under `schemas/` are allowed; any other file, at any depth, refuses naming it, with `fix: rename or remove <file>`. Empty directories carry no files, so an empty `.surt/agents/` or an empty `<id>/` is no override. A `git` placeholder file, `.gitkeep` or `.keep`, is ignored wherever it is under `.surt/agents/`: it is never a stray file, never a schema and never listed as a local file. A local `agent.toml` that sets `id` must set it to its directory name.
+
+**Instructions and schemas.** A local `instructions.md` is frozen as read and is the text the Context Assembler hands to the runtime. A schema path in the effective `agent.toml` resolves in this order: the local file `.surt/agents/<id>/<path>` when it exists, otherwise the built-in asset of the same path; a path found in neither refuses with `InvalidAgentOverride` naming the file that declared it. Schemas the project did not override stay in effect, so overriding `agent.toml` alone keeps the built-in validation. Every local schema's `$ref`s are followed transitively with the same resolution order, relative to the referring schema's directory; a reference with a scheme (`https://`, `file:`), an absolute path or a path that leaves the agent's directory is refused naming the local schema, so freezing a run never touches the network. Every local schema must also be valid JSON that compiles as a Draft 7 JSON Schema against that closure; one that does not refuses with `InvalidAgentOverride` naming the local schema before anything is written, rather than at the first delivery. The closure is frozen with the Agent, and a delivery is validated against it from the snapshot alone.
+
+**Test-only runtime.** An effective profile of an overridden Agent with `runtime = "fake"` is accepted only when the engine is built with the `test-support` feature; a release build refuses it at `profile.runtime` as a test-only runtime, so a stray test profile never reaches production.
+
+**Workflow validation and delivery checks.** After merging, the built-in workflow closure of the new root run is validated against the effective Agents exactly as for the built-ins: Outcomes named by `until` and `when`, inputs and outputs by name, Item List files. The `Catalog`'s delivery checks are part of that validation: every Agent a workflow step runs must declare each output a delivery check names as a `json` output, and the Outcome `NoBlockingFinding` names. A built-in that fails is an `InvalidDefinition`; when only the effective Agents fail, the refusal is `InvalidAgentOverride` on the override that breaks it and names the workflow step that no longer validates, with the field of that step that needs the Agent (`when`, `until`, `input` or `delivery check`). The overrides are applied one Agent at a time, in Agent id order, over the built-ins; the first Agent whose override makes the closure fail is blamed, whether it overrides `agent.toml`, `instructions.md` or a schema, and the refusal names that Agent's `agent.toml` when it has one, otherwise its first local file:
+
+```
+$ surt feature "add login"
+✖ .surt/agents/reviewer/agent.toml: a delivery check needs the outcome "approved"
+  needed by: task-cycle step review (delivery check)
+  fix: edit .surt/agents/reviewer/agent.toml
+```
+
+An override that leaves a `when` or `until` waiting for an Outcome the Agent no longer declares reads `outcomes no longer include "<outcome>"`. Because tables merge by key and there is no deletion syntax, an override can replace `outcomes` but cannot remove an input or output; it can still add a required input nothing supplies, or change the format of an output a delivery check reads, and both refuse the same way.
+
+**The creation line.** `create_run` reports which Agents used local files and which ones. The creation line of `surt feature "<description>"` and of `--new-run` lists them, and prints nothing when there are none:
+
+```
+$ surt feature "add login"
+✔ created 20261017-add-login   base: main @ a11c9d0
+  local agents: builder (agent.toml), reviewer (instructions.md, schemas/feedback.schema.json)
+```
+
 ## Agent Profile
 
 An Agent has exactly one Agent Profile, the `[profile]` table of its `agent.toml`. It describes how to execute the Agent: runtime, model, effort, permissions and optional limits. There are no named profiles, no default-profile selection and no escalation:

@@ -2,6 +2,7 @@ mod classification;
 mod environment;
 mod initialization;
 mod invocation;
+mod report;
 mod rules;
 mod supervision;
 mod transcript;
@@ -18,15 +19,11 @@ use tokio::process::ChildStdin;
 
 use super::{
     AgentRuntime, FailureClass, RuntimeCompletion, RuntimeError, RuntimeEvent, RuntimeEventSink,
-    RuntimeRequest, StopSignal,
+    RuntimeRequest, STDERR_LOG, STREAM_LOG, StopSignal,
 };
 use crate::platform;
 use invocation::Invocation;
 use transcript::{Observation, Transcript};
-
-const STOP_GRACE_PERIOD: Duration = Duration::from_secs(10);
-const STREAM_LOG: &str = "stream.jsonl";
-const STDERR_LOG: &str = "stderr.log";
 
 #[derive(Clone, Debug)]
 pub struct ClaudeCodeRuntime {
@@ -39,19 +36,12 @@ impl ClaudeCodeRuntime {
     pub fn new(
         executable: impl Into<PathBuf>,
         environment: impl IntoIterator<Item = (OsString, OsString)>,
+        stop_grace_period: Duration,
     ) -> ClaudeCodeRuntime {
         ClaudeCodeRuntime {
             executable: executable.into(),
             environment: environment.into_iter().collect(),
-            stop_grace_period: STOP_GRACE_PERIOD,
-        }
-    }
-
-    #[cfg(all(test, unix, feature = "test-support"))]
-    pub(crate) fn with_stop_grace_period(self, stop_grace_period: Duration) -> ClaudeCodeRuntime {
-        ClaudeCodeRuntime {
             stop_grace_period,
-            ..self
         }
     }
 }
@@ -92,7 +82,9 @@ impl AgentRuntime for ClaudeCodeRuntime {
             drain(stderr, stderr_log),
             supervision::supervise(child, &stop, &incompatible, self.stop_grace_period),
         );
-        transcript.conclude(exit?)
+        let exit = exit?;
+        let _ = events.send(RuntimeEvent::Reported(transcript.report(exit)));
+        transcript.conclude(exit)
     }
 }
 

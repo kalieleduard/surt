@@ -11,7 +11,6 @@ impl Project {
         progress: ProgressSink,
         stop: StopSignal,
     ) -> Result<DriveOutcome, Error> {
-        self.refuse_agent_overrides()?;
         supported_git().await?;
         let actor = self.actor().await?;
         let store = self.store().await?;
@@ -27,6 +26,7 @@ impl Project {
                 .map(|worktrees| worktrees.join(&self.id)),
             actor: &actor,
             catalog: &self.catalog,
+            stop_grace_period: self.stop_grace_period(),
         };
         let outcome = drive::drive(driving, runtime, progress, stop).await;
         store.close().await;

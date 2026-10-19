@@ -1,6 +1,9 @@
 mod candidate;
 mod disk;
+mod lines;
 mod pending;
+mod refusal;
+pub(crate) mod restoring;
 mod revalidation;
 
 use std::io;
@@ -130,10 +133,14 @@ impl WorkingCopy {
         inspection: &Inspection,
         actor: &str,
     ) -> Result<Option<RecordedEdit>, Error> {
-        if let Some(revision) = artifact.pinned {
-            return Err(self.pinned(artifact, revision, inspection));
-        }
-        let files = self.candidate(store, gated, artifact, inspection).await?;
+        let checked = match artifact.pinned {
+            Some(revision) => Err(self.pinned(artifact, revision, inspection)),
+            None => self.candidate(store, gated, artifact, inspection).await,
+        };
+        let files = match checked {
+            Ok(files) => files,
+            Err(error) => return Err(self.refused(store, error).await),
+        };
         let record = EditRecord {
             artifact,
             files: &files,

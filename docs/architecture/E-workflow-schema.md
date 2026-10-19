@@ -27,6 +27,8 @@ when = { step = "check", outcome = "passed" }   # optional: run only on this Out
 agent = "reviewer"            # the fields of the kind
 ```
 
+`[cleanup] on_success` parses `"clean"` and `"keep"`, and the canonical form keeps the value. The **effective policy** of a root run is the project configuration's `[cleanup] on_success` when it is set ([J](J-cli.md#configuration)), else the root Workflow Definition's (`clean` for the built-in `feature`). Child definitions' values are not consulted: cleanup is per root run ([I](I-cleanup.md#when-cleanup-runs)). The effective policy is frozen into the `config` snapshot when the root run is created.
+
 The `toml` crate is used with `preserve_order`. File order matters only for display, never for semantics. Unknown fields are errors (`deny_unknown_fields`).
 
 Only the built-in definitions (`feature`, `task-cycle`) exist, and they ship inside the binary. Project-level overrides and custom workflows are out of scope for this plan. The schema does not prevent them.
@@ -305,5 +307,5 @@ Operations, Checks, the `check-report` and `conflict` artifacts, and the opt-in 
 - Iteration and Attempt limits, Task blocking, and what a blocked child means for its dependents: [G. State Machines](G-state-machines.md).
 - Revalidation after an approved artifact is edited: [H. Artifact Storage, Freezing and Revalidation](H-artifact-storage.md).
 - Operation registry, Integration Branch, Checks, item key constraints: [A. Git Integration](A-git-integration.md) ([Git integration model](../../.scratch/surt-architecture/issues/09-git-integration-model.md)).
-- What `on_success = "clean"` removes, and what a cancelled run removes regardless of it: [I. Cleanup, Delete and Logs](I-cleanup.md#what-each-ending-removes).
+- What `on_success = "clean"` removes, what `"keep"` keeps, and what a cancelled run removes regardless of either: [I. Cleanup, Delete and Logs](I-cleanup.md#what-each-ending-removes).
 - `surt reject`, and which command drives after it (a fixed table in the CLI, not a schema field): [J. CLI Surface](J-cli.md#next-command-hints).

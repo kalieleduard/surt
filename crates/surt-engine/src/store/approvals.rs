@@ -1,10 +1,13 @@
 use sqlx::{FromRow, SqliteConnection};
 
-use super::revisions::{Origin, artifact_id, number, publish};
+use super::columns::number;
+use super::details::{self, ApprovalDetails};
+use super::revisions::{Origin, artifact_id, publish};
 use super::runs::new_id;
-use super::{About, Store, StoreError, record_event, unix_now};
+use super::{About, Store, StoreError, record_event_data, unix_now};
 
 const REJECTION_REASON: &str = "rejection_reason";
+const RECORDED: &str = "approval.recorded";
 const REASON_EXTENSION: &str = "txt";
 
 #[derive(Clone, Debug, FromRow)]
@@ -194,14 +197,17 @@ impl Store {
         .bind(now)
         .execute(&mut *transaction)
         .await?;
-        record_event(
+        let data = details::decision_recorded(&new, number(latest.number));
+        record_event_data(&mut transaction, About::Step(gate), RECORDED, now, &data).await?;
+        let outcome = serde_json::json!({ "outcome": new.decision.outcome() });
+        record_event_data(
             &mut transaction,
             About::Step(gate),
-            "approval.recorded",
+            "step.done",
             now,
+            &outcome,
         )
         .await?;
-        record_event(&mut transaction, About::Step(gate), "step.done", now).await?;
         transaction.commit().await?;
         Ok(latest.recorded())
     }
@@ -233,7 +239,14 @@ impl Store {
         if inserted.rows_affected() == 0 {
             return Ok(DecisionOutcome::NoRevision);
         }
-        record_event(&mut transaction, About::Run(run), "approval.recorded", now).await?;
+        let data = details::approval_recorded(&ApprovalDetails {
+            decision: "approve",
+            artifact,
+            revision: number(latest.number),
+            actor,
+            reason: None,
+        });
+        record_event_data(&mut transaction, About::Run(run), RECORDED, now, &data).await?;
         transaction.commit().await?;
         Ok(latest.recorded())
     }

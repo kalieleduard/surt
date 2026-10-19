@@ -71,6 +71,7 @@ pub enum Problem {
         name: String,
     },
     UnknownOutcome {
+        field: StepField,
         step: String,
         outcome: String,
         declared: Vec<String>,
@@ -93,6 +94,12 @@ pub enum Problem {
     MissingAsset {
         path: String,
     },
+    NonLocalReference {
+        reference: String,
+    },
+    InvalidSchema {
+        detail: String,
+    },
     MisplacedJsonSchema {
         name: String,
     },
@@ -105,6 +112,17 @@ pub enum Problem {
     MissingClaudeProfile,
     MisplacedApiKeyEnv,
     InvalidBudget,
+    UnknownAgentDirectory {
+        known: Vec<String>,
+    },
+    StrayAgentFile,
+    TestOnlyRuntime,
+    MissingCheckedOutput {
+        output: String,
+    },
+    MissingCheckedOutcome {
+        outcome: String,
+    },
 }
 
 impl InvalidDefinition {

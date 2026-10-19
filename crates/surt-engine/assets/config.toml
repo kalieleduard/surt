@@ -4,9 +4,12 @@ max_attempts = 3            # failed Attempts per Step Run before it blocks
 max_iterations = 5          # Iterations per Loop without an Approval Gate before it blocks
 
 [git]
-merge_into_base = "never"   # "never" ("ff-only" is not supported yet)
+merge_into_base = "never"   # "never" | "ff-only"
 
 # [[checks]]
 # name = "test"
 # run = ["cargo", "test", "--workspace"]
 # timeout = "10m"           # optional
+
+# [cleanup]
+# on_success = "keep"       # optional: a succeeded run keeps its worktrees and branches until surt delete

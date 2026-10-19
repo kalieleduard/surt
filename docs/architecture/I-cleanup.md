@@ -4,7 +4,7 @@ What Surt removes when a Workflow Run ends and when the user deletes a Feature, 
 
 ## Principles
 
-1. **Cleanup follows a terminal state; it is not a Step.** It appears in no Workflow Definition and has no Step Run. The only per-workflow control is `[cleanup] on_success = "clean" | "keep"` ([E](E-workflow-schema.md)).
+1. **Cleanup follows a terminal state; it is not a Step.** It appears in no Workflow Definition and has no Step Run. The only control is the run's effective `on_success` policy, `"clean"` or `"keep"` ([below](#when-cleanup-runs)).
 2. **Every item is idempotent, and a failed cleanup is retried, not fatal.** Something that no longer exists counts as removed. A failure leaves the cleanup pending and never changes the command's exit code: the run's result is what the exit code reports.
 3. **Cleanup removes only views and scratch space.** The Working Copy, Execution input/delivery directories and Task worktrees can be regenerated or were never accepted. History (SQLite rows, logs) and work that was not integrated (refs of a cancelled run) leave only with `surt delete`.
 4. **Nothing a human typed is removed by cleanup.** A Working Copy file with an unrecorded edit is kept.
@@ -23,6 +23,19 @@ The process that records a root run's terminal state runs the cleanup right afte
 ↻ cleanup    3 worktrees · 3 task branches · 2 salvage refs · working copy
 ```
 
+**Effective policy.** `[cleanup] on_success` in `.surt/config.toml` ([J](J-cli.md#configuration)) when set, else the root Workflow Definition's `[cleanup] on_success` ([E](E-workflow-schema.md#file-layout)); `clean` for the built-in `feature`. Child definitions are not consulted. The policy is frozen into the `config` snapshot ([D](D-database.md#snapshots)) when the root run is created, so editing the configuration never changes a run that exists.
+
+**Kept.** A `succeeded` run with `keep` runs no cleanup step and writes no cleanup event. The Driver prints one line instead of the `↻ cleanup` line:
+
+```
+✔ run        succeeded
+· cleanup    kept (on_success = "keep") — remove with: surt delete 20261016-fix-cache
+```
+
+No command treats a kept run as cleanup pending: a driving command on it removes nothing, and `surt delete` removes it as the [table below](#what-each-ending-removes) says. A `cancelled` run ignores the policy.
+
+**`--new-run` on a kept Subject.** The Working Copy belongs to the Subject's current run, so two runs never share it. `surt feature <feature> --new-run` refuses with exit `3` while a file holds an unrecorded edit, as for any previous run ([below](#unrecorded-working-copy-edits)). Otherwise, before it creates run `N+1`, it applies [cleanup step 1](#cleanup-steps) to the kept run's Working Copy: each file equal to its baseline is removed, then the directories left empty. A file that cannot be removed fails the command with exit `1` before the run is created. The clearing comes last, after every check that can refuse: the unrecorded-edit check, an override or definition that does not validate, an unknown carried Artifact. A refused `--new-run` therefore removes nothing. The one refusal that can still follow is another command creating a run of the same Subject in between (`ActiveRunExists`, decided by the store when it writes the run); by then the files removed were equal to their baseline, so they are the recorded Revisions and nothing is lost. Everything else of the kept run stays: its worktrees, Task Branches, Salvage Refs and Execution directories already carry that run's own names (`<subject>` for run 1, `<subject>.N` after it), run `N+1` works under `<subject>.N+1`, and reconciling run `N+1` never touches them. The kept run stays kept, with `cleaned_at` NULL and no cleanup event; `surt delete` removes it.
+
 **State.** The root run's `cleaned_at` ([D](D-database.md#workflow-runs)) is written in the transaction that ends the cleanup. A root run is **cleanup pending** when it is terminal, its policy calls for a cleanup (`cancelled`, or `succeeded` with `on_success = "clean"`), and `cleaned_at` is NULL. A `succeeded` run with `on_success = "keep"` is **kept**: `cleaned_at` stays NULL and nothing is pending.
 
 **Failure.** One item failing (on Windows, an antivirus or an editor holding a file in a worktree) does not stop the others, except that a Task Branch whose worktree could not be removed is also kept, because it is still checked out there. `cleaned_at` stays NULL, a `cleanup.incomplete` event lists what is left, and the command exits as the run's result says:
@@ -33,7 +46,7 @@ The process that records a root run's terminal state runs the cleanup right afte
     retry: surt start 20261017-add-login
 ```
 
-**Retry.** Every command that takes the run lock of a cleanup-pending run finishes the cleanup before anything else: `surt feature`, `plan`, `start` and `cancel` on that Feature (on a terminal run they have nothing else to do) and `surt delete`. A driving command never cleans other Subjects' runs, whose locks it does not hold. Reading commands never clean ([J](J-cli.md#reading-never-writes)).
+**Retry.** Every command that takes the run lock of a cleanup-pending run finishes the cleanup before anything else: `surt feature`, `plan`, `start` and `cancel` on that Feature (on a terminal run they have nothing else to do, except that `surt feature` then still refuses with exit `3` and suggests `--new-run`) and `surt delete`. A driving command never cleans other Subjects' runs, whose locks it does not hold. Reading commands never clean ([J](J-cli.md#reading-never-writes)).
 
 **Final warnings.** Three situations end the cleanup with a warning instead of leaving it pending, because retrying would not change them: a Working Copy file with an unrecorded edit ([below](#unrecorded-working-copy-edits)), a Task Branch that someone moved away from its recorded `tip_sha`, and a recorded `worktree_path` that is no longer a worktree of this repository. `cleaned_at` is written and each case is listed in the `cleanup.finished` event.
 
@@ -95,6 +108,15 @@ $ surt feature 20261017-add-login --new-run
 
 It exits `3` ([J](J-cli.md#exit-codes)). `surt delete` removes those files and lists them in its confirmation.
 
+`surt restore` never rewrites the Working Copy of a run that is over. On a terminal run it refuses with exit `3` and the same way out:
+
+```
+$ surt restore 20261017-add-login spec
+✖ 20261017-add-login run 1 has ended; restore only rewrites an active run
+    .surt/features/20261017-add-login/spec.md
+  fix: move or delete the file
+```
+
 ## Logs
 
 Logs are history, not scratch space. They live outside `runtime/`, grouped by Subject:
@@ -112,12 +134,12 @@ Logs are history, not scratch space. They live outside `runtime/`, grouped by Su
 - Cleanup never removes logs; `surt delete` removes the Subject's directory. There is no rotation, size limit or redaction in v1.
 - `.surt/runtime/executions/<id>/` holds only `inputs/` and `delivery/`, which can be rebuilt from blobs.
 
-**Without the log.** When a log file is missing (removed by hand), `logs` says so and points at `inspect`:
+**Without the log.** When an Execution's log directory is missing (removed by hand), `logs` says so and points at `inspect`. For a single Execution it refuses (exit `3`); among several sources it warns on stderr and prints the others. A missing file inside an existing directory reads as empty:
 
 ```
 $ surt logs 0192f3a8
-✖ no log for execution 0192f3a8 (.surt/logs/20261017-add-login/0192f3a8-…/ is missing)
-    inspect: surt inspect 0192f3a8
+✖ no log for execution 0192f3a8-7b1c-7000-8000-4a1f0c3e9b21 (.surt/logs/20261017-add-login/0192f3a8-7b1c-7000-8000-4a1f0c3e9b21/ is missing)
+  inspect: surt inspect 0192f3a8-7b1c-7000-8000-4a1f0c3e9b21
 ```
 
 `inspect` needs no stream. It reads the Execution row: state, Outcome, `error_code`/`error_message`, timestamps, process identity, and `runtime_info` (Claude Code version, session id, model, effort, exit code, turn count, usage, cost, permission denials; [D](D-database.md#executions)). The Check summary is in the `check-report` artifact ([A](A-git-integration.md#checks)).
@@ -144,7 +166,7 @@ delete feature 20261017-add-login and all its history?
 
 ### Order
 
-1. **Locks.** `try_lock` on the run lock of every root run of the Subject. A busy lock (for example `surt start` finishing a pending cleanup) refuses with exit `3`.
+1. **Locks.** `try_lock` on the run lock of every root run of the Subject, also before the confirmation shows the impact, so a busy lock refuses without asking. A busy lock (for example `surt start` finishing a pending cleanup) refuses with exit `3`.
 2. **Git and disk**, each step idempotent:
    - worktrees: `unlock`, `remove --force`; a missing directory is pruned for that entry only;
    - refs: one `git update-ref --stdin` transaction;
