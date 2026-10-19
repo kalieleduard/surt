@@ -3,7 +3,7 @@ use surt_engine::project::{DefinitionFile, InvalidDefinition, Problem, Refusal, 
 use super::text;
 use crate::symbols::Symbols;
 
-fn problem_line(problem: Problem) -> String {
+pub(super) fn problem_line(problem: Problem) -> String {
     let refusal = Refusal::InvalidDefinition(Box::new(InvalidDefinition {
         file: DefinitionFile::Workflow("feature".to_owned()),
         step: None,
@@ -17,12 +17,12 @@ fn problem_line(problem: Problem) -> String {
         .to_owned()
 }
 
-fn owned(text: &str) -> String {
+pub(super) fn owned(text: &str) -> String {
     text.to_owned()
 }
 
 #[test]
-fn every_definition_problem_is_described_in_one_line_of_words() {
+fn every_workflow_problem_is_described_in_one_line_of_words() {
     let cases = [
         (
             Problem::Syntax {
@@ -148,65 +148,6 @@ fn every_definition_problem_is_described_in_one_line_of_words() {
                 artifact: owned("x"),
             },
             "rejection artifact \"x\" is declared twice",
-        ),
-        (
-            Problem::MissingAsset {
-                path: owned("schemas/x.json"),
-            },
-            "\"schemas/x.json\" is neither a local file nor bundled with the agent",
-        ),
-        (
-            Problem::NonLocalReference {
-                reference: owned("https://example.com/x.json"),
-            },
-            "$ref \"https://example.com/x.json\" is not a file in the agent's schemas directory",
-        ),
-        (
-            Problem::MisplacedJsonSchema { name: owned("x") },
-            "\"x\" has a json_schema but is neither json nor item_list",
-        ),
-        (
-            Problem::MisplacedItemFiles { name: owned("x") },
-            "\"x\" declares item_files but is not an item_list",
-        ),
-        (
-            Problem::UnsupportedItemFileFormat { name: owned("x") },
-            "item file \"x\" has an unsupported format",
-        ),
-        (
-            Problem::MissingClaudeProfile,
-            "runtime claude-code needs a [profile.claude] table",
-        ),
-        (
-            Problem::MisplacedApiKeyEnv,
-            "api_key_env needs auth = \"api_key\"",
-        ),
-        (
-            Problem::InvalidBudget,
-            "max_budget_usd must be a positive number",
-        ),
-        (
-            Problem::UnknownAgentDirectory {
-                known: vec![owned("builder"), owned("spec")],
-            },
-            "not a built-in agent; agents: builder, spec",
-        ),
-        (
-            Problem::StrayAgentFile,
-            "surt reads only agent.toml, instructions.md and schemas/ here",
-        ),
-        (Problem::TestOnlyRuntime, "runtime \"fake\" is test-only"),
-        (
-            Problem::MissingCheckedOutput {
-                output: owned("commit"),
-            },
-            "a delivery check needs the JSON output \"commit\"",
-        ),
-        (
-            Problem::MissingCheckedOutcome {
-                outcome: owned("approved"),
-            },
-            "a delivery check needs the outcome \"approved\"",
         ),
     ];
 

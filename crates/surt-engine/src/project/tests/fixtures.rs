@@ -1,3 +1,6 @@
+mod catalog;
+mod refusals;
+
 use std::fs;
 use std::path::PathBuf;
 
@@ -8,95 +11,14 @@ use tempfile::TempDir;
 use crate::project::layout::Layout;
 use crate::project::{Access, SurtHome, open_store};
 use crate::project::{
-    AgentAssets, ArtifactFile, Catalog, Config, DefinitionFile, Error, GlobalConfig,
-    InitialArtifact, InvalidDefinition, InvalidOverride, NewRun, Problem, Project, Refusal,
+    ArtifactFile, Catalog, Config, GlobalConfig, InitialArtifact, NewRun, Project,
 };
 #[cfg(feature = "test-support")]
 use crate::store::Faults;
-
-pub(super) const DRAFT_WORKFLOW: &str = r#"
-schema = 1
-name = "draft"
-description = "Write and approve a draft."
-
-[steps.prepare]
-kind = "operation"
-run = "git.create_run_branch"
-
-[steps.write]
-kind = "agent"
-agent = "writer"
-
-[steps.approve]
-kind = "approval"
-artifact = "draft"
-rejection_artifact = "draft-rejection"
-needs = ["write"]
-
-[steps.drafting]
-kind = "loop"
-body = ["write", "approve"]
-until = { step = "approve", outcome = "approved" }
-needs = ["prepare"]
-"#;
-
-pub(super) const WRITER_AGENT: &str = r#"
-schema = 1
-id = "writer"
-
-[inputs.request]
-format = "text"
-
-[inputs.draft]
-format = "markdown"
-optional = true
-
-[inputs.draft-rejection]
-format = "text"
-optional = true
-
-[outputs.draft]
-format = "markdown"
-
-[outputs.notes]
-format = "json"
-json_schema = "schemas/notes.schema.json"
-
-[profile]
-runtime = "fake"
-model = "fake-model"
-effort = "high"
-"#;
-
-pub(super) const WRITER_INSTRUCTIONS: &str = "Write the draft the request asks for.\n";
-
-pub(super) const NOTES_SCHEMA: &str = r#"{"type": "object"}"#;
-
-pub(super) const WRITER_SCHEMAS: &[(&str, &str)] = &[("schemas/notes.schema.json", NOTES_SCHEMA)];
+pub(super) use catalog::{WRITER_AGENT, WRITER_SCHEMAS, agent, draft_catalog, writer};
+pub(super) use refusals::{in_step, override_refusal, refusal, workflow_refusal};
 
 pub(super) const SUBJECT: &str = "20261017-add-login";
-
-pub(super) fn writer() -> AgentAssets {
-    AgentAssets {
-        toml: WRITER_AGENT,
-        instructions: WRITER_INSTRUCTIONS,
-        schemas: WRITER_SCHEMAS,
-    }
-}
-
-pub(super) fn agent(toml: &'static str) -> AgentAssets {
-    AgentAssets {
-        toml,
-        instructions: "Do the work.\n",
-        schemas: &[],
-    }
-}
-
-pub(super) fn draft_catalog() -> Catalog {
-    Catalog::new()
-        .workflow("draft", DRAFT_WORKFLOW)
-        .agent("writer", writer())
-}
 
 pub(super) fn default_config() -> Config {
     Config::default()
@@ -123,58 +45,6 @@ pub(super) fn initial(name: &str, rel_path: &str, bytes: &[u8]) -> InitialArtifa
             rel_path: rel_path.to_owned(),
             bytes: bytes.to_vec(),
         }],
-    }
-}
-
-pub(super) async fn refusal(catalog: Catalog) -> InvalidDefinition {
-    let dir = ProjectDir::new();
-    let project = dir.project(catalog, default_config()).await;
-
-    let result = project.create_run(new_run("flow")).await;
-
-    let written: Vec<(i64, i64)> = dir
-        .rows("SELECT (SELECT count(*) FROM subject), (SELECT count(*) FROM snapshot)")
-        .await;
-    assert_eq!(written, [(0, 0)]);
-    match result {
-        Err(Error::Refused(Refusal::InvalidDefinition(invalid))) => *invalid,
-        other => panic!("expected an invalid definition, got {other:?}"),
-    }
-}
-
-pub(super) async fn override_refusal(
-    dir: &ProjectDir,
-    catalog: Catalog,
-    workflow: &str,
-) -> InvalidOverride {
-    let project = dir.project(catalog, default_config()).await;
-
-    let result = project.create_run(new_run(workflow)).await;
-
-    let written: Vec<(i64, i64)> = dir
-        .rows("SELECT (SELECT count(*) FROM subject), (SELECT count(*) FROM snapshot)")
-        .await;
-    assert_eq!(written, [(0, 0)]);
-    match result {
-        Err(Error::Refused(Refusal::InvalidAgentOverride(invalid))) => *invalid,
-        other => panic!("expected an invalid override, got {other:?}"),
-    }
-}
-
-pub(super) async fn workflow_refusal(text: &'static str) -> InvalidDefinition {
-    refusal(
-        Catalog::new()
-            .workflow("flow", text)
-            .agent("writer", writer()),
-    )
-    .await
-}
-
-pub(super) fn in_step(step: &str, problem: Problem) -> InvalidDefinition {
-    InvalidDefinition {
-        file: DefinitionFile::Workflow("flow".to_owned()),
-        step: Some(step.to_owned()),
-        problem,
     }
 }
 
@@ -260,29 +130,11 @@ impl ProjectDir {
         rows
     }
 
-    pub(super) fn write_local(&self, agent: &str, rel_path: &str, text: &str) {
-        let path = self.layout().agents().join(agent).join(rel_path);
-        fs::create_dir_all(path.parent().expect("a parent")).expect("the agent directory");
-        fs::write(path, text).expect("the local file");
-    }
-
-    pub(super) async fn frozen_agent(&self, agent: &str) -> toml::Table {
-        let text = self
-            .frozen_agent_file(agent, "agent.toml")
-            .await
-            .expect("the agent.toml is frozen");
-        toml::from_str(&text).expect("the frozen agent is TOML")
-    }
-
-    pub(super) async fn frozen_agent_file(&self, agent: &str, rel_path: &str) -> Option<String> {
-        let sql = format!(
-            "SELECT b.bytes FROM snapshot s JOIN snapshot_file f ON f.snapshot_sha256 = s.sha256 JOIN blob b ON b.sha256 = f.blob_sha256 WHERE s.kind = 'agent' AND s.name = '{agent}' AND f.rel_path = '{rel_path}'"
-        );
-        let stored: Vec<(Vec<u8>,)> = self.rows(&sql).await;
-        stored
-            .into_iter()
-            .next()
-            .map(|(bytes,)| String::from_utf8(bytes).expect("the frozen file is UTF-8"))
+    pub(super) async fn assert_nothing_written(&self) {
+        let written: Vec<(i64, i64)> = self
+            .rows("SELECT (SELECT count(*) FROM subject), (SELECT count(*) FROM snapshot)")
+            .await;
+        assert_eq!(written, [(0, 0)]);
     }
 
     pub(super) async fn event_data(&self, kind: &str) -> Vec<serde_json::Value> {
