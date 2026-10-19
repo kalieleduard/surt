@@ -15,7 +15,7 @@ use crate::message::Message;
 use crate::phase::SPEC;
 use crate::runtime;
 use retry::Retry;
-pub(crate) use retry::quoted;
+pub(crate) use retry::{quoted, word};
 
 const DEFAULT_BASE: &str = "HEAD";
 const REQUEST_FILE: &str = "request.txt";

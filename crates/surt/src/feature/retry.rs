@@ -43,7 +43,7 @@ pub(crate) fn quoted(text: &str) -> String {
     quoted
 }
 
-fn word(text: &str) -> String {
+pub(crate) fn word(text: &str) -> String {
     let plain = !text.is_empty()
         && text.chars().all(|character| {
             character.is_ascii_alphanumeric() || PLAIN_PUNCTUATION.contains(character)

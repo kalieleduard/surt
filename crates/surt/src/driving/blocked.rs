@@ -1,23 +1,64 @@
 use jiff::Timestamp;
 use jiff::tz::TimeZone;
-use surt_engine::project::{BlockReason, BlockedStep, LastFailure};
+use surt_engine::project::{BlockReason, BlockedStep, InterruptedMerge, LastFailure};
 
-use super::progress::label;
+use super::progress::{label, short};
+use crate::feature::word;
 use crate::message::{Mark, Message};
 use crate::symbols::DASH;
 
-pub(super) fn report(steps: &[BlockedStep], resume: String) -> Message {
-    let mut messages: Vec<Message> = steps.iter().map(message).collect();
-    let last = messages
+const INTERRUPTED_MERGE: &str = "merge_into_base_interrupted";
+const RESUME: &str = "resume";
+const THEN: &str = "then";
+
+pub(super) fn report(
+    steps: &[BlockedStep],
+    interrupted: Option<&InterruptedMerge>,
+    resume: String,
+) -> Message {
+    let mut messages: Vec<(Message, &str)> = steps
+        .iter()
+        .map(|blocked| message(blocked, interrupted))
+        .collect();
+    let (last, way) = messages
         .pop()
-        .unwrap_or_else(|| Message::new("nothing can run without you"));
-    for message in &messages {
+        .unwrap_or_else(|| (Message::new("nothing can run without you"), RESUME));
+    for (message, _) in &messages {
         message.print(Mark::Blocked);
     }
-    last.way("resume", resume)
+    last.way(way, resume)
 }
 
-fn message(blocked: &BlockedStep) -> Message {
+fn message(
+    blocked: &BlockedStep,
+    interrupted: Option<&InterruptedMerge>,
+) -> (Message, &'static str) {
+    match (&blocked.last_failure, interrupted) {
+        (Some(failure), Some(merge)) if failure.code == INTERRUPTED_MERGE => {
+            (interrupted_merge(merge), THEN)
+        }
+        _ => (step_message(blocked), RESUME),
+    }
+}
+
+fn interrupted_merge(merge: &InterruptedMerge) -> Message {
+    let path = merge.worktree.to_string_lossy();
+    let worktree = word(&path);
+    Message::new(format!(
+        "merge into {} was interrupted; {path} may be partially updated",
+        merge.branch
+    ))
+    .context(format!(
+        "finish it:  git -C {worktree} merge --ff-only {}",
+        short(&merge.to)
+    ))
+    .context(format!(
+        "or undo it: git -C {worktree} reset --hard {}   (discards changes)",
+        short(&merge.from)
+    ))
+}
+
+fn step_message(blocked: &BlockedStep) -> Message {
     let headline = format!(
         "{} blocked: {}",
         label(&blocked.step),
@@ -60,3 +101,6 @@ pub(crate) fn local_time(seconds: i64) -> Option<String> {
             .to_string(),
     )
 }
+
+#[cfg(test)]
+mod tests;
