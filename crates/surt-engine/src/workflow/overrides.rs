@@ -65,7 +65,7 @@ impl Catalog {
                 assets,
                 local: Some(&local_assets),
             };
-            schemas::check_references(local, &sources)?;
+            schemas::check(local, &sources)?;
             if let Some(merged) = effective_toml(local, &sources)? {
                 effective = effective.with_effective_toml(&local.id, merged);
             }

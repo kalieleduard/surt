@@ -96,6 +96,9 @@ pub enum Problem {
     NonLocalReference {
         reference: String,
     },
+    InvalidSchema {
+        detail: String,
+    },
     MisplacedJsonSchema {
         name: String,
     },
