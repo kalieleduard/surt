@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use serde_json::json;
 use sqlx::{FromRow, SqliteConnection};
 
@@ -15,13 +17,14 @@ pub(super) async fn settle_ref_move(
     kind: &str,
     now: i64,
 ) -> Result<(), sqlx::Error> {
-    let settled: Option<RefMove> = sqlx::query_as(
-        "DELETE FROM ref_move WHERE step_run_id = ? RETURNING ref_name, old_sha, new_sha",
+    let settled: Option<RefMoveRow> = sqlx::query_as(
+        "DELETE FROM ref_move WHERE step_run_id = ? \
+         RETURNING ref_name, old_sha, new_sha, worktree_path",
     )
     .bind(step)
     .fetch_optional(&mut *connection)
     .await?;
-    let Some(settled) = settled else {
+    let Some(settled) = settled.map(RefMove::from) else {
         return Ok(());
     };
     let data = details(&settled);
@@ -29,19 +32,50 @@ pub(super) async fn settle_ref_move(
 }
 
 fn details(intended: &RefMove) -> serde_json::Value {
-    json!({
+    let mut data = json!({
         "intention": "ref_move",
         "ref": intended.ref_name,
         "old_sha": intended.old_sha,
         "new_sha": intended.new_sha,
-    })
+    });
+    if let (Some(path), Some(fields)) = (worktree(intended), data.as_object_mut()) {
+        fields.insert("worktree_path".to_owned(), path.into());
+    }
+    data
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, FromRow)]
+fn worktree(intended: &RefMove) -> Option<String> {
+    intended
+        .worktree_path
+        .as_deref()
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RefMove {
     pub(crate) ref_name: String,
     pub(crate) old_sha: String,
     pub(crate) new_sha: String,
+    pub(crate) worktree_path: Option<PathBuf>,
+}
+
+#[derive(FromRow)]
+struct RefMoveRow {
+    ref_name: String,
+    old_sha: String,
+    new_sha: String,
+    worktree_path: Option<String>,
+}
+
+impl From<RefMoveRow> for RefMove {
+    fn from(row: RefMoveRow) -> RefMove {
+        RefMove {
+            ref_name: row.ref_name,
+            old_sha: row.old_sha,
+            new_sha: row.new_sha,
+            worktree_path: row.worktree_path.map(PathBuf::from),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -62,6 +96,7 @@ struct PendingRow {
     ref_name: String,
     old_sha: String,
     new_sha: String,
+    worktree_path: Option<String>,
 }
 
 impl Store {
@@ -72,7 +107,8 @@ impl Store {
         let rows: Vec<PendingRow> = sqlx::query_as(
             "SELECT m.step_run_id, s.step_key, w.item_key, s.iteration, \
              (SELECT e.operation_id FROM execution e WHERE e.step_run_id = m.step_run_id \
-              ORDER BY e.attempt DESC LIMIT 1) AS operation_id, m.ref_name, m.old_sha, m.new_sha \
+              ORDER BY e.attempt DESC LIMIT 1) AS operation_id, \
+             m.ref_name, m.old_sha, m.new_sha, m.worktree_path \
              FROM ref_move m JOIN step_run s ON s.id = m.step_run_id \
              JOIN workflow_run w ON w.id = s.workflow_run_id \
              WHERE w.root_run_id = ? ORDER BY m.created_at, m.step_run_id",
@@ -94,18 +130,20 @@ impl Store {
                     ref_name: row.ref_name,
                     old_sha: row.old_sha,
                     new_sha: row.new_sha,
+                    worktree_path: row.worktree_path.map(PathBuf::from),
                 },
             })
             .collect())
     }
 
     pub(crate) async fn ref_move(&self, step: &str) -> Result<Option<RefMove>, StoreError> {
-        Ok(
-            sqlx::query_as("SELECT ref_name, old_sha, new_sha FROM ref_move WHERE step_run_id = ?")
-                .bind(step)
-                .fetch_optional(&self.pool)
-                .await?,
+        let row: Option<RefMoveRow> = sqlx::query_as(
+            "SELECT ref_name, old_sha, new_sha, worktree_path FROM ref_move WHERE step_run_id = ?",
         )
+        .bind(step)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(RefMove::from))
     }
 
     pub(crate) async fn intend_ref_move(
@@ -116,13 +154,14 @@ impl Store {
         let now = unix_now();
         let mut transaction = self.begin_write().await?;
         sqlx::query(
-            "INSERT INTO ref_move (step_run_id, ref_name, old_sha, new_sha, created_at) \
-             VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO ref_move (step_run_id, ref_name, old_sha, new_sha, worktree_path, \
+             created_at) VALUES (?, ?, ?, ?, ?, ?)",
         )
         .bind(step)
         .bind(&intended.ref_name)
         .bind(&intended.old_sha)
         .bind(&intended.new_sha)
+        .bind(worktree(intended))
         .bind(now)
         .execute(&mut *transaction)
         .await?;

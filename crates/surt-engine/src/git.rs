@@ -10,10 +10,12 @@ use tokio::process::Command;
 
 use crate::platform;
 
+mod checkout;
 mod merge;
 mod refs;
 pub(crate) mod worktrees;
 
+pub(crate) use checkout::{FastForward, is_clean, merge_ff_only};
 pub(crate) use merge::{
     CommitTree, MergeTree, commit_tree, fast_forward_ref, merge_tree, move_ref,
 };
