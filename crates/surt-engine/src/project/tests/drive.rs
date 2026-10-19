@@ -30,6 +30,7 @@ mod merge_recovery;
 mod merge_status;
 mod merge_table;
 mod merge_worktree;
+mod merge_worktree_gone;
 mod merging;
 mod new_runs;
 mod overrides;
