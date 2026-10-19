@@ -6,14 +6,14 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use crate::delivering::subject_name;
 use crate::interrupt::Driving;
 use crate::logs::{latest, logs_of};
 use crate::scripts::{build, review, ship, spec, tasks_needing};
-use crate::start::feature_name;
 use crate::support::{Run, Sandbox};
 
 const CEILING: Duration = Duration::from_secs(60);
-const CHECK_STARTED: &str = "● task A check started\n";
+const CHECK_STARTED: &str = "● item A check started\n";
 const WAITING: &str = "waiting\n";
 
 struct Following {
@@ -95,7 +95,7 @@ struct Gated {
 
 impl Gated {
     fn new() -> Gated {
-        let name = feature_name();
+        let name = subject_name();
         let sandbox = Sandbox::with_repository();
         sandbox.commit_something();
         sandbox.init();
@@ -113,8 +113,8 @@ impl Gated {
             review("B", 1, "approved"),
             ship(),
         ]);
-        ok(sandbox.feature(&["add login"]));
-        for command in ["approve", "plan", "approve"] {
+        ok(sandbox.run_feature("add login", &[]));
+        for command in ["approve", "continue", "approve"] {
             ok(sandbox.surt(&sandbox.repo(), &[command, &name]));
         }
         Gated {
@@ -190,7 +190,7 @@ fn streams_from_a_s_check_on(gated: &Gated) -> Vec<String> {
 }
 
 #[test]
-fn logs_f_follows_two_tasks_of_a_live_run_to_the_end() {
+fn logs_f_follows_two_items_of_a_live_run_to_the_end() {
     let gated = Gated::new();
     let name = gated.name.as_str();
     let mut driving = Driving::start(&gated.sandbox, name);
@@ -218,21 +218,21 @@ fn logs_f_follows_two_tasks_of_a_live_run_to_the_end() {
 }
 
 #[test]
-fn logs_f_of_a_task_or_an_execution_follows_it_to_the_end() {
+fn logs_f_of_an_item_or_an_execution_follows_it_to_the_end() {
     let gated = Gated::new();
     let name = gated.name.as_str();
     let mut driving = Driving::start(&gated.sandbox, name);
     driving.wait_for(CHECK_STARTED);
-    let mut task = Following::start(&gated.sandbox, &["logs", name, "A", "-f"]);
-    task.wait_for(WAITING);
+    let mut item = Following::start(&gated.sandbox, &["logs", name, "A", "-f"]);
+    item.wait_for(WAITING);
     let check = latest(&gated.sandbox, "'A'", "check");
     let mut execution = Following::start(&gated.sandbox, &["logs", &check, "-f"]);
     execution.wait_for(WAITING);
 
     gated.release(driving);
-    let task = quiet(task.finish());
+    let item = quiet(item.finish());
     let execution = quiet(execution.finish());
 
-    assert_eq!(lines_of(&task, "A check#1"), gated.checked(), "{task}");
+    assert_eq!(lines_of(&item, "A check#1"), gated.checked(), "{item}");
     assert_eq!(execution, format!("{}\n", gated.checked().join("\n")));
 }

@@ -1,5 +1,5 @@
+use crate::delivering::{planned, subject_name};
 use crate::scripts::tasks;
-use crate::start::{feature_name, planned};
 use crate::support::{REFUSED_EXIT_CODE, Sandbox};
 
 #[cfg(unix)]
@@ -19,7 +19,7 @@ fn stop_requested(sandbox: &Sandbox) -> Vec<String> {
 
 #[test]
 fn stop_without_a_live_driver_refuses_with_the_run_state() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = planned(&name, &[tasks(1, &["A"])]);
 
     let refused = sandbox.surt(&sandbox.repo(), &["stop", &name]);
@@ -37,7 +37,7 @@ fn stop_without_a_live_driver_refuses_with_the_run_state() {
 #[cfg(unix)]
 #[test]
 fn stop_from_another_terminal_ends_the_driver_with_130_and_start_resumes_the_run() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = planned(
         &name,
         &[
@@ -49,7 +49,7 @@ fn stop_from_another_terminal_ends_the_driver_with_130_and_start_resumes_the_run
         ],
     );
     let mut driving = Driving::start(&sandbox, &name);
-    driving.wait_for("● task A build started\n");
+    driving.wait_for("● item A build started\n");
     let driver = driving.pid();
 
     let stopped = sandbox.surt(&sandbox.repo(), &["stop", &name]);
@@ -60,20 +60,20 @@ fn stop_from_another_terminal_ends_the_driver_with_130_and_start_resumes_the_run
         stopped.stderr,
         format!(
             "⏳ stop requested; driver pid {driver} is stopping 1 execution…\n\
-             ✔ stopped. resumable: surt start {name}\n"
+             ✔ stopped. resumable: surt continue {name}\n"
         )
     );
     assert_eq!(code, Some(INTERRUPTED_EXIT_CODE), "{stderr}");
     assert!(
         stderr.contains(
             "⏳ stop requested from another terminal; stopping…\n\
-             ⏹ task A build attempt 1 interrupted\n"
+             ⏹ item A build attempt 1 interrupted\n"
         ),
         "{stderr}"
     );
     assert!(
         stderr.ends_with(&format!(
-            "⏹ stopped by surt stop (from another terminal)\n  resume: surt start {name}\n"
+            "⏹ stopped by surt stop (from another terminal)\n  resume: surt continue {name}\n"
         )),
         "{stderr}"
     );
@@ -87,11 +87,11 @@ fn stop_from_another_terminal_ends_the_driver_with_130_and_start_resumes_the_run
         "{timeline}"
     );
 
-    let resumed = sandbox.surt(&sandbox.repo(), &["start", &name]);
+    let resumed = sandbox.surt(&sandbox.repo(), &["continue", &name]);
 
     assert_eq!(resumed.code, Some(0), "{}", resumed.stderr);
     assert!(
-        resumed.stderr.contains("↻ task A build attempt 2\n"),
+        resumed.stderr.contains("↻ item A build attempt 2\n"),
         "{}",
         resumed.stderr
     );

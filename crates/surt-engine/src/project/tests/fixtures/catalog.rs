@@ -1,9 +1,71 @@
-use crate::project::{AgentAssets, Catalog};
+use std::fs;
+use std::path::Path;
+
+#[derive(Clone, Default)]
+pub(in crate::project::tests) struct Catalog {
+    workflows: Vec<(String, &'static str)>,
+    agents: Vec<(String, AgentAssets)>,
+}
+
+#[derive(Clone, Copy)]
+pub(in crate::project::tests) struct AgentAssets {
+    pub(in crate::project::tests) toml: &'static str,
+    pub(in crate::project::tests) instructions: &'static str,
+    pub(in crate::project::tests) schemas: &'static [(&'static str, &'static str)],
+}
+
+impl Catalog {
+    pub(in crate::project::tests) fn new() -> Catalog {
+        Catalog::default()
+    }
+
+    pub(in crate::project::tests) fn workflow(mut self, name: &str, toml: &'static str) -> Catalog {
+        self.workflows.push((name.to_owned(), toml));
+        self
+    }
+
+    pub(in crate::project::tests) fn agent(mut self, id: &str, assets: AgentAssets) -> Catalog {
+        self.agents.push((id.to_owned(), assets));
+        self
+    }
+
+    pub(in crate::project::tests) fn write(&self, dot_surt: &Path) {
+        for (name, toml) in &self.workflows {
+            write(
+                &dot_surt.join("workflows").join(format!("{name}.toml")),
+                toml,
+            );
+        }
+        for (id, assets) in &self.agents {
+            let dir = dot_surt.join("agents").join(id);
+            write(&dir.join("agent.toml"), assets.toml);
+            write(&dir.join("instructions.md"), assets.instructions);
+            for (path, text) in assets.schemas {
+                write(&dir.join(path), text);
+            }
+        }
+    }
+}
+
+fn write(path: &Path, text: &str) {
+    fs::create_dir_all(path.parent().expect("a parent")).expect("the definition directory");
+    fs::write(path, text).expect("the definition file");
+}
 
 const DRAFT_WORKFLOW: &str = r#"
 schema = 1
 name = "draft"
 description = "Write and approve a draft."
+
+[inputs.request]
+format = "text"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
+
+[subject]
+from = "request"
 
 [steps.prepare]
 kind = "operation"

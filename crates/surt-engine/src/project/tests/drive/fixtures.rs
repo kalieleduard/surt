@@ -4,10 +4,9 @@ use std::sync::Mutex;
 
 use tokio::sync::mpsc;
 
+use super::super::fixtures::{AgentAssets, Catalog};
 use super::super::fixtures::{ProjectDir, default_config, new_run};
-use crate::project::{
-    AgentAssets, Catalog, Config, DriveOutcome, Error, Progress, Project, RunId, StepLabel,
-};
+use crate::project::{Config, DriveOutcome, Error, Progress, Project, RunId, StepLabel};
 use crate::runtime::{
     AgentRuntime, Behavior, Delivery, FakeRuntime, RuntimeCompletion, RuntimeError,
     RuntimeEventSink, RuntimeRequest, Script, StopSignal,
@@ -16,6 +15,13 @@ use crate::runtime::{
 pub(super) const REVIEW_WORKFLOW: &str = r#"
 schema = 1
 name = "review"
+
+[inputs.request]
+format = "text"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
 
 [steps.write]
 kind = "agent"
@@ -131,10 +137,11 @@ impl Feature {
         Feature::in_dir(ProjectDir::new(), catalog, workflow, config).await
     }
 
-    pub(super) async fn review_with_local(agent: &str, rel_path: &str, text: &str) -> Feature {
+    pub(super) async fn review_edited(agent: &str, rel_path: &str, text: &str) -> Feature {
         let dir = ProjectDir::new();
-        dir.write_local(agent, rel_path, text);
-        Feature::in_dir(dir, review_catalog(), "review", default_config()).await
+        let project = dir.project(review_catalog(), default_config()).await;
+        dir.write_agent_file(agent, rel_path, text);
+        Feature::created(dir, project, "review").await
     }
 
     pub(super) async fn in_dir(
@@ -144,6 +151,10 @@ impl Feature {
         config: Config,
     ) -> Feature {
         let project = dir.project(catalog, config).await;
+        Feature::created(dir, project, workflow).await
+    }
+
+    async fn created(dir: ProjectDir, project: Project, workflow: &str) -> Feature {
         let run = project
             .create_run(new_run(workflow))
             .await

@@ -2,10 +2,11 @@ use std::num::NonZeroU32;
 
 use tokio::sync::mpsc;
 
+use super::super::fixtures::Catalog;
 use super::super::fixtures::{ProjectDir, SUBJECT};
 use super::fixtures::{Driven, Feature, WRITER, agent, draft, review_catalog};
 use super::planned::{TASK_WORKFLOW, approved, work};
-use crate::project::{Catalog, Config, DriveOutcome, Progress};
+use crate::project::{Config, DriveOutcome, Progress};
 use crate::runtime::{
     AgentRuntime, Behavior, FakeRuntime, RuntimeCompletion, RuntimeError, RuntimeEventSink,
     RuntimeRequest, Script, StopLevel, StopSignal,
@@ -238,6 +239,13 @@ async fn a_cancel_request_is_read_on_the_next_tick_and_cancels_the_whole_run() {
 const PARALLEL_WORKFLOW: &str = r#"
 schema = 1
 name = "parallel"
+
+[inputs.request]
+format = "text"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
 
 [steps.prepare]
 kind = "operation"

@@ -1,7 +1,7 @@
 use std::fs;
 
+use crate::delivering::subject_name;
 use crate::scripts::{build, review, ship, spec, tasks};
-use crate::start::feature_name;
 use crate::support::{Run, Sandbox};
 
 const SHORT_SHA_CHARS: usize = 7;
@@ -28,11 +28,11 @@ pub(super) fn surt(sandbox: &Sandbox, args: &[&str]) -> Run {
 }
 
 pub(super) fn planned(sandbox: &Sandbox) -> String {
-    let name = feature_name();
-    let created = sandbox.feature(&["add login"]);
+    let name = subject_name();
+    let created = sandbox.run_feature("add login", &[]);
     assert_eq!(created.code, Some(0), "{}", created.stderr);
     surt(sandbox, &["approve", &name]);
-    surt(sandbox, &["plan", &name]);
+    surt(sandbox, &["continue", &name]);
     surt(sandbox, &["approve", &name]);
     name
 }
@@ -86,13 +86,13 @@ fn a_base_branch_checked_out_nowhere_is_fast_forwarded_after_the_shipper() {
     let base = sha(&sandbox, &main);
     sandbox.git(&sandbox.repo(), &["checkout", "--quiet", "--detach"]);
 
-    let started = surt(&sandbox, &["start", &name]);
+    let started = surt(&sandbox, &["continue", &name]);
 
     let tip = sha(&sandbox, &format!("surt/{name}"));
     assert_eq!(sha(&sandbox, &main), tip);
     assert!(
         started.stderr.contains(&format!(
-            "✔ shipper delivered — surt/{name} @ {}\n✔ merged into {main} (fast-forward {} → {})\n✔ run succeeded\n",
+            "✔ delivered — surt/{name} @ {}\n✔ merged into {main} (fast-forward {} → {})\n✔ run succeeded\n",
             short(&tip),
             short(&base),
             short(&tip)
@@ -119,7 +119,7 @@ fn a_fast_forward_interrupted_in_the_checked_out_worktree_blocks_with_how_to_fin
     };
     refuse_moving(&sandbox, &main);
 
-    let started = sandbox.surt(&sandbox.repo(), &["start", &name]);
+    let started = sandbox.surt(&sandbox.repo(), &["continue", &name]);
 
     assert_eq!(started.code, Some(4), "{}", started.stderr);
     assert_eq!(sha(&sandbox, &main), base);
@@ -129,7 +129,7 @@ fn a_fast_forward_interrupted_in_the_checked_out_worktree_blocks_with_how_to_fin
             "\u{26d4} merge into {main} was interrupted; {worktree} may be partially updated\n  \
              finish it:  git -C {argument} merge --ff-only {}\n  \
              or undo it: git -C {argument} reset --hard {}   (discards changes)\n  \
-             then: surt start {name}\n",
+             then: surt continue {name}\n",
             short(&tip),
             short(&base)
         )),
@@ -148,7 +148,7 @@ fn a_base_branch_that_moved_is_left_for_the_developer_to_merge() {
     let moved = sha(&sandbox, &main);
     sandbox.git(&sandbox.repo(), &["checkout", "--quiet", "--detach"]);
 
-    let started = surt(&sandbox, &["start", &name]);
+    let started = surt(&sandbox, &["continue", &name]);
 
     assert_eq!(sha(&sandbox, &main), moved);
     assert!(

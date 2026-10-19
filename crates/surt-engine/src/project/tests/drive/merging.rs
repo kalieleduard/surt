@@ -2,19 +2,26 @@ use std::fs;
 
 use serde_json::{Value, json};
 
+use super::super::fixtures::Catalog;
 use super::super::fixtures::SUBJECT;
 use super::fixtures::Feature;
 use super::integration::{integration_branch, login};
 use super::repository::commit_file;
 use super::team::{INTEGRATED_TASK, Team, approved, builds, reviews, ships, team_catalog};
 use crate::project::{
-    BaseMerge, BaseMergeReport, Catalog, Commit, Config, DriveOutcome, GitConfig, MergeIntoBase,
-    NotMerged,
+    BaseMerge, BaseMergeReport, Commit, Config, DriveOutcome, GitConfig, MergeIntoBase, NotMerged,
 };
 
 const MERGED_WORKFLOW: &str = r#"
 schema = 1
 name = "merged"
+
+[inputs.request]
+format = "text"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
 
 [steps.prepare]
 kind = "operation"

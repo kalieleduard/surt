@@ -74,7 +74,7 @@ impl Layout {
     }
 
     pub(crate) fn working_copy(&self, subject: &str) -> PathBuf {
-        self.dot_surt().join("features").join(subject)
+        self.dot_surt().join("subjects").join(subject)
     }
 
     fn runtime(&self) -> PathBuf {
@@ -87,6 +87,10 @@ impl Layout {
 
     pub(crate) fn config(&self) -> PathBuf {
         self.dot_surt().join("config.toml")
+    }
+
+    pub(crate) fn workflows(&self) -> PathBuf {
+        self.dot_surt().join("workflows")
     }
 
     pub(crate) fn agents(&self) -> PathBuf {

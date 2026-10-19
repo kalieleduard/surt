@@ -26,7 +26,7 @@ fn merge_line(status: &RunStatus) -> Option<String> {
 }
 
 fn merge_json(status: &RunStatus) -> Value {
-    Value::from(json::feature(status))["merge"].clone()
+    Value::from(json::subject(status))["merge"].clone()
 }
 
 fn merged() -> BaseMerge {

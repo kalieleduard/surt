@@ -1,7 +1,8 @@
-use super::{ArtifactFile, InitialArtifact, RunId};
+use super::{ArtifactFile, Carry, InitialArtifact, RunId};
 use crate::artifacts::working_copy::unrecorded_edits;
 use crate::project::{Error, Layout, Refusal};
 use crate::store::{RootRunRow, Store};
+use crate::workflow::{InputFormat, RunInputs};
 
 const ACTIVE: &str = "active";
 const CHECKING: &str = "check the working copy of";
@@ -11,28 +12,55 @@ pub(super) struct Carried {
     pub(super) previous: Option<RunId>,
 }
 
+pub(super) async fn runs(
+    store: &Store,
+    subject: &str,
+    carry: Carry,
+) -> Result<Vec<RootRunRow>, Error> {
+    let runs = store.root_runs(subject).await?;
+    if runs.is_empty() && carry == Carry::PreviousInputs {
+        return Err(Refusal::UnknownSubject {
+            reference: subject.to_owned(),
+        }
+        .into());
+    }
+    Ok(runs)
+}
+
+pub(super) async fn carryable(
+    store: &Store,
+    runs: &[RootRunRow],
+    inputs: &RunInputs,
+    carry: Carry,
+) -> Result<Vec<String>, Error> {
+    let (Carry::PreviousInputs, Some(latest)) = (carry, runs.last()) else {
+        return Ok(Vec::new());
+    };
+    let artifacts = store.artifact_summaries(&latest.id).await?;
+    Ok(inputs
+        .declared
+        .iter()
+        .filter(|(_, spec)| spec.format != InputFormat::GitRef)
+        .filter(|(name, _)| artifacts.iter().any(|artifact| artifact.name == *name))
+        .map(|(name, _)| name.to_owned())
+        .collect())
+}
+
 pub(super) async fn carried(
     store: &Store,
     layout: &Layout,
-    subject: &str,
+    runs: &[RootRunRow],
     names: &[String],
 ) -> Result<Carried, Error> {
-    let runs = store.root_runs(subject).await?;
     let Some(latest) = runs.last() else {
-        return match names {
-            [] => Ok(Carried {
-                artifacts: Vec::new(),
-                previous: None,
-            }),
-            _ => Err(Refusal::UnknownSubject {
-                reference: subject.to_owned(),
-            }
-            .into()),
-        };
+        return Ok(Carried {
+            artifacts: Vec::new(),
+            previous: None,
+        });
     };
     if runs.iter().any(|run| run.state == ACTIVE) {
         return Err(Refusal::ActiveRunExists {
-            subject: subject.to_owned(),
+            subject: latest.subject.clone(),
         }
         .into());
     }

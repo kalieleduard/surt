@@ -1,17 +1,21 @@
 # Surt
 
-Surt is a local-first CLI that orchestrates AI agents through declarative workflows. The engine knows nothing about specs, tasks, builders or reviewers; those belong to the built-in feature workflow that runs on top of it.
+Surt is a local-first CLI that orchestrates AI agents through declarative workflows. The engine knows nothing about specs, tasks, builders or reviewers; those belong to the workflows a project keeps under `.surt/`, such as the ones the feature Template writes.
 
 ## Language
 
 ### Workflows
 
 **Workflow Definition**:
-A declarative, versioned description of steps and their dependencies. Built in or overridden per project.
-_Avoid_: Workflow (alone), pipeline, template
+A declarative, versioned description of steps and their dependencies: the project's file `.surt/workflows/<name>.toml`. It is read when a root Workflow Run that needs it is created and frozen with that run; the binary holds none.
+_Avoid_: Workflow (alone), pipeline, Template (which only writes definitions)
+
+**Template**:
+A set of Workflow Definitions and Agents that `surt init --template <name>` writes once into `.surt/`, never overwriting a file that exists. Once written, the files are the project's to edit, rename or delete; a Surt upgrade never changes them. The binary knows only Templates, never a workflow; the one it has is `feature`.
+_Avoid_: Built-in workflow, default workflow, preset
 
 **Workflow Run**:
-One live instance of a Workflow Definition, carrying its own state. It freezes the effective Workflow Definition when it is created and never rereads it.
+One live instance of a Workflow Definition, carrying its own state. It freezes its Workflow Definitions and Agents when it is created and never rereads their files.
 _Avoid_: Workflow (alone), job, process
 
 **Child Workflow Run**:
@@ -60,7 +64,11 @@ _Avoid_: Native operation, built-in step, script, hook
 
 **Run Branch**:
 The branch, owned by Surt, that belongs to one Workflow Run. A root Workflow Run's Run Branch collects its children's reviewed work; a Child Workflow Run's Run Branch is where that child works, starting from its root's Run Branch tip. Workflows may give them role-specific names.
-_Avoid_: Work branch, item branch, output branch
+_Avoid_: Work branch, output branch
+
+**Item Branch**:
+The Run Branch of a Child Workflow Run started by a Per-Item Step, `surt/item/<subject>/<key>` whatever the workflow calls its items. In the feature Template it is the branch a Builder commits to in its own worktree, starting from the Integration Branch's tip when its Task begins.
+_Avoid_: Task Branch, topic branch
 
 **Subject**:
 The uniquely named thing a root Workflow Run works on. A Subject can accumulate several Workflow Runs over time (e.g. a retry after cancelling), but at most one is active at once.
@@ -81,7 +89,7 @@ The single process that advances one root Workflow Run, together with all its Ch
 _Avoid_: Runner, worker, daemon
 
 **Agent Slot**:
-One of the project's `max_concurrent_agents` places that an agent Execution must hold to run. Slots belong to the project, not to a Driver: every Driver of the project takes one before launching an agent and gives it back when the agent ends, so two Features driven at once share the limit.
+One of the project's `max_concurrent_agents` places that an agent Execution must hold to run. Slots belong to the project, not to a Driver: every Driver of the project takes one before launching an agent and gives it back when the agent ends, so two Subjects driven at once share the limit.
 _Avoid_: Worker, seat
 
 **Interruption**:
@@ -113,7 +121,7 @@ A Step Run that cannot go on without a human, because it reached its Attempt or 
 _Avoid_: Failed, stuck, error
 
 **Cleanup**:
-What Surt removes after a Workflow Run ends: the views and scratch space it can rebuild or never accepted, such as the Working Copy and the Task worktrees. It never removes history, logs, a human's unrecorded edit, or the Integration Branch, and a cancelled run keeps its unintegrated work as refs. A cleanup that could not finish is pending and is finished by the next command that takes over the run. A `succeeded` run whose effective policy is `on_success = "keep"` is kept instead: it has no cleanup until `surt delete`.
+What Surt removes after a Workflow Run ends: the views and scratch space it can rebuild or never accepted, such as the Working Copy and the item worktrees. It never removes history, logs, a human's unrecorded edit, or the Integration Branch, and a cancelled run keeps its unintegrated work as refs. A cleanup that could not finish is pending and is finished by the next command that takes over the run. A `succeeded` run whose effective policy is `on_success = "keep"` is kept instead: it has no cleanup until `surt delete`.
 _Avoid_: Garbage collection, purge, archive
 
 **Purge**:
@@ -123,16 +131,12 @@ _Avoid_: Cleanup, soft delete, archive
 ### Agents
 
 **Agent**:
-A role an AI performs in a workflow: what it does, its instructions and the contract of what it must deliver.
+A role an AI performs in a workflow: what it does, its instructions and the contract of what it must deliver. It is the project's directory `.surt/agents/<id>/` (`agent.toml`, `instructions.md`, optional `schemas/`), complete on its own: it is read when a root Workflow Run that uses it is created and frozen as an agent snapshot, with no defaults merged in.
 _Avoid_: Persona, bot
 
 **Agent Profile**:
 The concrete way of running an Agent: runtime, model, effort, permissions and limits. Each Agent has exactly one, used by every Execution of it; repeating work never switches to another model.
 _Avoid_: Model config, agent config
-
-**Agent Override**:
-Files under `.surt/agents/<id>/` merged over a built-in Agent when a root run is created.
-_Avoid_: Custom agent, plugin
 
 **Agent Runtime**:
 The adapter that knows how to launch and follow one kind of agent, such as Claude Code or the Fake Runtime used in tests.
@@ -165,21 +169,27 @@ An Execution reads specific Artifact Revisions as Inputs, fixed when it starts, 
 _Avoid_: Dependency (reserved for ordering between Steps)
 
 **Initial Artifact**:
-An Artifact whose first Revision is supplied by the command that creates a root Workflow Run, as a human-origin Revision, rather than produced by a step, such as the feature workflow's request and Base.
+An Artifact whose first Revision is supplied by the command that creates a root Workflow Run, as a human-origin Revision, rather than produced by a step: one per Run Input given, such as the feature Template's request and Base.
 _Avoid_: Parameter, argument, seed
 
-### Feature workflow (built-in, not part of the engine)
+**Run Input**:
+An input a root Workflow Definition declares under `[inputs.<name>]`, with a format (`text`, `markdown`, `json` or `git_ref`), supplied with `--input <name>=<value>` on `surt run` (or `surt continue --new-run`) and stored as the Initial Artifact of the same name. A `git_ref` input is resolved to `{ref, sha}` when the run is created, from the value or its `default`. A workflow with no inputs runs without any.
+_Avoid_: Parameter, argument, flag
+
+### The feature Template (project files, not part of the engine)
+
+What `surt init --template feature` writes: the workflows `feature` and `task-cycle` and the five Agents below. Once written they are files of the project like any other; these terms name what the Template defines, and a project that edits or replaces the files may use other words.
 
 **Feature**:
-The Subject of the built-in feature workflow, named `YYYYMMDD-description`.
+The Subject of a run of the `feature` workflow, named `YYYYMMDD-<slug>` from its request.
 _Avoid_: Project, epic, change
 
 **Task**:
-A unit of work listed in the Task Agent's manifest, with a key, dependencies and its own Markdown instructions for the Builder. The manifest and these documents are approved together. Only the built-in feature workflow knows Tasks; the engine sees them as items to expand over.
+A unit of work listed in the Task Agent's manifest, with a key, dependencies and its own Markdown instructions for the Builder. The manifest and these documents are approved together. Only the feature Template knows Tasks; the engine sees them as items to expand over, each on its own Item Branch.
 _Avoid_: Ticket, issue, story
 
 **Task Cycle**:
-The Workflow Definition that builds and reviews one Task; each Task runs as its own Child Workflow Run of it.
+The Workflow Definition `task-cycle` that builds and reviews one Task; each Task runs as its own Child Workflow Run of it.
 _Avoid_: Task loop, task pipeline
 
 **Spec Agent**:
@@ -201,16 +211,12 @@ The Agent that writes the delivery text for a Feature's final Integration Branch
 _Avoid_: Releaser, deployer
 
 **Base**:
-The commit a Feature starts from, fixed when the Feature is created. Its Integration Branch is created exactly there.
+The commit a run starts from: the `feature` workflow's `git_ref` Run Input `base`, resolved when the run is created (`HEAD` by default). Its Integration Branch is created exactly there. The Git Operations read the Initial Artifact `base` whatever workflow runs them.
 _Avoid_: Parent branch, upstream
 
 **Integration Branch**:
 The Run Branch of a Feature's root run: it collects every approved Task of one Feature run as a merge of its reviewed commit. It is what the Shipper delivers.
 _Avoid_: Feature branch, release branch
-
-**Task Branch**:
-The Run Branch of a Task Cycle: the branch a Builder commits to in its own worktree, starting from the Integration Branch's tip when its Task begins.
-_Avoid_: Work branch, topic branch
 
 **Conflict**:
 The reason an approved Task could not enter its Integration Branch: its changes clash with Tasks merged since it started, or the combination fails the Checks. It sends the Task back to its Builder.

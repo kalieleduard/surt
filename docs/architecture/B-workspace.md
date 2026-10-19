@@ -14,15 +14,15 @@ crates/
 │   ├── migrations/0001_initial.sql
 │   ├── schemas/              # base, check-report, conflict, integration (Operation outputs)
 │   └── src/…
-└── surt/                     # bin "surt": the CLI and the built-in feature workflow
-    ├── assets/workflows/{feature,task-cycle}.toml
-    ├── assets/agents/<agent>/{agent.toml,instructions.md,schemas/…}
+└── surt/                     # bin "surt": the CLI and the feature Template
+    ├── assets/templates/feature/workflows/{feature,task-cycle}.toml
+    ├── assets/templates/feature/agents/<agent>/{agent.toml,instructions.md,schemas/…}
     └── src/…
 ```
 
 - **`surt-engine`** knows the engine layer of [C. Domain Model](C-domain-model.md#two-layers) and nothing else. It cannot import anything from `surt`, so the compiler enforces that the core never names Spec, Task, Builder, Reviewer, Shipper or a phase.
-- **`surt`** owns everything that is about the feature workflow or about a terminal: clap, the phase preconditions of `plan` and `start`, the gate → next-command table, every message text, exit codes, and the embedded `feature`/`task-cycle` definitions and their five Agents.
-- The feature workflow's files do not exist inside `surt-engine`. Engine tests therefore build their own synthetic workflows, which keeps the core honest about being generic.
+- **`surt`** owns everything that is about a terminal: clap, `--input` parsing, the next-command hints (always `surt continue <subject>`), every message text, exit codes, and the bytes of the feature **Template** (`feature`/`task-cycle` and their five Agents), which `surt init --template feature` writes into `.surt/`. Apart from those bytes it knows no workflow: `surt run` and `surt continue` take any workflow under `.surt/workflows/`.
+- The feature workflow's files do not exist inside `surt-engine`. Engine tests therefore write their own synthetic workflows and Agents into the test project's `.surt/`, which keeps the core honest about being generic.
 
 Rationale and rejected alternatives: [ADR 0011](../adr/0011-two-crates-keep-the-engine-generic.md).
 
@@ -31,18 +31,24 @@ Rationale and rejected alternatives: [ADR 0011](../adr/0011-two-crates-keep-the-
 The CLI sees one facade type and the types it returns. Everything else in `surt-engine` is `pub(crate)`.
 
 ```rust
-pub struct Project { /* .surt/ root, store, config, catalog */ }
+pub struct Project { /* .surt/ root, store, config */ }
 
 impl Project {
+    /// Creates `.surt/` (gitignore, config, database) and writes the Template's
+    /// missing files, given as (path under `.surt/`, bytes). Never overwrites;
+    /// reports each file as created or kept. Knows no Template name.
+    pub async fn init(cwd: &Path, template: &[(&str, &[u8])]) -> Result<Initialized, Error>;
+
     /// Finds `.surt/` from `cwd`, opens the database (migrations under `db.lock`),
     /// loads project + global configuration. Refuses a database newer than the binary.
-    pub async fn open(cwd: &Path, catalog: Catalog) -> Result<Project, Error>;
+    pub async fn open(cwd: &Path) -> Result<Project, Error>;
 
     /// Full name, slug or unique prefix. `Refusal::AmbiguousSubject` / `UnknownSubject`.
     pub async fn find_subject(&self, query: &str) -> Result<SubjectRef, Error>;
 
-    /// Validates and freezes the closure of definitions and agents, writes the
-    /// "run created" checkpoint. Refuses when the Subject already has an active run.
+    /// Reads the closure of definitions and agents from `.surt/workflows/` and
+    /// `.surt/agents/`, validates and freezes it, writes the "run created"
+    /// checkpoint. Refuses when the Subject already has an active run.
     pub async fn create_run(&self, new: NewRun) -> Result<RunId, Error>;
 
     /// try_lock the root run → reconcile → advance until nothing can run without
@@ -73,7 +79,7 @@ impl Project {
 Invariants of the interface:
 
 - **`drive` is the whole driving sequence.** Lock, reconciliation ([I. Recovery](I-recovery.md#what-a-driving-command-does-when-it-takes-the-lock)) and cleanup ([I. Cleanup](I-cleanup.md#when-cleanup-runs)) happen inside it, so a later daemon gets them by calling the same function ([A. Process Model](A-process-model.md#daemon-fit)).
-- **Phases are not in the engine.** `surt plan` checks "spec Revision approved" on a `StatusView` before calling `drive`; the engine only sees Approval Gates declared in the frozen definition.
+- **There are no phases.** `surt continue` calls `drive` on the active run whatever step it is at, with no gate precondition in the CLI; the engine only sees Approval Gates declared in the frozen definition, and a gate that still waits ends the drive at once.
 - **Confirmations are not in the engine.** `cancel`, `restore` and `delete` act when called; the CLI asks first, using `status`/`inspect` to show the impact.
 - **Subject resolution is in the engine.** A Subject is an engine concept; how a name, slug or prefix matches is the same for every workflow.
 
@@ -81,8 +87,8 @@ Invariants of the interface:
 
 | Module | Hides | Dependency category |
 |---|---|---|
-| `project` | the facade; finding `.surt/`; project and global configuration; the `Catalog` of built-ins | — |
-| `workflow` | parsing the five `kind`s with `deny_unknown_fields`; static validation against agents and the Operation registry; merging `.surt/agents/<id>/`, read by `Project::create_run` and nowhere else, over the `Catalog` (`agent.toml` field by field, `instructions.md` and each schema replacing the built-in file of the same path); freezing the closure and its SHA-256 ([E](E-workflow-schema.md), [F](F-agent-contract.md#built-in-defaults-and-local-overrides)) | in-process, pure |
+| `project` | the facade; finding `.surt/`; project and global configuration; writing a Template's files at `init`; reading a closure's definition files from `.surt/workflows/` and `.surt/agents/` (the adapter behind `workflow`'s definition source) | — |
+| `workflow` | parsing the five `kind`s with `deny_unknown_fields`; static validation against agents and the Operation registry; resolving the closure of a root workflow through a definition source, which only `Project::create_run` backs with the files under `.surt/`; freezing the closure and its SHA-256 ([E](E-workflow-schema.md), [F](F-agent-contract.md#definitions-in-the-project)) | in-process, pure |
 | `drive` | the tick loop, the state machines of [G](G-state-machines.md), Iterations and Per-Item expansion, agent slots, the rate-limit pause, Interruption and Cancellation | orchestrates the others |
 | `reconcile` | the partial-state tables of [I. Recovery](I-recovery.md), orphans, Salvage Refs, preparing a clean worktree for every Attempt | real Git, real processes |
 | `artifacts` | blobs by SHA-256, atomic publication of Revisions, delivery validation, Working Copy, edit detection, pinning and revalidation ([H](H-artifact-storage.md)) | store + disk |
@@ -94,7 +100,7 @@ Invariants of the interface:
 | `store` | all SQL ([below](#the-store-interface)) | real SQLite |
 | `platform` | every `#[cfg]` for macOS, Linux and Windows: file locks, process identity (pid + start time + boot id), safe directory removal, portable names, `dunce` canonicalisation | OS |
 
-`project` is the only public module, plus the types the facade exposes: `runtime::{AgentRuntime, ClaudeCodeRuntime, FakeRuntime}` and their request/response types, `Progress`, `StopSignal`, `DriveOutcome`, `Error`, `Refusal`, `Catalog` and the read views.
+`project` is the only public module, plus the types the facade exposes: `runtime::{AgentRuntime, ClaudeCodeRuntime, FakeRuntime}` and their request/response types, `Progress`, `StopSignal`, `DriveOutcome`, `Error`, `Refusal` and the read views. `project::check_workflow(root, workflow, initial_artifacts)` runs the same static validation on the files under `<root>/.surt/` without opening a database; the binary's Template tests use it.
 
 ## Traits
 
@@ -221,7 +227,8 @@ pub enum Refusal {
     SchemaTooNew { db: i64, supported: i64 },
     GitTooOld { found: Version, min: Version },
     NoDriverToStop,
-    InvalidAgentOverride(Box<InvalidOverride>),
+    InvalidDefinition(Box<InvalidDefinition>), // file under .surt/, field or step, Problem
+    UnknownWorkflow { name: String, known: Vec<String> },
     // …
 }
 ```
@@ -253,26 +260,25 @@ pub enum StopLevel { None, Graceful, Force }
 
 The CLI's first Ctrl-C (or SIGHUP, or the console closing) calls `graceful()`, the second `force()`. A stop request written by `surt stop` is read by `drive` on its next tick and raised on the same signal, so both paths run the same Interruption ([A. Process Model](A-process-model.md#interruption-ctrl-c-and-cancellation)).
 
-## Built-in definitions: the `Catalog`
+## Definitions in the project, the Template in the binary
 
 ```rust
-// crates/surt/src/builtin.rs
-pub fn catalog() -> Catalog {
-    Catalog::new()
-        .workflow("feature", include_str!("../assets/workflows/feature.toml"))
-        .workflow("task-cycle", include_str!("../assets/workflows/task-cycle.toml"))
-        .agent("builder", AgentAssets {
-            toml: include_str!("../assets/agents/builder/agent.toml"),
-            instructions: include_str!("../assets/agents/builder/instructions.md"),
-            schemas: &[("schemas/commit.schema.json", include_str!("../assets/agents/builder/schemas/commit.schema.json"))],
-        })
-        // spec, tasks, reviewer, shipper
-}
+// crates/surt/src/template/feature.rs
+const BUILDER: AgentFiles = &[
+    ("agent.toml", include_str!("../../assets/templates/feature/agents/builder/agent.toml")),
+    ("instructions.md", include_str!("../../assets/templates/feature/agents/builder/instructions.md")),
+    COMMIT_SCHEMA, FEEDBACK_SCHEMA, CHECK_REPORT_SCHEMA, CONFLICT_SCHEMA,
+];
+pub(super) const TEMPLATE: Template = Template {
+    workflows: &[("feature.toml", include_str!(…)), ("task-cycle.toml", include_str!(…))],
+    agents: &[("spec", SPEC), ("tasks", TASKS), ("builder", BUILDER), ("reviewer", REVIEWER), ("shipper", SHIPPER)],
+};
 ```
 
-- The table is explicit, with `include_str!`; no directory-embedding crate.
-- `Project::create_run` reads `.surt/agents/<name>/` and `workflow` merges it over the `Catalog`, validates and freezes. Nothing else reads the directory: driving commands no longer refuse when it exists. The Milestone 1 refusals of the three M4 mechanisms are gone: `AgentOverrides` (a `.surt/agents/` directory), `MergeIntoBaseUnsupported` (`merge_into_base = "ff-only"`) and the refusal of `on_success = "keep"`. An override that would break a run refuses with `InvalidAgentOverride` instead ([F](F-agent-contract.md#built-in-defaults-and-local-overrides)). The engine does not know which bytes came from the binary.
-- The engine embeds only what it owns: its migrations and the schemas of the Artifacts that Operations produce (`base`, `check-report`, `conflict`, `integration`). Agent schemas (`manifest`, `commit`, `feedback`, `delivery`) travel with their Agents in `surt`.
+- The table is explicit, with `include_str!`; no directory-embedding crate. `surt init --template feature` flattens it into (path under `.surt/`, bytes) pairs for `Project::init`, which writes the missing ones. The engine knows no Template name.
+- An Agent that reads an Operation's artifact (`check-report`, `conflict`, `integration`, `base`) references a copy in its own `schemas/`. The Template writes those copies from the engine's exported constants (`CHECK_REPORT_SCHEMA`, `CONFLICT_SCHEMA`, `INTEGRATION_SCHEMA`, `BASE_SCHEMA`).
+- `Project::create_run` reads exactly the closure of the new root run from `.surt/`: the named workflow, its `per_item` children transitively and the Agents they reference. Nothing else reads `.surt/workflows/` or `.surt/agents/`, so a broken file outside the closure never refuses. There is no compiled `Catalog`, no merge over defaults and no fallback ([ADR 0013](../adr/0013-definitions-live-in-the-project.md)). An invalid file refuses with `InvalidDefinition`, a missing root workflow with `UnknownWorkflow`.
+- The engine embeds only what it owns: its migrations, the `.gitignore` and `config.toml` that `init` writes, and the schemas of the Artifacts that Operations produce (`base`, `check-report`, `conflict`, `integration`), against which it validates its Operations' outputs. Agent schemas (`manifest`, `commit`, `feedback`, `delivery`) are Template files.
 
 ## Toolchain and dependencies
 
@@ -283,7 +289,7 @@ pub fn catalog() -> Catalog {
 | `tokio` (rt-multi-thread, macros, process, signal, sync, time, fs) | both | async, child processes, Ctrl-C/SIGHUP/console close |
 | `sqlx` 0.9 (`sqlite`, `runtime-tokio`, `migrate`; no defaults) | engine | [D](D-database.md) |
 | `serde`, `serde_json`, `toml` | engine | definitions, deliveries, configuration |
-| `jsonschema` (no defaults, no HTTP resolver) | engine | validating delivered files, including schemas overridden in `.surt/agents/` |
+| `jsonschema` (no defaults, no HTTP resolver) | engine | validating delivered files against the schemas read from `.surt/agents/` |
 | `uuid` (`v7`), `sha2` | engine | ids, blobs, definition identity |
 | `jiff` | engine | Unix-second `Timestamp`s, their display and the local date of `YYYYMMDD-<slug>` |
 | `process-wrap` 10 (tokio, process-group, job-object) | engine | process trees ([A](A-process-model.md#supervising-agent-processes)) |
@@ -304,11 +310,10 @@ Exceptions: rust.md unsafe; surt-engine platform/process/{macos,windows,signals}
 Exceptions: B toolchain table (libc, windows-sys only); surt-engine Cargo.toml windows, platform/children/windows.rs:own_tree; process-wrap's CreationFlags takes windows::Win32::System::Threading::PROCESS_CREATION_FLAGS, and the windows crate is already in the build through process-wrap; it only names that type, every call goes through windows-sys
 Exceptions: spec "every OS #[cfg] lives in platform"; surt driving/interruption.rs:Interruptions; the rule governs the engine's module split, and tokio::signal exposes Ctrl-C/SIGHUP and Ctrl-C/console-close as different types per OS; the CLI keeps two cfg blocks instead of the engine owning console signals
 Exceptions: spec "every OS #[cfg] lives in platform"; #[cfg(unix)] on tests in crates/surt/tests/cli and src/**/tests; those tests send POSIX signals or run sh, which only exist on Unix; Windows CI does not run them
-Exceptions: C rule 6 / B "the core never names Task"; drive/worktrees.rs branch surt/task/<subject>/<key>, drive/integrate.rs "Merge task" message and Surt-Task trailer, drive/snapshot.rs integration "tasks" key; A. Git Integration and schemas/integration.schema.json fix these formats for the engine's own Operations; making them workflow-provided adds configuration no second workflow needs yet
 Exceptions: architecture.md avoid cycles; project::{error, layout, config} imported by drive, reconcile, cleanup, artifacts; the spec fixes the twelve engine modules and lists Error and Refusal as facade types of project; those submodules import nothing that imports them back, so files have no cycle, but the module-level edges project -> drive -> project remain, as do drive <-> reconcile (Progress) and store -> drive::graph (sanctioned above)
 Exceptions: clean-code.md primitive obsession; store/*.rs methods taking &str ids, ref_move(step), revision(id); runtime/error.rs:RuntimeError.code; rows carry the same TEXT ids the database holds and only the Driver and cancel paths hold a RunId (those methods take &RunId); RuntimeError.code relays Claude Code's open-ended error categories verbatim into execution.error_code, while the decision is the closed FailureClass
 Exceptions: rust.md typed errors; project/error.rs:InternalError(Box<dyn Error>); an internal error (exit 1) is reported, never matched, so one boxed type keeps StoreError, GitError, io and snapshot corruption out of the public API
-Exceptions: B facade method list; project:{open_read_only, resolve_subject, subject_named, reference, resolve_execution, inspect_execution, logs, execution_logs, gate_status, blocked_steps, integration_branch, cancel_impact, restore_impact, delete_impact, wait_for_driver, artifacts, free_subject_name, active_subject_with_slug, resolve_commit, actor, base_merge, interrupted_merge}; the CLI needs them for J's read-only commands, next-command hints, naming, the cancel, restore and delete confirmations, `surt stop`'s wait, the merge line after `✔ shipper delivered` and the `merge_into_base_interrupted` block's how-to; each is a read the facade's documented methods would otherwise duplicate
+Exceptions: B facade method list; project:{open_read_only, resolve_subject, subject_named, reference, resolve_execution, inspect_execution, logs, execution_logs, gate_status, blocked_steps, integration_branch, cancel_impact, restore_impact, delete_impact, wait_for_driver, artifacts, free_subject_name, active_subject_with_slug, resolve_commit, actor, base_merge, interrupted_merge}; the CLI needs them for J's read-only commands, next-command hints, naming, the cancel, restore and delete confirmations, `surt stop`'s wait, the merge line after `✔ delivered` and the `merge_into_base_interrupted` block's how-to; each is a read the facade's documented methods would otherwise duplicate
 Exceptions: D budget_base; store/control.rs:unblock; it stores the number of Executions of any state (or Iterations) when the step last became running, and decide counts failed non-transient Attempts after that index; same budget as D, different base value, so the column is not comparable with D's examples
 Exceptions: testing.md no timing in tests; platform/tests.rs, platform/process/tests.rs, runtime/claude_code/tests/stub.rs, project/tests/drive/recovery.rs, crates/surt/tests/cli/interrupt.rs, crates/surt/tests/cli/follow.rs, crates/surt/tests/cli/slots.rs; real processes and OS locks have no virtual clock, and tokio::time::pause() breaks sqlx's pool acquire (PoolTimedOut); every wait is bounded polling with a generous ceiling, never a fixed sleep that a result depends on
 Exceptions: A orphan stop; platform/process/windows.rs:signal; on Windows a stale agent is stopped with TerminateProcess on its root pid only; the Job Object with kill-on-close already ends the tree when the Driver that owned it dies, so only a tree whose Job outlived its Driver can leave grandchildren

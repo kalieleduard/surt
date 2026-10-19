@@ -9,7 +9,7 @@ fn status_shows_the_fast_forward_of_a_merged_run() {
     let main = base_branch(&sandbox);
     let base = sha(&sandbox, &main);
     sandbox.git(&sandbox.repo(), &["checkout", "--quiet", "--detach"]);
-    surt(&sandbox, &["start", &name]);
+    surt(&sandbox, &["continue", &name]);
     let tip = sha(&sandbox, &format!("surt/{name}"));
 
     let detail = surt(&sandbox, &["status", &name]).stdout;
@@ -39,7 +39,7 @@ fn status_shows_why_a_run_was_not_merged() {
     commit_news(&sandbox);
     let moved = sha(&sandbox, &main);
     sandbox.git(&sandbox.repo(), &["checkout", "--quiet", "--detach"]);
-    surt(&sandbox, &["start", &name]);
+    surt(&sandbox, &["continue", &name]);
 
     let detail = surt(&sandbox, &["status", &name]).stdout;
     let json = surt(&sandbox, &["status", &name, "--json"]).stdout;

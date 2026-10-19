@@ -6,23 +6,23 @@ use std::time::{Duration, Instant};
 use jiff::Timestamp;
 use serde_json::{Value, json};
 
+use crate::delivering::{planned_with, subject_name};
 use crate::scripts::{tasks, wait_until_stopped};
-use crate::start::{feature_name, planned_with};
 use crate::status::hashes;
 use crate::support::Sandbox;
 
 const CEILING: Duration = Duration::from_secs(60);
 const POLL: Duration = Duration::from_millis(20);
 const ONE_AGENT: &str = "max_concurrent_agents = 1\n";
-const BUILD_STARTED: &str = "● task A build started\n";
+const BUILD_STARTED: &str = "● item A build started\n";
 const WAL_READ_MARKS: &str = "surt.db-shm";
 
-fn second_feature(sandbox: &Sandbox) -> String {
-    let name = feature_name().replace("-add-login", "-fix-cache");
+fn second_subject(sandbox: &Sandbox) -> String {
+    let name = subject_name().replace("-add-login", "-fix-cache");
     for args in [
-        vec!["feature", "fix cache"],
+        vec!["run", "feature", "--input", "request=fix cache"],
         vec!["approve", &name],
-        vec!["plan", &name],
+        vec!["continue", &name],
         vec!["approve", &name],
     ] {
         let run = sandbox.surt(&sandbox.repo(), &args);
@@ -38,7 +38,7 @@ struct Driver {
 
 impl Driver {
     fn start(sandbox: &Sandbox, name: &str) -> Driver {
-        let mut child = sandbox.spawn(&["start", name]);
+        let mut child = sandbox.spawn(&["continue", name]);
         let stderr = BufReader::new(child.stderr.take().expect("the piped stderr"));
         Driver { child, stderr }
     }
@@ -100,10 +100,10 @@ fn status(sandbox: &Sandbox, args: &[&str]) -> String {
 
 fn agent_slots(document: &str) -> Vec<Value> {
     let document: Value = serde_json::from_str(document).expect("a JSON document");
-    match document.get("features") {
-        Some(Value::Array(features)) => features
+    match document.get("subjects") {
+        Some(Value::Array(subjects)) => subjects
             .iter()
-            .map(|feature| feature["agent_slots"].clone())
+            .map(|subject| subject["agent_slots"].clone())
             .collect(),
         _ => vec![document["agent_slots"].clone()],
     }
@@ -116,14 +116,14 @@ fn readable_files(sandbox: &Sandbox) -> BTreeMap<String, String> {
 }
 
 #[test]
-fn status_from_a_third_process_counts_the_agent_slots_of_both_driven_features() {
-    let first = feature_name();
+fn status_from_a_third_process_counts_the_agent_slots_of_both_driven_subjects() {
+    let first = subject_name();
     let sandbox = planned_with(
         &first,
         &[tasks(1, &["A"]), wait_until_stopped("A/build")],
         Some(ONE_AGENT),
     );
-    let second = second_feature(&sandbox);
+    let second = second_subject(&sandbox);
     let _holder = Driver::building(&sandbox, &first);
     let _waiter = Driver::start(&sandbox, &second);
     let queued = "waiting for agent slot (1/1 in use)";
@@ -166,13 +166,13 @@ fn status_from_a_third_process_counts_the_agent_slots_of_both_driven_features() 
 
 #[test]
 fn two_drivers_of_one_project_never_run_more_agents_than_its_limit() {
-    let first = feature_name();
+    let first = subject_name();
     let sandbox = planned_with(
         &first,
         &[tasks(1, &["A"]), wait_until_stopped("A/build")],
         Some(ONE_AGENT),
     );
-    let second = second_feature(&sandbox);
+    let second = second_subject(&sandbox);
     let holder = Driver::building(&sandbox, &first);
 
     let waiter = Driver::start(&sandbox, &second);

@@ -25,7 +25,7 @@ const CANCELLED: &str = "cancelled";
 pub enum StatusScope<'a> {
     Active,
     All,
-    Feature(&'a str, RunSelector),
+    Subject(&'a str, RunSelector),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -43,6 +43,7 @@ pub struct RunStatus {
     pub slots: AgentSlots,
     pub paused: Option<LaunchPause>,
     pub gates: Vec<GateView>,
+    pub item_step: Option<String>,
     pub items: Vec<ItemStatus>,
     pub blocked: Vec<BlockedStep>,
     pub unattended: Vec<Unattended>,
@@ -87,6 +88,13 @@ pub struct RevisionSummary {
     pub origin: RevisionOrigin,
     pub sha256: String,
     pub files: Vec<String>,
+    pub item_list: Option<ItemListSummary>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ItemListSummary {
+    pub items: usize,
+    pub item_files: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -142,14 +150,14 @@ pub enum CleanupState {
 
 impl Project {
     pub async fn status(&self, scope: StatusScope<'_>) -> Result<Vec<RunStatus>, Error> {
-        let feature = match scope {
-            StatusScope::Feature(reference, run) => {
+        let selected = match scope {
+            StatusScope::Subject(reference, run) => {
                 Some((self.resolve_subject(reference).await?.name, run))
             }
             _ => None,
         };
         let store = self.reader().await?;
-        let statuses = match &feature {
+        let statuses = match &selected {
             Some((subject, run)) => self.selected_status(&store, subject, *run).await,
             None => {
                 self.read_statuses(&store, None, scope == StatusScope::All)
@@ -236,6 +244,7 @@ impl Project {
             slots,
             paused,
             gates: gates::views(store, &self.layout, run).await?,
+            item_step: items::item_step(&frozen, run)?,
             items: items::statuses(store, run, &frozen, readiness).await?,
             unattended: facts::unattended(store, root, driver.is_some()).await?,
             integrating: facts::integrating(store, root).await?,

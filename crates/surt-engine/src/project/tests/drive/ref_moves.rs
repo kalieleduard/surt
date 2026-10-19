@@ -177,7 +177,7 @@ async fn status_shows_an_intended_move_as_a_pending_integration_without_settling
 
     let statuses = feature
         .project
-        .status(StatusScope::Feature(SUBJECT, RunSelector::Current))
+        .status(StatusScope::Subject(SUBJECT, RunSelector::Current))
         .await
         .expect("status reads");
 

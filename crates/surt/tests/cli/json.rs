@@ -1,9 +1,9 @@
 use jiff::Timestamp;
 use serde_json::{Value, json};
 
+use crate::delivering::subject_name;
 use crate::inspect::{crashed_build, delivered_after_a_rejected_review};
-use crate::start::feature_name;
-use crate::status::{at_the_manifest_gate, delivered, with_a_blocked_task};
+use crate::status::{at_the_manifest_gate, delivered, with_a_blocked_item};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const SCHEMA: u64 = 1;
@@ -31,9 +31,9 @@ fn rfc3339(sandbox: &Sandbox, sql: &str) -> String {
 }
 
 #[test]
-fn status_json_of_a_blocked_feature_says_which_task_is_blocked_why_and_how_to_resume() {
-    let name = feature_name();
-    let sandbox = with_a_blocked_task(&name);
+fn status_json_of_a_blocked_subject_says_which_item_is_blocked_why_and_how_to_resume() {
+    let name = subject_name();
+    let sandbox = with_a_blocked_item(&name);
     let merged = text(
         &sandbox,
         "SELECT b.merged_as_sha FROM run_branch b JOIN workflow_run w ON w.id = b.workflow_run_id \
@@ -62,7 +62,7 @@ fn status_json_of_a_blocked_feature_says_which_task_is_blocked_why_and_how_to_re
     assert_eq!(status["run"], 1);
     assert_eq!(status["state"], "BLOCKED");
     assert_eq!(status["driver"], Value::Null);
-    assert_eq!(status["resume"], format!("surt start {name}"));
+    assert_eq!(status["resume"], format!("surt continue {name}"));
     let spec = &status["gates"][0];
     assert_eq!(spec["artifact"], "spec");
     assert_eq!(spec["status"], "approved");
@@ -74,12 +74,12 @@ fn status_json_of_a_blocked_feature_says_which_task_is_blocked_why_and_how_to_re
         spec["approval"],
         json!({"decision": "approve", "actor": "tester@example.com", "decided_at": spec_at})
     );
-    let tasks = &status["tasks"];
-    assert_eq!(tasks[0]["key"], "A");
-    assert_eq!(tasks[0]["state"], "succeeded");
-    assert_eq!(tasks[0]["merged_sha"], merged);
-    assert_eq!(tasks[0].get("blocked_reason"), None);
-    let blocked = &tasks[1];
+    let items = &status["items"];
+    assert_eq!(items[0]["key"], "A");
+    assert_eq!(items[0]["state"], "succeeded");
+    assert_eq!(items[0]["merged_sha"], merged);
+    assert_eq!(items[0].get("blocked_reason"), None);
+    let blocked = &items[1];
     assert_eq!(blocked["key"], "B");
     assert_eq!(blocked["state"], "blocked");
     assert_eq!(blocked["step"], "build");
@@ -90,32 +90,32 @@ fn status_json_of_a_blocked_feature_says_which_task_is_blocked_why_and_how_to_re
         blocked["last_error"],
         json!({"execution": failed, "attempt": 3, "code": "exit_code", "message": "the agent exited with code 1"})
     );
-    assert_eq!(blocked["resume"], format!("surt start {name}"));
+    assert_eq!(blocked["resume"], format!("surt continue {name}"));
     assert_utc(&blocked["since"]);
 }
 
 #[test]
-fn status_json_lists_active_features_and_an_empty_list_when_none_is_active() {
-    let name = feature_name();
+fn status_json_lists_active_subjects_and_an_empty_list_when_none_is_active() {
+    let name = subject_name();
     let sandbox = delivered(&name);
 
     let active = surt(&sandbox, &["status", "--json"]);
     let all = document(surt(&sandbox, &["status", "--all", "--json"]));
 
     assert!(active.stderr.is_empty(), "{}", active.stderr);
-    assert_eq!(document(active), json!({"schema": 1, "features": []}));
+    assert_eq!(document(active), json!({"schema": 1, "subjects": []}));
     assert_eq!(all["schema"], SCHEMA);
-    let features = all["features"].as_array().expect("a list of features");
-    assert_eq!(features.len(), 1);
-    assert_eq!(features[0]["name"], name.as_str());
-    assert_eq!(features[0]["state"], "SUCCEEDED");
-    assert_eq!(features[0]["states"], json!(["SUCCEEDED"]));
-    assert_utc(&features[0]["ended_at"]);
+    let subjects = all["subjects"].as_array().expect("a list of subjects");
+    assert_eq!(subjects.len(), 1);
+    assert_eq!(subjects[0]["name"], name.as_str());
+    assert_eq!(subjects[0]["state"], "SUCCEEDED");
+    assert_eq!(subjects[0]["states"], json!(["SUCCEEDED"]));
+    assert_utc(&subjects[0]["ended_at"]);
 }
 
 #[test]
 fn show_json_returns_the_revision_metadata_with_each_file_as_text_or_base64() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = at_the_manifest_gate(&name);
     sandbox.execute(&format!(
         "INSERT INTO blob (sha256, size, bytes) VALUES ('{NOT_UTF8_BLOB}', 4, X'FFFE0041')"
@@ -166,7 +166,7 @@ fn show_json_returns_the_revision_metadata_with_each_file_as_text_or_base64() {
 
 #[test]
 fn show_json_without_an_artifact_lists_the_artifacts() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = at_the_manifest_gate(&name);
 
     let index = document(surt(&sandbox, &["show", &name, "--json"]));
@@ -186,17 +186,17 @@ fn show_json_without_an_artifact_lists_the_artifacts() {
 
 #[test]
 fn inspect_json_returns_the_timeline_events_with_their_scope_and_details() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = delivered_after_a_rejected_review(&name);
     let crashed = crashed_build(&sandbox);
 
     let run = document(surt(&sandbox, &["inspect", &name, "--json"]));
-    let task = document(surt(&sandbox, &["inspect", &name, "B", "--json"]));
+    let item = document(surt(&sandbox, &["inspect", &name, "B", "--json"]));
 
     assert_eq!(run["schema"], SCHEMA);
-    assert_eq!(run["feature"], name.as_str());
+    assert_eq!(run["subject"], name.as_str());
     assert_eq!(run["run"], 1);
-    assert_eq!(run.get("task"), None);
+    assert_eq!(run.get("item"), None);
     let events = run["events"].as_array().expect("a list of events");
     assert_eq!(events[0]["kind"], "run.created");
     for event in events {
@@ -208,8 +208,8 @@ fn inspect_json_returns_the_timeline_events_with_their_scope_and_details() {
         .find(|event| event["kind"] == "approval.recorded")
         .expect("the rejection");
     assert_eq!(rejected["step"], "approve-spec");
-    assert_eq!(task["task"], "B");
-    let failed = task["events"]
+    assert_eq!(item["item"], "B");
+    let failed = item["events"]
         .as_array()
         .expect("a list of events")
         .iter()
@@ -219,12 +219,12 @@ fn inspect_json_returns_the_timeline_events_with_their_scope_and_details() {
     assert_eq!(failed["step"], "build");
     assert_eq!(failed["iteration"], 1);
     assert_eq!(failed["attempt"], 1);
-    assert_eq!(failed["task"], "B");
+    assert_eq!(failed["item"], "B");
 }
 
 #[test]
 fn inspect_json_of_an_execution_returns_its_detail_without_unreported_values() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = delivered_after_a_rejected_review(&name);
     let id = crashed_build(&sandbox);
 
@@ -233,9 +233,9 @@ fn inspect_json_of_an_execution_returns_its_detail_without_unreported_values() {
     let execution = &detail["execution"];
     assert_eq!(detail["schema"], SCHEMA);
     assert_eq!(execution["id"], id.as_str());
-    assert_eq!(execution["feature"], name.as_str());
+    assert_eq!(execution["subject"], name.as_str());
     assert_eq!(execution["run"], 1);
-    assert_eq!(execution["task"], "B");
+    assert_eq!(execution["item"], "B");
     assert_eq!(execution["step"], "build");
     assert_eq!(execution["iteration"], 1);
     assert_eq!(execution["attempt"], 1);
@@ -263,11 +263,11 @@ fn inspect_json_of_an_execution_returns_its_detail_without_unreported_values() {
 
 #[test]
 fn a_refusal_under_json_keeps_the_human_message_and_exit_code_and_prints_nothing_on_stdout() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = at_the_manifest_gate(&name);
 
     for args in [
-        vec!["status", "no-such-feature", "--json"],
+        vec!["status", "no-such-subject", "--json"],
         vec!["show", &name, "no-such-artifact", "--json"],
         vec!["inspect", &name, "Z", "--json"],
     ] {
@@ -288,11 +288,11 @@ fn a_refusal_under_json_keeps_the_human_message_and_exit_code_and_prints_nothing
 
 #[test]
 fn driving_commands_reject_json_as_invalid_usage() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = at_the_manifest_gate(&name);
 
     for command in [
-        "feature", "plan", "start", "approve", "reject", "cancel", "stop", "restore", "delete",
+        "continue", "approve", "reject", "cancel", "stop", "restore", "delete",
     ] {
         let run = surt(&sandbox, &[command, &name, "--json"]);
 

@@ -2,8 +2,8 @@ use std::io::{BufRead, BufReader, Read};
 use std::process::{Child, ChildStderr, Command};
 use std::time::{Duration, Instant};
 
+use crate::delivering::{planned, planned_with, subject_name};
 use crate::scripts::{build, tasks, tasks_needing, wait_until_stopped};
-use crate::start::{feature_name, planned, planned_with};
 use crate::support::Sandbox;
 
 const INTERRUPTED_EXIT_CODE: i32 = 130;
@@ -19,7 +19,7 @@ pub struct Driving {
 
 impl Driving {
     pub fn start(sandbox: &Sandbox, name: &str) -> Driving {
-        let mut child = sandbox.spawn(&["start", name]);
+        let mut child = sandbox.spawn(&["continue", name]);
         let stderr = BufReader::new(child.stderr.take().expect("the piped stderr"));
         Driving {
             child,
@@ -60,7 +60,7 @@ impl Driving {
 }
 
 fn interrupted(name: &str) -> String {
-    format!("⏹ interrupted\n  resume: surt start {name}\n")
+    format!("⏹ interrupted\n  resume: surt continue {name}\n")
 }
 
 pub fn waiting_builder(name: &str) -> Sandbox {
@@ -68,10 +68,10 @@ pub fn waiting_builder(name: &str) -> Sandbox {
 }
 
 fn interrupts_with(signal: &str) {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = waiting_builder(&name);
     let mut driving = Driving::start(&sandbox, &name);
-    driving.wait_for("● task A build started\n");
+    driving.wait_for("● item A build started\n");
 
     driving.signal(signal);
     let (code, stderr) = driving.finish();
@@ -79,7 +79,7 @@ fn interrupts_with(signal: &str) {
     assert_eq!(code, Some(INTERRUPTED_EXIT_CODE), "{stderr}");
     assert!(stderr.contains(STOPPING), "{stderr}");
     assert!(
-        stderr.contains("⏹ task A build attempt 1 interrupted\n"),
+        stderr.contains("⏹ item A build attempt 1 interrupted\n"),
         "{stderr}"
     );
     assert!(stderr.ends_with(&interrupted(&name)), "{stderr}");
@@ -113,7 +113,7 @@ fn wait_until_spawned(sandbox: &Sandbox) {
 
 #[test]
 fn a_second_ctrl_c_forces_the_stop_without_waiting_for_a_running_check() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = planned_with(
         &name,
         &[tasks(1, &["A"]), build("A", 1, 1, "a.txt", "a\n")],
@@ -121,7 +121,7 @@ fn a_second_ctrl_c_forces_the_stop_without_waiting_for_a_running_check() {
     );
     let clock = Instant::now();
     let mut driving = Driving::start(&sandbox, &name);
-    driving.wait_for("● task A check started\n");
+    driving.wait_for("● item A check started\n");
     wait_until_spawned(&sandbox);
 
     driving.signal("INT");
@@ -131,7 +131,7 @@ fn a_second_ctrl_c_forces_the_stop_without_waiting_for_a_running_check() {
 
     assert_eq!(code, Some(INTERRUPTED_EXIT_CODE), "{stderr}");
     assert!(stderr.ends_with(&interrupted(&name)), "{stderr}");
-    assert!(!stderr.contains("task A check passed"), "{stderr}");
+    assert!(!stderr.contains("item A check passed"), "{stderr}");
     assert_eq!(
         sandbox
             .texts("SELECT state FROM execution WHERE pid IS NOT NULL ORDER BY rowid DESC LIMIT 1")
@@ -143,11 +143,11 @@ fn a_second_ctrl_c_forces_the_stop_without_waiting_for_a_running_check() {
 }
 
 #[test]
-fn status_shows_a_driven_feature_as_running_with_its_driver_and_running_task() {
-    let name = feature_name();
+fn status_shows_a_driven_subject_as_running_with_its_driver_and_running_item() {
+    let name = subject_name();
     let sandbox = waiting_builder(&name);
     let mut driving = Driving::start(&sandbox, &name);
-    driving.wait_for("● task A build started\n");
+    driving.wait_for("● item A build started\n");
     let pid = driving.child.id();
 
     let overview = sandbox.surt(&sandbox.repo(), &["status"]);
@@ -159,7 +159,7 @@ fn status_shows_a_driven_feature_as_running_with_its_driver_and_running_task() {
     assert_eq!(
         cells(&overview.stdout),
         [
-            vec!["FEATURE", "RUN", "STATE", "DRIVER", "PROGRESS"],
+            vec!["SUBJECT", "RUN", "STATE", "DRIVER", "PROGRESS"],
             vec![
                 name.as_str(),
                 "1",
@@ -201,8 +201,8 @@ fn cells(table: &str) -> Vec<Vec<&str>> {
 }
 
 #[test]
-fn status_shows_a_task_queued_for_an_agent_slot_and_one_waiting_for_its_needs() {
-    let name = feature_name();
+fn status_shows_an_item_queued_for_an_agent_slot_and_one_waiting_for_its_needs() {
+    let name = subject_name();
     let sandbox = planned(
         &name,
         &[
@@ -212,8 +212,8 @@ fn status_shows_a_task_queued_for_an_agent_slot_and_one_waiting_for_its_needs() 
     );
     sandbox.write_config("max_concurrent_agents = 1\n");
     let mut driving = Driving::start(&sandbox, &name);
-    driving.wait_for("● task A build started\n");
-    driving.wait_for("✔ task B setup done\n");
+    driving.wait_for("● item A build started\n");
+    driving.wait_for("✔ item B setup done\n");
 
     let overview = sandbox.surt(&sandbox.repo(), &["status"]);
     let detail = sandbox.surt(&sandbox.repo(), &["status", &name]);

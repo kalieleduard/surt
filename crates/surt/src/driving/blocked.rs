@@ -3,8 +3,8 @@ use jiff::tz::TimeZone;
 use surt_engine::project::{BlockReason, BlockedStep, InterruptedMerge, LastFailure};
 
 use super::progress::{label, short};
-use crate::feature::word;
 use crate::message::{Mark, Message};
+use crate::retry::word;
 use crate::symbols::DASH;
 
 const INTERRUPTED_MERGE: &str = "merge_into_base_interrupted";

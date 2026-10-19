@@ -2,6 +2,13 @@ use std::fs;
 
 use crate::support::{REFUSED_EXIT_CODE, Sandbox};
 
+pub(crate) fn state_of<'a>(stderr: &'a str, path: &str) -> Option<&'a str> {
+    stderr
+        .lines()
+        .find_map(|line| line.trim().strip_prefix(path))
+        .map(str::trim)
+}
+
 #[test]
 fn init_from_a_subdirectory_creates_dot_surt_at_the_toplevel() {
     let sandbox = Sandbox::with_repository();
@@ -25,38 +32,37 @@ fn init_from_a_subdirectory_creates_dot_surt_at_the_toplevel() {
         run.stderr
     );
     assert!(
-        run.stderr
-            .contains("next: surt feature \"<what you want to build>\""),
+        run.stderr.contains(
+            "next: add a workflow under .surt/workflows/
+"
+        ),
         "{}",
         run.stderr
     );
     assert!(run.stdout.is_empty(), "{}", run.stdout);
-    let gitignore = fs::read_to_string(sandbox.dot_surt().join(".gitignore")).expect("readable");
-    assert!(gitignore.contains("!config.toml"));
 }
 
 #[test]
-fn only_config_and_agents_are_visible_to_git() {
+fn plain_init_writes_no_workflow_and_no_agent() {
     let sandbox = Sandbox::with_repository();
-    sandbox.init();
-    fs::create_dir_all(sandbox.dot_surt().join("agents/builder")).expect("an agents directory");
-    fs::write(sandbox.dot_surt().join("agents/builder/agent.toml"), "").expect("an override");
 
-    let untracked = sandbox.git_output(
-        &sandbox.repo(),
-        &["status", "--porcelain", "--untracked-files=all"],
-    );
+    let run = sandbox.surt(&sandbox.repo(), &["init"]);
 
-    let mut paths: Vec<&str> = untracked.lines().map(|line| &line[3..]).collect();
-    paths.sort_unstable();
-    assert_eq!(
-        paths,
-        [
-            ".surt/.gitignore",
-            ".surt/agents/builder/agent.toml",
-            ".surt/config.toml"
-        ]
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
+    assert_eq!(state_of(&run.stderr, ".surt/config.toml"), Some("created"));
+    assert!(
+        !run.stderr.contains("workflows/feature.toml"),
+        "{}",
+        run.stderr
     );
+    assert!(
+        run.stderr
+            .ends_with("  next: add a workflow under .surt/workflows/\n"),
+        "{}",
+        run.stderr
+    );
+    assert!(!sandbox.dot_surt().join("workflows").exists());
+    assert!(!sandbox.dot_surt().join("agents").exists());
 }
 
 #[test]
@@ -78,34 +84,6 @@ fn the_generated_config_is_commented_and_holds_the_defaults() {
             "{expected} missing from:\n{config}"
         );
     }
-}
-
-#[test]
-fn rerunning_init_keeps_config_and_agents_and_reports_what_exists() {
-    let sandbox = Sandbox::with_repository();
-    sandbox.init();
-    let config = sandbox.dot_surt().join("config.toml");
-    let agent = sandbox.dot_surt().join("agents/builder/agent.toml");
-    fs::write(&config, "max_attempts = 7\n").expect("an edited config");
-    fs::create_dir_all(agent.parent().expect("a parent")).expect("an agents directory");
-    fs::write(&agent, "model = \"mine\"\n").expect("an override");
-
-    let rerun = sandbox.init();
-
-    assert!(
-        rerun.stderr.starts_with("✔ surt is already initialized in"),
-        "{}",
-        rerun.stderr
-    );
-    assert!(rerun.stderr.contains("(exists, kept)"), "{}", rerun.stderr);
-    assert_eq!(
-        fs::read_to_string(&config).expect("readable"),
-        "max_attempts = 7\n"
-    );
-    assert_eq!(
-        fs::read_to_string(&agent).expect("readable"),
-        "model = \"mine\"\n"
-    );
 }
 
 #[test]

@@ -25,7 +25,7 @@ use crate::project::{Error, Layout, Refusal};
 use crate::reconcile::Reconcile;
 use crate::runtime::{AgentRuntime, StopLevel, StopSignal};
 use crate::store::{StepRow, Store};
-use crate::workflow::{Catalog, Definition};
+use crate::workflow::Definition;
 
 const TICK: Duration = Duration::from_secs(1);
 const DONE: &str = "done";
@@ -38,7 +38,6 @@ pub(crate) struct Driving<'a> {
     pub(crate) max_agents: usize,
     pub(crate) worktrees: Option<PathBuf>,
     pub(crate) actor: &'a str,
-    pub(crate) catalog: &'a Catalog,
     pub(crate) stop_grace_period: Duration,
 }
 

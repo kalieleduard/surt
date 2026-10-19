@@ -1,23 +1,19 @@
 use std::fs;
 
-use super::super::fixtures::{SUBJECT, initial};
+use super::super::fixtures::{SUBJECT, input};
 use super::fixtures::{ACTOR, Feature};
 use super::planned::plan;
 use super::working_copy::at_gate;
 use super::worktrees::{refused, tracked};
-use crate::project::{Config, DriveOutcome, Error, NewRun, Refusal, RunId};
+use crate::project::{Carry, Config, DriveOutcome, Error, NewRun, Refusal, RunId};
 use crate::runtime::Script;
 
-const REQUEST: &str = "request";
-
-fn next_run(feature: &Feature, workflow: &str) -> NewRun {
-    let base = feature.base();
-    let base_json = format!(r#"{{"ref": "main", "sha": "{base}"}}"#);
+fn next_run(workflow: &str) -> NewRun {
     NewRun {
         subject: SUBJECT.to_owned(),
         workflow: workflow.to_owned(),
-        initial_artifacts: vec![initial("base", "base.json", base_json.as_bytes())],
-        carried: vec![REQUEST.to_owned()],
+        inputs: vec![input("base", "main")],
+        carry: Carry::PreviousInputs,
         merge_into_base: None,
         actor: ACTOR.to_owned(),
     }
@@ -27,8 +23,8 @@ fn review_next_run() -> NewRun {
     NewRun {
         subject: SUBJECT.to_owned(),
         workflow: "review".to_owned(),
-        initial_artifacts: Vec::new(),
-        carried: vec![REQUEST.to_owned()],
+        inputs: Vec::new(),
+        carry: Carry::PreviousInputs,
         merge_into_base: None,
         actor: ACTOR.to_owned(),
     }
@@ -52,13 +48,13 @@ async fn cancelled_with_a_blocked_task() -> Feature {
 #[tokio::test(flavor = "multi_thread")]
 async fn a_new_run_carries_the_request_and_works_on_dot_two_branches_and_worktrees() {
     let mut feature = cancelled_with_a_blocked_task().await;
-    let first_task = format!("refs/heads/surt/task/{SUBJECT}/A");
+    let first_task = format!("refs/heads/surt/item/{SUBJECT}/A");
     let first_tip = feature.sha(&first_task);
     let first_integration = feature.sha(&format!("refs/heads/surt/{SUBJECT}"));
 
     feature.run = feature
         .project
-        .create_run(next_run(&feature, "tracked"))
+        .create_run(next_run("tracked"))
         .await
         .expect("run 2 is created")
         .run;
@@ -102,7 +98,7 @@ async fn a_new_run_carries_the_request_and_works_on_dot_two_branches_and_worktre
         [
             (format!("refs/heads/surt/{stem}"), None),
             (
-                format!("refs/heads/surt/task/{stem}/A"),
+                format!("refs/heads/surt/item/{stem}/A"),
                 Some(worktree.display().to_string())
             ),
         ]

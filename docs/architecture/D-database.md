@@ -74,7 +74,7 @@ erDiagram
 | `approval` | approve or reject decisions | Approval |
 | `working_copy_file` | baseline hash per Working Copy file | Working Copy |
 | `execution_input` | Revisions fixed as Inputs when an Execution starts | Input |
-| `run_branch` | the branch a run's Operations created, its tip and worktree | Integration Branch, Task Branch |
+| `run_branch` | the branch a run's Operations created, its tip and worktree | Integration Branch, Item Branch |
 | `ref_move` | a ref move an Operation is about to make | Intention ([I](I-recovery.md#intentions)) |
 | `event` | append-only audit log | — |
 
@@ -98,7 +98,7 @@ No table, column or value names Feature, Task, Spec, Builder, Reviewer or Shippe
 - `budget_base` measures the budget of [G. Limits](G-state-machines.md#limits). For `agent` and `operation` Step Runs it is the number of `failed` Executions that are not `transient`, and for a `loop` the number of Iterations, counted when the Step Run last became `running`. A Step Run blocks when `count − budget_base` reaches the limit. Unblocking sets `budget_base` to the current count. It is integer arithmetic and never depends on the clock:
   ```
   build B iter 2   blocked (attempts_exhausted)   budget_base 0   failed attempts 1, 2, 3
-  $ surt start …   running                        budget_base 3   → attempt 4
+  $ surt continue … running                        budget_base 3   → attempt 4
   ```
 - `blocked_reason` is `attempts_exhausted`, `not_retryable` or `iterations_exhausted`. The detail that `status` prints comes from the last Execution's `error_message`, not from a copy on the Step Run.
 
@@ -127,7 +127,7 @@ No table, column or value names Feature, Task, Spec, Builder, Reviewer or Shippe
 
 ### Snapshots
 
-A snapshot is a set of files with an identity hash, shared by every run that froze identical content: 30 Features built with the built-in `feature.toml` store it once. `kind` is:
+A snapshot is a set of files with an identity hash, shared by every run that froze identical content: 30 Features built with the same `.surt/workflows/feature.toml` store it once. `kind` is:
 
 | `kind` | Files | Identity |
 |---|---|---|
@@ -143,7 +143,7 @@ A snapshot is a set of files with an identity hash, shared by every run that fro
 
 ```
 root run       ref refs/heads/surt/20261017-add-login              start = Base             tip = M_B
-child run (B)  ref refs/heads/surt/task/20261017-add-login/B       start = tip when B began
+child run (B)  ref refs/heads/surt/item/20261017-add-login/B       start = tip when B began
                worktree /Users/…/.surt/worktrees/surt-a1b2c3/20261017-add-login/B
                merged_as M_B
 ```

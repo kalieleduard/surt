@@ -2,11 +2,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+use super::super::fixtures::Catalog;
 use super::super::fixtures::SUBJECT;
 use super::fixtures::{ACTOR, Feature, Recording, agent};
 use super::planned::{BUILDER, PLANNER, plan, work};
 use super::repository::{commit_file, git, git_succeeds};
-use crate::project::{Catalog, Config, DriveOutcome, Progress, Refusal, StepLabel};
+use crate::project::{Config, DriveOutcome, Progress, Refusal, StepLabel};
 use crate::runtime::{
     AgentRuntime, Behavior, Delivery, FakeRuntime, RuntimeCompletion, RuntimeError,
     RuntimeEventSink, RuntimeRequest, Script, StopSignal,
@@ -15,6 +16,13 @@ use crate::runtime::{
 const TRACKED_WORKFLOW: &str = r#"
 schema = 1
 name = "tracked"
+
+[inputs.request]
+format = "text"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
 
 [steps.prepare]
 kind = "operation"
@@ -88,7 +96,7 @@ pub(super) fn refused() -> Behavior {
 }
 
 fn task_branch(key: &str) -> String {
-    format!("refs/heads/surt/task/{SUBJECT}/{key}")
+    format!("refs/heads/surt/item/{SUBJECT}/{key}")
 }
 
 async fn child_run(feature: &Feature, key: &'static str) -> String {

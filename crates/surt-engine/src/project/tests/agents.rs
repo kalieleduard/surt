@@ -1,9 +1,13 @@
+use super::fixtures::{AgentAssets, Catalog};
 use super::fixtures::{ProjectDir, agent, default_config, new_run, refusal};
-use crate::project::{AgentAssets, Catalog, DefinitionFile, InvalidDefinition, Problem};
+use crate::project::{DefinitionFile, InvalidDefinition, Problem};
 
 const FLOW: &str = r#"
 schema = 1
 name = "flow"
+
+[inputs.request]
+format = "text"
 
 [steps.work]
 kind = "agent"
@@ -23,9 +27,10 @@ fn catalog(assets: AgentAssets) -> Catalog {
         .agent("worker", assets)
 }
 
-fn in_agent(problem: Problem) -> InvalidDefinition {
+fn in_agent(field: Option<&str>, problem: Problem) -> InvalidDefinition {
     InvalidDefinition {
         file: DefinitionFile::Agent("worker".to_owned()),
+        field: field.map(str::to_owned),
         step: None,
         problem,
     }
@@ -101,12 +106,18 @@ async fn an_agent_with_an_unknown_schema_or_a_foreign_id_is_refused() {
     let schema = agent_refusal(with_fake_profile("schema = 2\nid = \"worker\"\n")).await;
     let id = agent_refusal(with_fake_profile("schema = 1\nid = \"builder\"\n")).await;
 
-    assert_eq!(schema, in_agent(Problem::UnsupportedSchema { found: 2 }));
+    assert_eq!(
+        schema,
+        in_agent(Some("schema"), Problem::UnsupportedSchema { found: 2 })
+    );
     assert_eq!(
         id,
-        in_agent(Problem::NameMismatch {
-            found: "builder".to_owned()
-        })
+        in_agent(
+            Some("id"),
+            Problem::NameMismatch {
+                found: "builder".to_owned()
+            }
+        )
     );
 }
 
@@ -119,9 +130,12 @@ async fn every_referenced_schema_must_be_an_asset_of_the_agent() {
 
     assert_eq!(
         invalid,
-        in_agent(Problem::MissingAsset {
-            path: "schemas/notes.schema.json".to_owned()
-        })
+        in_agent(
+            None,
+            Problem::MissingAsset {
+                path: "schemas/notes.schema.json".to_owned()
+            }
+        )
     );
 }
 
@@ -134,9 +148,12 @@ async fn json_schema_only_applies_to_json_and_item_lists() {
 
     assert_eq!(
         invalid,
-        in_agent(Problem::MisplacedJsonSchema {
-            name: "spec".to_owned()
-        })
+        in_agent(
+            None,
+            Problem::MisplacedJsonSchema {
+                name: "spec".to_owned()
+            }
+        )
     );
 }
 
@@ -153,15 +170,21 @@ async fn item_files_only_belong_to_item_lists_and_hold_plain_formats() {
 
     assert_eq!(
         misplaced,
-        in_agent(Problem::MisplacedItemFiles {
-            name: "plan".to_owned()
-        })
+        in_agent(
+            None,
+            Problem::MisplacedItemFiles {
+                name: "plan".to_owned()
+            }
+        )
     );
     assert_eq!(
         nested,
-        in_agent(Problem::UnsupportedItemFileFormat {
-            name: "task".to_owned()
-        })
+        in_agent(
+            None,
+            Problem::UnsupportedItemFileFormat {
+                name: "task".to_owned()
+            }
+        )
     );
 }
 
@@ -172,7 +195,10 @@ async fn a_claude_code_profile_requires_its_claude_table() {
     )
     .await;
 
-    assert_eq!(invalid, in_agent(Problem::MissingClaudeProfile));
+    assert_eq!(
+        invalid,
+        in_agent(Some("profile.claude"), Problem::MissingClaudeProfile)
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -182,7 +208,13 @@ async fn api_key_env_requires_api_key_auth() {
     )
     .await;
 
-    assert_eq!(invalid, in_agent(Problem::MisplacedApiKeyEnv));
+    assert_eq!(
+        invalid,
+        in_agent(
+            Some("profile.claude.api_key_env"),
+            Problem::MisplacedApiKeyEnv
+        )
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -192,5 +224,11 @@ async fn a_budget_limit_must_be_positive_and_finite() {
     )
     .await;
 
-    assert_eq!(invalid, in_agent(Problem::InvalidBudget));
+    assert_eq!(
+        invalid,
+        in_agent(
+            Some("profile.limits.max_budget_usd"),
+            Problem::InvalidBudget
+        )
+    );
 }

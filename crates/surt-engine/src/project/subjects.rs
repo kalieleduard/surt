@@ -2,6 +2,8 @@ use jiff::civil::Date;
 
 use super::naming::{Slug, dated_name, first_free, is_named_after};
 use super::{Error, Project, open_store};
+use crate::drive::Frozen;
+use crate::store::Store;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FreeName {
@@ -33,4 +35,20 @@ impl Project {
         store.close().await;
         Ok(names?.into_iter().find(|name| is_named_after(name, slug)))
     }
+
+    pub async fn latest_workflow(&self, subject: &str) -> Result<Option<String>, Error> {
+        let store = open_store(&self.layout).await?;
+        let workflow = latest_workflow(&store, subject).await;
+        store.close().await;
+        workflow
+    }
+}
+
+async fn latest_workflow(store: &Store, subject: &str) -> Result<Option<String>, Error> {
+    let runs = store.root_runs(subject).await?;
+    let Some(latest) = runs.last() else {
+        return Ok(None);
+    };
+    let frozen = Frozen::from_files(store.frozen_files(&latest.id).await?)?;
+    Ok(Some(frozen.definition(&latest.definition)?.name.clone()))
 }

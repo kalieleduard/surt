@@ -30,7 +30,7 @@ pub(crate) fn render(detail: &ExecutionDetail, now: i64) -> String {
 
 fn fields(detail: &ExecutionDetail, now: i64) -> Vec<Field> {
     let mut fields = vec![
-        ("feature", Some(feature(detail))),
+        ("subject", Some(subject(detail))),
         ("step", Some(step(detail))),
     ];
     fields.extend(performer(detail));
@@ -71,9 +71,9 @@ fn performer(detail: &ExecutionDetail) -> [Field; 3] {
     }
 }
 
-fn feature(detail: &ExecutionDetail) -> String {
+fn subject(detail: &ExecutionDetail) -> String {
     let mut parts = vec![detail.subject.clone(), format!("run {}", detail.run)];
-    parts.extend(detail.item.as_ref().map(|item| format!("task {item}")));
+    parts.extend(detail.item.as_ref().map(|item| format!("item {item}")));
     parts.join(SEPARATOR)
 }
 

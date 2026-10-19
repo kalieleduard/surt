@@ -32,7 +32,7 @@ pub(super) fn summary(cleanup: &Cleanup) -> String {
     let mut parts = Vec::new();
     for (count, one, many) in [
         (cleanup.worktrees, "worktree", "worktrees"),
-        (cleanup.child_branches, "task branch", "task branches"),
+        (cleanup.child_branches, "item branch", "item branches"),
         (cleanup.salvage_refs, "salvage ref", "salvage refs"),
     ] {
         match count {

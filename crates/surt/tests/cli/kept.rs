@@ -1,7 +1,7 @@
 use serde_json::Value;
 
+use crate::delivering::{planned_with, subject_name};
 use crate::scripts::{build, review, ship, tasks};
-use crate::start::{feature_name, planned_with};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const KEEP: &str = "[cleanup]\non_success = \"keep\"\n";
@@ -31,14 +31,14 @@ fn kept(name: &str) -> (Sandbox, String) {
         ],
         Some(KEEP),
     );
-    let started = surt(&sandbox, &["start", name]);
+    let started = surt(&sandbox, &["continue", name]);
     assert!(started.stdout.is_empty(), "{}", started.stdout);
     (sandbox, ok(started))
 }
 
 #[test]
 fn a_kept_run_ends_with_the_kept_line_instead_of_a_cleanup() {
-    let name = feature_name();
+    let name = subject_name();
 
     let (sandbox, started) = kept(&name);
 
@@ -59,7 +59,7 @@ fn a_kept_run_ends_with_the_kept_line_instead_of_a_cleanup() {
 
 #[test]
 fn status_shows_a_kept_run_as_kept_and_never_as_cleanup_pending() {
-    let name = feature_name();
+    let name = subject_name();
     let (sandbox, _) = kept(&name);
 
     let all = shown(surt(&sandbox, &["status", "--all"]));
@@ -81,16 +81,16 @@ fn status_shows_a_kept_run_as_kept_and_never_as_cleanup_pending() {
     );
     assert_eq!(json.code, Some(0), "{}", json.stderr);
     let document: Value = serde_json::from_str(&json.stdout).expect("one JSON document");
-    assert_eq!(document["features"][0]["cleanup"]["state"], "kept");
+    assert_eq!(document["subjects"][0]["cleanup"]["state"], "kept");
 }
 
 #[test]
 fn a_phase_command_on_a_kept_run_removes_nothing() {
-    let name = feature_name();
+    let name = subject_name();
     let (sandbox, _) = kept(&name);
     let worktrees = sandbox.git_output(&sandbox.repo(), &["worktree", "list"]);
 
-    let again = surt(&sandbox, &["start", &name]);
+    let again = surt(&sandbox, &["continue", &name]);
 
     assert_ne!(again.code, Some(0), "{}", again.stderr);
     assert!(!again.stderr.contains("cleanup"), "{}", again.stderr);
@@ -108,8 +108,8 @@ fn a_misspelled_cleanup_policy_refuses_every_command_with_its_line() {
 
     for args in [
         &["status"][..],
-        &["start", "anything"],
-        &["feature", "add login"],
+        &["continue", "anything"],
+        &["run", "feature", "--input", "request=add login"],
     ] {
         let run = surt(&sandbox, args);
 

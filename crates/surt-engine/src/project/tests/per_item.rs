@@ -1,5 +1,6 @@
+use super::fixtures::Catalog;
 use super::fixtures::{ProjectDir, agent, default_config, in_step, new_run, refusal, writer};
-use crate::project::{Catalog, DefinitionFile, InvalidDefinition, Problem};
+use crate::project::{DefinitionFile, InvalidDefinition, Problem};
 
 const PLANNER_AGENT: &str = r#"
 schema = 1
@@ -23,6 +24,9 @@ effort = "high"
 const PARENT: &str = r#"
 schema = 1
 name = "flow"
+
+[inputs.request]
+format = "text"
 
 [steps.plan]
 kind = "agent"
@@ -93,6 +97,9 @@ async fn a_child_reads_only_its_item_and_what_the_parent_passes() {
 schema = 1
 name = "flow"
 
+[inputs.request]
+format = "text"
+
 [steps.plan]
 kind = "agent"
 agent = "planner"
@@ -111,6 +118,7 @@ needs = ["plan"]
         invalid,
         InvalidDefinition {
             file: DefinitionFile::Workflow("child".to_owned()),
+            field: None,
             step: Some("write".to_owned()),
             problem: Problem::MissingInput {
                 input: "request".to_owned()
@@ -126,6 +134,9 @@ async fn items_must_be_an_item_list_produced_before_the_step() {
 schema = 1
 name = "flow"
 
+[inputs.request]
+format = "text"
+
 [steps.implement]
 kind = "per_item"
 items = "request"
@@ -138,6 +149,9 @@ workflow = "child"
         r#"
 schema = 1
 name = "flow"
+
+[inputs.request]
+format = "text"
 
 [steps.implement]
 kind = "per_item"
@@ -174,6 +188,9 @@ async fn pass_names_an_artifact_the_parent_has_before_the_step() {
         r#"
 schema = 1
 name = "flow"
+
+[inputs.request]
+format = "text"
 
 [steps.plan]
 kind = "agent"
@@ -242,6 +259,7 @@ needs = ["plan"]
         recursive,
         InvalidDefinition {
             file: DefinitionFile::Workflow("child".to_owned()),
+            field: None,
             step: Some("again".to_owned()),
             problem: Problem::RecursiveWorkflow {
                 name: "child".to_owned()

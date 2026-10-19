@@ -2,10 +2,10 @@ use std::error::Error as StdError;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::ExecutionState;
+use super::{DeclaredInput, ExecutionState, InputProblem};
 use crate::git::{GitError, GitVersion};
 use crate::store::StoreError;
-use crate::workflow::{FreezeError, InvalidDefinition, InvalidOverride};
+use crate::workflow::{FreezeError, InvalidDefinition};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -203,7 +203,15 @@ pub enum Refusal {
         files: Vec<String>,
     },
     InvalidDefinition(Box<InvalidDefinition>),
-    InvalidAgentOverride(Box<InvalidOverride>),
+    UnknownWorkflow {
+        name: String,
+        known: Vec<String>,
+    },
+    InvalidInput {
+        workflow: String,
+        problem: InputProblem,
+        declared: Vec<DeclaredInput>,
+    },
     IntegrationBranchMoved {
         subject: String,
         branch: String,
@@ -280,6 +288,7 @@ impl From<FreezeError> for Error {
     fn from(error: FreezeError) -> Error {
         match error {
             FreezeError::Invalid(invalid) => Error::Refused(Refusal::InvalidDefinition(invalid)),
+            FreezeError::Unreadable { path, source } => Error::io("read", &path, source),
             canonical => Error::Internal(InternalError(Box::new(canonical))),
         }
     }

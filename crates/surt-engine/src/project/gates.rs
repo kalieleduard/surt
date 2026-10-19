@@ -2,7 +2,7 @@ use super::{Error, Project, Refusal, RunId, open_store};
 use crate::artifacts::working_copy::WorkingCopy;
 use crate::drive::{CorruptSnapshot, Frozen};
 use crate::store::{Decision, DecisionOutcome, NewDecision, Store, WaitingGate};
-use crate::workflow::StepSpec;
+use crate::workflow::{Format, StepSpec};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Decided {
@@ -14,6 +14,7 @@ pub struct Decided {
     pub actor: String,
     pub files: Vec<String>,
     pub restored: Vec<String>,
+    pub producer: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -90,6 +91,7 @@ impl Project {
 struct Recorded {
     gate: String,
     artifact: String,
+    producer: Option<String>,
     outcome: DecisionOutcome,
 }
 
@@ -118,6 +120,7 @@ async fn decide_waiting(
     Ok(Recorded {
         gate: gate.key.clone(),
         artifact: spec.artifact,
+        producer: spec.producer,
         outcome,
     })
 }
@@ -134,6 +137,8 @@ async fn approve_after_gate(
     let Some(unapproved) = unapproved else {
         return Err(no_gate(store, request.root).await?);
     };
+    let definition = store.run_definition(request.root).await?;
+    let spec = approval_step(store, request.root, &definition, &unapproved.gate).await?;
     let outcome = store
         .approve_latest(
             request.root,
@@ -145,6 +150,7 @@ async fn approve_after_gate(
     Ok(Recorded {
         gate: unapproved.gate,
         artifact: unapproved.artifact,
+        producer: spec.producer,
         outcome,
     })
 }
@@ -173,6 +179,7 @@ async fn decided(
             actor: request.actor.to_owned(),
             files: store.revision_paths(&revision_id).await?,
             restored: Vec::new(),
+            producer: recorded.producer,
         }),
         DecisionOutcome::Stale { expected, latest } => Err(Refusal::StaleRevision {
             subject: store.subject_of_run(request.root).await?,
@@ -197,6 +204,8 @@ async fn no_gate(store: &Store, root: &str) -> Result<Error, Error> {
 pub(super) struct GateArtifacts {
     pub(super) artifact: String,
     rejection_artifact: String,
+    producer: Option<String>,
+    pub(super) item_list: bool,
 }
 
 pub(super) async fn approval_step(
@@ -210,8 +219,18 @@ pub(super) async fn approval_step(
     let Some(StepSpec::Approval(spec)) = definition.step(key).map(|step| &step.spec) else {
         return Err(CorruptSnapshot::new(key, "not an approval step").into());
     };
+    let producer = frozen.producer(definition, &spec.artifact)?;
+    let item_list = producer.is_some_and(|(_, agent)| {
+        agent
+            .contract
+            .outputs
+            .get(&spec.artifact)
+            .is_some_and(|output| output.format == Format::ItemList)
+    });
     Ok(GateArtifacts {
         artifact: spec.artifact.clone(),
         rejection_artifact: spec.rejection_artifact.clone(),
+        producer: producer.map(|(step, _)| step.to_owned()),
+        item_list,
     })
 }

@@ -179,7 +179,7 @@ fn now() -> i64 {
 async fn status(feature: &Feature) -> RunStatus {
     let mut statuses = feature
         .project
-        .status(StatusScope::Feature(SUBJECT, RunSelector::Current))
+        .status(StatusScope::Subject(SUBJECT, RunSelector::Current))
         .await
         .expect("the status");
     statuses.remove(0)

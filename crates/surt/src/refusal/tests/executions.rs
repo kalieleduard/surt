@@ -38,8 +38,8 @@ fn an_ambiguous_prefix_lists_each_execution_with_where_it_ran_and_its_state() {
         text(&refusal),
         format!(
             "✖ \"0192f3a8\" matches 2 executions:\n  \
-             \x20 {FIRST}  {SUBJECT} · run 1 · task B · build iter 2 · attempt 1  failed\n  \
-             \x20 {SECOND}  {SUBJECT} · run 1 · task B · build iter 2 · attempt 2  succeeded\n  \
+             \x20 {FIRST}  {SUBJECT} · run 1 · item B · build iter 2 · attempt 1  failed\n  \
+             \x20 {SECOND}  {SUBJECT} · run 1 · item B · build iter 2 · attempt 2  succeeded\n  \
              use the full id, as surt prints it\n"
         )
     );
@@ -87,6 +87,6 @@ fn an_unknown_reference_names_both_things_it_could_have_been() {
 
     assert_eq!(
         text(&refusal),
-        "✖ no feature or execution matches \"ffffffff\"\n  inspect: surt status\n"
+        "✖ no subject or execution matches \"ffffffff\"\n  inspect: surt status\n"
     );
 }

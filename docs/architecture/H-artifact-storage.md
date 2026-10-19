@@ -41,10 +41,10 @@ $ surt approve 20261016-add-login
 
 ## Working Copy
 
-Humans read and edit artifacts through a **Working Copy** under `.surt/features/<subject>/`. It only exists for artifacts that pass through an Approval Gate in the run's frozen Workflow Definition. The engine derives the list from the `kind = "approval"` steps; it does not know what a spec or a manifest is. For the built-in `feature` workflow:
+Humans read and edit artifacts through a **Working Copy** under `.surt/subjects/<subject>/`. It only exists for artifacts that pass through an Approval Gate in the run's frozen Workflow Definition. The engine derives the list from the `kind = "approval"` steps; it does not know what a spec or a manifest is. For the Template's `feature` workflow:
 
 ```
-.surt/features/20261016-add-login/
+.surt/subjects/20261016-add-login/
 ├── spec.md          ← artifact of gate approve-spec
 ├── manifest.json    ← artifact of gate approve-tasks
 └── tasks/
@@ -60,7 +60,7 @@ Surt rewrites a Working Copy file whenever it publishes a newer Revision of that
 
 ## Edit detection
 
-- **When:** every command that acts on a Subject scans that Subject's Working Copy first and records what it finds: `approve`, `reject`, `feature`, `plan`, `start`. Read commands (`status`, `inspect`, `show`, `logs`) compare and show an edit but never record it ([J. Reading never writes](J-cli.md#reading-never-writes)). A Driver also scans before it launches each Execution, because that is when inputs are resolved, and before it rewrites a Working Copy file.
+- **When:** every command that acts on a Subject scans that Subject's Working Copy first and records what it finds: `approve`, `reject`, `continue`. Read commands (`status`, `inspect`, `show`, `logs`) compare and show an edit but never record it ([J. Reading never writes](J-cli.md#reading-never-writes)). A Driver also scans before it launches each Execution, because that is when inputs are resolved, and before it rewrites a Working Copy file.
 - **How:** a full SHA-256 of every file compared with its baseline. Modification times are never used, because their granularity and behaviour differ across APFS, NTFS and ext4, and the files are small.
 - **Edit:** if any file differs from its baseline, the artifact's new content becomes a **human-origin Revision**, and its hashes become the new baseline:
   ```
@@ -98,7 +98,7 @@ Steps read artifacts by name, at the latest Revision ([ADR 0003](../adr/0003-inp
 **Approved, not yet consumed.** An edit is recorded as Revision N+1 with no Approval. Every driving command refuses until a human approves it:
 
 ```
-$ surt plan 20261016-add-login
+$ surt continue 20261016-add-login
 ✖ spec changed after approval (rev 2 not approved)
   review it, then: surt approve 20261016-add-login
 ```
@@ -113,12 +113,12 @@ $ surt plan 20261016-add-login
 - the way out is `surt restore` (undo the edit) or `surt cancel` followed by a new run.
 
 ```
-$ surt start 20261016-add-login
+$ surt continue 20261016-add-login
 …
 ✖ tasks/C.md changed, but manifest rev 1 is pinned (implementation already started)
   running work finished; nothing new was launched
   undo:     surt restore 20261016-add-login manifest
-  replan:   surt cancel 20261016-add-login, then surt feature …
+  replan:   surt cancel 20261016-add-login, then surt continue 20261016-add-login --new-run
 ```
 
 Both cases on one timeline:
@@ -159,32 +159,34 @@ The Context Assembler points the agent at `inputs/`, and the runtime adds `Read`
 
 ## Subject naming
 
-`surt feature "<description>"` derives the Subject name `YYYYMMDD-<slug>`:
+`surt run` derives the Subject name `YYYYMMDD-<slug>` from `--name`, else from the input the workflow's `[subject] from` names (the feature Template's `request`), else from the workflow name ([E](E-workflow-schema.md#run-inputs-inputs-and-subject)):
 
 1. `YYYYMMDD` is the **local** date. If the local offset cannot be determined, Surt uses UTC without warning.
-2. The slug is the description transliterated to ASCII, lowercased, reduced to `[a-z0-9-]`, with runs of hyphens collapsed and no leading or trailing hyphen. It is truncated to 40 characters at a word boundary. `"Add Login with Google / OAuth"` → `20261016-add-login-with-google-oauth`.
+2. The slug is the text transliterated to ASCII, lowercased, reduced to `[a-z0-9-]`, with runs of hyphens collapsed and no leading or trailing hyphen. It is truncated to 40 characters at a word boundary. `"Add Login with Google / OAuth"` → `20261016-add-login-with-google-oauth`.
 3. Windows reserved names (`CON`, `NUL`, `COM1`…) cannot occur, because the name always starts with digits. Lowercase removes case-insensitive collisions on APFS and NTFS. A trailing dot or space cannot survive the slug.
-4. If a Subject with that name already exists, Surt appends `-2`, `-3`… Exception: when a Feature with the same slug (ignoring date and suffix) has an active run, `surt feature` refuses and points at resuming it, unless `--new` is given ([J](J-cli.md#surt-feature-create-resume-or-start-again)):
+4. If a Subject with that name already exists, Surt appends `-2`, `-3`… Exception: when a Subject with the same slug (ignoring date and suffix) has an active run, `surt run` refuses and points at resuming it, unless `--new` is given ([J](J-cli.md#surt-run-create-a-run-and-drive-it)):
    ```
-   $ surt feature "add login"
-   ✔ created 20261016-add-login-2   (20261016-add-login already exists)
+   $ surt run feature --input request="add login" --new
+   ✔ created 20261016-add-login-2   workflow: feature   base: main @ a11c9d0
+     20261016-add-login already exists
    ```
-5. If the slug is empty (a description only in kanji or emoji), Surt refuses:
+5. If the slug is empty (a request only in kanji or emoji), Surt refuses:
    ```
-   ✖ cannot derive a name from the description; pass --name <slug>
+   ✖ cannot derive a name from the subject input; pass --name <slug>
    ```
    `--name` may be given in any case and goes through the same rules, except the date prefix, which is always added.
 
 ## What is versioned in the user's Git
 
-Surt writes `.surt/.gitignore` so that only project configuration is versioned:
+Surt writes `.surt/.gitignore` so that only the project's configuration and definitions are versioned:
 
 ```
 .surt/
 ├── .gitignore         ✔ versioned (generated by Surt)
 ├── config.toml        ✔ versioned (project configuration)
-├── agents/            ✔ versioned (local agent overrides, section F)
-├── features/          ✖ ignored: Working Copies; the truth is in SQLite
+├── workflows/         ✔ versioned (Workflow Definitions, section E)
+├── agents/            ✔ versioned (Agents, section F)
+├── subjects/          ✖ ignored: Working Copies; the truth is in SQLite
 ├── logs/              ✖ ignored: agent and Check logs, one directory per Subject
 ├── surt.db            ✖ ignored (with -wal and -shm)
 └── runtime/           ✖ ignored: locks, slots, Execution directories
@@ -195,16 +197,20 @@ Surt writes `.surt/.gitignore` so that only project configuration is versioned:
 *
 !.gitignore
 !config.toml
+!workflows/
+!workflows/**
 !agents/
 !agents/**
 ```
 
-Versioning `features/` would create a second source of truth. Task branches would carry stale copies of the spec, and a `git checkout` of another branch would change the Working Copy, which Surt would see as a human edit.
+`workflows/` and `agents/` hold the complete definitions a new run freezes ([E](E-workflow-schema.md#where-definitions-live), [F](F-agent-contract.md#definitions-in-the-project)); `surt init --template feature` writes the feature Template there and never overwrites a file. They are reviewed like any other code: pulling a branch can change what the next run does.
+
+Versioning `subjects/` would create a second source of truth. Task branches would carry stale copies of the spec, and a `git checkout` of another branch would change the Working Copy, which Surt would see as a human edit.
 
 ## After a run ends
 
 - Revisions, blobs and Approvals stay in SQLite for as long as the Workflow Run exists. Removing old runs (purge) is section I.
-- Cleanup of a terminal run removes its Working Copy `.surt/features/<subject>/` and its `.surt/runtime/executions/<id>/` directories. Both are views that can be regenerated: `surt show <subject> <artifact>` reads any Revision. A Working Copy file with an unrecorded edit is kept, and `--new-run` refuses while it is there ([I. Cleanup](I-cleanup.md#unrecorded-working-copy-edits)).
+- Cleanup of a terminal run removes its Working Copy `.surt/subjects/<subject>/` and its `.surt/runtime/executions/<id>/` directories. Both are views that can be regenerated: `surt show <subject> <artifact>` reads any Revision. A Working Copy file with an unrecorded edit is kept, and `--new-run` refuses while it is there ([I. Cleanup](I-cleanup.md#unrecorded-working-copy-edits)).
 - Agent logs live in `.surt/logs/<subject>/`, outside `runtime/`, and survive cleanup ([I. Cleanup](I-cleanup.md#logs)).
 - Nothing is committed into the user's branches. The Shipper does not commit the spec; its delivery text summarizes the spec's intent ([A. Git Integration](A-git-integration.md#snapshot-shipper-and-delivery)).
 

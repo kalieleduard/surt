@@ -4,7 +4,7 @@ How Surt resumes any Workflow Run, days later, after a crash, a reboot, a `kill 
 
 ## Principles
 
-1. **Recovery is not a mode.** There is no `surt doctor`, `repair` or `--recover`. Every driving command (`surt feature`, `plan`, `start`) runs the same Recovery right after it takes the run lock, whether the last Driver stopped cleanly or not. Every Operation is written as *read state → compare with SQLite → act*, so its next Attempt is its own reconciliation.
+1. **Recovery is not a mode.** There is no `surt doctor`, `repair` or `--recover`. Every driving command (`surt run`, `surt continue`) runs the same Recovery right after it takes the run lock, whether the last Driver stopped cleanly or not. Every Operation is written as *read state → compare with SQLite → act*, so its next Attempt is its own reconciliation.
 2. **Only what the Driver recorded finishing is accepted.** An Execution whose end the Driver did not commit is `interrupted`, even if its process exited 0 and left a valid `delivery/`. Without the stream there is no exit code and no `result` event, and accepting it would be adoption ([A. Process Model](A-process-model.md#orphaned-agents)).
 3. **Intention → effect → confirmation.** Before any effect outside SQLite whose result recovery must recognize, Surt commits an **Intention** in its own transaction. The effect follows. A second transaction confirms it. `synchronous = FULL` ([D](D-database.md#opening-the-database)) guarantees a committed Intention survives a power cut. Recovery only reads Intentions and compares; it never recomputes what an effect should have been.
 4. **Surt repairs only what it owns.** Task worktrees under `~/.surt/worktrees/`, `refs/heads/surt/…` and `refs/surt/…` are Surt's, and it fixes them by itself. The user's worktrees, the Base branch and any other ref or lock are never written during recovery. Problems there become a blocked step or a refusal with exact instructions.
@@ -24,14 +24,14 @@ How Surt resumes any Workflow Run, days later, after a crash, a reboot, a `kill 
 ```
 
 ```
-$ surt start 20261017-add-login
+$ surt continue 20261017-add-login
 ⚠ previous driver (pid 48213) is gone — recovering
-  ⚠ builder task B (pid 50122, alive) — stopping it
-  ✖ builder task C exited but was never recorded — discarded
-  ✔ integrate task A had completed (surt/20261017-add-login @ 3c1aa20) — recorded
-↻ task B build #1: attempt 2
+  ⚠ item B build (pid 50122, alive) — stopping it
+  ✖ item C build exited but was never recorded — discarded
+  ✔ item A integrate had completed (surt/20261017-add-login @ 3c1aa20) — recorded
+↻ item B build #1: attempt 2
   ⚠ worktree had leftovers from attempt 1 — saved to refs/surt/salvage/0192f3…
-↻ task C build #1: attempt 2
+↻ item C build #1: attempt 2
 ```
 
 Steps 3 and 4 always run to completion and record what they find, even when step 5 then refuses. They only make SQLite tell the truth about what already happened.
@@ -120,12 +120,12 @@ Steps, under `git.lock` where they touch shared refs, all with `LC_ALL=C`:
 5. **Reset.** `git checkout --force -B <branch> <tip_sha>`, then `git clean -fd`. There is no `-x`: ignored files, such as a warm build cache, survive.
 6. **Verify.** `HEAD` is the branch at `tip_sha`, `status --porcelain=v2 --untracked-files=all` is empty, no marker remains. Otherwise the Execution fails as a launch error (`retryable`), or `not_retryable` when the worktree path belongs to someone else.
 
-Commits a human made on a Task Branch are salvaged and reset like any other leftover: the Task Branch belongs to Surt while its run is active, like the Integration Branch.
+Commits a human made on an Item Branch are salvaged and reset like any other leftover: the Item Branch belongs to Surt while its run is active, like the Integration Branch.
 
 **When it speaks.** The Salvage Ref and a `worktree.salvaged` event are always written; objects are shared, so this is cheap. The terminal shows a warning only when the leftovers were unexpected: the previous Execution in that worktree ended `failed` or `interrupted`, or `HEAD`/the branch was not at the target. Untracked output that a `succeeded` Check left behind is cleaned silently.
 
 ```
-↻ task B build #2: attempt 2
+↻ item B build #2: attempt 2
   ⚠ worktree had leftovers from attempt 1 — saved to refs/surt/salvage/0192f3…
     inspect: git log -p refs/surt/salvage/0192f3…
 ```
@@ -144,7 +144,7 @@ Salvage Refs live until the cleanup of a `succeeded` run; a `cancelled` run keep
 | `worktree_path` exists but is not a worktree of this repository | `blocked` (`not_retryable`, `worktree_path_foreign`): Surt never deletes what it did not create |
 
 ```
-↻ task B check #3: attempt 2
+↻ item B check #3: attempt 2
   ⚠ worktree for task B was missing — recreated at ~/.surt/worktrees/surt-3fa91c/20261017-add-login/B
 ```
 
@@ -164,7 +164,7 @@ For a lock it does not own, the Operation retries with backoff ([A. Process Mode
 
 ```
 ✖ integrate C attempt 1: git ref lock held: .git/packed-refs.lock (since 14:02)
-  if no git process is running, remove it, then: surt start 20261017-add-login
+  if no git process is running, remove it, then: surt continue 20261017-add-login
 ```
 
 ## The Integration Branch
@@ -174,10 +174,10 @@ For a lock it does not own, the Operation retries with backoff ([A. Process Mode
 ```
 ✖ surt/20261017-add-login moved outside surt (expected 9e04b7d, found 71aa0c2)
   restore it: git branch -f surt/20261017-add-login 9e04b7d
-  then: surt start 20261017-add-login
+  then: surt continue 20261017-add-login
 
 ✖ surt/20261017-add-login is checked out in /Users/you/surt
-  switch away, then: surt start 20261017-add-login
+  switch away, then: surt continue 20261017-add-login
 ```
 
 **During a run,** a move cannot be refused before it happens. The Operation that finds it (`git.create_child_worktree` reading the start tip, `git.integrate` step 1, `git.snapshot_run_branch`) blocks on the first occurrence (`not_retryable`, `integration_branch_moved` or `integration_branch_checked_out`, [G](G-state-machines.md#attempts)). The next driving command first refuses at step 5 until the branch is restored. Once it is, the command unblocks the step, and the new Attempt confirms the restoration by finding ref = `tip_sha`. No column records that a move was seen: the comparison is the record.
@@ -190,7 +190,7 @@ With `merge_into_base = "ff-only"` and the Base branch checked out in the user's
 ⛔ merge into main was interrupted; /Users/you/surt may be partially updated
    finish it:  git -C /Users/you/surt merge --ff-only 4d2e9a1
    or undo it: git -C /Users/you/surt reset --hard a11c9d0   (discards changes)
-   then: surt start 20261017-add-login
+   then: surt continue 20261017-add-login
 ```
 
 The row stays, so the next command's Attempt applies the same rule. After *finish it* the ref equals `new_sha`, so the Outcome is `merged`. After *undo it* the ref equals `old_sha` and the worktree is clean, so the fast-forward runs again. If nothing was done, the step blocks again.
@@ -221,10 +221,10 @@ Observed in the real streams of [Capture a real Claude Code stream as a fixture]
 - There is no ceiling. The command is in the foreground, nothing is spent while it waits, and Ctrl-C or `surt stop` turns the wait into an ordinary Interruption (exit `130`).
 
 ```
-⚠ task B build attempt 2 failed (rate_limit): …
+⚠ item B build attempt 2 failed (rate_limit): …
 ⏸ agent launches paused until 15:00 — 3 waiting · Ctrl-C to stop (resumable)
 ↻ agent launches resumed after 2h05m
-↻ task B build attempt 3
+↻ item B build attempt 3
 ```
 
 Without a reset time the paused line names the delay: `paused until 13:01 (backoff 1m)`. The Driver records `agents.paused` on the root run once an agent waits for the pause, and again whenever its end moves later, then `agents.resumed` when launches resume ([D](D-database.md#event-data)).
@@ -265,7 +265,7 @@ $ surt cancel 20261017-add-login
 
 ```
 20261017-add-login   INTERRUPTED   (no driver)
-  B  ⚠ builder still running unattended (pid 50122) — stopped on next: surt start 20261017-add-login
+  B  ⚠ builder still running unattended (pid 50122) — stopped on next: surt continue 20261017-add-login
 ```
 
 ## Decided elsewhere

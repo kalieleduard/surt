@@ -2,11 +2,11 @@ use surt_engine::project::{CleanupState, GateStatus, ItemState, RunStatus};
 
 use super::state_names;
 use crate::driving::label;
-use crate::phase::Phase;
+use crate::status::item_count;
 use crate::symbols::{DASH, SEPARATOR};
 use crate::table;
 
-const HEADERS: [&str; 5] = ["FEATURE", "RUN", "STATE", "DRIVER", "PROGRESS"];
+const HEADERS: [&str; 5] = ["SUBJECT", "RUN", "STATE", "DRIVER", "PROGRESS"];
 const NONE: &str = DASH;
 const COUNTED: [(ItemState, &str); 3] = [
     (ItemState::Running, "running"),
@@ -44,7 +44,7 @@ fn progress(status: &RunStatus) -> String {
     if status.items.is_empty() {
         parts.extend(gate_progress(status));
     } else {
-        parts.push(task_progress(status));
+        parts.push(item_progress(status));
     }
     if parts.is_empty() {
         parts.extend(
@@ -65,7 +65,7 @@ fn progress(status: &RunStatus) -> String {
     parts.join(SEPARATOR)
 }
 
-fn task_progress(status: &RunStatus) -> String {
+fn item_progress(status: &RunStatus) -> String {
     let merged = count(status, ItemState::Succeeded);
     let mut parts = vec![format!("{merged}/{} merged", status.items.len())];
     for (state, word) in COUNTED {
@@ -81,7 +81,7 @@ fn count(status: &RunStatus, state: ItemState) -> usize {
     status
         .items
         .iter()
-        .filter(|task| task.state == state)
+        .filter(|item| item.state == state)
         .count()
 }
 
@@ -90,19 +90,14 @@ fn gate_progress(status: &RunStatus) -> Option<String> {
         let GateStatus::Waiting { revision } = gate.status else {
             return None;
         };
-        let files = gate
-            .revision
-            .as_ref()
-            .map_or(0, |summary| summary.files.len());
-        let covers_items = Phase::of_gate(&gate.step).is_some_and(Phase::covers_item_files);
-        Some(if covers_items {
-            format!(
-                "{} rev {revision} ({} tasks)",
+        let item_list = gate.revision.as_ref().and_then(|summary| summary.item_list);
+        Some(match item_list {
+            Some(list) => format!(
+                "{} rev {revision} ({})",
                 gate.artifact,
-                files.saturating_sub(1)
-            )
-        } else {
-            format!("{} rev {revision}", gate.artifact)
+                item_count(list.items)
+            ),
+            None => format!("{} rev {revision}", gate.artifact),
         })
     })
 }

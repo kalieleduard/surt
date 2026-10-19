@@ -8,7 +8,7 @@ use crate::symbols::BLOCKED;
 
 const FROM: &str = "a11c9d0ffffffffffffffffffffffffffffffff0";
 const TO: &str = "4d2e9a1ffffffffffffffffffffffffffffffff0";
-const RESUME: &str = "surt start 20261017-add-login";
+const RESUME: &str = "surt continue 20261017-add-login";
 
 fn blocked_merge(code: &str) -> BlockedStep {
     BlockedStep {
@@ -54,7 +54,7 @@ fn an_interrupted_fast_forward_says_how_to_finish_or_undo_it_and_then_resume() {
             "{BLOCKED} merge into main was interrupted; /Users/you/surt may be partially updated\n\
              \x20 finish it:  git -C /Users/you/surt merge --ff-only 4d2e9a1\n\
              \x20 or undo it: git -C /Users/you/surt reset --hard a11c9d0   (discards changes)\n\
-             \x20 then: surt start 20261017-add-login\n"
+             \x20 then: surt continue 20261017-add-login\n"
         )
     );
 }

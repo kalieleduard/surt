@@ -1,5 +1,5 @@
+use crate::delivering::{planned, subject_name};
 use crate::scripts::tasks;
-use crate::start::{feature_name, planned};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 #[cfg(unix)]
@@ -20,7 +20,7 @@ fn root_state(sandbox: &Sandbox) -> String {
 
 #[test]
 fn cancel_without_a_terminal_and_without_yes_refuses_and_changes_nothing() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = planned(&name, &[tasks(1, &["A"])]);
 
     let refused = surt(&sandbox, &["cancel", &name]);
@@ -36,8 +36,8 @@ fn cancel_without_a_terminal_and_without_yes_refuses_and_changes_nothing() {
 }
 
 #[test]
-fn cancel_of_a_feature_without_an_active_run_is_refused() {
-    let name = feature_name();
+fn cancel_of_a_subject_without_an_active_run_is_refused() {
+    let name = subject_name();
     let sandbox = planned(&name, &[tasks(1, &["A"])]);
     let first = surt(&sandbox, &["cancel", "--yes", &name]);
     assert_eq!(first.code, Some(0), "{}", first.stderr);
@@ -52,64 +52,49 @@ fn cancel_of_a_feature_without_an_active_run_is_refused() {
 }
 
 #[test]
-fn a_phase_command_finishes_the_cleanup_of_a_cancelled_run_and_reports_it_as_already_cancelled() {
-    let name = feature_name();
+fn continue_finishes_the_cleanup_of_a_cancelled_run_then_suggests_a_new_run() {
+    let name = subject_name();
     let sandbox = planned(&name, &[tasks(1, &["A"])]);
     let cancelled = surt(&sandbox, &["cancel", "--yes", &name]);
     assert_eq!(cancelled.code, Some(0), "{}", cancelled.stderr);
     sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
 
-    for command in ["plan", "start"] {
-        let finished = surt(&sandbox, &[command, &name]);
+    let finished = surt(&sandbox, &["continue", &name]);
+    let refused = surt(&sandbox, &["continue", &name]);
 
-        assert_eq!(finished.code, Some(0), "{command}: {}", finished.stderr);
-        assert_eq!(
-            finished.stderr,
-            format!("✔ {name} was already cancelled\n↻ cleanup done\n"),
-            "{command}"
-        );
-        sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
-    }
-}
-
-#[test]
-fn feature_finishes_the_cleanup_of_a_cancelled_run_then_still_suggests_a_new_run() {
-    let name = feature_name();
-    let sandbox = planned(&name, &[tasks(1, &["A"])]);
-    let cancelled = surt(&sandbox, &["cancel", "--yes", &name]);
-    assert_eq!(cancelled.code, Some(0), "{}", cancelled.stderr);
-    sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
-
-    let refused = surt(&sandbox, &["feature", &name]);
-
+    assert_eq!(finished.code, Some(0), "{}", finished.stderr);
+    assert_eq!(
+        finished.stderr,
+        format!("✔ {name} was already cancelled\n↻ cleanup done\n")
+    );
+    assert_eq!(
+        sandbox.texts("SELECT CAST(count(*) AS TEXT) FROM workflow_run WHERE cleaned_at IS NULL"),
+        ["0"]
+    );
     assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
     assert!(
-        refused.stderr.starts_with(&format!(
-            "✔ {name} was already cancelled\n↻ cleanup done\n✖ {name} has no active run (run 1 cancelled"
-        )),
+        refused
+            .stderr
+            .starts_with(&format!("✖ {name} has no active run (run 1 cancelled")),
         "{}",
         refused.stderr
     );
     assert!(
         refused
             .stderr
-            .ends_with(&format!("surt feature {name} --new-run\n")),
+            .ends_with(&format!("surt continue {name} --new-run\n")),
         "{}",
         refused.stderr
-    );
-    assert_eq!(
-        sandbox.texts("SELECT CAST(count(*) AS TEXT) FROM workflow_run WHERE cleaned_at IS NULL"),
-        ["0"]
     );
 }
 
 #[cfg(unix)]
 #[test]
-fn cancel_of_a_crashed_run_settles_it_and_a_new_description_starts_a_second_feature() {
-    let name = feature_name();
+fn cancel_of_a_crashed_run_settles_it_and_a_new_description_starts_a_second_subject() {
+    let name = subject_name();
     let sandbox = waiting_builder(&name);
     let mut driving = Driving::start(&sandbox, &name);
-    driving.wait_for("● task A build started\n");
+    driving.wait_for("● item A build started\n");
     driving.signal("KILL");
     let (killed, _) = driving.finish();
     assert_eq!(killed, None);
@@ -119,13 +104,13 @@ fn cancel_of_a_crashed_run_settles_it_and_a_new_description_starts_a_second_feat
     assert_eq!(cancelled.code, Some(0), "{}", cancelled.stderr);
     assert!(
         cancelled.stderr.starts_with(
-            "⚠ task A build attempt 1 was interrupted with the previous driver — discarded\n✔ run cancelled\n↻ cleanup 1 worktree · working copy\n"
+            "⚠ item A build attempt 1 was interrupted with the previous driver — discarded\n✔ run cancelled\n↻ cleanup 1 worktree · working copy\n"
         ),
         "{}",
         cancelled.stderr
     );
     assert_eq!(root_state(&sandbox), "cancelled");
-    let started = sandbox.feature(&["add login"]);
+    let started = sandbox.run_feature("add login", &[]);
     assert_eq!(started.code, Some(0), "{}", started.stderr);
     assert!(
         started.stderr.contains(&format!("✔ created {name}-2 ")),
@@ -138,10 +123,10 @@ fn cancel_of_a_crashed_run_settles_it_and_a_new_description_starts_a_second_feat
 #[cfg(unix)]
 #[test]
 fn cancel_from_another_terminal_makes_the_driver_stop_and_exit_5() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = waiting_builder(&name);
     let mut driving = Driving::start(&sandbox, &name);
-    driving.wait_for("● task A build started\n");
+    driving.wait_for("● item A build started\n");
     let driver = driving.pid();
 
     let cancelled = surt(&sandbox, &["cancel", "--yes", &name]);

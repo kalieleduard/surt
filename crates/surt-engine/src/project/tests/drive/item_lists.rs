@@ -1,16 +1,20 @@
 use std::fs;
 
+use super::super::fixtures::Catalog;
 use super::super::fixtures::SUBJECT;
 use super::super::refusal;
 use super::fixtures::{ACTOR, Feature, agent};
 use super::pinning::Editing;
 use super::planned::{TASK_WORKFLOW, approved, work};
-use crate::project::{Catalog, DriveOutcome, Refusal, RevisionOrigin};
+use crate::project::{DriveOutcome, Refusal, RevisionOrigin};
 use crate::runtime::{Behavior, Delivery, Script};
 
 const PLANNING_WORKFLOW: &str = r#"
 schema = 1
 name = "planning"
+
+[inputs.request]
+format = "text"
 
 [steps.plan]
 kind = "agent"

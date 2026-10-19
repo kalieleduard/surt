@@ -2,9 +2,10 @@ use std::sync::Mutex;
 
 use tokio::sync::mpsc;
 
+use super::super::fixtures::Catalog;
 use super::super::fixtures::{SUBJECT, default_config};
 use super::fixtures::{ACTOR, Feature, PUBLISHER, WRITER, agent, draft, label, summary};
-use crate::project::{Catalog, DriveOutcome, Error, Gate, Project, Refusal, RunId};
+use crate::project::{DriveOutcome, Error, Gate, Project, Refusal, RunId};
 use crate::runtime::{
     AgentRuntime, FakeRuntime, RuntimeCompletion, RuntimeError, RuntimeEventSink, RuntimeRequest,
     Script, StopSignal,
@@ -13,6 +14,9 @@ use crate::runtime::{
 const PARALLEL_WORKFLOW: &str = r#"
 schema = 1
 name = "parallel"
+
+[inputs.request]
+format = "text"
 
 [steps.write]
 kind = "agent"

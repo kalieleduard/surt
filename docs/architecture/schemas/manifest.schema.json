@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Built-in feature workflow Task manifest",
+  "title": "Feature Task manifest",
   "type": "array",
   "items": {
     "type": "object",

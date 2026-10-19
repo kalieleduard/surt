@@ -1,7 +1,7 @@
 use std::fs;
 
+use crate::delivering::{planned, subject_name};
 use crate::scripts::{build, review, ship, spec, tasks};
-use crate::start::{feature_name, planned};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const SPEC_1: &str = "# Spec 1\n";
@@ -28,20 +28,20 @@ fn with_two_specs(name: &str) -> Sandbox {
     sandbox.commit_something();
     sandbox.init();
     sandbox.script(&[spec(1, SPEC_1), spec(2, SPEC_2), tasks(1, &["A", "B"])]);
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
     ok(surt(
         &sandbox,
         &["reject", name, "-m", "falta o fluxo OAuth"],
     ));
-    ok(surt(&sandbox, &["feature", name]));
+    ok(surt(&sandbox, &["continue", name]));
     ok(surt(&sandbox, &["approve", name]));
-    ok(surt(&sandbox, &["plan", name]));
+    ok(surt(&sandbox, &["continue", name]));
     sandbox
 }
 
 #[test]
-fn show_lists_the_artifacts_of_a_feature_with_their_latest_revision() {
-    let name = feature_name();
+fn show_lists_the_artifacts_of_a_subject_with_their_latest_revision() {
+    let name = subject_name();
     let sandbox = with_two_specs(&name);
 
     let run = ok(surt(&sandbox, &["show", "add-login"]));
@@ -58,8 +58,8 @@ fn show_lists_the_artifacts_of_a_feature_with_their_latest_revision() {
 }
 
 #[test]
-fn run_1_of_a_single_run_feature_is_the_run_shown_by_default() {
-    let name = feature_name();
+fn run_1_of_a_single_run_subject_is_the_run_shown_by_default() {
+    let name = subject_name();
     let sandbox = with_two_specs(&name);
 
     let spec = ok(surt(&sandbox, &["show", &name, "spec", "--run", "1"]));
@@ -70,8 +70,8 @@ fn run_1_of_a_single_run_feature_is_the_run_shown_by_default() {
 }
 
 #[test]
-fn an_unknown_run_is_refused_listing_the_runs_of_the_feature() {
-    let name = feature_name();
+fn an_unknown_run_is_refused_listing_the_runs_of_the_subject() {
+    let name = subject_name();
     let sandbox = with_two_specs(&name);
 
     let by_show = refused(surt(&sandbox, &["show", &name, "spec", "--run", "2"]));
@@ -90,7 +90,7 @@ fn an_unknown_run_is_refused_listing_the_runs_of_the_feature() {
 
 #[test]
 fn show_prints_any_revision_byte_for_byte_on_stdout_and_nothing_else() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = with_two_specs(&name);
 
     let latest = ok(surt(&sandbox, &["show", &name, "spec"]));
@@ -100,7 +100,7 @@ fn show_prints_any_revision_byte_for_byte_on_stdout_and_nothing_else() {
     assert_eq!(latest.stdout, SPEC_2);
     assert_eq!(first.stdout, SPEC_1);
     assert!(latest.stderr.is_empty(), "{}", latest.stderr);
-    let working_copy = sandbox.dot_surt().join("features").join(&name);
+    let working_copy = sandbox.dot_surt().join("subjects").join(&name);
     assert_eq!(
         manifest.stdout,
         fs::read_to_string(working_copy.join("manifest.json")).expect("the manifest")
@@ -109,9 +109,9 @@ fn show_prints_any_revision_byte_for_byte_on_stdout_and_nothing_else() {
 
 #[test]
 fn show_warns_on_stderr_when_the_working_copy_holds_an_unrecorded_edit() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = with_two_specs(&name);
-    let working_copy = sandbox.dot_surt().join("features").join(&name);
+    let working_copy = sandbox.dot_surt().join("subjects").join(&name);
     fs::write(working_copy.join("spec.md"), "# Spec, edited by hand\n").expect("an edit");
 
     let run = ok(surt(&sandbox, &["show", &name, "spec"]));
@@ -125,12 +125,12 @@ fn show_warns_on_stderr_when_the_working_copy_holds_an_unrecorded_edit() {
 
 #[test]
 fn show_refuses_an_unknown_artifact_listing_the_existing_ones() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = with_two_specs(&name);
 
     let unknown = refused(surt(&sandbox, &["show", &name, "specs"]));
     let missing_revision = refused(surt(&sandbox, &["show", &name, "spec", "--rev", "3"]));
-    let unknown_task = refused(surt(&sandbox, &["show", &name, "feedback", "--task", "A"]));
+    let unknown_item = refused(surt(&sandbox, &["show", &name, "feedback", "--item", "A"]));
 
     assert_eq!(
         unknown,
@@ -148,10 +148,10 @@ fn show_refuses_an_unknown_artifact_listing_the_existing_ones() {
         )
     );
     assert_eq!(
-        unknown_task,
+        unknown_item,
         format!(
-            "✖ {name} has no task \"A\"\n  \
-             it has no tasks yet\n  \
+            "✖ {name} has no item \"A\"\n  \
+             it has no items yet\n  \
              inspect: surt status {name}\n"
         )
     );
@@ -171,7 +171,7 @@ fn reviewed_twice(name: &str) -> Sandbox {
             ship(),
         ],
     );
-    ok(surt(&sandbox, &["start", name]));
+    ok(surt(&sandbox, &["continue", name]));
     sandbox
 }
 
@@ -181,22 +181,22 @@ fn summary(feedback: &str) -> String {
 }
 
 #[test]
-fn iter_selects_the_revision_a_task_produced_in_that_iteration() {
-    let name = feature_name();
+fn iter_selects_the_revision_an_item_produced_in_that_iteration() {
+    let name = subject_name();
     let sandbox = reviewed_twice(&name);
 
     let first = ok(surt(
         &sandbox,
-        &["show", &name, "feedback", "--task", "A", "--iter", "1"],
+        &["show", &name, "feedback", "--item", "A", "--iter", "1"],
     ));
     let second = ok(surt(
         &sandbox,
-        &["show", &name, "feedback", "--task", "A", "--iter", "2"],
+        &["show", &name, "feedback", "--item", "A", "--iter", "2"],
     ));
     let in_run_1 = ok(surt(
         &sandbox,
         &[
-            "show", &name, "feedback", "--task", "A", "--iter", "1", "--run", "1",
+            "show", &name, "feedback", "--item", "A", "--iter", "1", "--run", "1",
         ],
     ));
 
@@ -210,24 +210,24 @@ fn iter_selects_the_revision_a_task_produced_in_that_iteration() {
 
 #[test]
 fn an_iteration_that_produced_no_revision_is_refused_listing_those_that_did() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = reviewed_twice(&name);
 
     let never = refused(surt(
         &sandbox,
-        &["show", &name, "feedback", "--task", "A", "--iter", "3"],
+        &["show", &name, "feedback", "--item", "A", "--iter", "3"],
     ));
     let unknown_artifact = refused(surt(
         &sandbox,
-        &["show", &name, "feedbacks", "--task", "B", "--iter", "1"],
+        &["show", &name, "feedbacks", "--item", "B", "--iter", "1"],
     ));
 
     assert_eq!(
         never,
         format!(
-            "✖ task A produced no feedback in iter 3\n  \
+            "✖ item A produced no feedback in iter 3\n  \
              iters with feedback: 1, 2\n  \
-             inspect: surt show {name} feedback --task A --iter 2\n"
+             inspect: surt show {name} feedback --item A --iter 2\n"
         )
     );
     assert!(
@@ -237,15 +237,15 @@ fn an_iteration_that_produced_no_revision_is_refused_listing_those_that_did() {
 }
 
 #[test]
-fn iter_without_task_or_with_rev_is_invalid_usage() {
-    let name = feature_name();
+fn iter_without_item_or_with_rev_is_invalid_usage() {
+    let name = subject_name();
     let sandbox = with_two_specs(&name);
 
     let alone = surt(&sandbox, &["show", &name, "spec", "--iter", "1"]);
     let with_rev = surt(
         &sandbox,
         &[
-            "show", &name, "spec", "--task", "A", "--iter", "1", "--rev", "1",
+            "show", &name, "spec", "--item", "A", "--iter", "1", "--rev", "1",
         ],
     );
 
@@ -261,10 +261,10 @@ fn iter_without_task_or_with_rev_is_invalid_usage() {
 
 #[test]
 fn file_prints_one_file_of_a_revision_byte_for_byte() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = with_two_specs(&name);
 
-    let task = ok(surt(
+    let item = ok(surt(
         &sandbox,
         &["show", &name, "manifest", "--file", "tasks/B.md"],
     ));
@@ -285,14 +285,14 @@ fn file_prints_one_file_of_a_revision_byte_for_byte() {
         &["show", &name, "spec", "--rev", "1", "--file", "spec.md"],
     ));
 
-    assert_eq!(task.stdout, "# Task B\n");
+    assert_eq!(item.stdout, "# Task B\n");
     assert_eq!(in_run_1.stdout, "# Task A\n");
     assert_eq!(older.stdout, SPEC_1);
 }
 
 #[test]
-fn file_combines_with_task_and_iter() {
-    let name = feature_name();
+fn file_combines_with_item_and_iter() {
+    let name = subject_name();
     let sandbox = reviewed_twice(&name);
 
     let first = ok(surt(
@@ -301,7 +301,7 @@ fn file_combines_with_task_and_iter() {
             "show",
             &name,
             "feedback",
-            "--task",
+            "--item",
             "A",
             "--iter",
             "1",
@@ -318,7 +318,7 @@ fn file_combines_with_task_and_iter() {
 
 #[test]
 fn an_unknown_file_is_refused_listing_the_files_of_that_revision() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = with_two_specs(&name);
 
     let unknown = refused(surt(

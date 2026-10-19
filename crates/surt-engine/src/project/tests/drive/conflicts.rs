@@ -251,7 +251,7 @@ async fn a_merge_that_fails_the_checks_sends_the_task_back_and_never_becomes_the
 async fn conflicts_shown(feature: &Feature) -> Vec<(ItemState, Option<Conflict>)> {
     let statuses = feature
         .project
-        .status(StatusScope::Feature(SUBJECT, RunSelector::Current))
+        .status(StatusScope::Subject(SUBJECT, RunSelector::Current))
         .await
         .expect("the status");
     statuses[0]

@@ -54,7 +54,7 @@ impl Feature {
             matches!(reached, Ok(DriveOutcome::AtGate { .. })),
             "{reached:?}"
         );
-        let working_copy = self.dir.path().join(".surt/features").join(SUBJECT);
+        let working_copy = self.dir.path().join(".surt/subjects").join(SUBJECT);
         assert_eq!(
             fs::read_to_string(working_copy.join("draft.md")).expect("the working copy"),
             DRAFT

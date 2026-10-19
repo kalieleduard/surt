@@ -15,13 +15,13 @@ const HEADERS: [&str; 3] = ["ARTIFACT", "REVS", "LATEST"];
 
 #[derive(clap::Args)]
 pub(crate) struct ShowArgs {
-    feature: String,
+    subject: String,
     artifact: Option<String>,
     #[arg(long, value_name = "N", requires = "artifact")]
     rev: Option<u32>,
     #[arg(long, value_name = "key", requires = "artifact")]
-    task: Option<String>,
-    #[arg(long, value_name = "N", requires = "task", conflicts_with = "rev")]
+    item: Option<String>,
+    #[arg(long, value_name = "N", requires = "item", conflicts_with = "rev")]
     iter: Option<u32>,
     #[arg(long, value_name = "path", requires = "artifact")]
     file: Option<String>,
@@ -35,7 +35,7 @@ pub(crate) async fn run(cwd: &Path, args: ShowArgs) -> Result<(), Failure> {
     let project = Project::open_read_only(cwd).await?;
     let Some(artifact) = &args.artifact else {
         let artifacts = project
-            .artifacts(&args.feature, run_selector(args.run))
+            .artifacts(&args.subject, run_selector(args.run))
             .await?;
         if args.json {
             return crate::json::print(json::index(&artifacts));
@@ -46,12 +46,12 @@ pub(crate) async fn run(cwd: &Path, args: ShowArgs) -> Result<(), Failure> {
     let request = ShowRequest {
         artifact,
         revision: args.rev,
-        item: args.task.as_deref(),
+        item: args.item.as_deref(),
         iteration: args.iter,
         file: args.file.as_deref(),
         run: run_selector(args.run),
     };
-    let shown = project.show(&args.feature, request).await?;
+    let shown = project.show(&args.subject, request).await?;
     for file in &shown.edited {
         Message::new(format!("Working Copy has an unrecorded edit to {file}"))
             .context(format!(

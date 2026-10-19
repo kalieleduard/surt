@@ -6,8 +6,8 @@ use jiff::Timestamp;
 use jiff::tz::TimeZone;
 use sha2::{Digest, Sha256};
 
+use crate::delivering::{planned, subject_name};
 use crate::scripts::{build, crash_in, review, ship, spec, tasks};
-use crate::start::{feature_name, planned};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const BLOCKED_EXIT_CODE: i32 = 4;
@@ -58,9 +58,9 @@ fn fingerprint(path: &Path) -> String {
 
 pub fn at_the_manifest_gate(name: &str) -> Sandbox {
     let sandbox = project(&[spec(1, "# Spec 1\n"), tasks(1, &["A", "B"])]);
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
     ok(surt(&sandbox, &["approve", name]));
-    ok(surt(&sandbox, &["plan", name]));
+    ok(surt(&sandbox, &["continue", name]));
     sandbox
 }
 
@@ -82,10 +82,10 @@ fn local_time(sandbox: &Sandbox, sql: &str) -> String {
 }
 
 #[test]
-fn status_of_a_feature_at_a_gate_lists_every_covered_file_and_each_unrecorded_edit() {
-    let name = feature_name();
+fn status_of_a_subject_at_a_gate_lists_every_covered_file_and_each_unrecorded_edit() {
+    let name = subject_name();
     let sandbox = at_the_manifest_gate(&name);
-    let working_copy = sandbox.dot_surt().join("features").join(&name);
+    let working_copy = sandbox.dot_surt().join("subjects").join(&name);
     fs::write(working_copy.join("tasks/A.md"), "# Task A, edited\n").expect("an edit");
     fs::remove_file(working_copy.join("tasks/B.md")).expect("a removed file");
     let branch = git(&sandbox, &["rev-parse", "--abbrev-ref", "HEAD"]);
@@ -100,10 +100,10 @@ fn status_of_a_feature_at_a_gate_lists_every_covered_file_and_each_unrecorded_ed
             "{name} · run 1   AWAITING APPROVAL   (no driver)\n  \
              base     {branch} @ {head}\n  \
              spec     rev 1 (agent) ✔ approved by tester@example.com {approved_at}\n  \
-             tasks    manifest rev 1 (agent) ⏸ awaiting approval — approving covers the manifest and all 2 task files:\n           \
-             .surt/features/{name}/manifest.json\n           \
-             .surt/features/{name}/tasks/A.md\n           \
-             .surt/features/{name}/tasks/B.md\n           \
+             manifest rev 1 (agent) ⏸ awaiting approval — approving covers the manifest and all 2 item files:\n           \
+             .surt/subjects/{name}/manifest.json\n           \
+             .surt/subjects/{name}/tasks/A.md\n           \
+             .surt/subjects/{name}/tasks/B.md\n           \
              ✎ tasks/A.md edited — recorded as rev 2 on approve (approval then targets rev 2)\n           \
              ⚠ tasks/B.md missing from the Working Copy\n  \
              approve: surt approve {name}    reject: surt reject {name} -m \"…\"\n"
@@ -115,7 +115,7 @@ fn short(sha: &str) -> &str {
     &sha[..SHORT_SHA_CHARS]
 }
 
-pub fn with_a_blocked_task(name: &str) -> Sandbox {
+pub fn with_a_blocked_item(name: &str) -> Sandbox {
     let sandbox = planned(
         name,
         &[
@@ -127,15 +127,15 @@ pub fn with_a_blocked_task(name: &str) -> Sandbox {
             crash_in("B/build", 1, 3),
         ],
     );
-    let run = surt(&sandbox, &["start", name]);
+    let run = surt(&sandbox, &["continue", name]);
     assert_eq!(run.code, Some(BLOCKED_EXIT_CODE), "{}", run.stderr);
     sandbox
 }
 
 #[test]
-fn status_of_a_blocked_feature_shows_each_task_and_how_to_resume_each_blocked_step() {
-    let name = feature_name();
-    let sandbox = with_a_blocked_task(&name);
+fn status_of_a_blocked_subject_shows_each_item_and_how_to_resume_each_blocked_step() {
+    let name = subject_name();
+    let sandbox = with_a_blocked_item(&name);
     let branch = git(&sandbox, &["rev-parse", "--abbrev-ref", "HEAD"]);
     let head = git(&sandbox, &["rev-parse", "--short=7", "HEAD"]);
     let tip = git(
@@ -169,7 +169,7 @@ fn status_of_a_blocked_feature_shows_each_task_and_how_to_resume_each_blocked_st
     assert_eq!(
         overview,
         format!(
-            "FEATURE             RUN  STATE    DRIVER  PROGRESS\n\
+            "SUBJECT             RUN  STATE    DRIVER  PROGRESS\n\
              {name}  1    BLOCKED  —       1/2 merged · 1 blocked\n\
              agent slots: 0/3 in use\n"
         )
@@ -181,15 +181,15 @@ fn status_of_a_blocked_feature_shows_each_task_and_how_to_resume_each_blocked_st
              base     {branch} @ {head}\n  \
              branch   surt/{name} @ {tip} · merge into base: never\n  \
              spec     rev 1 (agent) ✔ approved by tester@example.com {spec_at}\n  \
-             tasks    manifest rev 1 (agent) ✔ approved by tester@example.com {manifest_at} · 2 tasks\n  \
+             manifest rev 1 (agent) ✔ approved by tester@example.com {manifest_at} · 2 items\n  \
              implement\n    \
              A  ✔ merged    iter 1 · as {}\n    \
              B  ⛔ blocked   build iter 1 · attempt 3\n  \
-             ⛔ task B build blocked: attempts exhausted\n     \
+             ⛔ item B build blocked: attempts exhausted\n     \
              attempt 3 failed (exit_code): the agent exited with code 1\n     \
              inspect: surt inspect {execution}\n     \
              logs: surt logs {execution}\n  \
-             resume: surt start {name}\n",
+             resume: surt continue {name}\n",
             short(&merged)
         )
     );
@@ -205,13 +205,13 @@ pub fn delivered(name: &str) -> Sandbox {
             ship(),
         ],
     );
-    ok(surt(&sandbox, &["start", name]));
+    ok(surt(&sandbox, &["continue", name]));
     sandbox
 }
 
 #[test]
 fn status_all_adds_terminal_runs_and_shows_a_pending_cleanup_with_how_to_retry_it() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = delivered(&name);
     let execution = sandbox
         .texts("SELECT id FROM execution ORDER BY id LIMIT 1")
@@ -225,7 +225,7 @@ fn status_all_adds_terminal_runs_and_shows_a_pending_cleanup_with_how_to_retry_i
     let cleaned = ok(surt(&sandbox, &["status", "--all"]));
     fs::write(&blocker, "not a directory\n").expect("a file in the way");
     sandbox.execute("UPDATE workflow_run SET cleaned_at = NULL");
-    ok(surt(&sandbox, &["start", &name]));
+    ok(surt(&sandbox, &["continue", &name]));
     let pending = ok(surt(&sandbox, &["status", "--all"]));
     let detail = ok(surt(&sandbox, &["status", &name]));
 
@@ -233,12 +233,12 @@ fn status_all_adds_terminal_runs_and_shows_a_pending_cleanup_with_how_to_retry_i
     assert!(active.stdout.is_empty(), "{}", active.stdout);
     assert_eq!(
         active.stderr,
-        "no feature has an active run (surt status --all lists finished ones)\n"
+        "no subject has an active run (surt status --all lists finished ones)\n"
     );
     assert_eq!(
         cleaned,
         format!(
-            "FEATURE             RUN  STATE      DRIVER  PROGRESS\n\
+            "SUBJECT             RUN  STATE      DRIVER  PROGRESS\n\
              {name}  1    SUCCEEDED  —       1/1 merged\n\
              agent slots: 0/3 in use\n"
         )
@@ -246,7 +246,7 @@ fn status_all_adds_terminal_runs_and_shows_a_pending_cleanup_with_how_to_retry_i
     assert_eq!(
         pending,
         format!(
-            "FEATURE             RUN  STATE      DRIVER  PROGRESS\n\
+            "SUBJECT             RUN  STATE      DRIVER  PROGRESS\n\
              {name}  1    SUCCEEDED  —       1/1 merged · cleanup pending\n\
              agent slots: 0/3 in use\n"
         )
@@ -262,21 +262,21 @@ fn status_all_adds_terminal_runs_and_shows_a_pending_cleanup_with_how_to_retry_i
         "{detail}"
     );
     assert!(
-        detail.ends_with(&format!(")\n           retry: surt start {name}\n")),
+        detail.ends_with(&format!(")\n           retry: surt continue {name}\n")),
         "{detail}"
     );
 }
 
 #[test]
-fn show_reads_any_revision_after_cleanup_including_a_tasks_own_artifacts() {
-    let name = feature_name();
+fn show_reads_any_revision_after_cleanup_including_an_items_own_artifacts() {
+    let name = subject_name();
     let sandbox = delivered(&name);
 
     let spec = ok(surt(&sandbox, &["show", &name, "spec"]));
-    let feedback = ok(surt(&sandbox, &["show", &name, "feedback", "--task", "A"]));
+    let feedback = ok(surt(&sandbox, &["show", &name, "feedback", "--item", "A"]));
     let detail = ok(surt(&sandbox, &["status", &name]));
 
-    assert!(!sandbox.dot_surt().join("features").join(&name).exists());
+    assert!(!sandbox.dot_surt().join("subjects").join(&name).exists());
     assert_eq!(spec, "# Spec 1\n");
     assert!(
         feedback.contains("\"summary\":\"approved after reading the code\""),
@@ -286,8 +286,8 @@ fn show_reads_any_revision_after_cleanup_including_a_tasks_own_artifacts() {
 }
 
 #[test]
-fn status_run_1_of_a_single_run_feature_is_the_detail_shown_by_default() {
-    let name = feature_name();
+fn status_run_1_of_a_single_run_subject_is_the_detail_shown_by_default() {
+    let name = subject_name();
     let sandbox = at_the_manifest_gate(&name);
 
     let selected = ok(surt(&sandbox, &["status", &name, "--run", "1"]));
@@ -301,9 +301,9 @@ fn status_run_1_of_a_single_run_feature_is_the_detail_shown_by_default() {
 
 #[test]
 fn status_and_show_write_nothing_to_the_database_or_the_working_copy() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = at_the_manifest_gate(&name);
-    let working_copy = sandbox.dot_surt().join("features").join(&name);
+    let working_copy = sandbox.dot_surt().join("subjects").join(&name);
     fs::write(working_copy.join("tasks/A.md"), "# Task A, edited\n").expect("an edit");
     fs::remove_file(working_copy.join("tasks/B.md")).expect("a removed file");
     let execution = sandbox
@@ -353,30 +353,30 @@ fn status_and_show_write_nothing_to_the_database_or_the_working_copy() {
         &sandbox,
         &["show", &name, "manifest", "--file", "tasks/Z.md"],
     );
-    let no_task = surt(&sandbox, &["inspect", &name, "A"]);
+    let no_item = surt(&sandbox, &["inspect", &name, "A"]);
 
     assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
-    assert_eq!(no_task.code, Some(REFUSED_EXIT_CODE), "{}", no_task.stderr);
+    assert_eq!(no_item.code, Some(REFUSED_EXIT_CODE), "{}", no_item.stderr);
     assert_unchanged(&sandbox.dot_surt(), before);
     assert!(!working_copy.join("tasks/B.md").exists());
 }
 
 #[test]
 fn show_of_an_iteration_writes_nothing_to_the_database() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = delivered(&name);
     let before = hashes(&sandbox.dot_surt());
 
     for args in [
-        vec!["show", &name, "feedback", "--task", "A", "--iter", "1"],
+        vec!["show", &name, "feedback", "--item", "A", "--iter", "1"],
         vec![
-            "show", &name, "feedback", "--task", "A", "--iter", "1", "--run", "1",
+            "show", &name, "feedback", "--item", "A", "--iter", "1", "--run", "1",
         ],
         vec![
             "show",
             &name,
             "feedback",
-            "--task",
+            "--item",
             "A",
             "--iter",
             "1",
@@ -388,7 +388,7 @@ fn show_of_an_iteration_writes_nothing_to_the_database() {
     }
     let refused = surt(
         &sandbox,
-        &["show", &name, "feedback", "--task", "A", "--iter", "2"],
+        &["show", &name, "feedback", "--item", "A", "--iter", "2"],
     );
 
     assert_eq!(refused.code, Some(REFUSED_EXIT_CODE), "{}", refused.stderr);
@@ -421,17 +421,17 @@ fn ok(run: Run) -> String {
 }
 
 #[test]
-fn status_lists_a_feature_awaiting_approval_with_no_driver_and_its_gate() {
-    let name = feature_name();
+fn status_lists_a_subject_awaiting_approval_with_no_driver_and_its_gate() {
+    let name = subject_name();
     let sandbox = project(&[spec(1, "# Spec 1\n")]);
-    ok(sandbox.feature(&["add login"]));
+    ok(sandbox.run_feature("add login", &[]));
 
     let stdout = ok(surt(&sandbox, &["status"]));
 
     assert_eq!(
         stdout,
         format!(
-            "FEATURE             RUN  STATE              DRIVER  PROGRESS\n\
+            "SUBJECT             RUN  STATE              DRIVER  PROGRESS\n\
              {name}  1    AWAITING APPROVAL  —       spec rev 1\n\
              agent slots: 0/3 in use\n"
         )

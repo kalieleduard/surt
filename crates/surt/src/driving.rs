@@ -8,6 +8,7 @@ use surt_engine::project::{DriveOutcome, Gate, GateStatus, Project, RunId};
 use surt_engine::runtime::{AgentRuntime, StopSignal};
 use tokio::sync::mpsc;
 
+use crate::continue_run::continue_command;
 use crate::failure::Failure;
 use crate::message::{Mark, Message};
 use crate::refusal;
@@ -24,7 +25,6 @@ pub(crate) struct Driven<'a> {
     pub(crate) project: &'a Project,
     pub(crate) subject: &'a str,
     pub(crate) run: &'a RunId,
-    pub(crate) command: &'static str,
 }
 
 impl Driven<'_> {
@@ -78,7 +78,7 @@ impl Driven<'_> {
     async fn succeeded(&self) -> Result<(), Failure> {
         if let Some(branch) = self.project.integration_branch(self.run).await? {
             Message::new(format!(
-                "shipper delivered {DASH} {} @ {}",
+                "delivered {DASH} {} @ {}",
                 branch.name,
                 short(&branch.tip)
             ))
@@ -95,7 +95,7 @@ impl Driven<'_> {
     }
 
     fn resume_command(&self) -> String {
-        format!("surt {} {}", self.command, self.subject)
+        continue_command(self.subject)
     }
 
     async fn awaiting(&self, gates: &[Gate]) -> Result<(), Failure> {
@@ -106,7 +106,7 @@ impl Driven<'_> {
                 _ => String::new(),
             };
             Message::new(format!(
-                "{}{revision} awaiting approval in .surt/features/{subject}",
+                "{}{revision} awaiting approval in .surt/subjects/{subject}",
                 gate.artifact
             ))
             .way("approve", format!("surt approve {subject}"))

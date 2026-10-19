@@ -1,15 +1,16 @@
-use super::catalog::Catalog;
+use std::io;
+use std::path::PathBuf;
+
 use super::closure::{self, Closure};
 use super::definition::{Definition, OnSuccess};
-use super::error::InvalidDefinition;
-use super::flow::Available;
+use super::error::{AGENT_FILE, INSTRUCTIONS_FILE, InvalidDefinition};
+use super::files::DefinitionSource;
+use super::inputs::RunInputs;
 use super::references::local_references;
 use super::steps::StepKind;
 use crate::artifacts::{identity, sha256_hex};
 
 const WORKFLOW_FILE: &str = "workflow.toml";
-const AGENT_FILE: &str = "agent.toml";
-const INSTRUCTIONS_FILE: &str = "instructions.md";
 const CONFIG_FILE: &str = "config.toml";
 const CONFIG_NAME: &str = "config";
 
@@ -19,6 +20,18 @@ pub(crate) enum FreezeError {
     Invalid(Box<InvalidDefinition>),
     #[error("cannot write the canonical form: {0}")]
     Canonical(#[from] toml::ser::Error),
+    #[error("cannot read {}", path.display())]
+    Unreadable {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+}
+
+impl From<Box<InvalidDefinition>> for FreezeError {
+    fn from(invalid: Box<InvalidDefinition>) -> FreezeError {
+        FreezeError::Invalid(invalid)
+    }
 }
 
 pub(crate) struct FrozenRun {
@@ -26,6 +39,7 @@ pub(crate) struct FrozenRun {
     pub(crate) config_sha256: String,
     pub(crate) snapshots: Vec<Snapshot>,
     pub(crate) steps: Vec<TopLevelStep>,
+    pub(crate) inputs: RunInputs,
 }
 
 pub(crate) struct TopLevelStep {
@@ -73,24 +87,19 @@ impl SnapshotFile {
     }
 }
 
-pub(crate) fn freeze<'a>(
-    catalog: &Catalog,
+pub(crate) fn freeze(
+    source: &impl DefinitionSource,
     workflow: &str,
-    initial_artifacts: impl IntoIterator<Item = &'a str>,
     config: impl FnOnce(OnSuccess) -> Result<String, toml::ser::Error>,
 ) -> Result<FrozenRun, FreezeError> {
-    let external: Available = initial_artifacts
-        .into_iter()
-        .map(|name| (name.to_owned(), None))
-        .collect();
-    let closure = closure::resolve(catalog, workflow, &external).map_err(FreezeError::Invalid)?;
+    let closure = closure::resolve(source, workflow)?;
     let root = workflow_snapshot(&closure.root)?;
     let definition_sha256 = root.sha256.clone();
     let mut snapshots = vec![root];
     for child in &closure.children {
         snapshots.push(workflow_snapshot(child)?);
     }
-    snapshots.extend(agent_snapshots(catalog, &closure)?);
+    snapshots.extend(agent_snapshots(&closure)?);
     let config = config(closure.root.on_success())?;
     let config = single_file(SnapshotKind::Config, CONFIG_NAME, CONFIG_FILE, config);
     let config_sha256 = config.sha256.clone();
@@ -101,6 +110,7 @@ pub(crate) fn freeze<'a>(
         config_sha256,
         snapshots,
         steps,
+        inputs: closure.root.inputs,
     })
 }
 
@@ -123,18 +133,15 @@ fn single_file(kind: SnapshotKind, name: &str, rel_path: &str, text: String) -> 
     }
 }
 
-fn agent_snapshots(catalog: &Catalog, closure: &Closure) -> Result<Vec<Snapshot>, FreezeError> {
+fn agent_snapshots(closure: &Closure) -> Result<Vec<Snapshot>, FreezeError> {
     let mut snapshots = Vec::new();
     for (id, contract) in &closure.agents {
-        let Some(sources) = catalog.agent_sources(id) else {
+        let Some(sources) = closure.files.get(id) else {
             continue;
         };
         let mut files = vec![
             SnapshotFile::new(AGENT_FILE, contract.canonical()?.into_bytes()),
-            SnapshotFile::new(
-                INSTRUCTIONS_FILE,
-                sources.instructions().as_bytes().to_vec(),
-            ),
+            SnapshotFile::new(INSTRUCTIONS_FILE, sources.instructions.as_bytes().to_vec()),
         ];
         let mut pending: Vec<String> = contract.schema_paths().map(str::to_owned).collect();
         while let Some(path) = pending.pop() {

@@ -3,12 +3,12 @@
   "title": "git.snapshot_run_branch result",
   "type": "object",
   "additionalProperties": false,
-  "required": ["branch", "base", "tip", "tasks"],
+  "required": ["branch", "base", "tip", "items"],
   "properties": {
     "branch": { "type": "string", "minLength": 1 },
     "base": { "$ref": "base.schema.json" },
     "tip": { "$ref": "#/definitions/sha" },
-    "tasks": {
+    "items": {
       "type": "array",
       "items": {
         "type": "object",

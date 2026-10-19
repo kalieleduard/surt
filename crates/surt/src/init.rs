@@ -5,16 +5,45 @@ use surt_engine::project::{FileState, InitFile, Initialized, Project};
 use crate::failure::Failure;
 use crate::message::Message;
 use crate::symbols::SUCCESS;
+use crate::template::{self, FEATURE_TEMPLATE, TEMPLATES, Template};
 
-const NEXT_COMMAND: &str = "surt feature \"<what you want to build>\"";
+const NO_TEMPLATE_NEXT: &str = "add a workflow under .surt/workflows/";
+const DOT_SURT: &str = ".surt";
+const STATE_GAP: usize = 2;
 
-pub(crate) async fn run(cwd: &Path) -> Result<(), Failure> {
-    let initialized = Project::init(cwd).await?;
-    report(&initialized).print_success();
+#[derive(clap::Args)]
+pub(crate) struct InitArgs {
+    #[arg(long, value_name = "name")]
+    template: Option<String>,
+}
+
+pub(crate) async fn run(cwd: &Path, args: InitArgs) -> Result<(), Failure> {
+    let template = match &args.template {
+        Some(name) => {
+            Some(template::named(name).ok_or_else(|| Failure::Refused(unknown_template(name)))?)
+        }
+        None => None,
+    };
+    let files = template.as_ref().map(Template::files).unwrap_or_default();
+    let written: Vec<(&str, &[u8])> = files
+        .iter()
+        .map(|(path, text)| (path.as_str(), text.as_bytes()))
+        .collect();
+    let initialized = Project::init(cwd, &written).await?;
+    let next = template
+        .as_ref()
+        .map_or(NO_TEMPLATE_NEXT, Template::next_command);
+    report(&initialized, next).print_success();
     Ok(())
 }
 
-fn report(initialized: &Initialized) -> Message {
+fn unknown_template(name: &str) -> Message {
+    Message::new(format!("no template is named \"{name}\""))
+        .context(format!("templates: {}", TEMPLATES.join(", ")))
+        .way("fix", format!("surt init --template {FEATURE_TEMPLATE}"))
+}
+
+fn report(initialized: &Initialized, next: &str) -> Message {
     let dot_surt = initialized.dot_surt.display();
     let headline = if initialized.was_already_initialized() {
         format!("surt is already initialized in {dot_surt}")
@@ -25,29 +54,35 @@ fn report(initialized: &Initialized) -> Message {
     if initialized.from_subdirectory {
         message = message.context(".surt/ lives at the toplevel of the repository's main worktree");
     }
-    for (file, state) in initialized.files {
-        message = message.context(file_line(file, state));
+    let lines: Vec<(String, FileState)> = initialized
+        .files
+        .iter()
+        .map(|(file, state)| (file_path(file), *state))
+        .collect();
+    let width = lines.iter().map(|(path, _)| path.len()).max().unwrap_or(0) + STATE_GAP;
+    for (path, state) in lines {
+        message = message.context(format!("{path:<width$}{}", state_name(state)));
     }
     message
         .context(format!(
             "git {} {SUCCESS}  identity {} {SUCCESS}",
             initialized.git, initialized.identity
         ))
-        .way("next", NEXT_COMMAND)
+        .way("next", next)
 }
 
-fn file_line(file: InitFile, state: FileState) -> String {
-    let (name, created) = match file {
-        InitFile::Gitignore => (
-            ".surt/.gitignore",
-            "(only config.toml and agents/ are versioned)",
-        ),
-        InitFile::Config => (".surt/config.toml", "(defaults, commented)"),
-        InitFile::Database => (".surt/surt.db", ""),
-    };
-    let note = match state {
-        FileState::Created => created,
-        FileState::Kept => "(exists, kept)",
-    };
-    format!("{name:<20}{note}").trim_end().to_owned()
+fn file_path(file: &InitFile) -> String {
+    match file {
+        InitFile::Gitignore => format!("{DOT_SURT}/.gitignore"),
+        InitFile::Config => format!("{DOT_SURT}/config.toml"),
+        InitFile::Database => format!("{DOT_SURT}/surt.db"),
+        InitFile::Template(path) => format!("{DOT_SURT}/{path}"),
+    }
+}
+
+fn state_name(state: FileState) -> &'static str {
+    match state {
+        FileState::Created => "created",
+        FileState::Kept => "kept",
+    }
 }

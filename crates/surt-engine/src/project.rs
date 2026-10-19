@@ -3,6 +3,7 @@ mod blocked;
 mod cancelling;
 mod config;
 mod create_run;
+mod definitions;
 mod deleting;
 mod delivery;
 mod discovery;
@@ -42,15 +43,15 @@ pub use crate::operations::{BASE_SCHEMA, CONFLICT_SCHEMA, INTEGRATION_SCHEMA};
 pub use crate::platform::{console_outputs_utf8, stderr_columns};
 pub use crate::runtime::LogFiles;
 pub use crate::workflow::{
-    AgentAssets, Catalog, DefinitionFile, DeliveryCheck, InvalidDefinition, InvalidOverride,
-    OnSuccess, Problem, StepField, StepUse, WorkflowStep,
+    DefinitionFile, InputFormat, InvalidDefinition, OnSuccess, Problem, StepField,
 };
 pub use base_merge::BaseMergeReport;
 pub use blocked::{BlockedStep, LastFailure};
 pub use cancelling::CancelImpact;
 pub use config::{Check, CleanupConfig, Config, GitConfig, GlobalConfig, MergeIntoBase};
 pub(crate) use config::{live_max_concurrent_agents, parse_timeout};
-pub use create_run::{ArtifactFile, CreatedRun, InitialArtifact, LocalFiles, NewRun, RunId};
+pub use create_run::{Carry, CreatedRun, DeclaredInput, InputProblem, NewRun, RunId};
+pub use definitions::check_workflow;
 pub use deleting::{BranchFate, DeleteImpact, DeletedRun, Deletion, Directory};
 pub use delivery::IntegrationBranch;
 pub use error::{
@@ -73,8 +74,8 @@ pub use resolving::{Reference, RunSelector, Subject};
 pub use restoring::RestoreImpact;
 pub use show::{ArtifactSummary, RevisionApproval, ShowRequest, Shown, ShownFile};
 pub use status::{
-    AgentSlots, CleanupState, Conflict, Driver, GateView, ItemState, ItemStatus, LaunchPause,
-    PendingIntegration, RevisionSummary, RunStatus, StatusScope, Unattended,
+    AgentSlots, CleanupState, Conflict, Driver, GateView, ItemListSummary, ItemState, ItemStatus,
+    LaunchPause, PendingIntegration, RevisionSummary, RunStatus, StatusScope, Unattended,
 };
 pub use stopping::StopRequest;
 pub use subjects::FreeName;
@@ -92,7 +93,6 @@ pub struct Project {
     id: String,
     config: Config,
     global: GlobalConfig,
-    catalog: Catalog,
     home: SurtHome,
     access: Access,
     #[cfg(feature = "test-support")]
@@ -106,24 +106,19 @@ enum Access {
 }
 
 impl Project {
-    pub async fn init(cwd: &Path) -> Result<Initialized, Error> {
-        init::run(cwd, &SurtHome::from_env()).await
+    pub async fn init(cwd: &Path, template: &[(&str, &[u8])]) -> Result<Initialized, Error> {
+        init::run(cwd, &SurtHome::from_env(), template).await
     }
 
-    pub async fn open(cwd: &Path, catalog: Catalog) -> Result<Project, Error> {
-        Self::open_with(cwd, &SurtHome::from_env(), catalog, Access::ReadWrite).await
+    pub async fn open(cwd: &Path) -> Result<Project, Error> {
+        Self::open_with(cwd, &SurtHome::from_env(), Access::ReadWrite).await
     }
 
     pub async fn open_read_only(cwd: &Path) -> Result<Project, Error> {
-        Self::open_with(cwd, &SurtHome::from_env(), Catalog::new(), Access::ReadOnly).await
+        Self::open_with(cwd, &SurtHome::from_env(), Access::ReadOnly).await
     }
 
-    async fn open_with(
-        cwd: &Path,
-        home: &SurtHome,
-        catalog: Catalog,
-        access: Access,
-    ) -> Result<Project, Error> {
+    async fn open_with(cwd: &Path, home: &SurtHome, access: Access) -> Result<Project, Error> {
         let layout = discovery::find_project(cwd, home).await?;
         let config = config::load(&layout.config())?;
         let global = home
@@ -137,7 +132,6 @@ impl Project {
             id: id?,
             config,
             global,
-            catalog,
             home: home.clone(),
             access,
             #[cfg(feature = "test-support")]

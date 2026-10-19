@@ -42,18 +42,18 @@ fn impact() -> DeleteImpact {
             },
         ],
         item_branches: vec![
-            format!("surt/task/{SUBJECT}/A"),
-            format!("surt/task/{SUBJECT}/B"),
-            format!("surt/task/{SUBJECT}.2/C"),
+            format!("surt/item/{SUBJECT}/A"),
+            format!("surt/item/{SUBJECT}/B"),
+            format!("surt/item/{SUBJECT}.2/C"),
         ],
         salvage_refs: 1,
         directories: vec![
             directory(&format!(".surt/logs/{SUBJECT}"), 14 * 1024 * 1024),
-            directory(&format!(".surt/features/{SUBJECT}"), 2048),
+            directory(&format!(".surt/subjects/{SUBJECT}"), 2048),
             directory(".surt/runtime/executions/0192", 10),
             directory(".surt/runtime/executions/0193", 20),
         ],
-        unrecorded_edits: vec![PathBuf::from(format!(".surt/features/{SUBJECT}/spec.md"))],
+        unrecorded_edits: vec![PathBuf::from(format!(".surt/subjects/{SUBJECT}/spec.md"))],
         revisions: 3,
         executions: 41,
         events: 312,
@@ -64,12 +64,12 @@ fn impact() -> DeleteImpact {
 fn the_question_lists_runs_refs_disk_and_history() {
     assert_eq!(
         question(&impact()),
-        "delete feature 20261017-add-login and all its history?\n\
+        "delete subject 20261017-add-login and all its history?\n\
          \x20 runs      1 cancelled · 2 succeeded\n\
          \x20 git       delete surt/20261017-add-login (run 1, cancelled)\n\
-         \x20           delete surt/task/20261017-add-login/{A,B} · surt/task/20261017-add-login.2/C · 1 salvage ref\n\
+         \x20           delete surt/item/20261017-add-login/{A,B} · surt/item/20261017-add-login.2/C · 1 salvage ref\n\
          \x20           keep   surt/20261017-add-login.2 (run 2, delivered)\n\
-         \x20 disk      .surt/logs/20261017-add-login (14 MB) · .surt/features/20261017-add-login (2 KB) \
+         \x20 disk      .surt/logs/20261017-add-login (14 MB) · .surt/subjects/20261017-add-login (2 KB) \
          · 2 execution directories (30 B) · 1 unrecorded edit in the working copy\n\
          \x20 database  3 revisions · 41 executions · 312 events\n"
     );
@@ -90,7 +90,7 @@ fn the_question_says_when_git_and_disk_hold_nothing() {
 
     assert_eq!(
         question(&empty),
-        "delete feature 20261017-add-login and all its history?\n\
+        "delete subject 20261017-add-login and all its history?\n\
          \x20 runs      1 cancelled\n\
          \x20 git       delete 2 salvage refs\n\
          \x20 disk      nothing\n\

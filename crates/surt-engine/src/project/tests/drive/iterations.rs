@@ -50,6 +50,7 @@ async fn a_rejection_records_the_decision_on_the_reviewed_revision_without_drivi
             actor: ACTOR.to_owned(),
             files: vec!["draft.md".to_owned()],
             restored: Vec::new(),
+            producer: Some("write".to_owned()),
         }
     );
     assert_eq!(
@@ -133,7 +134,7 @@ async fn an_approval_of_the_latest_revision_lets_the_next_step_read_it() {
             feature
                 .dir
                 .path()
-                .join(".surt/features")
+                .join(".surt/subjects")
                 .join(SUBJECT)
                 .join("draft.md")
         )

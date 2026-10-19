@@ -66,7 +66,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         let stem = run_stem(&launch.subject, launch.ordinal);
         let intended = RunBranch {
             ref_name: self
-                .branch_reference(&format!("surt/task/{stem}/{key}"))
+                .branch_reference(&format!("surt/item/{stem}/{key}"))
                 .await?,
             start_sha: integration.tip_sha.clone(),
             tip_sha: integration.tip_sha,

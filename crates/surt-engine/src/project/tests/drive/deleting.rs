@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use super::super::fixtures::{SUBJECT, initial};
+use super::super::fixtures::{SUBJECT, input};
 use super::fixtures::{ACTOR, Feature, draft, review_catalog};
 use super::integration::{login, logout};
 use super::planned::plan;
@@ -9,7 +9,7 @@ use super::team::{INTEGRATED_TASK, Team, Turn, builds, reviews, shipped, ships, 
 use super::worktrees::refused;
 use crate::platform;
 use crate::project::{
-    BranchFate, Config, DeletedRun, Deletion, DriveOutcome, Error, NewRun, Refusal, RunState,
+    BranchFate, Carry, Config, DeletedRun, Deletion, DriveOutcome, Error, NewRun, Refusal, RunState,
 };
 use crate::runtime::Script;
 
@@ -31,17 +31,12 @@ fn leaves_leftovers_and_is_refused() -> Turn {
     })
 }
 
-fn next_run(feature: &Feature, subject: &str) -> NewRun {
-    let base = feature.base();
-    let base_json = format!(r#"{{"ref": "main", "sha": "{base}"}}"#);
+fn next_run(subject: &str) -> NewRun {
     NewRun {
         subject: subject.to_owned(),
         workflow: "shipped".to_owned(),
-        initial_artifacts: vec![
-            initial("request", "request.txt", b"add login"),
-            initial("base", "base.json", base_json.as_bytes()),
-        ],
-        carried: Vec::new(),
+        inputs: vec![input("request", "add login"), input("base", "main")],
+        carry: Carry::Nothing,
         merge_into_base: None,
         actor: ACTOR.to_owned(),
     }
@@ -63,7 +58,7 @@ async fn cancelled_then_delivered() -> Feature {
     let mut feature = cancelled().await;
     feature.run = feature
         .project
-        .create_run(next_run(&feature, SUBJECT))
+        .create_run(next_run(SUBJECT))
         .await
         .expect("run 2 is created")
         .run;
@@ -119,7 +114,7 @@ async fn deleting_keeps_only_the_delivered_integration_branch_and_purges_the_his
     let other = "20261017-other";
     feature
         .project
-        .create_run(next_run(&feature, other))
+        .create_run(next_run(other))
         .await
         .expect("another feature");
     let run_locks: Vec<(String,)> = feature
@@ -157,7 +152,7 @@ async fn deleting_keeps_only_the_delivered_integration_branch_and_purges_the_his
     assert!(!listed.contains(".surt/worktrees"), "{listed}");
     assert!(listed.contains("[mine]"), "{listed}");
     assert!(feature.sha("refs/heads/main").is_some());
-    for gone in [format!("logs/{SUBJECT}"), format!("features/{SUBJECT}")] {
+    for gone in [format!("logs/{SUBJECT}"), format!("subjects/{SUBJECT}")] {
         assert!(!feature.surt_dir(&gone).exists(), "{gone}");
     }
     assert_eq!(
@@ -255,8 +250,8 @@ async fn the_delete_impact_lists_runs_refs_directories_edits_and_history() {
     assert_eq!(
         impact.item_branches,
         [
-            format!("surt/task/{SUBJECT}/A"),
-            format!("surt/task/{SUBJECT}/B")
+            format!("surt/item/{SUBJECT}/A"),
+            format!("surt/item/{SUBJECT}/B")
         ]
     );
     assert_eq!(impact.salvage_refs, 1);
@@ -265,7 +260,7 @@ async fn the_delete_impact_lists_runs_refs_directories_edits_and_history() {
     assert!(impact.directories[0].bytes > 0);
     assert_eq!(
         impact.directories[1].path,
-        PathBuf::from(".surt/features").join(SUBJECT)
+        PathBuf::from(".surt/subjects").join(SUBJECT)
     );
     assert_eq!(impact.directories.len(), 2);
     assert_eq!(impact.unrecorded_edits, Vec::<PathBuf>::new());
@@ -303,7 +298,7 @@ async fn the_delete_impact_counts_unrecorded_edits_in_the_working_copy() {
 
     assert_eq!(
         impact.unrecorded_edits,
-        [PathBuf::from(".surt/features")
+        [PathBuf::from(".surt/subjects")
             .join(SUBJECT)
             .join("draft.md")]
     );
@@ -387,7 +382,7 @@ async fn a_run_created_while_deleting_rolls_the_purge_back() {
         .dir
         .project(team_catalog(INTEGRATED_TASK), Config::default())
         .await;
-    let next = next_run(&feature, SUBJECT);
+    let next = next_run(SUBJECT);
     feature.project.interleave_before_purge(async move {
         other.create_run(next).await.expect("run 2 is created");
     });

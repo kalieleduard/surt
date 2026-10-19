@@ -1,5 +1,6 @@
 use surt_engine::project::CancelImpact;
 
+use crate::continue_run::new_run_command;
 use crate::symbols::SEPARATOR;
 
 pub(super) fn question(subject: &str, impact: &CancelImpact) -> String {
@@ -10,14 +11,15 @@ pub(super) fn question(subject: &str, impact: &CancelImpact) -> String {
         .filter(|_| impact.items > 0)
     {
         stopped.push(format!(
-            "{}/{} tasks merged stay on {branch}",
+            "{}/{} items merged stay on {branch}",
             impact.merged, impact.items
         ));
     }
     format!(
-        "cancel {subject}?\n  {}\n  worktrees are removed; task branches and salvage refs stay\n  \
-         starting over later needs a new run (surt feature {subject} --new-run)\n",
-        stopped.join(SEPARATOR)
+        "cancel {subject}?\n  {}\n  worktrees are removed; item branches and salvage refs stay\n  \
+         starting over later needs a new run ({})\n",
+        stopped.join(SEPARATOR),
+        new_run_command(subject)
     )
 }
 

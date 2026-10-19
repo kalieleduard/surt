@@ -1,4 +1,4 @@
-use super::fixtures::{ProjectDir, SUBJECT, default_config, draft_catalog, initial, new_run};
+use super::fixtures::{ProjectDir, SUBJECT, default_config, draft_catalog, input, new_run};
 use crate::project::{
     Error, KnownRun, Project, Refusal, RunSelector, RunState, ShowRequest, StatusScope,
 };
@@ -13,14 +13,14 @@ async fn two_runs(dir: &ProjectDir) -> Project {
         .expect("run 1 is created");
     dir.execute(CANCEL_ALL).await;
     let mut second = new_run("draft");
-    second.initial_artifacts[0] = initial("request", "request.txt", b"add login again");
+    second.inputs[0] = input("request", "add login again");
     project.create_run(second).await.expect("run 2 is created");
     project
 }
 
 async fn run_states(project: &Project, run: RunSelector) -> Vec<(u32, Vec<RunState>)> {
     project
-        .status(StatusScope::Feature(SUBJECT, run))
+        .status(StatusScope::Subject(SUBJECT, run))
         .await
         .expect("the status reads")
         .into_iter()
@@ -92,7 +92,7 @@ async fn an_unknown_run_is_refused_listing_the_runs_with_their_states() {
 
     let by_status = refused(
         project
-            .status(StatusScope::Feature(SUBJECT, RunSelector::Ordinal(3)))
+            .status(StatusScope::Subject(SUBJECT, RunSelector::Ordinal(3)))
             .await,
     );
     let by_show = refused(

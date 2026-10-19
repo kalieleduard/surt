@@ -1,6 +1,6 @@
 # G. State Machines
 
-States and transitions of Executions, Step Runs and Workflow Runs, the Attempt and Iteration limits, and how the built-in Task Cycle uses them. Vocabulary (**Execution**, **Step Run**, **Iteration**, **Attempt**, **Blocked**, **Interruption**, **Cancellation**) is defined in [`CONTEXT.md`](../../CONTEXT.md); entities and invariants are in [C. Domain Model](C-domain-model.md). Decision ticket: [Builder ↔ Reviewer loop state machine](../../.scratch/surt-architecture/issues/10-builder-reviewer-loop.md).
+States and transitions of Executions, Step Runs and Workflow Runs, the Attempt and Iteration limits, and how the feature Template's Task Cycle uses them. Vocabulary (**Execution**, **Step Run**, **Iteration**, **Attempt**, **Blocked**, **Interruption**, **Cancellation**) is defined in [`CONTEXT.md`](../../CONTEXT.md); entities and invariants are in [C. Domain Model](C-domain-model.md). Decision ticket: [Builder ↔ Reviewer loop state machine](../../.scratch/surt-architecture/issues/10-builder-reviewer-loop.md).
 
 Recovery after a crash (what an orphan or a second Ctrl-C leaves behind, partial Operations) is [I. Recovery and Reconciliation](I-recovery.md). This section only names the states recovery moves between.
 
@@ -106,14 +106,14 @@ $ surt status 20261017-add-login
     B  ⛔ blocked         iter 2 · build: 3 attempts failed — invalid delivery JSON
     C  ⏸ pending         waits for B
     D  ✔ merged          iter 2
-  fix: inspect B, then rerun  surt start 20261017-add-login
+  fix: inspect B, then rerun  surt continue 20261017-add-login
 ```
 
 A Child Workflow Run follows the same rules. Its derived state is what `status` shows per Task.
 
 ### When a Driver returns
 
-`drive(root_run_id)` ([A](A-process-model.md#driving-a-run)) returns when nothing can run without a human: every non-final Step Run is a `running` Approval Gate, is `blocked`, or waits (`pending`) behind one of them. The driving command then exits. It exits successfully when it reached its phase's gate or the run succeeded. It exits with an error when it stopped on `blocked`, printing each blocked step with its last error and the command to resume. Exit codes: `0` and `4` respectively ([J. Exit codes](J-cli.md#exit-codes)).
+`drive(root_run_id)` ([A](A-process-model.md#driving-a-run)) returns when nothing can run without a human: every non-final Step Run is a `running` Approval Gate, is `blocked`, or waits (`pending`) behind one of them. The driving command then exits. It exits successfully when it reached an Approval Gate or the run succeeded. It exits with an error when it stopped on `blocked`, printing each blocked step with its last error and the command to resume. Exit codes: `0` and `4` respectively ([J. Exit codes](J-cli.md#exit-codes)).
 
 ### Cancellation
 
@@ -141,12 +141,12 @@ Two limits stop work that would otherwise repeat without a human watching. Both 
 - **Transient Failures** (rate limit, overload, server or network errors) spend no Attempt and never block. The Execution is `failed` with `failure_class = 'transient'`, the Step Run stays `running`, and the Driver pauses every agent launch until the latest reported reset time or the next backoff step (1, 2, 4, 8, then 15 minutes) ends, then starts a new Attempt. Operations keep running meanwhile, and there is no ceiling ([I](I-recovery.md#transient-failures-network-and-rate-limits)).
 
 ```
-✖ task B build attempt 1: invalid delivery — final JSON missing "outputs"
-↻ task B build attempt 2
-✖ task B build attempt 2: invalid delivery — commit 3e1f… does not descend from start
-↻ task B build attempt 3
-✖ task B build attempt 3: invalid delivery — final JSON missing "outputs"
-⛔ task B build blocked after 3 failed attempts
+✖ item B build attempt 1: invalid delivery — final JSON missing "outputs"
+↻ item B build attempt 2
+✖ item B build attempt 2: invalid delivery — commit 3e1f… does not descend from start
+↻ item B build attempt 3
+✖ item B build attempt 3: invalid delivery — final JSON missing "outputs"
+⛔ item B build blocked after 3 failed attempts
 ```
 
 ### Iterations
@@ -157,7 +157,7 @@ Two limits stop work that would otherwise repeat without a human watching. Both 
 
 ```
 B  iter 5/5 · review ✖ changes_requested (2 blocking findings)
-⛔ task B blocked: 5 iterations without merge
+⛔ item B blocked: 5 iterations without merge
 ```
 
 ### Leaving `blocked`
@@ -165,9 +165,9 @@ B  iter 5/5 · review ✖ changes_requested (2 blocking findings)
 A driving command that takes a root run's lock moves every `blocked` Step Run of that run and its children back to `running`, with a **fresh budget**: `max_attempts` more failed Attempts, or `max_iterations` more Iterations. The counters keep their history (the next build is `attempt 4`, the next Iteration is `iter 6`); only the budget is measured from the moment it became `running` again. Running the command is the human decision: the developer looked at `status`, possibly fixed the cause (renewed a login, freed a branch) and chose to go on. The alternative is `surt cancel`.
 
 ```
-$ surt start 20261017-add-login
-↻ unblocking task B build (3 more attempts)
-↻ task B build attempt 4
+$ surt continue 20261017-add-login
+↻ unblocking item B build (3 more attempts)
+↻ item B build attempt 4
 ```
 
 ## Per-Item Steps and blocked children
@@ -182,7 +182,7 @@ Cancelling or abandoning a single Task, with dependents skipped and a partial de
 
 ## The Task Cycle
 
-How the built-in `task-cycle` ([E](E-workflow-schema.md#task-cycletoml)) moves through these states. The engine sees only steps, Outcomes and Iterations. The rest is the built-in agents' instructions and the built-in delivery checks.
+How the feature Template's `task-cycle` ([E](E-workflow-schema.md#task-cycletoml)) moves through these states. The engine sees only steps, Outcomes and Iterations. The rest is the Template's Agent instructions and the delivery checks their outputs declare.
 
 | Iteration ends with | Next | What the next Builder reads |
 |---|---|---|

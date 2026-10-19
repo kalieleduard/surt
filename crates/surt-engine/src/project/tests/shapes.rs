@@ -1,9 +1,13 @@
-use super::fixtures::{ProjectDir, agent, default_config, initial};
-use crate::project::{Catalog, NewRun};
+use super::fixtures::Catalog;
+use super::fixtures::{ProjectDir, agent, default_config, input};
+use crate::project::{Carry, NewRun};
 
 const CYCLE: &str = r#"
 schema = 1
 name = "cycle"
+
+[inputs.item]
+format = "json"
 
 [steps.setup]
 kind = "operation"
@@ -97,8 +101,8 @@ async fn a_build_check_review_integrate_loop_is_accepted_and_only_its_loop_start
         .create_run(NewRun {
             subject: "20261017-task-a".to_owned(),
             workflow: "cycle".to_owned(),
-            initial_artifacts: vec![initial("item", "item.json", br#"{"key": "A"}"#)],
-            carried: Vec::new(),
+            inputs: vec![input("item", r#"{"key": "A"}"#)],
+            carry: Carry::Nothing,
             merge_into_base: None,
             actor: "dev@example.com".to_owned(),
         })

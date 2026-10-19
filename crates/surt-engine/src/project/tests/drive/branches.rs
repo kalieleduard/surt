@@ -2,15 +2,23 @@ use std::fs;
 use std::num::NonZeroU32;
 use std::path::Path;
 
+use super::super::fixtures::Catalog;
 use super::super::fixtures::SUBJECT;
 use super::fixtures::Feature;
 use super::repository::commit_file;
-use crate::project::{Catalog, Config, DriveOutcome};
+use crate::project::{Config, DriveOutcome};
 use crate::runtime::Script;
 
 const PREPARE_WORKFLOW: &str = r#"
 schema = 1
 name = "prepared"
+
+[inputs.request]
+format = "text"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
 
 [steps.prepare]
 kind = "operation"

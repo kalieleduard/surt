@@ -1,8 +1,8 @@
 use surt_engine::project::ExecutionCandidate;
 
-use crate::feature::quoted;
 use crate::inspect::scope;
 use crate::message::Message;
+use crate::retry::quoted;
 use crate::states::execution_state_name;
 use crate::symbols::{ELLIPSIS, SEPARATOR};
 use crate::table;
@@ -12,7 +12,7 @@ const USE_MORE: &str = "use the full id, as surt prints it";
 
 pub(super) fn unknown(reference: &str) -> Message {
     Message::new(format!(
-        "no feature or execution matches {}",
+        "no subject or execution matches {}",
         quoted(reference)
     ))
     .way("inspect", "surt status")

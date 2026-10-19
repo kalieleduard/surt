@@ -1,5 +1,5 @@
 use crate::artifacts::DeliveryContract;
-use crate::workflow::{AgentAssets, AgentContract};
+use crate::workflow::{AgentContract, AgentFiles};
 
 const SCHEMA_PATH: &str = "schemas/data.schema.json";
 
@@ -18,13 +18,9 @@ effort = "high"
 "#;
 
 fn build(schemas: &'static [(&'static str, &'static str)]) -> Result<String, String> {
-    let assets = AgentAssets {
-        toml: AGENT,
-        instructions: "Write.",
-        schemas,
-    };
+    let assets = AgentFiles::of(AGENT, "Write.", schemas);
     let agent =
-        AgentContract::parse("writer", assets.toml, &assets).expect("a valid agent contract");
+        AgentContract::parse("writer", &assets.toml, &assets).expect("a valid agent contract");
     DeliveryContract::new(&agent, |path| assets.schema(path))
         .map(|_| String::new())
         .map_err(|invalid| invalid.path)

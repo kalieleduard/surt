@@ -208,13 +208,20 @@ impl Sandbox {
     }
 
     pub fn init(&self) -> Run {
-        let run = self.surt(&self.repo(), &["init"]);
+        let run = self.surt(&self.repo(), &["init", "--template", "feature"]);
         assert_eq!(run.code, Some(0), "surt init failed: {}", run.stderr);
         run
     }
 
-    pub fn feature(&self, args: &[&str]) -> Run {
-        let mut all = vec!["feature"];
+    pub fn run_feature(&self, request: &str, args: &[&str]) -> Run {
+        let input = format!("request={request}");
+        let mut all = vec!["run", "feature", "--input", &input];
+        all.extend_from_slice(args);
+        self.surt(&self.repo(), &all)
+    }
+
+    pub fn continue_run(&self, args: &[&str]) -> Run {
+        let mut all = vec!["continue"];
         all.extend_from_slice(args);
         self.surt(&self.repo(), &all)
     }

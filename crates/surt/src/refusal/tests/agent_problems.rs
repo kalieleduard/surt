@@ -9,7 +9,7 @@ fn every_agent_problem_is_described_in_one_line_of_words() {
             Problem::MissingAsset {
                 path: owned("schemas/x.json"),
             },
-            "\"schemas/x.json\" is neither a local file nor bundled with the agent",
+            "\"schemas/x.json\" is not a file in the agent's directory",
         ),
         (
             Problem::NonLocalReference {
@@ -47,12 +47,7 @@ fn every_agent_problem_is_described_in_one_line_of_words() {
             Problem::InvalidBudget,
             "max_budget_usd must be a positive number",
         ),
-        (
-            Problem::UnknownAgentDirectory {
-                known: vec![owned("builder"), owned("spec")],
-            },
-            "not a built-in agent; agents: builder, spec",
-        ),
+        (Problem::MissingFile, "the file does not exist"),
         (
             Problem::StrayAgentFile,
             "surt reads only agent.toml, instructions.md and schemas/ here",

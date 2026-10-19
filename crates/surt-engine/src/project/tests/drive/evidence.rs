@@ -5,11 +5,12 @@ use std::sync::Mutex;
 
 use serde_json::json;
 
+use super::super::fixtures::Catalog;
 use super::super::fixtures::SUBJECT;
 use super::fixtures::{ACTOR, Feature, agent, preserved};
 use super::planned::{PLANNER, plan};
 use super::repository::{commit_file, git};
-use crate::project::{Catalog, Config, DeliveryCheck, DriveOutcome};
+use crate::project::{Config, DriveOutcome};
 use crate::runtime::{
     AgentRuntime, Behavior, Delivery, FakeRuntime, RuntimeCompletion, RuntimeError,
     RuntimeEventSink, RuntimeRequest, Script, StopSignal,
@@ -18,6 +19,13 @@ use crate::runtime::{
 const COMMITTED_WORKFLOW: &str = r#"
 schema = 1
 name = "committed"
+
+[inputs.request]
+format = "text"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
 
 [steps.prepare]
 kind = "operation"
@@ -42,7 +50,7 @@ pass = ["request"]
 needs = ["approve"]
 "#;
 
-const BUILD_WORKFLOW: &str = r#"
+pub(super) const BUILD_WORKFLOW: &str = r#"
 schema = 1
 name = "task"
 
@@ -72,6 +80,7 @@ optional = true
 
 [outputs.commit]
 format = "json"
+checks = [{ kind = "commit_evidence" }]
 
 [profile]
 runtime = "fake"
@@ -167,7 +176,6 @@ pub(super) fn committed_catalog(task: &'static str) -> Catalog {
         .agent("planner", agent(PLANNER))
         .agent("builder", agent(COMMITTER))
         .agent("reviewer", agent(CHECKED_REVIEWER))
-        .delivery_check("builder", "commit", DeliveryCheck::CommitEvidence)
 }
 
 pub(super) async fn committed(task: &'static str, config: Config) -> Feature {
@@ -289,7 +297,7 @@ async fn a_commit_on_a_detached_head_is_an_invalid_delivery() {
 
     assert!(
         refusal(&failures).ends_with(&format!(
-            " is not checked out as the tip of surt/task/{SUBJECT}/A"
+            " is not checked out as the tip of surt/item/{SUBJECT}/A"
         )),
         "{failures:?}"
     );

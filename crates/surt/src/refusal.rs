@@ -1,15 +1,16 @@
 mod definition;
 mod edits;
 mod executions;
-mod overrides;
+mod inputs;
 mod reading;
 
 use std::path::Path;
 
-use surt_engine::project::{Candidate, DefinitionFile, InvalidDefinition, Refusal, RunState};
+use surt_engine::project::{Candidate, Refusal, RunState};
 
-use crate::feature::quoted;
+use crate::continue_run::continue_command;
 use crate::message::Message;
+use crate::retry::quoted;
 use crate::status::{STATE_SEPARATOR, state_name, state_names};
 
 const GIT_DOWNLOADS: &str = "https://git-scm.com/downloads";
@@ -60,22 +61,27 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
                 .way("retry", format!("surt delete {subject}"))
         }
         Refusal::SubjectChangedWhileDeleting { subject } => {
-            Message::new("feature changed while deleting; run again")
+            Message::new("subject changed while deleting; run again")
                 .way("retry", format!("surt delete {subject}"))
         }
         Refusal::ActiveRunExists { subject } => {
             Message::new(format!("{subject} already has an active run"))
-                .way("resume", format!("surt feature {subject}"))
+                .way("resume", continue_command(subject))
         }
         Refusal::UnrecordedEditsBlockNewRun {
             subject,
             run,
             files,
         } => edits::blocking_new_run(subject, *run, files),
-        Refusal::InvalidDefinition(invalid) => invalid_definition(invalid),
-        Refusal::InvalidAgentOverride(invalid) => overrides::invalid_override(invalid),
+        Refusal::InvalidDefinition(invalid) => definition::invalid(invalid),
+        Refusal::UnknownWorkflow { name, known } => definition::unknown_workflow(name, known),
+        Refusal::InvalidInput {
+            workflow,
+            problem,
+            declared,
+        } => inputs::invalid(workflow, problem, declared),
         Refusal::UnknownSubject { reference } => {
-            Message::new(format!("no feature matches {}", quoted(reference)))
+            Message::new(format!("no subject matches {}", quoted(reference)))
                 .way("inspect", "surt status")
         }
         Refusal::AmbiguousSubject {
@@ -153,14 +159,14 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             found.as_deref().map_or("no branch", short)
         ))
         .way("fix", format!("git branch -f {branch} {expected}"))
-        .way("resume", format!("surt start {subject}")),
+        .way("resume", continue_command(subject)),
         Refusal::IntegrationBranchCheckedOut {
             subject,
             branch,
             path,
         } => Message::new(format!("{branch} is checked out in {}", path.display()))
             .way("fix", format!("git -C {} switch --detach", path.display()))
-            .way("resume", format!("surt start {subject}")),
+            .way("resume", continue_command(subject)),
         Refusal::UnknownArtifact {
             subject,
             artifact,
@@ -176,7 +182,7 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             subject,
             item,
             known,
-        } => reading::unknown_task(subject, item, known),
+        } => reading::unknown_item(subject, item, known),
         Refusal::UnknownRun { subject, run, runs } => reading::unknown_run(subject, *run, runs),
         Refusal::NoRevisionInIteration {
             subject,
@@ -207,7 +213,7 @@ fn short(sha: &str) -> &str {
 
 fn ambiguous(reference: &str, candidates: &[Candidate]) -> Message {
     let headline = format!(
-        "{} matches {} features:",
+        "{} matches {} subjects:",
         quoted(reference),
         candidates.len()
     );
@@ -253,26 +259,12 @@ fn driver_live(subject: &str, pid: Option<u32>) -> Message {
     )
 }
 
-fn invalid_definition(invalid: &InvalidDefinition) -> Message {
-    let file = match &invalid.file {
-        DefinitionFile::Workflow(name) => format!("workflow {name}"),
-        DefinitionFile::Agent(name) => format!("agent {name}"),
-    };
-    let location = match &invalid.step {
-        Some(step) => format!("{file} [steps.{step}]"),
-        None => file,
-    };
-    Message::new(format!("invalid built-in definition: {location}"))
-        .context(definition::describe(&invalid.problem))
-        .way("fix", "reinstall surt")
-}
-
 fn managed_worktree(path: &Path, project: Option<&Path>) -> Message {
     let message = Message::new(format!(
         "{} is inside a surt-managed worktree",
         path.display()
     ))
-    .context("surt commands run from the project, not from a task's worktree");
+    .context("surt commands run from the project, not from an item's worktree");
     match project {
         Some(project) => message.way("fix", format!("cd {}", project.display())),
         None => message.way("fix", "cd <your repository>"),

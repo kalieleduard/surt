@@ -124,7 +124,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             contract,
             working_copy: self.working_copy(loaded, row, definition),
             worktree,
-            checks: self.driving.catalog.delivery_checks(&spec.agent).to_vec(),
+            checks: agent.contract.delivery_checks(),
         })
     }
 

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Feature Base (initial artifact supplied by surt feature)",
+  "title": "Base (a git_ref run input resolved to a commit)",
   "type": "object",
   "additionalProperties": false,
   "required": ["ref", "sha"],

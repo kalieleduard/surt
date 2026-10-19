@@ -4,7 +4,6 @@ use std::path::Path;
 
 use surt_engine::project::{Deletion, Left, Project};
 
-use crate::builtin;
 use crate::confirmation::confirmed;
 use crate::failure::Failure;
 use crate::message::Message;
@@ -12,14 +11,14 @@ use crate::symbols::DASH;
 
 #[derive(clap::Args)]
 pub(crate) struct DeleteArgs {
-    feature: String,
+    subject: String,
     #[arg(short = 'y', long)]
     yes: bool,
 }
 
 pub(crate) async fn run(cwd: &Path, args: DeleteArgs) -> Result<(), Failure> {
-    let project = Project::open(cwd, builtin::catalog()).await?;
-    let subject = project.resolve_subject(&args.feature).await?.name;
+    let project = Project::open(cwd).await?;
+    let subject = project.resolve_subject(&args.subject).await?.name;
     if !args.yes {
         confirm(&project, &subject).await?;
     }

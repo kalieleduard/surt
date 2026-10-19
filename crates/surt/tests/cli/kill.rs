@@ -1,13 +1,13 @@
 use std::io::{BufRead, BufReader};
 
+use crate::delivering::{planned, subject_name};
 use crate::scripts::{build, review, ship, tasks, wait_until_stopped};
-use crate::start::{feature_name, planned};
 use crate::support::Sandbox;
 
-const BUILD_STARTED: &str = "● task A build started\n";
+const BUILD_STARTED: &str = "● item A build started\n";
 
 fn killed_while_building(sandbox: &Sandbox, name: &str) -> u32 {
-    let mut child = sandbox.spawn(&["start", name]);
+    let mut child = sandbox.spawn(&["continue", name]);
     let mut stderr = BufReader::new(child.stderr.take().expect("the piped stderr"));
     let mut seen = String::new();
     while !seen.ends_with(BUILD_STARTED) {
@@ -23,7 +23,7 @@ fn killed_while_building(sandbox: &Sandbox, name: &str) -> u32 {
 
 #[test]
 fn a_killed_driver_frees_the_run_and_the_next_start_finishes_it_with_a_new_attempt() {
-    let name = feature_name();
+    let name = subject_name();
     let sandbox = planned(
         &name,
         &[
@@ -43,14 +43,14 @@ fn a_killed_driver_frees_the_run_and_the_next_start_finishes_it_with_a_new_attem
         ["running"]
     );
 
-    let resumed = sandbox.surt(&sandbox.repo(), &["start", &name]);
+    let resumed = sandbox.surt(&sandbox.repo(), &["continue", &name]);
 
     assert_eq!(resumed.code, Some(0), "{}", resumed.stderr);
     for line in [
         format!("previous driver (pid {killed}) is gone — recovering\n"),
-        "⚠ task A build attempt 1 was interrupted with the previous driver — discarded\n"
+        "⚠ item A build attempt 1 was interrupted with the previous driver — discarded\n"
             .to_owned(),
-        "↻ task A build attempt 2\n".to_owned(),
+        "↻ item A build attempt 2\n".to_owned(),
         "✔ run succeeded\n".to_owned(),
     ] {
         assert!(resumed.stderr.contains(&line), "{line}\n{}", resumed.stderr);
