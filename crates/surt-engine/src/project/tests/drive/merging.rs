@@ -1,3 +1,5 @@
+use std::fs;
+
 use serde_json::{Value, json};
 
 use super::super::fixtures::SUBJECT;
@@ -89,6 +91,22 @@ impl Feature {
 
     pub(super) fn leave_main(&self) {
         self.git(&["checkout", "--quiet", "--detach"]);
+    }
+
+    pub(super) fn hook(&self, name: &str, script: &str) {
+        let path = self.root().join(".git").join("hooks").join(name);
+        fs::write(&path, script).expect("the hook is written");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o755))
+                .expect("the hook is executable");
+        }
+    }
+
+    pub(super) fn unhook(&self, name: &str) {
+        let path = self.root().join(".git").join("hooks").join(name);
+        fs::remove_file(path).expect("the hook is removed");
     }
 }
 
