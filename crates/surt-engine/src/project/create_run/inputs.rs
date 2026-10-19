@@ -78,7 +78,7 @@ pub(super) fn check<'a>(
     values: &'a [(String, String)],
     carried: &[String],
 ) -> Result<Vec<Supplied<'a>>, InputProblem> {
-    refuse_unknown(inputs, values, carried)?;
+    refuse_unknown(inputs, values)?;
     let mut supplied = Vec::new();
     for (name, spec) in inputs.declared.iter() {
         let Some(value) = value_of(name, spec, values, carried) else {
@@ -101,11 +101,7 @@ pub(super) fn check<'a>(
     Ok(supplied)
 }
 
-fn refuse_unknown(
-    inputs: &RunInputs,
-    values: &[(String, String)],
-    carried: &[String],
-) -> Result<(), InputProblem> {
+fn refuse_unknown(inputs: &RunInputs, values: &[(String, String)]) -> Result<(), InputProblem> {
     for (index, (name, _)) in values.iter().enumerate() {
         if !inputs.declared.contains(name) {
             return Err(InputProblem::Unknown { name: name.clone() });
@@ -114,10 +110,7 @@ fn refuse_unknown(
             return Err(InputProblem::Duplicate { name: name.clone() });
         }
     }
-    match carried.iter().find(|name| !inputs.declared.contains(name)) {
-        Some(name) => Err(InputProblem::Unknown { name: name.clone() }),
-        None => Ok(()),
-    }
+    Ok(())
 }
 
 fn value_of<'a>(

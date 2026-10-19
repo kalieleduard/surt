@@ -1,5 +1,5 @@
+use crate::delivering::{feature_name, planned};
 use crate::scripts::tasks;
-use crate::start::{feature_name, planned};
 use crate::support::{REFUSED_EXIT_CODE, Sandbox};
 
 #[cfg(unix)]
@@ -60,7 +60,7 @@ fn stop_from_another_terminal_ends_the_driver_with_130_and_start_resumes_the_run
         stopped.stderr,
         format!(
             "⏳ stop requested; driver pid {driver} is stopping 1 execution…\n\
-             ✔ stopped. resumable: surt start {name}\n"
+             ✔ stopped. resumable: surt continue {name}\n"
         )
     );
     assert_eq!(code, Some(INTERRUPTED_EXIT_CODE), "{stderr}");
@@ -73,7 +73,7 @@ fn stop_from_another_terminal_ends_the_driver_with_130_and_start_resumes_the_run
     );
     assert!(
         stderr.ends_with(&format!(
-            "⏹ stopped by surt stop (from another terminal)\n  resume: surt start {name}\n"
+            "⏹ stopped by surt stop (from another terminal)\n  resume: surt continue {name}\n"
         )),
         "{stderr}"
     );
@@ -87,7 +87,7 @@ fn stop_from_another_terminal_ends_the_driver_with_130_and_start_resumes_the_run
         "{timeline}"
     );
 
-    let resumed = sandbox.surt(&sandbox.repo(), &["start", &name]);
+    let resumed = sandbox.surt(&sandbox.repo(), &["continue", &name]);
 
     assert_eq!(resumed.code, Some(0), "{}", resumed.stderr);
     assert!(

@@ -139,6 +139,23 @@ impl Frozen {
             .get(name)
             .ok_or_else(|| CorruptSnapshot::new(name, "no such agent"))
     }
+
+    pub(crate) fn producer<'a>(
+        &'a self,
+        definition: &'a Definition,
+        artifact: &str,
+    ) -> Result<Option<(&'a str, &'a FrozenAgent)>, CorruptSnapshot> {
+        for step in &definition.steps {
+            let StepSpec::Agent(spec) = &step.spec else {
+                continue;
+            };
+            let agent = self.agent(&spec.agent)?;
+            if agent.contract.outputs.contains_key(artifact) {
+                return Ok(Some((step.key.as_str(), agent)));
+            }
+        }
+        Ok(None)
+    }
 }
 
 impl FrozenAgent {

@@ -4,34 +4,22 @@ use surt_engine::project::{GateStatus, GateView, RunStatus};
 
 use super::{CONTINUATION, field, line};
 use crate::driving::local_time;
-use crate::phase::Phase;
 use crate::show::origin;
+use crate::status::item_files;
 use crate::symbols::{DASH, EDITED, ELLIPSIS, ERROR, PAUSED, SEPARATOR, SUCCESS, WARNING};
-
-const INDEX_FILES: usize = 1;
 
 pub(super) fn render(text: &mut String, status: &RunStatus) {
     for gate in &status.gates {
         let Some(revision) = &gate.revision else {
             continue;
         };
-        let phase = Phase::of_gate(&gate.step);
-        let label = phase.map_or(gate.artifact.as_str(), |phase| phase.name());
-        let artifact = if label == gate.artifact {
-            String::new()
-        } else {
-            format!("{} ", gate.artifact)
-        };
-        let covered = phase
-            .filter(|phase| phase.covers_item_files())
-            .map(|_| revision.files.len().saturating_sub(INDEX_FILES));
         let summary = format!(
-            "{artifact}rev {} ({}){}",
+            "rev {} ({}){}",
             revision.number,
             origin(revision.origin),
-            decision(gate, covered)
+            decision(gate, item_files(revision.files.len()))
         );
-        field(text, label, &summary);
+        field(text, &gate.artifact, &summary);
         if matches!(gate.status, GateStatus::Waiting { .. }) {
             for file in &revision.files {
                 let directory = gate.working_copy.display();

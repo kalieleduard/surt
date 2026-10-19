@@ -17,9 +17,15 @@ pub struct NewRun {
     pub subject: String,
     pub workflow: String,
     pub inputs: Vec<(String, String)>,
-    pub carried: Vec<String>,
+    pub carry: Carry,
     pub merge_into_base: Option<MergeIntoBase>,
     pub actor: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Carry {
+    Nothing,
+    PreviousInputs,
 }
 
 pub use inputs::{DeclaredInput, InputProblem};
@@ -98,10 +104,12 @@ impl Project {
         let frozen = freeze(&definitions, &new.workflow, |root| {
             frozen_config(&self.config, merge_into_base, root)
         })?;
+        let runs = previous::runs(store, &new.subject, new.carry).await?;
+        let carryable = previous::carryable(store, &runs, &frozen.inputs, new.carry).await?;
         let refuse = |problem| inputs::refused(&new.workflow, &frozen.inputs, problem);
-        let supplied = inputs::check(&frozen.inputs, &new.inputs, &new.carried).map_err(refuse)?;
+        let supplied = inputs::check(&frozen.inputs, &new.inputs, &carryable).map_err(refuse)?;
         let mut built = inputs::build(self, supplied, refuse).await?;
-        let carried = previous::carried(store, &self.layout, &new.subject, &built.carried).await?;
+        let carried = previous::carried(store, &self.layout, &runs, &built.carried).await?;
         built.artifacts.extend(carried.artifacts);
         Ok(Checked {
             git_refs: built.git_refs,

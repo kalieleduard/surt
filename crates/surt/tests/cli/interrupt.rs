@@ -2,8 +2,8 @@ use std::io::{BufRead, BufReader, Read};
 use std::process::{Child, ChildStderr, Command};
 use std::time::{Duration, Instant};
 
+use crate::delivering::{feature_name, planned, planned_with};
 use crate::scripts::{build, tasks, tasks_needing, wait_until_stopped};
-use crate::start::{feature_name, planned, planned_with};
 use crate::support::Sandbox;
 
 const INTERRUPTED_EXIT_CODE: i32 = 130;
@@ -19,7 +19,7 @@ pub struct Driving {
 
 impl Driving {
     pub fn start(sandbox: &Sandbox, name: &str) -> Driving {
-        let mut child = sandbox.spawn(&["start", name]);
+        let mut child = sandbox.spawn(&["continue", name]);
         let stderr = BufReader::new(child.stderr.take().expect("the piped stderr"));
         Driving {
             child,
@@ -60,7 +60,7 @@ impl Driving {
 }
 
 fn interrupted(name: &str) -> String {
-    format!("⏹ interrupted\n  resume: surt start {name}\n")
+    format!("⏹ interrupted\n  resume: surt continue {name}\n")
 }
 
 pub fn waiting_builder(name: &str) -> Sandbox {

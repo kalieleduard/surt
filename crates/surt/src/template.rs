@@ -1,8 +1,5 @@
 mod feature;
 
-pub(crate) const FEATURE_WORKFLOW: &str = "feature";
-pub(crate) const REQUEST_INPUT: &str = "request";
-pub(crate) const BASE_INPUT: &str = "base";
 pub(crate) const FEATURE_TEMPLATE: &str = "feature";
 pub(crate) const TEMPLATES: [&str; 1] = [FEATURE_TEMPLATE];
 

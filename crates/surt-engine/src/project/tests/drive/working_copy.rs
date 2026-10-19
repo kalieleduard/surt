@@ -72,6 +72,7 @@ async fn an_edit_becomes_a_human_revision_and_the_approval_targets_it() {
             actor: ACTOR.to_owned(),
             files: vec!["draft.md".to_owned()],
             restored: Vec::new(),
+            producer: Some("write".to_owned()),
         }
     );
     assert_eq!(

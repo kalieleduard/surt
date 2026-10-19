@@ -1,8 +1,8 @@
 use std::fs;
 use std::path::PathBuf;
 
+use crate::delivering::feature_name;
 use crate::scripts::{build, review, ship, spec, tasks};
-use crate::start::feature_name;
 use crate::status::with_a_blocked_task;
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
@@ -183,7 +183,7 @@ fn a_check_shows_its_combined_output_under_one_header_per_check() {
         ship(),
     ]);
     ok(sandbox.run_feature("add login", &[]));
-    for command in ["approve", "plan", "approve", "start"] {
+    for command in ["approve", "continue", "approve", "continue"] {
         ok(surt(&sandbox, &[command, &name]));
     }
     let check = latest(&sandbox, "'A'", "check");

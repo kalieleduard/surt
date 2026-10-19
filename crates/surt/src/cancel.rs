@@ -6,10 +6,10 @@ use surt_engine::project::{Cancellation, Project, RunId};
 use tokio::sync::mpsc;
 
 use crate::confirmation::confirmed;
+use crate::continue_run::active_run;
 use crate::driving::{print_progress, report_cleanup};
 use crate::failure::Failure;
 use crate::message::Message;
-use crate::phase::active_run;
 use crate::symbols::DASH;
 
 #[derive(clap::Args)]

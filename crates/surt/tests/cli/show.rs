@@ -1,7 +1,7 @@
 use std::fs;
 
+use crate::delivering::{feature_name, planned};
 use crate::scripts::{build, review, ship, spec, tasks};
-use crate::start::{feature_name, planned};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const SPEC_1: &str = "# Spec 1\n";
@@ -33,9 +33,9 @@ fn with_two_specs(name: &str) -> Sandbox {
         &sandbox,
         &["reject", name, "-m", "falta o fluxo OAuth"],
     ));
-    ok(surt(&sandbox, &["feature", name]));
+    ok(surt(&sandbox, &["continue", name]));
     ok(surt(&sandbox, &["approve", name]));
-    ok(surt(&sandbox, &["plan", name]));
+    ok(surt(&sandbox, &["continue", name]));
     sandbox
 }
 
@@ -171,7 +171,7 @@ fn reviewed_twice(name: &str) -> Sandbox {
             ship(),
         ],
     );
-    ok(surt(&sandbox, &["start", name]));
+    ok(surt(&sandbox, &["continue", name]));
     sandbox
 }
 

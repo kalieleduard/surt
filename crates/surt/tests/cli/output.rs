@@ -1,7 +1,7 @@
 use std::fs;
 
+use crate::delivering::{feature_name, planned};
 use crate::scripts::{build, review, ship, tasks};
-use crate::start::{feature_name, planned};
 use crate::support::{INTERNAL_ERROR_EXIT_CODE, REFUSED_EXIT_CODE, Sandbox};
 
 const ESCAPE: char = '\u{1b}';
@@ -150,7 +150,7 @@ fn a_driving_command_without_a_tty_prints_only_event_lines() {
         ],
     );
 
-    let run = sandbox.surt(&sandbox.repo(), &["start", &name]);
+    let run = sandbox.surt(&sandbox.repo(), &["continue", &name]);
 
     assert_eq!(run.code, Some(0), "{}", run.stderr);
     assert!(

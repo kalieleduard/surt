@@ -5,17 +5,15 @@ use super::fixtures::{ACTOR, Feature};
 use super::planned::plan;
 use super::working_copy::at_gate;
 use super::worktrees::{refused, tracked};
-use crate::project::{Config, DriveOutcome, Error, NewRun, Refusal, RunId};
+use crate::project::{Carry, Config, DriveOutcome, Error, NewRun, Refusal, RunId};
 use crate::runtime::Script;
-
-const REQUEST: &str = "request";
 
 fn next_run(workflow: &str) -> NewRun {
     NewRun {
         subject: SUBJECT.to_owned(),
         workflow: workflow.to_owned(),
         inputs: vec![input("base", "main")],
-        carried: vec![REQUEST.to_owned()],
+        carry: Carry::PreviousInputs,
         merge_into_base: None,
         actor: ACTOR.to_owned(),
     }
@@ -26,7 +24,7 @@ fn review_next_run() -> NewRun {
         subject: SUBJECT.to_owned(),
         workflow: "review".to_owned(),
         inputs: Vec::new(),
-        carried: vec![REQUEST.to_owned()],
+        carry: Carry::PreviousInputs,
         merge_into_base: None,
         actor: ACTOR.to_owned(),
     }

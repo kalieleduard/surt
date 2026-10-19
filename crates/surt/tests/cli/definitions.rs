@@ -1,7 +1,7 @@
 use std::fs;
 
+use crate::delivering::feature_name;
 use crate::scripts::{build, review, ship, spec, tasks};
-use crate::start::feature_name;
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const TEMPLATE_MODEL: &str = "model = \"claude-sonnet-5-5\"";
@@ -151,9 +151,9 @@ fn plan_and_start_drive_a_feature_whose_builder_model_was_edited() {
 
     ok(sandbox.run_feature("add login", &[]));
     ok(surt(&sandbox, &["approve", &name]));
-    ok(surt(&sandbox, &["plan", &name]));
+    ok(surt(&sandbox, &["continue", &name]));
     ok(surt(&sandbox, &["approve", &name]));
-    let started = ok(surt(&sandbox, &["start", &name]));
+    let started = ok(surt(&sandbox, &["continue", &name]));
 
     assert!(started.contains("✔ run succeeded\n"), "{started}");
     assert_eq!(
@@ -184,9 +184,9 @@ fn editing_an_agent_after_creation_leaves_the_run_on_the_frozen_definition() {
         &format!("model = \"{EDITED_MODEL}\""),
     );
     ok(surt(&sandbox, &["approve", &name]));
-    ok(surt(&sandbox, &["plan", &name]));
+    ok(surt(&sandbox, &["continue", &name]));
     ok(surt(&sandbox, &["approve", &name]));
-    ok(surt(&sandbox, &["start", &name]));
+    ok(surt(&sandbox, &["continue", &name]));
 
     assert_eq!(
         sandbox.texts(

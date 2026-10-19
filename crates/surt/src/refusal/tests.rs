@@ -295,10 +295,10 @@ fn a_moved_integration_branch_names_both_commits_and_the_exact_command_to_restor
         [
             "✖ surt/20261017-add-login moved outside surt (expected 9e04b7d, found 71aa0c2)\n  \
              fix: git branch -f surt/20261017-add-login 9e04b7d0c1a2b3c4d5e6f708192a3b4c5d6e7f80\n  \
-             resume: surt start 20261017-add-login\n",
+             resume: surt continue 20261017-add-login\n",
             "✖ surt/20261017-add-login moved outside surt (expected 9e04b7d, found no branch)\n  \
              fix: git branch -f surt/20261017-add-login 9e04b7d0c1a2b3c4d5e6f708192a3b4c5d6e7f80\n  \
-             resume: surt start 20261017-add-login\n",
+             resume: surt continue 20261017-add-login\n",
         ]
     );
 }
@@ -312,7 +312,7 @@ fn a_checked_out_integration_branch_says_where_and_how_to_switch_away() {
         checked_out,
         ["✖ surt/20261017-add-login is checked out in /work/app\n  \
           fix: git -C /work/app switch --detach\n  \
-          resume: surt start 20261017-add-login\n"]
+          resume: surt continue 20261017-add-login\n"]
     );
 }
 
@@ -429,12 +429,12 @@ fn a_stale_revision_names_the_latest_and_how_to_read_it() {
 }
 
 #[test]
-fn an_active_run_points_at_resuming_the_feature() {
+fn an_active_run_points_at_continuing_the_subject() {
     let refusal = every_refusal().pop().expect("a refusal");
 
     assert_eq!(
         text(&refusal),
-        "✖ 20261017-add-login already has an active run\n  resume: surt feature 20261017-add-login\n"
+        "✖ 20261017-add-login already has an active run\n  resume: surt continue 20261017-add-login\n"
     );
 }
 

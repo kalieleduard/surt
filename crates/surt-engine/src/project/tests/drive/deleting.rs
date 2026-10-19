@@ -9,7 +9,7 @@ use super::team::{INTEGRATED_TASK, Team, Turn, builds, reviews, shipped, ships, 
 use super::worktrees::refused;
 use crate::platform;
 use crate::project::{
-    BranchFate, Config, DeletedRun, Deletion, DriveOutcome, Error, NewRun, Refusal, RunState,
+    BranchFate, Carry, Config, DeletedRun, Deletion, DriveOutcome, Error, NewRun, Refusal, RunState,
 };
 use crate::runtime::Script;
 
@@ -36,7 +36,7 @@ fn next_run(subject: &str) -> NewRun {
         subject: subject.to_owned(),
         workflow: "shipped".to_owned(),
         inputs: vec![input("request", "add login"), input("base", "main")],
-        carried: Vec::new(),
+        carry: Carry::Nothing,
         merge_into_base: None,
         actor: ACTOR.to_owned(),
     }

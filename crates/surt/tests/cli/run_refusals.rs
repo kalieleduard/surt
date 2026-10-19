@@ -132,7 +132,7 @@ fn an_input_without_a_name_is_a_usage_error() {
 fn feature_no_longer_creates_a_subject_from_a_description() {
     let sandbox = project();
 
-    let run = sandbox.feature(&["add login"]);
+    let run = sandbox.continue_run(&["add login"]);
 
     assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
     assert!(subjects(&sandbox).is_empty());

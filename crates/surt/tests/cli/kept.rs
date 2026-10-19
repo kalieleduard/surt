@@ -1,7 +1,7 @@
 use serde_json::Value;
 
+use crate::delivering::{feature_name, planned_with};
 use crate::scripts::{build, review, ship, tasks};
-use crate::start::{feature_name, planned_with};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const KEEP: &str = "[cleanup]\non_success = \"keep\"\n";
@@ -31,7 +31,7 @@ fn kept(name: &str) -> (Sandbox, String) {
         ],
         Some(KEEP),
     );
-    let started = surt(&sandbox, &["start", name]);
+    let started = surt(&sandbox, &["continue", name]);
     assert!(started.stdout.is_empty(), "{}", started.stdout);
     (sandbox, ok(started))
 }
@@ -90,7 +90,7 @@ fn a_phase_command_on_a_kept_run_removes_nothing() {
     let (sandbox, _) = kept(&name);
     let worktrees = sandbox.git_output(&sandbox.repo(), &["worktree", "list"]);
 
-    let again = surt(&sandbox, &["start", &name]);
+    let again = surt(&sandbox, &["continue", &name]);
 
     assert_ne!(again.code, Some(0), "{}", again.stderr);
     assert!(!again.stderr.contains("cleanup"), "{}", again.stderr);
@@ -108,7 +108,7 @@ fn a_misspelled_cleanup_policy_refuses_every_command_with_its_line() {
 
     for args in [
         &["status"][..],
-        &["start", "anything"],
+        &["continue", "anything"],
         &["run", "feature", "--input", "request=add login"],
     ] {
         let run = surt(&sandbox, args);

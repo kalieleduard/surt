@@ -95,7 +95,7 @@ fn an_invalid_global_config_refuses_every_command_with_its_location() {
     sandbox.write_global_config("# this machine\nstop_grace_period = \"ten\"\n");
     let global = sandbox.home().join(".surt").join("config.toml");
 
-    for args in [&["status"][..], &["start", "add-login"][..]] {
+    for args in [&["status"][..], &["continue", "add-login"][..]] {
         let run = sandbox.surt(&sandbox.repo(), args);
 
         assert_eq!(

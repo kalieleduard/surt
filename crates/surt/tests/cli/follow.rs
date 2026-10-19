@@ -6,10 +6,10 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use crate::delivering::feature_name;
 use crate::interrupt::Driving;
 use crate::logs::{latest, logs_of};
 use crate::scripts::{build, review, ship, spec, tasks_needing};
-use crate::start::feature_name;
 use crate::support::{Run, Sandbox};
 
 const CEILING: Duration = Duration::from_secs(60);
@@ -114,7 +114,7 @@ impl Gated {
             ship(),
         ]);
         ok(sandbox.run_feature("add login", &[]));
-        for command in ["approve", "plan", "approve"] {
+        for command in ["approve", "continue", "approve"] {
             ok(sandbox.surt(&sandbox.repo(), &[command, &name]));
         }
         Gated {

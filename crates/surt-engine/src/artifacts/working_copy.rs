@@ -259,14 +259,8 @@ fn producer_rule(
     definition: &Definition,
     artifact: &str,
 ) -> Result<Option<OutputRule>, CorruptSnapshot> {
-    for step in &definition.steps {
-        let StepSpec::Agent(spec) = &step.spec else {
-            continue;
-        };
-        let agent = frozen.agent(&spec.agent)?;
-        if agent.contract.outputs.contains_key(artifact) {
-            return Ok(agent.delivery_contract()?.into_output(artifact));
-        }
-    }
-    Ok(None)
+    let Some((_, agent)) = frozen.producer(definition, artifact)? else {
+        return Ok(None);
+    };
+    Ok(agent.delivery_contract()?.into_output(artifact))
 }

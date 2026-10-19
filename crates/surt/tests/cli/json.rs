@@ -1,8 +1,8 @@
 use jiff::Timestamp;
 use serde_json::{Value, json};
 
+use crate::delivering::feature_name;
 use crate::inspect::{crashed_build, delivered_after_a_rejected_review};
-use crate::start::feature_name;
 use crate::status::{at_the_manifest_gate, delivered, with_a_blocked_task};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
@@ -62,7 +62,7 @@ fn status_json_of_a_blocked_feature_says_which_task_is_blocked_why_and_how_to_re
     assert_eq!(status["run"], 1);
     assert_eq!(status["state"], "BLOCKED");
     assert_eq!(status["driver"], Value::Null);
-    assert_eq!(status["resume"], format!("surt start {name}"));
+    assert_eq!(status["resume"], format!("surt continue {name}"));
     let spec = &status["gates"][0];
     assert_eq!(spec["artifact"], "spec");
     assert_eq!(spec["status"], "approved");
@@ -90,7 +90,7 @@ fn status_json_of_a_blocked_feature_says_which_task_is_blocked_why_and_how_to_re
         blocked["last_error"],
         json!({"execution": failed, "attempt": 3, "code": "exit_code", "message": "the agent exited with code 1"})
     );
-    assert_eq!(blocked["resume"], format!("surt start {name}"));
+    assert_eq!(blocked["resume"], format!("surt continue {name}"));
     assert_utc(&blocked["since"]);
 }
 
@@ -292,7 +292,7 @@ fn driving_commands_reject_json_as_invalid_usage() {
     let sandbox = at_the_manifest_gate(&name);
 
     for command in [
-        "feature", "plan", "start", "approve", "reject", "cancel", "stop", "restore", "delete",
+        "continue", "approve", "reject", "cancel", "stop", "restore", "delete",
     ] {
         let run = surt(&sandbox, &[command, &name, "--json"]);
 

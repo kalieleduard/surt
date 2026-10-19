@@ -1,7 +1,6 @@
 use surt_engine::project::{Error, Problem, Refusal, check_workflow};
 
-use super::{owned_files, written};
-use crate::template::FEATURE_WORKFLOW;
+use super::{FEATURE_WORKFLOW, owned_files, written};
 
 const BUILDER: &str = "agents/builder/agent.toml";
 

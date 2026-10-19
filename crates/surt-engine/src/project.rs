@@ -50,7 +50,7 @@ pub use blocked::{BlockedStep, LastFailure};
 pub use cancelling::CancelImpact;
 pub use config::{Check, CleanupConfig, Config, GitConfig, GlobalConfig, MergeIntoBase};
 pub(crate) use config::{live_max_concurrent_agents, parse_timeout};
-pub use create_run::{CreatedRun, DeclaredInput, InputProblem, NewRun, RunId};
+pub use create_run::{Carry, CreatedRun, DeclaredInput, InputProblem, NewRun, RunId};
 pub use definitions::check_workflow;
 pub use deleting::{BranchFate, DeleteImpact, DeletedRun, Deletion, Directory};
 pub use delivery::IntegrationBranch;
