@@ -13,14 +13,14 @@ checks = [{ kind = "reviewed_commit" }, { kind = "no_blocking_finding", outcome 
 
 **Blocked by:** None (can start immediately)
 
-**Status:** open
+**Status:** resolved
 
-- [ ] `OutputSpec` gains optional `checks`: an array of tables `{ kind = "commit_evidence" | "reviewed_commit" | "no_blocking_finding", outcome = "<outcome>" }`; `outcome` is required for `no_blocking_finding` and refused for the others; unknown kinds and fields refused (`deny_unknown_fields`)
-- [ ] The static checks of `closure.rs`'s `check_deliveries` (output is `format = "json"`, outcome declared by the Agent) move into `AgentContract::check`, keeping their problem kinds and messages
-- [ ] Checks are serialized in the canonical `agent.toml`, so they are part of the Agent snapshot identity; `drive/launch.rs` takes them from the frozen Agent
-- [ ] `Catalog::delivery_check`, the `checks` map and the `StepUse::DeliveryCheck` blame path are removed; the M4 rule "an override that drops a checked output is refused" becomes "the declared checks validate"
-- [ ] `crates/surt/assets/agents/builder/agent.toml` declares `commit_evidence` on `commit`; the Reviewer declares `reviewed_commit` and `no_blocking_finding` (`approved`) on `feedback`; `builtin.rs` stops registering checks; `builtin/tests.rs` asserts the declared checks
-- [ ] `Project` tests with the Fake: declared checks are enforced as before; editing the Agent's checks in `.surt/agents/` after creation does not change the run's; an invalid declaration refuses `create_run` with no row written
-- [ ] F documents `checks` on outputs
+- [x] `OutputSpec` gains optional `checks`: an array of tables `{ kind = "commit_evidence" | "reviewed_commit" | "no_blocking_finding", outcome = "<outcome>" }`; `outcome` is required for `no_blocking_finding` and refused for the others; unknown kinds and fields refused (`deny_unknown_fields`)
+- [x] The static checks of `closure.rs`'s `check_deliveries` (output is `format = "json"`, outcome declared by the Agent) move into `AgentContract::check`, keeping their problem kinds and messages
+- [x] Checks are serialized in the canonical `agent.toml`, so they are part of the Agent snapshot identity; `drive/launch.rs` takes them from the frozen Agent
+- [x] `Catalog::delivery_check`, the `checks` map and the `StepUse::DeliveryCheck` blame path are removed; the M4 rule "an override that drops a checked output is refused" becomes "the declared checks validate"
+- [x] `crates/surt/assets/agents/builder/agent.toml` declares `commit_evidence` on `commit`; the Reviewer declares `reviewed_commit` and `no_blocking_finding` (`approved`) on `feedback`; `builtin.rs` stops registering checks; `builtin/tests.rs` asserts the declared checks
+- [x] `Project` tests with the Fake: declared checks are enforced as before; editing the Agent's checks in `.surt/agents/` after creation does not change the run's; an invalid declaration refuses `create_run` with no row written
+- [x] F documents `checks` on outputs
 
 ## Comments

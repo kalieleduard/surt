@@ -48,7 +48,7 @@ At creation, a root Workflow Run freezes every Agent used by the closure of its 
 
 Every Execution of an Agent runs with that Agent's frozen Agent Profile and records which snapshot it used. Editing local model settings or instructions after run creation affects new root runs; it does not change an existing run, a later Iteration or a new Attempt of that run.
 
-The snapshot also includes every local JSON Schema referenced by the contract. Its identity is a SHA-256 over the canonical effective TOML and the contents of its instructions and schema assets; absolute source paths are not part of that identity. Runtime credentials are not copied into it.
+The snapshot also includes every local JSON Schema referenced by the contract. Its identity is a SHA-256 over the canonical effective TOML, which includes the [delivery checks](#delivery-checks) its outputs declare, and the contents of its instructions and schema assets; absolute source paths are not part of that identity. Runtime credentials are not copied into it.
 
 This extends the definition freezing rule in [E. Workflow Definition Schema](E-workflow-schema.md). It freezes Surt's definitions, not the external account, managed policies or installed Claude Code binary. Version compatibility is specified below.
 
@@ -87,16 +87,15 @@ A local `agent.toml` with CRLF line endings freezes to the same identity as its 
 
 **Test-only runtime.** An effective profile of an overridden Agent with `runtime = "fake"` is accepted only when the engine is built with the `test-support` feature; a release build refuses it at `profile.runtime` as a test-only runtime, so a stray test profile never reaches production.
 
-**Workflow validation and delivery checks.** After merging, the built-in workflow closure of the new root run is validated against the effective Agents exactly as for the built-ins: Outcomes named by `until` and `when`, inputs and outputs by name, Item List files. The `Catalog`'s delivery checks are part of that validation: every Agent a workflow step runs must declare each output a delivery check names as a `json` output, and the Outcome `NoBlockingFinding` names. A built-in that fails is an `InvalidDefinition`; when only the effective Agents fail, the refusal is `InvalidAgentOverride` on the override that breaks it and names the workflow step that no longer validates, with the field of that step that needs the Agent (`when`, `until`, `input` or `delivery check`). The overrides are applied one Agent at a time, in Agent id order, over the built-ins; the first Agent whose override makes the closure fail is blamed, whether it overrides `agent.toml`, `instructions.md` or a schema, and the refusal names that Agent's `agent.toml` when it has one, otherwise its first local file:
+**Workflow validation and declared checks.** After merging, the built-in workflow closure of the new root run is validated against the effective Agents exactly as for the built-ins: Outcomes named by `until` and `when`, inputs and outputs by name, Item List files. A built-in that fails is an `InvalidDefinition`; when only the effective Agents fail, the refusal is `InvalidAgentOverride` on the override that breaks it and names the workflow step that no longer validates, with the field of that step that needs the Agent (`when`, `until` or `input`). The overrides are applied one Agent at a time, in Agent id order, over the built-ins; the first Agent whose override makes the closure fail is blamed, whether it overrides `agent.toml`, `instructions.md` or a schema, and the refusal names that Agent's `agent.toml` when it has one, otherwise its first local file. The [delivery checks](#delivery-checks) an output declares are part of the merged `agent.toml`, so they validate with it: an override that turns a checked output into another format, or drops the Outcome a `no_blocking_finding` names, refuses at that field:
 
 ```
 $ surt feature "add login"
-✖ .surt/agents/reviewer/agent.toml: a delivery check needs the outcome "approved"
-  needed by: task-cycle step review (delivery check)
+✖ .surt/agents/reviewer/agent.toml: outcomes: a delivery check needs the outcome "approved"
   fix: edit .surt/agents/reviewer/agent.toml
 ```
 
-An override that leaves a `when` or `until` waiting for an Outcome the Agent no longer declares reads `outcomes no longer include "<outcome>"`. Because tables merge by key and there is no deletion syntax, an override can replace `outcomes` but cannot remove an input or output; it can still add a required input nothing supplies, or change the format of an output a delivery check reads, and both refuse the same way.
+An override that leaves a `when` or `until` waiting for an Outcome the Agent no longer declares reads `outcomes no longer include "<outcome>"`. Because tables merge by key and there is no deletion syntax, an override can replace `outcomes` but cannot remove an input or output; it can still add a required input nothing supplies, which refuses the same way, and it can replace an output's `checks` array, including with `[]`.
 
 **The creation line.** `create_run` reports which Agents used local files and which ones. The creation line of `surt feature "<description>"` and of `--new-run` lists them, and prints nothing when there are none:
 
@@ -182,6 +181,7 @@ Their tools follow the role table above and no profile sets turn or cost limits.
 | `outcomes` | Optional non-empty unique array; omitted means `["done"]` |
 | `inputs.<name>` | `format` required; `optional` defaults to `false`; optional `json_schema` |
 | `outputs.<name>` | `format` required; optional `json_schema`; every declared output is required |
+| `outputs.<name>.checks` | Optional array of [delivery checks](#delivery-checks), each a table with a `kind`; only on a `json` output |
 | `outputs.<name>.item_files.<file-name>` | Only for `format = "item_list"`; required `format`, optional `json_schema`; every declared file is required on every item |
 | `profile` | Required; `runtime`, full `model` and `effort`; optional `[limits]`; `[claude]` required for `claude-code` |
 | `profile.limits` | Optional positive integer `max_turns` and positive finite numeric `max_budget_usd`; absent means no limits; no timeout field |
@@ -225,6 +225,7 @@ optional = true
 [outputs.feedback]
 format = "json"
 json_schema = "schemas/feedback.schema.json"
+checks = [{ kind = "reviewed_commit" }, { kind = "no_blocking_finding", outcome = "approved" }]
 
 [profile]
 runtime = "claude-code"
@@ -274,7 +275,28 @@ These schemas belong to the built-in feature workflow, not to engine knowledge o
 
 Artifacts produced by Operations, which agents read: [base](schemas/base.schema.json), [check-report](schemas/check-report.schema.json), [conflict](schemas/conflict.schema.json) and [integration](schemas/integration.schema.json).
 
-An approved review with a blocking finding is inconsistent and is rejected. The final envelope is the single source of the review Outcome; feedback does not repeat it. Role-specific consistency checks are registered by the built-in workflow through generic delivery validation, never through engine branches on agent IDs. Merely matching a SHA regex is not proof that a commit exists, was reviewed or is integrated. The exact Git evidence for `commit` and the SHA binding of `feedback` and `check-report` are in [A. Git Integration](A-git-integration.md#evidence-for-a-builders-commit).
+An approved review with a blocking finding is inconsistent and is rejected. The final envelope is the single source of the review Outcome; feedback does not repeat it. Role-specific consistency checks are declared on the Agent's outputs (below) and run through generic delivery validation, never through engine branches on agent IDs. Merely matching a SHA regex is not proof that a commit exists, was reviewed or is integrated. The exact Git evidence for `commit` and the SHA binding of `feedback` and `check-report` are in [A. Git Integration](A-git-integration.md#evidence-for-a-builders-commit).
+
+### Delivery checks
+
+An output may declare `checks`, the evidence Surt demands of a delivery before accepting it, beyond its format and schema:
+
+```toml
+[outputs.feedback]
+format = "json"
+json_schema = "schemas/feedback.schema.json"
+checks = [{ kind = "reviewed_commit" }, { kind = "no_blocking_finding", outcome = "approved" }]
+```
+
+| `kind` | Fields | Proves |
+|---|---|---|
+| `commit_evidence` | none | The output's `sha` is a new commit checked out as the tip of the run's branch, as in [A. Git Integration](A-git-integration.md#evidence-for-a-builders-commit) |
+| `reviewed_commit` | none | The output's `reviewed_commit` is the `sha` of the `commit` Input, and the `check-report` Input, when present, is for that commit |
+| `no_blocking_finding` | `outcome` (required) | A delivery ending with `outcome` has no entry of `findings` with `blocking = true` |
+
+The checks read the Input and field names in the table; they belong to the Operations' artifact contract of [E. Workflow Definition Schema](E-workflow-schema.md). A check is static: the output must be `format = "json"` (otherwise `a delivery check needs the JSON output "<output>"`) and `no_blocking_finding.outcome` must be one of the Agent's Outcomes (otherwise `a delivery check needs the outcome "<outcome>"`). An unknown `kind`, an `outcome` on another kind, a missing `outcome` or any other field is refused like any unknown field. A failing declaration refuses `create_run` with no row written.
+
+Checks are part of the canonical `agent.toml`, hence of the Agent snapshot's identity. Every Execution runs the checks of its frozen Agent: editing an Agent's checks, or a Surt upgrade that changes the built-in ones, never changes the checks of a run already created. A delivery that fails a check is an `invalid_delivery` failure of that Attempt, retried like any other invalid delivery. The built-in Builder declares `commit_evidence` on `commit`; the built-in Reviewer declares `reviewed_commit` and `no_blocking_finding` (`approved`) on `feedback`.
 
 ## Claude Code launcher and compatibility
 
