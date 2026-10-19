@@ -2,11 +2,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+use super::super::fixtures::Catalog;
 use super::super::fixtures::SUBJECT;
 use super::fixtures::{ACTOR, Feature, Recording, agent};
 use super::planned::{BUILDER, PLANNER, plan, work};
 use super::repository::{commit_file, git, git_succeeds};
-use crate::project::{Catalog, Config, DriveOutcome, Progress, Refusal, StepLabel};
+use crate::project::{Config, DriveOutcome, Progress, Refusal, StepLabel};
 use crate::runtime::{
     AgentRuntime, Behavior, Delivery, FakeRuntime, RuntimeCompletion, RuntimeError,
     RuntimeEventSink, RuntimeRequest, Script, StopSignal,

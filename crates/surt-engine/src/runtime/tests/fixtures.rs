@@ -10,7 +10,7 @@ use crate::runtime::{
     RuntimeCompletion, RuntimeError, RuntimeEvent, RuntimeReport, RuntimeRequest, Script,
     StepAttempt, StopSignal, Verdict, accept,
 };
-use crate::workflow::{AgentAssets, AgentContract};
+use crate::workflow::{AgentContract, AgentFiles};
 
 pub(super) const STEP: &str = "write";
 pub(super) const MODEL: &str = "claude-sonnet-5-5";
@@ -154,16 +154,16 @@ pub(super) async fn rejection(delivery: Delivery) -> DeliveryRejection {
 }
 
 fn writer_launch(dir: &Path) -> AgentLaunch {
-    let assets = AgentAssets {
-        toml: WRITER_AGENT,
-        instructions: "Write.",
-        schemas: &[("schemas/data.schema.json", DATA_SCHEMA)],
-    };
+    let assets = AgentFiles::of(
+        WRITER_AGENT,
+        "Write.",
+        &[("schemas/data.schema.json", DATA_SCHEMA)],
+    );
     let agent =
-        AgentContract::parse("writer", assets.toml, &assets).expect("a valid agent contract");
+        AgentContract::parse("writer", &assets.toml, &assets).expect("a valid agent contract");
     AgentLaunch::new(
         &agent,
-        assets.instructions,
+        &assets.instructions,
         dir.to_owned(),
         dir.join("launch"),
     )
@@ -182,11 +182,7 @@ pub(super) fn contract(
     toml: &'static str,
     schemas: &'static [(&'static str, &'static str)],
 ) -> DeliveryContract {
-    let assets = AgentAssets {
-        toml,
-        instructions: "Write.",
-        schemas,
-    };
-    let agent = AgentContract::parse(id, assets.toml, &assets).expect("a valid agent contract");
+    let assets = AgentFiles::of(toml, "Write.", schemas);
+    let agent = AgentContract::parse(id, &assets.toml, &assets).expect("a valid agent contract");
     DeliveryContract::new(&agent, |path| assets.schema(path)).expect("compilable schemas")
 }

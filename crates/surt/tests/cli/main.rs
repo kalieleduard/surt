@@ -1,12 +1,14 @@
 mod cancel;
 #[cfg(unix)]
 mod claude;
+mod definitions;
 mod delete;
 mod discovery;
 mod feature;
 #[cfg(unix)]
 mod follow;
 mod init;
+mod init_template;
 mod inspect;
 #[cfg(unix)]
 mod interrupt;
@@ -19,7 +21,6 @@ mod merge_flags;
 mod merge_status;
 mod new_run;
 mod output;
-mod overrides;
 mod paused;
 mod phases;
 mod restore;

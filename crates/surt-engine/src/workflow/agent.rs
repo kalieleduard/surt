@@ -4,7 +4,8 @@ use std::num::NonZeroU32;
 use serde::{Deserialize, Serialize};
 
 use super::error::{DefinitionFile, InvalidDefinition, Problem};
-use super::sources::SchemaSource;
+use super::fields;
+use super::files::SchemaSource;
 
 mod checks;
 mod deliveries;
@@ -139,12 +140,14 @@ impl AgentContract {
         toml: &str,
         schemas: &impl SchemaSource,
     ) -> Result<AgentContract, Box<InvalidDefinition>> {
-        AgentContract::parse_effective(id, toml, schemas).map_err(|problem| {
+        AgentContract::checked(id, toml, schemas).map_err(|problem| {
+            let field = fields::agent_field(&problem, toml);
             InvalidDefinition::new(DefinitionFile::Agent(id.to_owned()), None, problem)
+                .with_field(field)
         })
     }
 
-    pub(crate) fn parse_effective(
+    fn checked(
         id: &str,
         toml: &str,
         schemas: &impl SchemaSource,

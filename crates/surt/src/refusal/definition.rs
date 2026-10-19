@@ -1,25 +1,68 @@
-use surt_engine::project::{Problem, StepField};
+use surt_engine::project::{InvalidDefinition, Problem, StepField};
 
+use crate::message::Message;
 use crate::symbols::ARROW;
 
-pub(super) fn describe(problem: &Problem) -> String {
+const WORKFLOWS_DIR: &str = ".surt/workflows/";
+const TEMPLATE_FIX: &str = "surt init --template feature";
+
+pub(super) fn invalid(invalid: &InvalidDefinition) -> Message {
+    let path = invalid.file.path();
+    let location = match (&invalid.field, &invalid.step, &invalid.problem) {
+        (Some(field), _, _) => format!("{path}: {field}"),
+        (None, Some(step), _) => format!("{path}: steps.{step}"),
+        (
+            None,
+            None,
+            Problem::Syntax {
+                line: Some(line), ..
+            },
+        ) => format!("{path}:{line}"),
+        _ => path.clone(),
+    };
+    let fix = match invalid.problem {
+        Problem::StrayAgentFile => "rename or remove",
+        Problem::MissingFile => "create",
+        _ => "edit",
+    };
+    Message::new(format!("{location}: {}", describe(&invalid.problem)))
+        .way("fix", format!("{fix} {path}"))
+}
+
+pub(super) fn unknown_workflow(name: &str, known: &[String]) -> Message {
+    let message = Message::new(format!(
+        "no workflow is named \"{name}\" in {WORKFLOWS_DIR}"
+    ));
+    if known.is_empty() {
+        return message
+            .context(format!("{WORKFLOWS_DIR} holds no workflow"))
+            .way("fix", TEMPLATE_FIX);
+    }
+    message
+        .context(format!("workflows: {}", known.join(", ")))
+        .way("fix", format!("add {WORKFLOWS_DIR}{name}.toml"))
+}
+
+fn describe(problem: &Problem) -> String {
     match problem {
-        Problem::Syntax {
-            line: Some(line),
-            detail,
-        } => format!("line {line}: {detail}"),
-        Problem::Syntax { line: None, detail } | Problem::InvalidStep { detail } => detail.clone(),
+        Problem::Syntax { detail, .. } | Problem::InvalidStep { detail } => detail.clone(),
         Problem::UnsupportedSchema { found } => {
             format!("schema = {found} is not supported; this surt reads schema = 1")
         }
-        Problem::NameMismatch { found } => format!("it is named \"{found}\" inside"),
+        Problem::NameMismatch { found } => {
+            format!("\"{found}\" does not match its file or directory name")
+        }
         Problem::MissingKind => "the step has no kind".to_owned(),
         Problem::UnknownKind { kind } => format!("unknown step kind \"{kind}\""),
-        Problem::UnknownWorkflow { name } => format!("no workflow is named \"{name}\""),
+        Problem::UnknownWorkflow { name } => {
+            format!("no workflow is named \"{name}\" in {WORKFLOWS_DIR}")
+        }
         Problem::RecursiveWorkflow { name } => {
             format!("workflow \"{name}\" runs itself through a per_item step")
         }
-        Problem::UnknownAgent { name } => format!("no agent is named \"{name}\""),
+        Problem::UnknownAgent { name } => {
+            format!("no agent is named \"{name}\" in .surt/agents/")
+        }
         Problem::UnknownOperation { name } => format!("no operation is named \"{name}\""),
         Problem::UnknownStep { field, name } => {
             format!("{} names an unknown step \"{name}\"", field_name(*field))
@@ -59,7 +102,7 @@ pub(super) fn describe(problem: &Problem) -> String {
             format!("rejection artifact \"{artifact}\" is declared twice")
         }
         Problem::MissingAsset { path } => {
-            format!("\"{path}\" is neither a local file nor bundled with the agent")
+            format!("\"{path}\" is not a file in the agent's directory")
         }
         Problem::NonLocalReference { reference } => {
             format!("$ref \"{reference}\" is not a file in the agent's schemas directory")
@@ -79,9 +122,7 @@ pub(super) fn describe(problem: &Problem) -> String {
         }
         Problem::MisplacedApiKeyEnv => "api_key_env needs auth = \"api_key\"".to_owned(),
         Problem::InvalidBudget => "max_budget_usd must be a positive number".to_owned(),
-        Problem::UnknownAgentDirectory { known } => {
-            format!("not a built-in agent; agents: {}", known.join(", "))
-        }
+        Problem::MissingFile => "the file does not exist".to_owned(),
         Problem::MissingCheckedOutput { output } => {
             format!("a delivery check needs the JSON output \"{output}\"")
         }

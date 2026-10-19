@@ -1,9 +1,10 @@
 use std::num::NonZeroU32;
 
+use super::fixtures::{AgentAssets, Catalog};
 use super::fixtures::{
     ProjectDir, WRITER_AGENT, WRITER_SCHEMAS, default_config, draft_catalog, new_run,
 };
-use crate::project::{AgentAssets, Catalog, NewRun};
+use crate::project::NewRun;
 
 const EDITED_WORKFLOW: &str = r#"
 schema = 1

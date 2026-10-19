@@ -12,7 +12,7 @@ use crate::runtime::{
     AgentLaunch, Exit, RuntimeCompletion, RuntimeError, RuntimeReport, RuntimeRequest, StepAttempt,
     Verdict, accept,
 };
-use crate::workflow::{AgentAssets, AgentContract};
+use crate::workflow::{AgentContract, AgentFiles};
 
 pub(super) const NOTE: &str = "hello from fixture\n";
 pub(super) const CONTEXT: &str = "Create note.md, then deliver.\n";
@@ -56,13 +56,9 @@ impl Execution {
         let working_dir = root.join("worktree");
         fs::create_dir(&delivery_dir).expect("the delivery directory");
         fs::create_dir(&working_dir).expect("the working directory");
-        let assets = AgentAssets {
-            toml,
-            instructions: INSTRUCTIONS,
-            schemas: &[],
-        };
+        let assets = AgentFiles::of(toml, INSTRUCTIONS, &[]);
         let agent =
-            AgentContract::parse("noter", assets.toml, &assets).expect("a valid agent contract");
+            AgentContract::parse("noter", &assets.toml, &assets).expect("a valid agent contract");
         let contract =
             DeliveryContract::new(&agent, |path| assets.schema(path)).expect("compilable schemas");
         let launch = AgentLaunch::new(&agent, INSTRUCTIONS, working_dir, root.join("launch"));

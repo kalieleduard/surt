@@ -2,7 +2,6 @@ use std::path::Path;
 
 use surt_engine::project::{Change, Project, RestoreImpact};
 
-use crate::builtin;
 use crate::confirmation::confirmed;
 use crate::failure::Failure;
 use crate::message::Message;
@@ -18,7 +17,7 @@ pub(crate) struct RestoreArgs {
 }
 
 pub(crate) async fn run(cwd: &Path, args: RestoreArgs) -> Result<(), Failure> {
-    let project = Project::open(cwd, builtin::catalog()).await?;
+    let project = Project::open(cwd).await?;
     let subject = project.resolve_subject(&args.feature).await?.name;
     let impact = project.restore_impact(&subject, &args.artifact).await?;
     if impact.changes.is_empty() {

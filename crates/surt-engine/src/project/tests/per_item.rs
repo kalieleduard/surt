@@ -1,5 +1,6 @@
+use super::fixtures::Catalog;
 use super::fixtures::{ProjectDir, agent, default_config, in_step, new_run, refusal, writer};
-use crate::project::{Catalog, DefinitionFile, InvalidDefinition, Problem};
+use crate::project::{DefinitionFile, InvalidDefinition, Problem};
 
 const PLANNER_AGENT: &str = r#"
 schema = 1
@@ -111,6 +112,7 @@ needs = ["plan"]
         invalid,
         InvalidDefinition {
             file: DefinitionFile::Workflow("child".to_owned()),
+            field: None,
             step: Some("write".to_owned()),
             problem: Problem::MissingInput {
                 input: "request".to_owned()
@@ -242,6 +244,7 @@ needs = ["plan"]
         recursive,
         InvalidDefinition {
             file: DefinitionFile::Workflow("child".to_owned()),
+            field: None,
             step: Some("again".to_owned()),
             problem: Problem::RecursiveWorkflow {
                 name: "child".to_owned()

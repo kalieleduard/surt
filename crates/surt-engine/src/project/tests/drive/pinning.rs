@@ -1,9 +1,10 @@
 use std::fs;
 
+use super::super::fixtures::Catalog;
 use super::super::fixtures::SUBJECT;
 use super::super::refusal;
 use super::fixtures::{ACTOR, Feature, PUBLISHER, WRITER, agent, draft, summary};
-use crate::project::{Catalog, DriveOutcome, Progress, Refusal};
+use crate::project::{DriveOutcome, Progress, Refusal};
 use crate::runtime::{
     AgentRuntime, Behavior, Delivery, FakeRuntime, RuntimeCompletion, RuntimeError,
     RuntimeEventSink, RuntimeRequest, Script, StopSignal,

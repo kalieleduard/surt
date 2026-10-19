@@ -1,4 +1,5 @@
 mod activity;
+mod agent_files;
 mod blocked;
 mod branches;
 mod cancelling;
@@ -34,7 +35,6 @@ mod merge_worktree;
 mod merge_worktree_gone;
 mod merging;
 mod new_runs;
-mod overrides;
 mod pausing;
 mod phases;
 mod pinning;

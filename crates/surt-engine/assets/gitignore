@@ -2,5 +2,7 @@
 *
 !.gitignore
 !config.toml
+!workflows/
+!workflows/**
 !agents/
 !agents/**

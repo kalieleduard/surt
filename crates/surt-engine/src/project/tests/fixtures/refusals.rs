@@ -1,21 +1,12 @@
 use std::fs;
 
-use super::{ProjectDir, default_config, new_run, writer};
-use crate::project::{
-    Catalog, DefinitionFile, Error, InvalidDefinition, InvalidOverride, Problem, Refusal,
-};
+use super::{Catalog, ProjectDir, default_config, new_run, writer};
+use crate::project::{DefinitionFile, Error, InvalidDefinition, Problem, Refusal};
 
 pub(in crate::project::tests) async fn refusal(catalog: Catalog) -> InvalidDefinition {
     let dir = ProjectDir::new();
-    let project = dir.project(catalog, default_config()).await;
-
-    let result = project.create_run(new_run("flow")).await;
-
-    dir.assert_nothing_written().await;
-    match result {
-        Err(Error::Refused(Refusal::InvalidDefinition(invalid))) => *invalid,
-        other => panic!("expected an invalid definition, got {other:?}"),
-    }
+    dir.project(catalog, default_config()).await;
+    invalid_file(&dir, "flow").await
 }
 
 pub(in crate::project::tests) async fn workflow_refusal(text: &'static str) -> InvalidDefinition {
@@ -30,29 +21,34 @@ pub(in crate::project::tests) async fn workflow_refusal(text: &'static str) -> I
 pub(in crate::project::tests) fn in_step(step: &str, problem: Problem) -> InvalidDefinition {
     InvalidDefinition {
         file: DefinitionFile::Workflow("flow".to_owned()),
+        field: None,
         step: Some(step.to_owned()),
         problem,
     }
 }
 
-pub(in crate::project::tests) async fn override_refusal(
+pub(in crate::project::tests) async fn invalid_file(
     dir: &ProjectDir,
-    catalog: Catalog,
     workflow: &str,
-) -> InvalidOverride {
-    let project = dir.project(catalog, default_config()).await;
+) -> InvalidDefinition {
+    let project = dir.project(Catalog::new(), default_config()).await;
 
     let result = project.create_run(new_run(workflow)).await;
 
     dir.assert_nothing_written().await;
     match result {
-        Err(Error::Refused(Refusal::InvalidAgentOverride(invalid))) => *invalid,
-        other => panic!("expected an invalid override, got {other:?}"),
+        Err(Error::Refused(Refusal::InvalidDefinition(invalid))) => *invalid,
+        other => panic!("expected an invalid definition, got {other:?}"),
     }
 }
 
 impl ProjectDir {
-    pub(in crate::project::tests) fn write_local(&self, agent: &str, rel_path: &str, text: &str) {
+    pub(in crate::project::tests) fn write_agent_file(
+        &self,
+        agent: &str,
+        rel_path: &str,
+        text: &str,
+    ) {
         let path = self.layout().agents().join(agent).join(rel_path);
         fs::create_dir_all(path.parent().expect("a parent")).expect("the agent directory");
         fs::write(path, text).expect("the local file");

@@ -1,15 +1,13 @@
 use surt_engine::project::{Commit, NewRun, Project, RunSelector, RunStatus, StatusScope};
 
-use super::{
-    DEFAULT_BASE, MergeFlag, base_artifact, short_base, with_local_agents, with_merge_line,
-};
-use crate::builtin::{FEATURE_WORKFLOW, REQUEST_ARTIFACT};
+use super::{DEFAULT_BASE, MergeFlag, base_artifact, short_base, with_merge_line};
 use crate::driving::local_time;
 use crate::failure::Failure;
 use crate::message::Message;
 use crate::phase::{SPEC, finish_cleanup};
 use crate::runtime;
 use crate::status::state_names;
+use crate::template::{FEATURE_WORKFLOW, REQUEST_ARTIFACT};
 
 const COMMAND: &str = "feature";
 
@@ -33,8 +31,12 @@ pub(super) async fn start(
     let ordinal = current(project, &name)
         .await?
         .map_or(0, |status| status.run);
-    let run_line = with_local_agents(started(&name, ordinal, &commit), &created.local_agents);
-    with_merge_line(run_line, created.merge_into_base, merge).print_success();
+    with_merge_line(
+        started(&name, ordinal, &commit),
+        created.merge_into_base,
+        merge,
+    )
+    .print_success();
     SPEC.drive(project, &name, &created.run, &runtime).await
 }
 

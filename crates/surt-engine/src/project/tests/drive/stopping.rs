@@ -2,10 +2,11 @@ use std::num::NonZeroU32;
 
 use tokio::sync::mpsc;
 
+use super::super::fixtures::Catalog;
 use super::super::fixtures::{ProjectDir, SUBJECT};
 use super::fixtures::{Driven, Feature, WRITER, agent, draft, review_catalog};
 use super::planned::{TASK_WORKFLOW, approved, work};
-use crate::project::{Catalog, Config, DriveOutcome, Progress};
+use crate::project::{Config, DriveOutcome, Progress};
 use crate::runtime::{
     AgentRuntime, Behavior, FakeRuntime, RuntimeCompletion, RuntimeError, RuntimeEventSink,
     RuntimeRequest, Script, StopLevel, StopSignal,

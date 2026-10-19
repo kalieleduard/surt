@@ -1,26 +1,23 @@
 use std::num::NonZeroU32;
 
-use super::super::fixtures::{ProjectDir, default_config};
-use super::fixtures::{ACTOR, Feature, Recording, draft};
+use super::super::fixtures::{AgentAssets, Catalog};
+use super::fixtures::{ACTOR, Feature, Recording, WRITER, draft};
 use super::team::failures;
-use crate::project::{AgentAssets, Catalog, DriveOutcome};
+use crate::project::DriveOutcome;
 use crate::runtime::{Behavior, Delivery, RuntimeRequest, Script};
 
 const CRASH_EXIT_CODE: i32 = 9;
 
-const LOCAL_WRITER: &str = r#"
-[profile]
-model = "fake-model-large"
-effort = "low"
+const WRITER_PROFILE: &str = "model = \"fake-model\"\neffort = \"high\"\n";
 
-[profile.limits]
-max_turns = 12
-"#;
+const LARGE_PROFILE: &str =
+    "model = \"fake-model-large\"\neffort = \"low\"\n\n[profile.limits]\nmax_turns = 12\n";
 
-const EDITED_WRITER: &str = r#"
-[profile]
-model = "fake-model-edited"
-"#;
+const EDITED_PROFILE: &str = "model = \"fake-model-edited\"\neffort = \"high\"\n";
+
+fn writer_with(profile: &str) -> String {
+    WRITER.replace(WRITER_PROFILE, profile)
+}
 
 fn profile(request: &RuntimeRequest) -> (String, String, Option<NonZeroU32>) {
     let profile = &request.launch.profile;
@@ -32,8 +29,9 @@ fn profile(request: &RuntimeRequest) -> (String, String, Option<NonZeroU32>) {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn every_execution_of_a_run_keeps_the_override_it_froze_after_the_file_changes() {
-    let feature = Feature::review_with_local("writer", "agent.toml", LOCAL_WRITER).await;
+async fn every_execution_of_a_run_keeps_the_agent_it_froze_after_the_file_changes() {
+    let large = writer_with(LARGE_PROFILE);
+    let feature = Feature::review_edited("writer", "agent.toml", &large).await;
     let crash = Behavior::Crash {
         exit_code: CRASH_EXIT_CODE,
     };
@@ -50,7 +48,7 @@ async fn every_execution_of_a_run_keeps_the_override_it_froze_after_the_file_cha
         .expect("the first draft reaches the gate");
     feature
         .dir
-        .write_local("writer", "agent.toml", EDITED_WRITER);
+        .write_agent_file("writer", "agent.toml", &writer_with(EDITED_PROFILE));
     feature
         .project
         .reject(&feature.run, Some(1), "shorter", ACTOR)
@@ -79,9 +77,9 @@ async fn every_execution_of_a_run_keeps_the_override_it_froze_after_the_file_cha
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn the_runtime_receives_the_local_instructions_in_place_of_the_built_in_text() {
+async fn the_runtime_receives_the_instructions_read_from_the_agents_directory() {
     let local = "Follow the project's style guide.\n";
-    let feature = Feature::review_with_local("writer", "instructions.md", local).await;
+    let feature = Feature::review_edited("writer", "instructions.md", local).await;
     let recording = Recording::new(Script::new().on("write", 1, 1, draft("# Draft\n")));
 
     feature
@@ -125,13 +123,13 @@ const NOTES: &str = "schemas/notes.schema.json";
 
 const STRICT_NOTES: &str = r#"{"type": "object", "required": ["status"]}"#;
 
-fn noted_catalog() -> Catalog {
+fn noted_catalog(schemas: &'static [(&'static str, &'static str)]) -> Catalog {
     Catalog::new().workflow("noted", NOTED_WORKFLOW).agent(
         "noter",
         AgentAssets {
             toml: NOTER,
             instructions: "Take notes.\n",
-            schemas: &[(NOTES, r#"{"type": "object"}"#)],
+            schemas,
         },
     )
 }
@@ -140,12 +138,8 @@ fn notes(text: &str) -> Behavior {
     Behavior::Deliver(Delivery::new("done").output("notes", "notes.json", text))
 }
 
-async fn noted_with_local(files: &[(&str, &str)]) -> Feature {
-    let dir = ProjectDir::new();
-    for (rel_path, text) in files {
-        dir.write_local("noter", rel_path, text);
-    }
-    Feature::in_dir(dir, noted_catalog(), "noted", default_config()).await
+async fn noted(schemas: &'static [(&'static str, &'static str)]) -> Feature {
+    Feature::new(noted_catalog(schemas), "noted").await
 }
 
 async fn rejected_then_accepted(feature: &Feature, violating: &str, satisfying: &str) {
@@ -169,8 +163,8 @@ async fn rejected_then_accepted(feature: &Feature, violating: &str, satisfying: 
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_delivery_is_validated_against_the_local_schema_that_overlays_the_built_in() {
-    let feature = noted_with_local(&[(NOTES, STRICT_NOTES)]).await;
+async fn a_delivery_is_validated_against_the_schema_read_from_the_agents_directory() {
+    let feature = noted(&[(NOTES, STRICT_NOTES)]).await;
 
     rejected_then_accepted(&feature, "{}", r#"{"status": "ok"}"#).await;
 }
@@ -180,8 +174,8 @@ const SPLIT_NOTES: &str = r#"{"type": "object", "properties": {"status": {"$ref"
 const STATUS_DEFS: &str = r#"{"$defs": {"status": {"enum": ["ok", "late"]}}}"#;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_delivery_is_validated_against_a_local_schema_split_with_a_local_ref() {
-    let feature = noted_with_local(&[
+async fn a_delivery_is_validated_against_a_schema_split_with_a_local_ref() {
+    let feature = noted(&[
         (NOTES, SPLIT_NOTES),
         ("schemas/defs/status.schema.json", STATUS_DEFS),
     ])

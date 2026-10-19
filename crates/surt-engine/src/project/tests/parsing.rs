@@ -1,9 +1,10 @@
-use super::fixtures::{in_step, refusal, workflow_refusal};
-use crate::project::{Catalog, DefinitionFile, InvalidDefinition, Problem};
+use super::fixtures::{in_step, workflow_refusal};
+use crate::project::{DefinitionFile, InvalidDefinition, Problem};
 
-fn at_top(problem: Problem) -> InvalidDefinition {
+fn at_top(field: &str, problem: Problem) -> InvalidDefinition {
     InvalidDefinition {
         file: DefinitionFile::Workflow("flow".to_owned()),
+        field: Some(field.to_owned()),
         step: None,
         problem,
     }
@@ -133,7 +134,10 @@ run = "git.create_run_branch"
     )
     .await;
 
-    assert_eq!(invalid, at_top(Problem::UnsupportedSchema { found: 2 }));
+    assert_eq!(
+        invalid,
+        at_top("schema", Problem::UnsupportedSchema { found: 2 })
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -160,7 +164,7 @@ run = "git.create_run_branch"
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_definition_whose_name_differs_from_its_catalog_entry_is_refused() {
+async fn a_workflow_whose_name_differs_from_its_file_stem_is_refused() {
     let invalid = workflow_refusal(
         r#"
 schema = 1
@@ -175,20 +179,11 @@ run = "git.create_run_branch"
 
     assert_eq!(
         invalid,
-        at_top(Problem::NameMismatch {
-            found: "other".to_owned()
-        })
-    );
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn a_workflow_missing_from_the_catalog_is_refused() {
-    let invalid = refusal(Catalog::new()).await;
-
-    assert_eq!(
-        invalid,
-        at_top(Problem::UnknownWorkflow {
-            name: "flow".to_owned()
-        })
+        at_top(
+            "name",
+            Problem::NameMismatch {
+                found: "other".to_owned()
+            }
+        )
     );
 }

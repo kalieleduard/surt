@@ -2,6 +2,7 @@ use serde::ser::{SerializeMap, Serializer};
 use serde::{Deserialize, Serialize};
 
 use super::error::{DefinitionFile, InvalidDefinition, Problem};
+use super::fields;
 use super::steps::{StepKind, StepSpec};
 
 const SCHEMA_VERSION: i64 = 1;
@@ -68,8 +69,10 @@ impl Serialize for CanonicalSteps<'_> {
 
 impl Definition {
     pub(crate) fn parse(name: &str, text: &str) -> Result<Definition, Box<InvalidDefinition>> {
-        let invalid = |step: Option<&str>, problem| {
+        let invalid = |step: Option<&str>, problem: Problem| {
+            let field = fields::workflow_field(&problem, text);
             InvalidDefinition::new(DefinitionFile::Workflow(name.to_owned()), step, problem)
+                .with_field(field)
         };
         let document: Document =
             toml::from_str(text).map_err(|error| invalid(None, Problem::syntax(text, &error)))?;

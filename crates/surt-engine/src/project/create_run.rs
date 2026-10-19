@@ -1,16 +1,15 @@
-mod local_agents;
 mod previous;
 
 use std::num::NonZeroU32;
 
 use serde::Serialize;
 
+use super::definitions::ProjectDefinitions;
 use super::{Check, Config, Error, GitConfig, MergeIntoBase, Project, Refusal};
 use crate::cleanup::clear_kept_working_copy;
 pub use crate::drive::graph::RunId;
 use crate::store::{NewInitialArtifact, NewRunRows, RunCreation, Store, unix_now};
-use crate::workflow::{Catalog, CleanupPolicy, FrozenRun, LocalAgent, OnSuccess, freeze};
-pub use local_agents::LocalFiles;
+use crate::workflow::{CleanupPolicy, FrozenRun, OnSuccess, freeze};
 
 #[derive(Clone, Debug)]
 pub struct NewRun {
@@ -46,28 +45,19 @@ struct FrozenConfig<'a> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CreatedRun {
     pub run: RunId,
-    pub local_agents: Vec<LocalFiles>,
     pub merge_into_base: MergeIntoBase,
 }
 
 impl Project {
     pub async fn create_run(&self, new: NewRun) -> Result<CreatedRun, Error> {
-        let locals = local_agents::read(&self.layout, &self.catalog)?;
-        let catalog = self
-            .catalog
-            .with_local(&locals)
-            .map_err(Refusal::InvalidAgentOverride)?;
         let merge_into_base = new
             .merge_into_base
             .unwrap_or(self.config.git.merge_into_base);
         let store = self.store().await?;
-        let created = self
-            .create_with(&store, &catalog, &locals, new, merge_into_base)
-            .await;
+        let created = self.create_with(&store, new, merge_into_base).await;
         store.close().await;
         Ok(CreatedRun {
             run: created?,
-            local_agents: local_agents::reported(&locals),
             merge_into_base,
         })
     }
@@ -75,14 +65,10 @@ impl Project {
     async fn create_with(
         &self,
         store: &Store,
-        catalog: &Catalog,
-        locals: &[LocalAgent],
         new: NewRun,
         merge_into_base: MergeIntoBase,
     ) -> Result<RunId, Error> {
-        let checked = self
-            .checked(store, catalog, locals, new, merge_into_base)
-            .await?;
+        let checked = self.checked(store, new, merge_into_base).await?;
         if let Some(previous) = &checked.previous {
             clear_kept_working_copy(store, &self.layout, previous).await?;
         }
@@ -98,11 +84,11 @@ impl Project {
     async fn checked(
         &self,
         store: &Store,
-        catalog: &Catalog,
-        locals: &[LocalAgent],
         mut new: NewRun,
         merge_into_base: MergeIntoBase,
     ) -> Result<Checked, Error> {
+        let definitions = ProjectDefinitions::new(&self.layout);
+        definitions.require(&new.workflow)?;
         let carried = previous::carried(store, &self.layout, &new.subject, &new.carried).await?;
         new.initial_artifacts.extend(carried.artifacts);
         let names: Vec<&str> = new
@@ -110,10 +96,7 @@ impl Project {
             .iter()
             .map(|artifact| artifact.name.as_str())
             .collect();
-        self.catalog
-            .blame_overrides(catalog, locals, &new.workflow, &names)
-            .map_err(Refusal::InvalidAgentOverride)?;
-        let frozen = freeze(catalog, &new.workflow, names, |root| {
+        let frozen = freeze(&definitions, &new.workflow, names, |root| {
             frozen_config(&self.config, merge_into_base, root)
         })?;
         Ok(Checked {

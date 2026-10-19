@@ -1,20 +1,21 @@
 mod active;
+mod agent_files;
+mod agent_hygiene;
+mod agent_refusals;
+mod agent_schemas;
+mod agent_workflows;
 mod agents;
 mod checked;
 mod created;
 mod declared_checks;
+mod definitions;
 #[cfg(feature = "test-support")]
 mod drive;
 mod edits;
 mod fixtures;
 mod flows;
 mod frozen;
-mod local_assets;
-mod local_schemas;
-mod override_hygiene;
-mod override_refusals;
-mod override_workflows;
-mod overrides;
+mod init_template;
 mod parsing;
 mod per_item;
 mod policy;
@@ -34,7 +35,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use tempfile::TempDir;
 
 use super::discovery::SurtHome;
-use super::{Access, Catalog, Config, Error, FileState, InitFile, Project, Refusal, init};
+use super::{Access, Config, Error, FileState, InitFile, Project, Refusal, init};
 
 struct Sandbox {
     dir: TempDir,
@@ -91,11 +92,19 @@ impl Sandbox {
     }
 
     async fn init(&self, cwd: &Path) -> Result<super::Initialized, Error> {
-        init::run(cwd, &self.surt_home()).await
+        self.init_with(cwd, &[]).await
+    }
+
+    async fn init_with(
+        &self,
+        cwd: &Path,
+        template: &[(&str, &[u8])],
+    ) -> Result<super::Initialized, Error> {
+        init::run(cwd, &self.surt_home(), template).await
     }
 
     async fn open(&self, cwd: &Path) -> Result<Project, Error> {
-        Project::open_with(cwd, &self.surt_home(), Catalog::new(), Access::ReadWrite).await
+        Project::open_with(cwd, &self.surt_home(), Access::ReadWrite).await
     }
 
     fn write_global_config(&self, contents: &str) -> PathBuf {

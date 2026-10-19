@@ -1,5 +1,6 @@
+use super::fixtures::Catalog;
 use super::fixtures::{ProjectDir, default_config, in_step, new_run, workflow_refusal, writer};
-use crate::project::{Catalog, Problem, StepField};
+use crate::project::{Problem, StepField};
 
 fn unknown_outcome(field: StepField, step: &str, outcome: &str, declared: &[&str]) -> Problem {
     Problem::UnknownOutcome {

@@ -2,7 +2,6 @@ use std::path::Path;
 
 use surt_engine::project::Project;
 
-use crate::builtin;
 use crate::driving::Driven;
 use crate::failure::Failure;
 use crate::phase::{TASKS, active_run, finish_cleanup};
@@ -16,7 +15,7 @@ pub(crate) struct StartArgs {
 }
 
 pub(crate) async fn run(cwd: &Path, args: StartArgs) -> Result<(), Failure> {
-    let project = Project::open(cwd, builtin::catalog()).await?;
+    let project = Project::open(cwd).await?;
     let subject = project.resolve_subject(&args.feature).await?;
     if finish_cleanup(&project, &subject, COMMAND).await? {
         return Ok(());

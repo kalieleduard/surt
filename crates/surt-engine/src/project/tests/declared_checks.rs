@@ -1,6 +1,6 @@
+use super::fixtures::Catalog;
 use super::fixtures::{ProjectDir, agent, default_config, new_run, refusal};
-use super::override_workflows::{UNTIL_DONE, WRITER_FILE, refused};
-use crate::project::{Catalog, DefinitionFile, InvalidDefinition, InvalidOverride, Problem};
+use crate::project::{DefinitionFile, InvalidDefinition, Problem};
 
 const FLOW: &str = r#"
 schema = 1
@@ -43,9 +43,10 @@ fn flow(outputs: &str) -> Catalog {
         .agent("writer", agent(writer_with(outputs)))
 }
 
-fn in_writer(problem: Problem) -> InvalidDefinition {
+fn in_writer(field: &str, problem: Problem) -> InvalidDefinition {
     InvalidDefinition {
         file: DefinitionFile::Agent("writer".to_owned()),
+        field: Some(field.to_owned()),
         step: None,
         problem,
     }
@@ -68,9 +69,12 @@ async fn a_check_on_an_output_that_is_not_json_refuses_create_run_with_no_row_wr
 
     assert_eq!(
         invalid,
-        in_writer(Problem::MissingCheckedOutput {
-            output: "draft".to_owned()
-        })
+        in_writer(
+            "outputs.draft.format",
+            Problem::MissingCheckedOutput {
+                output: "draft".to_owned()
+            }
+        )
     );
 }
 
@@ -83,9 +87,12 @@ async fn no_blocking_finding_on_an_outcome_the_agent_does_not_declare_refuses_cr
 
     assert_eq!(
         invalid,
-        in_writer(Problem::MissingCheckedOutcome {
-            outcome: "accepted".to_owned()
-        })
+        in_writer(
+            "outcomes",
+            Problem::MissingCheckedOutcome {
+                outcome: "accepted".to_owned()
+            }
+        )
     );
 }
 
@@ -123,59 +130,5 @@ async fn declared_checks_are_frozen_in_the_canonical_agent_toml() {
     assert_eq!(
         frozen["outputs"]["notes"]["checks"],
         declared["outputs"]["notes"]["checks"]
-    );
-}
-
-fn checked_drafting() -> Catalog {
-    Catalog::new()
-        .workflow("drafting", UNTIL_DONE)
-        .agent("writer", agent(writer_with(NOTES_CHECKED)))
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn an_override_that_stops_delivering_a_checked_output_as_json_is_refused_at_its_format() {
-    let dir = ProjectDir::new();
-    dir.write_local(
-        "writer",
-        "agent.toml",
-        "[outputs.notes]\nformat = \"text\"\n",
-    );
-
-    let invalid = refused(&dir, checked_drafting()).await;
-
-    assert_eq!(
-        invalid,
-        InvalidOverride {
-            file: WRITER_FILE.to_owned(),
-            field: Some("outputs.notes.format".to_owned()),
-            needed_by: None,
-            problem: Problem::MissingCheckedOutput {
-                output: "notes".to_owned()
-            },
-        }
-    );
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn an_override_removing_the_outcome_a_check_names_is_refused_at_its_outcomes() {
-    let dir = ProjectDir::new();
-    dir.write_local(
-        "writer",
-        "agent.toml",
-        "outcomes = [\"done\", \"blocked\"]\n",
-    );
-
-    let invalid = refused(&dir, checked_drafting()).await;
-
-    assert_eq!(
-        invalid,
-        InvalidOverride {
-            file: WRITER_FILE.to_owned(),
-            field: Some("outcomes".to_owned()),
-            needed_by: None,
-            problem: Problem::MissingCheckedOutcome {
-                outcome: "approved".to_owned()
-            },
-        }
     );
 }
