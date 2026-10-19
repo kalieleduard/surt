@@ -179,6 +179,29 @@ fn every_definition_problem_is_described_in_one_line_of_words() {
             Problem::InvalidBudget,
             "max_budget_usd must be a positive number",
         ),
+        (
+            Problem::UnknownAgentDirectory {
+                known: vec![owned("builder"), owned("spec")],
+            },
+            "not a built-in agent; agents: builder, spec",
+        ),
+        (
+            Problem::StrayAgentFile,
+            "surt reads only agent.toml, instructions.md and schemas/ here",
+        ),
+        (Problem::TestOnlyRuntime, "runtime \"fake\" is test-only"),
+        (
+            Problem::MissingCheckedOutput {
+                output: owned("commit"),
+            },
+            "a delivery check needs the JSON output \"commit\"",
+        ),
+        (
+            Problem::MissingCheckedOutcome {
+                outcome: owned("approved"),
+            },
+            "a delivery check needs the outcome \"approved\"",
+        ),
     ];
 
     for (problem, expected) in cases {

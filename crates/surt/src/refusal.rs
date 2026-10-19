@@ -1,13 +1,12 @@
 mod definition;
 mod edits;
 mod executions;
+mod overrides;
 mod reading;
 
 use std::path::Path;
 
-use surt_engine::project::{
-    Candidate, DefinitionFile, InvalidDefinition, InvalidOverride, Refusal, RunState,
-};
+use surt_engine::project::{Candidate, DefinitionFile, InvalidDefinition, Refusal, RunState};
 
 use crate::feature::quoted;
 use crate::message::Message;
@@ -74,7 +73,7 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             files,
         } => edits::blocking_new_run(subject, *run, files),
         Refusal::InvalidDefinition(invalid) => invalid_definition(invalid),
-        Refusal::InvalidAgentOverride(invalid) => invalid_override(invalid),
+        Refusal::InvalidAgentOverride(invalid) => overrides::invalid_override(invalid),
         Refusal::UnknownSubject { reference } => {
             Message::new(format!("no feature matches {}", quoted(reference)))
                 .way("inspect", "surt status")
@@ -266,15 +265,6 @@ fn invalid_definition(invalid: &InvalidDefinition) -> Message {
     Message::new(format!("invalid built-in definition: {location}"))
         .context(definition::describe(&invalid.problem))
         .way("fix", "reinstall surt")
-}
-
-fn invalid_override(invalid: &InvalidOverride) -> Message {
-    let reason = definition::describe(&invalid.problem);
-    let headline = match &invalid.field {
-        Some(field) => format!("{}: {field}: {reason}", invalid.file),
-        None => format!("{}: {reason}", invalid.file),
-    };
-    Message::new(headline).way("fix", format!("edit {}", invalid.file))
 }
 
 fn managed_worktree(path: &Path, project: Option<&Path>) -> Message {
