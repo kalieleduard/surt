@@ -40,6 +40,7 @@ pub(super) fn describe(problem: &Problem) -> String {
             step,
             outcome,
             declared,
+            ..
         } => format!(
             "expects outcome \"{outcome}\" of \"{step}\", which declares: {}",
             declared.join(", ")

@@ -37,6 +37,15 @@ pub struct InvalidOverride {
 pub struct WorkflowStep {
     pub workflow: String,
     pub step: String,
+    pub field: Option<StepUse>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StepUse {
+    When,
+    Until,
+    Input,
+    DeliveryCheck,
 }
 
 impl InvalidOverride {

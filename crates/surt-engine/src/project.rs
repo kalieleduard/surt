@@ -43,7 +43,7 @@ pub use crate::platform::{console_outputs_utf8, stderr_columns};
 pub use crate::runtime::LogFiles;
 pub use crate::workflow::{
     AgentAssets, Catalog, DefinitionFile, DeliveryCheck, InvalidDefinition, InvalidOverride,
-    OnSuccess, Problem, StepField, WorkflowStep,
+    OnSuccess, Problem, StepField, StepUse, WorkflowStep,
 };
 pub use base_merge::BaseMergeReport;
 pub use blocked::{BlockedStep, LastFailure};

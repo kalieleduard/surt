@@ -21,7 +21,7 @@ pub use definition::OnSuccess;
 pub(crate) use definition::{CleanupPolicy, Definition};
 pub use error::{DefinitionFile, InvalidDefinition, Problem, StepField};
 pub(crate) use freeze::{FreezeError, FrozenRun, Snapshot, freeze};
-pub use overrides::{InvalidOverride, WorkflowStep};
+pub use overrides::{InvalidOverride, StepUse, WorkflowStep};
 pub(crate) use overrides::{LocalAgent, LocalFile};
 pub(crate) use schemas::compile_schema;
 pub(crate) use steps::{PerItemStep, StepSpec};

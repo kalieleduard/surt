@@ -71,6 +71,7 @@ pub enum Problem {
         name: String,
     },
     UnknownOutcome {
+        field: StepField,
         step: String,
         outcome: String,
         declared: Vec<String>,

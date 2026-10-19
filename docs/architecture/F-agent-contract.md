@@ -87,12 +87,12 @@ A local `agent.toml` with CRLF line endings freezes to the same identity as its 
 
 **Test-only runtime.** An effective profile of an overridden Agent with `runtime = "fake"` is accepted only when the engine is built with the `test-support` feature; a release build refuses it at `profile.runtime` as a test-only runtime, so a stray test profile never reaches production.
 
-**Workflow validation and delivery checks.** After merging, the built-in workflow closure of the new root run is validated against the effective Agents exactly as for the built-ins: Outcomes named by `until` and `when`, inputs and outputs by name, Item List files. The `Catalog`'s delivery checks are part of that validation: every Agent a workflow step runs must declare each output a delivery check names as a `json` output, and the Outcome `NoBlockingFinding` names. A built-in that fails is an `InvalidDefinition`; when only the effective Agents fail, the refusal is `InvalidAgentOverride` on the override that breaks it (the first local `agent.toml` that fails on its own) and names the workflow step that no longer validates:
+**Workflow validation and delivery checks.** After merging, the built-in workflow closure of the new root run is validated against the effective Agents exactly as for the built-ins: Outcomes named by `until` and `when`, inputs and outputs by name, Item List files. The `Catalog`'s delivery checks are part of that validation: every Agent a workflow step runs must declare each output a delivery check names as a `json` output, and the Outcome `NoBlockingFinding` names. A built-in that fails is an `InvalidDefinition`; when only the effective Agents fail, the refusal is `InvalidAgentOverride` on the override that breaks it and names the workflow step that no longer validates, with the field of that step that needs the Agent (`when`, `until`, `input` or `delivery check`). The overrides are applied one Agent at a time, in Agent id order, over the built-ins; the first Agent whose override makes the closure fail is blamed, whether it overrides `agent.toml`, `instructions.md` or a schema, and the refusal names that Agent's `agent.toml` when it has one, otherwise its first local file:
 
 ```
 $ surt feature "add login"
 ✖ .surt/agents/reviewer/agent.toml: a delivery check needs the outcome "approved"
-  needed by: task-cycle step review
+  needed by: task-cycle step review (delivery check)
   fix: edit .surt/agents/reviewer/agent.toml
 ```
 

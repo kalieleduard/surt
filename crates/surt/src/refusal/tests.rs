@@ -5,7 +5,7 @@ mod problems;
 
 use surt_engine::project::{
     AwaitedRevision, Candidate, DefinitionFile, GitVersion, InvalidDefinition, InvalidOverride,
-    Problem, Refusal, RunState, WorkflowStep,
+    Problem, Refusal, RunState, StepField, StepUse, WorkflowStep,
 };
 
 use super::message;
@@ -232,8 +232,10 @@ fn an_override_that_breaks_a_workflow_names_the_step_that_needs_it() {
         needed_by: Some(WorkflowStep {
             workflow: "task-cycle".to_owned(),
             step: "review-loop".to_owned(),
+            field: Some(StepUse::Until),
         }),
         problem: Problem::UnknownOutcome {
+            field: StepField::Until,
             step: "review".to_owned(),
             outcome: "changes_requested".to_owned(),
             declared: vec!["approved".to_owned()],
@@ -243,7 +245,7 @@ fn an_override_that_breaks_a_workflow_names_the_step_that_needs_it() {
     assert_eq!(
         text(&refusal),
         "✖ .surt/agents/reviewer/agent.toml: outcomes no longer include \"changes_requested\"\n  \
-         needed by: task-cycle step review-loop\n  \
+         needed by: task-cycle step review-loop (until)\n  \
          fix: edit .surt/agents/reviewer/agent.toml\n"
     );
 }
@@ -451,6 +453,7 @@ fn an_invalid_definition_says_in_words_what_is_wrong() {
         file: DefinitionFile::Workflow("task-cycle".to_owned()),
         step: Some("cycle".to_owned()),
         problem: Problem::UnknownOutcome {
+            field: StepField::Until,
             step: "integrate".to_owned(),
             outcome: "merge".to_owned(),
             declared: vec!["merged".to_owned(), "conflict".to_owned()],
