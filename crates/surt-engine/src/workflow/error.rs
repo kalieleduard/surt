@@ -93,6 +93,9 @@ pub enum Problem {
     MissingAsset {
         path: String,
     },
+    NonLocalReference {
+        reference: String,
+    },
     MisplacedJsonSchema {
         name: String,
     },

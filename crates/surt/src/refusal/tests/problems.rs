@@ -153,7 +153,13 @@ fn every_definition_problem_is_described_in_one_line_of_words() {
             Problem::MissingAsset {
                 path: owned("schemas/x.json"),
             },
-            "\"schemas/x.json\" is not bundled with the agent",
+            "\"schemas/x.json\" is neither a local file nor bundled with the agent",
+        ),
+        (
+            Problem::NonLocalReference {
+                reference: owned("https://example.com/x.json"),
+            },
+            "$ref \"https://example.com/x.json\" is not a file in the agent's schemas directory",
         ),
         (
             Problem::MisplacedJsonSchema { name: owned("x") },
