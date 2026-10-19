@@ -134,7 +134,7 @@ async fn an_approval_of_the_latest_revision_lets_the_next_step_read_it() {
             feature
                 .dir
                 .path()
-                .join(".surt/features")
+                .join(".surt/subjects")
                 .join(SUBJECT)
                 .join("draft.md")
         )

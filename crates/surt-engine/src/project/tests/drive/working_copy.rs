@@ -13,7 +13,7 @@ impl Feature {
     pub(super) fn working_copy(&self, rel_path: &str) -> PathBuf {
         self.dir
             .path()
-            .join(".surt/features")
+            .join(".surt/subjects")
             .join(SUBJECT)
             .join(rel_path)
     }

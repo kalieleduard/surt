@@ -5,7 +5,7 @@ Every Task of the Feature is built, reviewed and integrated. You write the text 
 ## What you receive
 
 - `manifest`: the approved plan, with each Task's document.
-- `integration`: the Integration Branch, the Base it started from, its final tip and, per Task, the reviewed commit and its merge commit.
+- `integration`: the Integration Branch, the Base it started from, its final tip and, in `items`, one entry per Task with its key, the reviewed commit and its merge commit.
 
 Inspect the delivered work from the project root with `git log` and `git diff <base>..<tip>`, without checking anything out.
 

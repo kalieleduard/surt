@@ -38,7 +38,7 @@ async fn the_shipper_reads_the_manifest_and_the_snapshot_of_every_merged_task() 
     for key in ["A", "B"] {
         tips.push(feature.task_tip(key).await);
     }
-    let task = |key: &str, reviewed: &str| {
+    let item = |key: &str, reviewed: &str| {
         let merge = feature.merge_of(reviewed).expect("the merge").sha;
         json!({ "key": key, "reviewed_commit": reviewed, "merge_commit": merge })
     };
@@ -48,7 +48,7 @@ async fn the_shipper_reads_the_manifest_and_the_snapshot_of_every_merged_task() 
             "branch": format!("surt/{SUBJECT}"),
             "base": { "ref": "main", "sha": feature.base() },
             "tip": tip,
-            "tasks": [task("A", &tips[0]), task("B", &tips[1])],
+            "items": [item("A", &tips[0]), item("B", &tips[1])],
         })
     );
     let plan = input(&shipper, "plan", "plan.json").expect("the shipper reads the manifest");

@@ -297,7 +297,7 @@ async fn a_commit_on_a_detached_head_is_an_invalid_delivery() {
 
     assert!(
         refusal(&failures).ends_with(&format!(
-            " is not checked out as the tip of surt/task/{SUBJECT}/A"
+            " is not checked out as the tip of surt/item/{SUBJECT}/A"
         )),
         "{failures:?}"
     );

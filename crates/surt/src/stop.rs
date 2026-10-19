@@ -18,7 +18,7 @@ pub(crate) async fn run(cwd: &Path, args: StopArgs) -> Result<(), Failure> {
     let request = project.request_stop(&subject.name).await?;
     requested(request.driver, request.executions).print(Mark::Waiting);
     project.wait_for_driver(&request.run).await?;
-    let scope = StatusScope::Feature(&subject.name, RunSelector::Current);
+    let scope = StatusScope::Subject(&subject.name, RunSelector::Current);
     for status in project.status(scope).await? {
         Message::new(format!("stopped. resumable: {}", resume_command(&status))).print_success();
     }

@@ -49,7 +49,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             "branch": git::short_branch(&branch.ref_name),
             "base": base,
             "tip": branch.tip_sha,
-            "tasks": self.merged_items(&launch.row.run).await?,
+            "items": self.merged_items(&launch.row.run).await?,
         });
         let bytes = serde_json::to_vec_pretty(&integration).map_err(Error::internal)?;
         Ok(Finished {

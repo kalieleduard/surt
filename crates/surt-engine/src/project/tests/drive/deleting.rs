@@ -152,7 +152,7 @@ async fn deleting_keeps_only_the_delivered_integration_branch_and_purges_the_his
     assert!(!listed.contains(".surt/worktrees"), "{listed}");
     assert!(listed.contains("[mine]"), "{listed}");
     assert!(feature.sha("refs/heads/main").is_some());
-    for gone in [format!("logs/{SUBJECT}"), format!("features/{SUBJECT}")] {
+    for gone in [format!("logs/{SUBJECT}"), format!("subjects/{SUBJECT}")] {
         assert!(!feature.surt_dir(&gone).exists(), "{gone}");
     }
     assert_eq!(
@@ -250,8 +250,8 @@ async fn the_delete_impact_lists_runs_refs_directories_edits_and_history() {
     assert_eq!(
         impact.item_branches,
         [
-            format!("surt/task/{SUBJECT}/A"),
-            format!("surt/task/{SUBJECT}/B")
+            format!("surt/item/{SUBJECT}/A"),
+            format!("surt/item/{SUBJECT}/B")
         ]
     );
     assert_eq!(impact.salvage_refs, 1);
@@ -260,7 +260,7 @@ async fn the_delete_impact_lists_runs_refs_directories_edits_and_history() {
     assert!(impact.directories[0].bytes > 0);
     assert_eq!(
         impact.directories[1].path,
-        PathBuf::from(".surt/features").join(SUBJECT)
+        PathBuf::from(".surt/subjects").join(SUBJECT)
     );
     assert_eq!(impact.directories.len(), 2);
     assert_eq!(impact.unrecorded_edits, Vec::<PathBuf>::new());
@@ -298,7 +298,7 @@ async fn the_delete_impact_counts_unrecorded_edits_in_the_working_copy() {
 
     assert_eq!(
         impact.unrecorded_edits,
-        [PathBuf::from(".surt/features")
+        [PathBuf::from(".surt/subjects")
             .join(SUBJECT)
             .join("draft.md")]
     );

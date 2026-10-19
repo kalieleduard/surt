@@ -48,7 +48,7 @@ async fn cancelled_with_a_blocked_task() -> Feature {
 #[tokio::test(flavor = "multi_thread")]
 async fn a_new_run_carries_the_request_and_works_on_dot_two_branches_and_worktrees() {
     let mut feature = cancelled_with_a_blocked_task().await;
-    let first_task = format!("refs/heads/surt/task/{SUBJECT}/A");
+    let first_task = format!("refs/heads/surt/item/{SUBJECT}/A");
     let first_tip = feature.sha(&first_task);
     let first_integration = feature.sha(&format!("refs/heads/surt/{SUBJECT}"));
 
@@ -98,7 +98,7 @@ async fn a_new_run_carries_the_request_and_works_on_dot_two_branches_and_worktre
         [
             (format!("refs/heads/surt/{stem}"), None),
             (
-                format!("refs/heads/surt/task/{stem}/A"),
+                format!("refs/heads/surt/item/{stem}/A"),
                 Some(worktree.display().to_string())
             ),
         ]

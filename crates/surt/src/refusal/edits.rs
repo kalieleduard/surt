@@ -64,6 +64,6 @@ fn restore(subject: &str, artifact: &str) -> String {
 fn in_working_copy(subject: &str, files: &[String]) -> Vec<String> {
     files
         .iter()
-        .map(|file| format!(".surt/features/{subject}/{file}"))
+        .map(|file| format!(".surt/subjects/{subject}/{file}"))
         .collect()
 }

@@ -117,7 +117,7 @@ async fn the_next_run_of_a_kept_subject_drives_on_its_own_dot_two_names() {
             .join(&stem)
             .join(key);
         assert!(second.is_dir(), "{}", second.display());
-        let branch = format!("refs/heads/surt/task/{stem}/{key}");
+        let branch = format!("refs/heads/surt/item/{stem}/{key}");
         assert!(feature.sha(&branch).is_some(), "{branch}");
     }
     assert!(feature.sha(&format!("refs/heads/surt/{stem}")).is_some());

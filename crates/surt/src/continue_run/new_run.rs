@@ -63,7 +63,7 @@ pub(super) async fn current(
     subject: &str,
 ) -> Result<Option<RunStatus>, Failure> {
     let statuses = project
-        .status(StatusScope::Feature(subject, RunSelector::Current))
+        .status(StatusScope::Subject(subject, RunSelector::Current))
         .await?;
     Ok(statuses.into_iter().next())
 }

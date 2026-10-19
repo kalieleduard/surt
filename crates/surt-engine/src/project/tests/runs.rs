@@ -20,7 +20,7 @@ async fn two_runs(dir: &ProjectDir) -> Project {
 
 async fn run_states(project: &Project, run: RunSelector) -> Vec<(u32, Vec<RunState>)> {
     project
-        .status(StatusScope::Feature(SUBJECT, run))
+        .status(StatusScope::Subject(SUBJECT, run))
         .await
         .expect("the status reads")
         .into_iter()
@@ -92,7 +92,7 @@ async fn an_unknown_run_is_refused_listing_the_runs_with_their_states() {
 
     let by_status = refused(
         project
-            .status(StatusScope::Feature(SUBJECT, RunSelector::Ordinal(3)))
+            .status(StatusScope::Subject(SUBJECT, RunSelector::Ordinal(3)))
             .await,
     );
     let by_show = refused(

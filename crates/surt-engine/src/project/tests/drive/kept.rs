@@ -60,7 +60,7 @@ impl Feature {
     async fn cleanup_state(&self) -> Option<CleanupState> {
         let mut statuses = self
             .project
-            .status(StatusScope::Feature(SUBJECT, RunSelector::Current))
+            .status(StatusScope::Subject(SUBJECT, RunSelector::Current))
             .await
             .expect("the status");
         statuses.remove(0).cleanup

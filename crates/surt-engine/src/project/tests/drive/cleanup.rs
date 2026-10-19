@@ -205,14 +205,14 @@ async fn a_working_copy_file_with_an_unrecorded_edit_is_kept_with_a_warning() {
         1,
         1,
         shipping_after(|root| {
-            let task = root.join(".surt/features").join(SUBJECT).join("tasks/A.md");
+            let task = root.join(".surt/subjects").join(SUBJECT).join("tasks/A.md");
             fs::write(task, "# Task A, edited by hand\n").expect("an edit");
         }),
     );
 
     let driven = feature.drive_with(&team).await;
 
-    let kept = Path::new(".surt/features").join(SUBJECT).join("tasks/A.md");
+    let kept = Path::new(".surt/subjects").join(SUBJECT).join("tasks/A.md");
     assert_eq!(
         cleanups(&driven)[0].kept,
         [Kept::UnrecordedEdit { path: kept.clone() }]
@@ -261,7 +261,7 @@ async fn a_moved_task_branch_and_a_foreign_path_are_kept_with_a_warning() {
                     path: foreign.clone()
                 },
                 Kept::MovedBranch {
-                    branch: format!("surt/task/{SUBJECT}/A")
+                    branch: format!("surt/item/{SUBJECT}/A")
                 },
             ],
             ..Cleanup::default()
