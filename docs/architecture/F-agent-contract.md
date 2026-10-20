@@ -241,13 +241,13 @@ A project changes an Agent by editing its file, for instance `model = "claude-op
 
 | Agent | Inputs (`?` = optional) | Outputs | Outcomes |
 |---|---|---|---|
-| `spec` | `request: text`, `spec?: markdown`, `spec-rejection-reason?: text` | `spec: markdown` | `done` |
+| `spec` | `request: text`, `spec?: markdown`, `spec-rejection-reason?: text`, `spec-answers?: json` | `spec: markdown` on `done`, `spec-questions: questions` on `questions` | `done`, `questions` |
 | `tasks` | `spec: markdown`, `manifest?: item_list`, `manifest-rejection-reason?: text` | `manifest: item_list`, including one required `task: markdown` item file per Task | `done` |
 | `builder` | `item: json` with its read-only `task` Markdown file, `spec: markdown`, `feedback?: json`, `check-report?: json`, `conflict?: json` | `commit: json` | `done` |
 | `reviewer` | `item: json` with its read-only `task` Markdown file, `spec: markdown`, `commit: json`, `check-report: json`, `feedback?: json`, `conflict?: json` | `feedback: json` | `approved`, `changes_requested` |
 | `shipper` | `manifest: item_list`, `integration: json` | `delivery: json` | `done` |
 
-`request`, `base` and `item` are supplied as defined in section E. `check-report`, `conflict` and `integration` are produced by Operations ([A. Git Integration](A-git-integration.md#operation-registry)).
+The Spec Agent is the only one with `conversation = "loop"`; the other four start every Execution fresh. `request`, `base` and `item` are supplied as defined in section E, and `spec-answers` by the input step `answer-spec` ([E](E-workflow-schema.md#the-feature-template)). `check-report`, `conflict` and `integration` are produced by Operations ([A. Git Integration](A-git-integration.md#operation-registry)).
 
 ## Template output schemas and validation
 

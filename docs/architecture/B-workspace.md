@@ -63,6 +63,11 @@ impl Project {
 
     pub async fn approve(&self, gate: GateRef, rev: RevisionRef) -> Result<(), Error>;
     pub async fn reject(&self, gate: GateRef, rev: RevisionRef, reason: String) -> Result<(), Error>;
+    /// The waiting input step with its questions Revision and round; `NoInputWaiting` otherwise.
+    pub async fn waiting_input(&self, run: &RunId) -> Result<WaitingInput, Error>;
+    /// Records one round of answers, then the CLI drives as `continue` does. Refuses
+    /// `NoInputWaiting`, `StaleRevision` or `UnansweredQuestions { missing, unknown }`.
+    pub async fn answer(&self, run: &RunId, revision: u32, answers: &BTreeMap<String, String>, note: Option<&str>, actor: &str) -> Result<Answered, Error>;
     /// Refuses with the run's derived state when no Driver is live.
     pub async fn request_stop(&self, subject: &str) -> Result<StopRequest, Error>;
     pub async fn cancel(&self, run: RunId) -> Result<CancelResult, Error>;
@@ -79,7 +84,7 @@ impl Project {
 Invariants of the interface:
 
 - **`drive` is the whole driving sequence.** Lock, reconciliation ([I. Recovery](I-recovery.md#what-a-driving-command-does-when-it-takes-the-lock)) and cleanup ([I. Cleanup](I-cleanup.md#when-cleanup-runs)) happen inside it, so a later daemon gets them by calling the same function ([A. Process Model](A-process-model.md#daemon-fit)).
-- **There are no phases.** `surt continue` calls `drive` on the active run whatever step it is at, with no gate precondition in the CLI; the engine only sees Approval Gates declared in the frozen definition, and a gate that still waits ends the drive at once.
+- **There are no phases.** `surt continue` calls `drive` on the active run whatever step it is at, with no gate precondition in the CLI; the engine only sees Approval Gates and input steps declared in the frozen definition, and one that still waits ends the drive at once.
 - **Confirmations are not in the engine.** `cancel`, `restore` and `delete` act when called; the CLI asks first, using `status`/`inspect` to show the impact.
 - **Subject resolution is in the engine.** A Subject is an engine concept; how a name, slug or prefix matches is the same for every workflow.
 
@@ -92,7 +97,7 @@ Invariants of the interface:
 | `drive` | the tick loop, the state machines of [G](G-state-machines.md), Iterations and Per-Item expansion, agent slots, the rate-limit pause, Interruption and Cancellation | orchestrates the others |
 | `reconcile` | the partial-state tables of [I. Recovery](I-recovery.md), orphans, Salvage Refs, preparing a clean worktree for every Attempt | real Git, real processes |
 | `artifacts` | blobs by SHA-256, atomic publication of Revisions, delivery validation, Working Copy, edit detection, pinning and revalidation ([H](H-artifact-storage.md)) | store + disk |
-| `context` | the Context Assembler: each Execution's `runtime/executions/<id>/` inputs and read-only item files | disk |
+| `context` | the Context Assembler: each Execution's `runtime/executions/<id>/` inputs, read-only item files and `context.md`, plus `context-continued.md` with only the changed Inputs when a conversation continues | disk |
 | `runtime` | the `AgentRuntime` trait; the Claude Code adapter (launcher argv, stream-json, failure classification); the Fake Runtime; process-tree supervision and stop escalation | **the one real seam** |
 | `operations` | the six Operations as a closed registry ([A. Git Integration](A-git-integration.md#operation-registry)) | real Git |
 | `git` | running `git` by argv, the minimum-version check, `git.lock` with backoff on third-party Git locks | real Git |
@@ -147,6 +152,7 @@ impl Store {
     async fn end_execution(&self, exec: ExecutionId, end: ExecutionEnd) -> Result<()>;
     async fn promote_working_copy(&self, artifact: ArtifactId) -> Result<()>;
     async fn record_approval(&self, approval: NewApproval) -> Result<()>;
+    async fn record_answer(&self, answer: NewAnswer) -> Result<AnswerOutcome>;   // answers Revision + step done + events
     async fn request_stop(&self, run: RunId) -> Result<()>;
     async fn request_cancel(&self, run: RunId) -> Result<()>;
     async fn finish_run(&self, run: RunId, state: RunState) -> Result<()>;
@@ -198,7 +204,7 @@ The hard rules of [G. State Machines](G-state-machines.md) (Attempt and Iteratio
 
 ```rust
 pub enum DriveOutcome {
-    AtGate { gate: GateRef },              // exit 0
+    AtGate { gates: Vec<Gate> },           // exit 0; each Gate has a kind, approval or input, and its artifact
     Succeeded { merge: MergeResult },      // exit 0, also when "not merged: base moved"
     Blocked { steps: Vec<BlockedStep> },   // exit 4, also when other Tasks merged
     Cancelled,                             // exit 5
@@ -220,6 +226,8 @@ pub enum Refusal {
     AmbiguousSubject { candidates: Vec<SubjectRef> },
     UnknownSubject { query: String },
     GateNotWaiting { .. },
+    NoInputWaiting { .. },
+    UnansweredQuestions { missing: Vec<String>, unknown: Vec<String>, .. },
     StaleRevision { expected: RevisionRef, current: RevisionRef },
     PinnedRevisionEdited { .. },
     RunBranchMoved { expected: Sha, found: Sha },

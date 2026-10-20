@@ -78,7 +78,7 @@ A Workflow Definition is the file `.surt/workflows/<name>.toml` of the project; 
 
 Notes per kind:
 
-- **agent:** the `agent.toml` owns the contract: `outcomes`, `[inputs]` (with `optional = true` where an input may not exist yet), `[outputs]` and any declared `item_files` on an Item List output ([section F](F-agent-contract.md)). The step does not repeat that list. It only renames, when a workflow's artifact name differs from the agent's input name.
+- **agent:** the `agent.toml` owns the contract: `outcomes`, `[inputs]` (with `optional = true` where an input may not exist yet), `[outputs]` with the Outcomes that deliver each one (`outputs.<name>.outcomes`, [F](F-agent-contract.md#outputs-per-outcome)), any declared `item_files` on an Item List output, and whether the Agent keeps a conversation across its Loop (`[profile] conversation`, [F](F-agent-contract.md#a-conversation-across-a-loop)) ([section F](F-agent-contract.md)). The step does not repeat that list. It only renames, when a workflow's artifact name differs from the agent's input name.
 - **approval:** it approves or rejects the **latest** Revision of `artifact` at the moment `surt approve`/`surt reject` runs, and records an Approval on that Revision. The `-m` reason of `surt reject` becomes a new human-origin Revision of `rejection_artifact`. Each gate needs its own `rejection_artifact` name, because names are per run and two gates sharing one name would hand one gate's reason to another agent.
 - **input:** a human answers the questions of the **latest** Revision of `artifact`, which must be an artifact of format `questions` ([F](F-agent-contract.md#the-questions-format)). It waits like an approval gate: no Execution, no limit. Recording the answers publishes a new human-origin Revision of `answer_artifact` (format `json`, file `<answer_artifact>.json`) holding every earlier round plus this one ([H](H-artifact-storage.md#answers)), and the step ends `answered`. It runs only when the Agent asked, through `when`:
   ```toml
@@ -194,6 +194,7 @@ Checks:
 7. Every `run` is a registered operation. Every `workflow` of a `per_item` exists, and its `items` artifact is produced by a step before it in the Item List format. Any `item_files` declarations have valid names and supported file formats; actual item references and bytes are validated at delivery and expansion.
 8. Every `approval` names an `artifact` produced before it and a `rejection_artifact` unique in the definition. Every `input` names an `artifact` produced before it in the `questions` format and an `answer_artifact`; `rejection_artifact` and `answer_artifact` names are unique together (`DuplicateRejectionArtifact`, `DuplicateAnswerArtifact`, `NotQuestions`). An `input` step produces its `answer_artifact` as `json` for the steps after it.
 9. `[inputs]`: known formats and fields, `default` only on `git_ref`, none in a `per_item` child; `[subject] from` names a declared `text` or `markdown` input.
+10. A step whose Agent has `conversation = "loop"` is in a Loop's `body` (`ConversationOutsideLoop`: `agent "<agent>" has conversation = "loop", but the step is in no loop's body`).
 
 ## The Operations' artifact contract
 
@@ -236,21 +237,29 @@ description = "branch, tag or commit to start from"
 [subject]
 from = "request"
 
-# --- spec: the Spec Agent writes it, you approve or reject it -------------
+# --- spec: the Spec Agent asks or writes it, you answer, approve or reject --
 
 [steps.spec]
 kind = "agent"
-agent = "spec"            # reads: request, spec?, spec-rejection-reason?  writes: spec
+agent = "spec"            # reads: request, spec?, spec-rejection-reason?, spec-answers?  writes: spec (done) or spec-questions (questions)
+
+[steps.answer-spec]
+kind = "input"
+artifact = "spec-questions"
+answer_artifact = "spec-answers"
+needs = ["spec"]
+when = { step = "spec", outcome = "questions" }
 
 [steps.approve-spec]
 kind = "approval"
 artifact = "spec"
 rejection_artifact = "spec-rejection-reason"
-needs = ["spec"]
+needs = ["answer-spec"]
+when = { step = "spec", outcome = "done" }
 
 [steps.spec-loop]
 kind = "loop"
-body = ["spec", "approve-spec"]
+body = ["spec", "answer-spec", "approve-spec"]
 until = { step = "approve-spec", outcome = "approved" }
 
 # --- tasks: the Task Agent breaks the spec into an Item List --------------
@@ -350,7 +359,8 @@ needs = ["setup"]
 | Workflow | Step | Kind | Performed by | Outcomes |
 |---|---|---|---|---|
 | feature | `spec-loop` | loop | engine | `done` when `approve-spec` = `approved` |
-| feature | `spec` | agent | Spec Agent (`spec`) | `done` |
+| feature | `spec` | agent | Spec Agent (`spec`) | `done` · `questions` |
+| feature | `answer-spec` | input | human | `answered` |
 | feature | `approve-spec` | approval | human | `approved` · `rejected` |
 | feature | `tasks-loop` | loop | engine | `done` when `approve-tasks` = `approved` |
 | feature | `plan-tasks` | agent | Task Agent (`tasks`) | `done` |
@@ -366,6 +376,12 @@ needs = ["setup"]
 | task-cycle | `check` | operation | Surt (`checks.run`) | `passed` · `failed` |
 | task-cycle | `review` | agent | Reviewer (`reviewer`) | `approved` · `changes_requested` |
 | task-cycle | `integrate` | operation | Surt (`git.integrate`) | `merged` · `conflict` |
+
+How the spec Loop behaves:
+
+- `spec` = `questions` → `answer-spec` waits for `surt answer`; once it is `answered`, `approve-spec` is SKIPPED → a new Iteration starts, and the Spec Agent reads `spec-answers`.
+- `spec` = `done` → `answer-spec` is SKIPPED and `approve-spec` waits. `rejected` → a new Iteration starts, and the Spec Agent reads `spec-rejection-reason`; `approved` → the Loop is `done`.
+- The Spec Agent has `conversation = "loop"`, so each Iteration continues the conversation of its last successful Execution and is sent only the Inputs that changed ([F](F-agent-contract.md#a-conversation-across-a-loop)). The Loop has a human step in its body, so it has no Iteration limit.
 
 How the Task Cycle behaves:
 

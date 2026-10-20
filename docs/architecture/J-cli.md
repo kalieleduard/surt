@@ -26,8 +26,8 @@ surt delete  <subject>
 | Command | Drives? | What it does |
 |---|---|---|
 | `init` | no | Creates `.surt/` in the project and, with `--template`, writes a Template's workflows and Agents into it ([below](#surt-init-and-finding-the-project)). |
-| `run <workflow>` | yes | Creates a Subject and the first run of `.surt/workflows/<workflow>.toml` from its declared inputs, drives to the first Approval Gate or the end ([below](#surt-run-create-a-run-and-drive-it)). |
-| `continue <subject>` | yes | Drives the active run again to the next Approval Gate or the end; with `--new-run`, starts the next run of the Subject ([below](#surt-continue-drive-again-or-start-the-next-run)). |
+| `run <workflow>` | yes | Creates a Subject and the first run of `.surt/workflows/<workflow>.toml` from its declared inputs, drives to the first Approval Gate or input step, or the end ([below](#surt-run-create-a-run-and-drive-it)). |
+| `continue <subject>` | yes | Drives the active run again to the next Approval Gate or input step, or the end; with `--new-run`, starts the next run of the Subject ([below](#surt-continue-drive-again-or-start-the-next-run)). |
 | `approve` / `reject` | **no** | Record an Approval on the waiting gate's latest Revision and return. |
 | `answer` | yes | Records the answers to the waiting input step's questions, then drives on like `continue` ([below](#surt-answer-answer-the-questions)). |
 | `stop` | no | Asks the live Driver to stop (an Interruption). The run stays resumable. |
@@ -131,7 +131,7 @@ $ surt run feature --input request="add login" --input base=main --merge
 
 `surt continue <subject>` takes a reference to an existing Subject (an unknown reference refuses) and drives its active run, whatever step it is at. It is the one command that resumes; it knows nothing about the workflow's gates or phases.
 
-1. **Driving again.** It finishes a cleanup the previous run left pending, then drives the active run until an Approval Gate waits, the run ends, a step blocks or a Ctrl-C interrupts. A gate that still waits ends the drive at once, printing the same `⏸ … awaiting approval` lines, exit `0`; there is no "approve the spec first" check. After a rejection the step that produced the artifact runs again; after an approval the run goes on past the gate:
+1. **Driving again.** It finishes a cleanup the previous run left pending, then drives the active run until an Approval Gate or an input step waits, the run ends, a step blocks or a Ctrl-C interrupts. A gate or input step that still waits ends the drive at once, printing the same `⏸ … awaiting approval` lines or `?` questions block, exit `0`; there is no "approve the spec first" check. After a rejection the step that produced the artifact runs again; after an approval the run goes on past the gate:
    ```
    $ surt continue add-login
    ● plan-tasks started
@@ -440,7 +440,7 @@ execution 0192f3a8-7b1c-7000-8000-4a1f0c3e9b21
   logs      surt logs 0192f3a8-7b1c-7000-8000-4a1f0c3e9b21
 ```
 
-The Execution detail reads only SQLite (the Execution row, its `runtime_info`, its Inputs with their Revision numbers and identity SHA-256, the item's `run_branch`) plus a read-only `git for-each-ref` for `refs/surt/salvage/<execution-id>`, so it works after cleanup and without log files. The profile is the frozen agent's: runtime, model, requested effort and, for Claude Code, permission mode. `session` and `usage` show what the runtime reported. A value the runtime did not report is left out, never printed as `0`, and a line with nothing to show is left out. An Operation's Execution shows `operation <id>` instead of a role and profile.
+The Execution detail reads only SQLite (the Execution row, its `runtime_info`, its Inputs with their Revision numbers and identity SHA-256, the item's `run_branch`) plus a read-only `git for-each-ref` for `refs/surt/salvage/<execution-id>`, so it works after cleanup and without log files. The profile is the frozen agent's: runtime, model, requested effort and, for Claude Code, permission mode. `session` and `usage` show what the runtime reported. For an Agent with `conversation = "loop"` ([F](F-agent-contract.md#a-conversation-across-a-loop)) a `conversation` line follows `session`, from `runtime_info.conversation`: `continued from <execution id>`, `restarted: transcript_missing (previous <execution id>)` (or `continuation_refused`), or `fresh: no_previous`; the labels then align to its width. A value the runtime did not report is left out, never printed as `0`, and a line with nothing to show is left out. An Operation's Execution shows `operation <id>` instead of a role and profile.
 
 Each line is the event's local time (with its date when it is from an earlier day than today), its kind and its details: the item (run timeline only), the step and Iteration, the Attempt, then the kind's `event.data` fields ([D. Event data](D-database.md#event-data)). A field that is missing, as in a Milestone 1 event's `{}`, is left out, so such an event renders as its bare kind. The run timeline holds the root run's events plus each item's `run.*` events; an item's timeline holds every event of its Child Workflow Run. `--run N` picks the run, an unknown item refuses and lists the run's items. Execution ids are printed whole so they can be passed to `surt inspect <execution-id>` and `surt logs`. The pause reads `agents.paused  until 03:00 · rate_limit · 2 waiting` (with `backoff step N` when no reset time was reported, and the date when the end falls on another day) and `agents.resumed  after 2h05m00s`. The Execution detail of a rate-limited Execution shows `failed (transient) · rate_limit — … · resets 03:00` when the runtime reported a reset time.
 
@@ -635,7 +635,7 @@ Each gate entry has a `kind`: `approval`, or `input` for an input step. An input
 }
 ```
 
-A Check or other Operation has `"performer": {"kind": "operation", "id": "check"}`. Optional fields: `outcome`, `failure`, `slot`, `pid`, `started_at`, `finished_at`, `worktree`, `salvage_ref`, and in `reported` each of `version`, `session_id`, `model`, `exit_code`, `turns`, `usage`, `cost_usd`, `permission_denials`, `resets_at`.
+A Check or other Operation has `"performer": {"kind": "operation", "id": "check"}`. Optional fields: `outcome`, `failure`, `slot`, `pid`, `started_at`, `finished_at`, `worktree`, `salvage_ref`, and in `reported` each of `version`, `session_id`, `model`, `exit_code`, `turns`, `usage`, `cost_usd`, `permission_denials`, `resets_at` and `conversation` (`{"continued_from": …}`, `{"restarted": …, "previous": …}` or `{"fresh": "no_previous"}`, as recorded).
 
 `surt show <subject> <artifact> --json` prints one Revision with every file (only the one `--file` names). A file's content is a UTF-8 string, or `content_base64` (RFC 4648, padded) when its bytes aren't UTF-8:
 

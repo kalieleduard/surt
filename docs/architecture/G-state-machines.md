@@ -30,7 +30,7 @@ stateDiagram-v2
 | `interrupted` | Stopped by an Interruption, or found `queued`/`running` with no live Driver by the next one, which stops the process if it survived (an orphan, [A](A-process-model.md#orphaned-agents)). Nothing it produced is accepted, even a valid delivery whose end the Driver never recorded ([I](I-recovery.md#principles)). | no |
 | `cancelled` | Stopped because its root Workflow Run was cancelled. | no |
 
-All states except `queued` and `running` are final. An Execution is never resumed or adopted: work continues as a new Execution of the same Step Run, which is a new **Attempt**.
+All states except `queued` and `running` are final. An Execution is never resumed or adopted: work continues as a new Execution of the same Step Run, which is a new **Attempt**. An Agent with `conversation = "loop"` continues, in its new Execution, the conversation of its last `succeeded` Execution in the same Loop, never that of an `interrupted`, `failed` or `cancelled` one; a continuation that cannot be resumed restarts fresh inside the same Execution and spends no Attempt ([F](F-agent-contract.md#a-conversation-across-a-loop)).
 
 Interruptions and orphans do not count because the agent did not cause them. A developer who presses Ctrl-C five times never exhausts a step.
 
