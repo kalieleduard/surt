@@ -21,15 +21,23 @@ from = "request"
 kind = "agent"
 agent = "spec"
 
+[steps.answer-spec]
+kind = "input"
+artifact = "spec-questions"
+answer_artifact = "spec-answers"
+needs = ["spec"]
+when = { step = "spec", outcome = "questions" }
+
 [steps.approve-spec]
 kind = "approval"
 artifact = "spec"
 rejection_artifact = "spec-rejection-reason"
-needs = ["spec"]
+needs = ["answer-spec"]
+when = { step = "spec", outcome = "done" }
 
 [steps.spec-loop]
 kind = "loop"
-body = ["spec", "approve-spec"]
+body = ["spec", "answer-spec", "approve-spec"]
 until = { step = "approve-spec", outcome = "approved" }
 
 [steps.plan-tasks]
