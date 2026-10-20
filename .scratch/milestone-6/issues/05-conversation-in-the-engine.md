@@ -6,12 +6,12 @@ Spec: [Milestone 6](../spec.md) (Conversation) · Plan: [F](../../../docs/archit
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] `[profile] conversation = "none" | "loop"` (default `"none"`), in the canonical `agent.toml`; a `"loop"` Agent used by a step outside every Loop body refuses at creation
-- [ ] The Driver finds the latest `succeeded` Execution with a `session_id` of the same step key in the same Loop of the same run (any earlier Iteration or Attempt); interrupted, cancelled and failed ones are never chosen
-- [ ] `RuntimeRequest.continuation: Option<Continuation { session_id, execution_id, context }>`; the Context Assembler also writes `context-continued.md` with only the Inputs whose Revision differs from the previous Execution's `execution_input`, excluding Revisions that Execution produced
-- [ ] `RuntimeReport` carries the conversation result; `runtime_info.conversation` is `{continued_from}`, `{restarted, previous}` or `{fresh: "no_previous"}` for `"loop"` Agents and absent otherwise; `inspect <execution>` prints it
-- [ ] Fake runtime: reports `continued_from` when asked to continue; a scripted `transcript_missing` behaviour (Rust and TOML scripts) restarts with the full context in the same Execution and reports `restarted`
-- [ ] Engine tests: the second Execution continues the first; failed/interrupted ones are skipped; a rejection continues; the delta includes a human edit and omits the Agent's own output; `transcript_missing` restarts and spends no Attempt; `"none"` Agents have no continuation
-- [ ] F and I document the mechanism
+- [x] `[profile] conversation = "none" | "loop"` (default `"none"`), in the canonical `agent.toml`; a `"loop"` Agent used by a step outside every Loop body refuses at creation
+- [x] The Driver finds the latest `succeeded` Execution with a `session_id` of the same step key in the same Loop of the same run (any earlier Iteration or Attempt); interrupted, cancelled and failed ones are never chosen
+- [x] `RuntimeRequest.continuation: Option<Continuation { session_id, execution_id, context }>`; the Context Assembler also writes `context-continued.md` with only the Inputs whose Revision differs from the previous Execution's `execution_input`, excluding Revisions that Execution produced
+- [x] `RuntimeReport` carries the conversation result; `runtime_info.conversation` is `{continued_from}`, `{restarted, previous}` or `{fresh: "no_previous"}` for `"loop"` Agents and absent otherwise; `inspect <execution>` prints it
+- [x] Fake runtime: reports `continued_from` when asked to continue; a scripted `transcript_missing` behaviour (Rust and TOML scripts) restarts with the full context in the same Execution and reports `restarted`
+- [x] Engine tests: the second Execution continues the first; failed/interrupted ones are skipped; a rejection continues; the delta includes a human edit and omits the Agent's own output; `transcript_missing` restarts and spends no Attempt; `"none"` Agents have no continuation
+- [x] F and I document the mechanism
