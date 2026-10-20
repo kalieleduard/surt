@@ -1,5 +1,7 @@
 mod activity;
 mod agent_files;
+mod answer_refusals;
+mod answers;
 mod blocked;
 mod branches;
 mod cancelling;
@@ -54,6 +56,7 @@ mod shipping;
 mod slots;
 mod stop_requests;
 mod stopping;
+mod talk;
 mod team;
 mod working_copy;
 mod worktrees;

@@ -101,7 +101,8 @@ async fn deciding_refuses_when_no_gate_waits_or_the_revision_is_not_the_latest()
     assert_eq!(
         refusal(early),
         Refusal::NoGateWaiting {
-            subject: SUBJECT.to_owned()
+            subject: SUBJECT.to_owned(),
+            input: None,
         }
     );
     assert_eq!(

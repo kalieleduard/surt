@@ -1,6 +1,7 @@
 mod facts;
 mod gates;
 mod items;
+mod states;
 
 pub(in crate::project) use facts::{base as recorded_base, merge as recorded_merge};
 pub(super) use gates::origin;
@@ -8,7 +9,7 @@ pub(super) use gates::origin;
 use std::path::PathBuf;
 
 use super::{
-    BlockedStep, Commit, Error, GateStatus, IntegrationBranch, MergeIntoBase, Project,
+    BlockedStep, Commit, Error, GateKind, GateStatus, IntegrationBranch, MergeIntoBase, Project,
     RevisionOrigin, RunSelector, RunState,
 };
 use crate::cleanup::{Kept, Left};
@@ -17,9 +18,6 @@ use crate::git;
 use crate::platform;
 use crate::runtime::FailureClass;
 use crate::store::{LastAgentEnd, RootRunRow, Store};
-
-const SUCCEEDED: &str = "succeeded";
-const CANCELLED: &str = "cancelled";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StatusScope<'a> {
@@ -72,7 +70,9 @@ pub struct Driver {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GateView {
     pub step: String,
+    pub kind: GateKind,
     pub artifact: String,
+    pub round: Option<u32>,
     pub status: GateStatus,
     pub revision: Option<RevisionSummary>,
     pub decided_by: Option<String>,
@@ -210,7 +210,7 @@ impl Project {
             .into_iter()
             .map(BlockedStep::from)
             .collect::<Vec<_>>();
-        let waiting = !store.waiting_gates(root).await?.is_empty();
+        let waiting = store.waiting_gates(root).await?;
         let frozen = Frozen::from_files(store.frozen_files(root).await?)?;
         let slots = AgentSlots {
             in_use: slots_in_use(store).await?,
@@ -230,7 +230,7 @@ impl Project {
             run: run.ordinal(),
             runs: run.runs(),
             ended_at: run.finished_at,
-            states: states(&run.state, driver.is_some(), waiting, !blocked.is_empty()),
+            states: states::derive(&run.state, driver.is_some(), &waiting, !blocked.is_empty()),
             base: facts::base(store, root).await?,
             branch: store
                 .run_branch(root)
@@ -277,24 +277,4 @@ async fn slots_in_use(store: &Store) -> Result<u32, Error> {
         })
         .map(|holders| holders.agents())
         .sum())
-}
-
-fn states(stored: &str, driven: bool, waiting: bool, blocked: bool) -> Vec<RunState> {
-    match stored {
-        SUCCEEDED => return vec![RunState::Succeeded],
-        CANCELLED => return vec![RunState::Cancelled],
-        _ if driven => return vec![RunState::Running],
-        _ => {}
-    }
-    let mut states = Vec::new();
-    if waiting {
-        states.push(RunState::AwaitingApproval);
-    }
-    if blocked {
-        states.push(RunState::Blocked);
-    }
-    if states.is_empty() {
-        states.push(RunState::Interrupted);
-    }
-    states
 }

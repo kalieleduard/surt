@@ -9,6 +9,7 @@ use sqlx::{Sqlite, SqliteConnection, SqlitePool, Transaction};
 use crate::platform::{self, ExclusiveLock};
 
 mod acceptance;
+mod answers;
 mod approvals;
 mod blocked;
 mod branches;
@@ -46,6 +47,7 @@ mod timeline;
 mod working_copy;
 
 pub(crate) use acceptance::{Acceptance, Integrated, PublishedOutput};
+pub(crate) use answers::{AnswerOutcome, NewAnswer};
 pub(crate) use approvals::{Decision, DecisionOutcome, NewDecision};
 pub(crate) use blocked::{BlockedRow, FailureRow};
 pub(crate) use branches::{PreviousExecution, RunBranch};
@@ -95,6 +97,8 @@ pub(crate) enum StoreError {
     Migration(#[from] MigrateError),
     #[error(transparent)]
     Database(#[from] sqlx::Error),
+    #[error("the recorded answers are not valid JSON: {0}")]
+    CorruptAnswers(#[source] serde_json::Error),
     #[cfg(feature = "test-support")]
     #[error("crashed after {0:?}")]
     Crashed(Checkpoint),

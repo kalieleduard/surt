@@ -109,7 +109,9 @@ fn check_human_artifacts(definition: &Definition) -> Result<(), (&str, Problem)>
     Ok(())
 }
 
-fn human_artifact(spec: &StepSpec) -> Option<(&str, fn(String) -> Problem)> {
+type Duplicate = fn(String) -> Problem;
+
+fn human_artifact(spec: &StepSpec) -> Option<(&str, Duplicate)> {
     match spec {
         StepSpec::Approval(spec) => Some((&spec.rejection_artifact, |artifact| {
             Problem::DuplicateRejectionArtifact { artifact }

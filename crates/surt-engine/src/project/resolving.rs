@@ -2,7 +2,8 @@ mod executions;
 
 use super::naming::without_date;
 use super::{
-    AwaitedRevision, Candidate, Error, GateStatus, KnownRun, Project, Refusal, RunId, RunStatus,
+    AwaitedRevision, Candidate, Error, GateKind, GateStatus, KnownRun, Project, Refusal, RunId,
+    RunStatus,
 };
 use crate::cleanup;
 use crate::store::{RootRunRow, Store, SubjectRow};
@@ -137,10 +138,12 @@ fn candidate(name: &str, status: Option<RunStatus>) -> Candidate {
         name: name.to_owned(),
         awaiting: status.as_ref().and_then(|status| {
             status.gates.iter().find_map(|gate| match gate.status {
-                GateStatus::Waiting { revision } => Some(AwaitedRevision {
-                    artifact: gate.artifact.clone(),
-                    revision,
-                }),
+                GateStatus::Waiting { revision } if gate.kind == GateKind::Approval => {
+                    Some(AwaitedRevision {
+                        artifact: gate.artifact.clone(),
+                        revision,
+                    })
+                }
                 _ => None,
             })
         }),

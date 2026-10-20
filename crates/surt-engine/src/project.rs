@@ -1,3 +1,4 @@
+mod answers;
 mod base_merge;
 mod blocked;
 mod cancelling;
@@ -46,6 +47,7 @@ pub use crate::runtime::LogFiles;
 pub use crate::workflow::{
     DefinitionFile, InputFormat, InvalidDefinition, OnSuccess, Problem, StepField,
 };
+pub use answers::{Answered, WaitingInput};
 pub use base_merge::BaseMergeReport;
 pub use blocked::{BlockedStep, LastFailure};
 pub use cancelling::CancelImpact;
