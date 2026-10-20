@@ -21,6 +21,26 @@ pub struct RuntimeInfo {
     pub permission_denials: Vec<Value>,
     #[serde(default)]
     pub resets_at: Option<i64>,
+    #[serde(default)]
+    pub conversation: Option<ConversationInfo>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(untagged)]
+pub enum ConversationInfo {
+    Continued {
+        #[serde(rename = "continued_from")]
+        from: String,
+    },
+    Restarted {
+        #[serde(rename = "restarted")]
+        reason: String,
+        previous: String,
+    },
+    Fresh {
+        #[serde(rename = "fresh")]
+        reason: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize)]

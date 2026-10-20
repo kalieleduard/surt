@@ -2,12 +2,13 @@ use std::path::PathBuf;
 
 use serde_json::json;
 use surt_engine::project::{
-    AgentProfile, ExecutionDetail, ExecutionFailure, ExecutionInput, ExecutionState, Performer,
-    RuntimeInfo, Usage,
+    AgentProfile, ConversationInfo, ExecutionDetail, ExecutionFailure, ExecutionInput,
+    ExecutionState, Performer, RuntimeInfo, Usage,
 };
 
 use super::render;
 use crate::driving::local_time;
+use crate::inspect::json;
 use crate::symbols::Symbols;
 
 const ID: &str = "0192f3a8-7b1c-7000-8000-000000000001";
@@ -102,6 +103,7 @@ fn failed_builder() -> ExecutionDetail {
                 json!({ "tool_name": "Bash" }),
             ],
             resets_at: None,
+            conversation: None,
         },
         inputs: vec![
             input("item", "plan", 1, Some("B")),
@@ -253,4 +255,65 @@ fn a_rate_limited_execution_prints_only_ascii_in_ascii_mode() {
         "{ascii}"
     );
     assert!(ascii.is_ascii(), "{ascii}");
+}
+
+#[test]
+fn a_conversation_says_which_execution_it_continued_or_why_it_started_fresh() {
+    let previous = "0192f3a8-7b1c-7000-8000-000000000000";
+    let cases = [
+        (
+            ConversationInfo::Continued {
+                from: previous.to_owned(),
+            },
+            format!("  conversation  continued from {previous}\n"),
+        ),
+        (
+            ConversationInfo::Restarted {
+                reason: "transcript_missing".to_owned(),
+                previous: previous.to_owned(),
+            },
+            format!("  conversation  restarted: transcript_missing (previous {previous})\n"),
+        ),
+        (
+            ConversationInfo::Fresh {
+                reason: "no_previous".to_owned(),
+            },
+            "  conversation  fresh: no_previous\n".to_owned(),
+        ),
+    ];
+
+    for (conversation, line) in cases {
+        let detail = ExecutionDetail {
+            reported: RuntimeInfo {
+                conversation: Some(conversation),
+                ..RuntimeInfo::default()
+            },
+            ..bare()
+        };
+
+        let text = render(&detail, NOW);
+
+        assert!(text.contains(&line), "{text}");
+    }
+}
+
+#[test]
+fn the_json_detail_keeps_the_conversation_as_runtime_info_records_it() {
+    let detail = ExecutionDetail {
+        reported: RuntimeInfo {
+            conversation: Some(ConversationInfo::Restarted {
+                reason: "transcript_missing".to_owned(),
+                previous: "previous".to_owned(),
+            }),
+            ..RuntimeInfo::default()
+        },
+        ..bare()
+    };
+
+    let document = serde_json::Value::from(json::execution(&detail));
+
+    assert_eq!(
+        document["execution"]["reported"]["conversation"],
+        json!({ "restarted": "transcript_missing", "previous": "previous" })
+    );
 }

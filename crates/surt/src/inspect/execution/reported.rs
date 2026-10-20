@@ -1,4 +1,6 @@
-use surt_engine::project::{AgentProfile, ExecutionDetail, ExecutionState, RuntimeInfo};
+use surt_engine::project::{
+    AgentProfile, ConversationInfo, ExecutionDetail, ExecutionState, RuntimeInfo,
+};
 
 use crate::duration::exact;
 use crate::symbols::SEPARATOR;
@@ -27,6 +29,16 @@ pub(super) fn session(reported: &RuntimeInfo) -> Option<String> {
             .as_ref()
             .map(|version| format!("version {version}")),
     ])
+}
+
+pub(super) fn conversation(reported: &RuntimeInfo) -> Option<String> {
+    Some(match reported.conversation.as_ref()? {
+        ConversationInfo::Continued { from } => format!("continued from {from}"),
+        ConversationInfo::Restarted { reason, previous } => {
+            format!("restarted: {reason} (previous {previous})")
+        }
+        ConversationInfo::Fresh { reason } => format!("fresh: {reason}"),
+    })
 }
 
 pub(super) fn process(detail: &ExecutionDetail, now: i64) -> Option<String> {

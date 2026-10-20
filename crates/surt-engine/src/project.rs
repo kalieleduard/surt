@@ -63,8 +63,8 @@ pub use gate_status::GateStatus;
 pub use gates::{Decided, RevisionOrigin};
 pub use init::{FileState, InitFile, Initialized};
 pub use inspect::{
-    AgentProfile, ExecutionDetail, ExecutionFailure, ExecutionInput, InspectRequest, Performer,
-    RuntimeInfo, Timeline, TimelineEvent, Usage,
+    AgentProfile, ConversationInfo, ExecutionDetail, ExecutionFailure, ExecutionInput,
+    InspectRequest, Performer, RuntimeInfo, Timeline, TimelineEvent, Usage,
 };
 pub use interrupted_merge::InterruptedMerge;
 pub use logs::{LogRequest, LogSource, Logs};
