@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub(crate) enum StepSpec {
     Agent(AgentStep),
     Approval(ApprovalStep),
+    Input(InputStep),
     Operation(OperationStep),
     Loop(LoopStep),
     PerItem(PerItemStep),
@@ -17,6 +18,7 @@ pub(crate) enum StepSpec {
 pub(crate) enum StepKind {
     Agent,
     Approval,
+    Input,
     Operation,
     Loop,
     PerItem,
@@ -50,6 +52,17 @@ pub(crate) struct ApprovalStep {
     when: Option<Condition>,
     pub(crate) artifact: String,
     pub(crate) rejection_artifact: String,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct InputStep {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    needs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    when: Option<Condition>,
+    pub(crate) artifact: String,
+    pub(crate) answer_artifact: String,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -91,6 +104,7 @@ impl StepKind {
         match self {
             StepKind::Agent => "agent",
             StepKind::Approval => "approval",
+            StepKind::Input => "input",
             StepKind::Operation => "operation",
             StepKind::Loop => "loop",
             StepKind::PerItem => "per_item",
@@ -103,6 +117,7 @@ impl StepSpec {
         match self {
             StepSpec::Agent(_) => StepKind::Agent,
             StepSpec::Approval(_) => StepKind::Approval,
+            StepSpec::Input(_) => StepKind::Input,
             StepSpec::Operation(_) => StepKind::Operation,
             StepSpec::Loop(_) => StepKind::Loop,
             StepSpec::PerItem(_) => StepKind::PerItem,
@@ -113,6 +128,7 @@ impl StepSpec {
         match self {
             StepSpec::Agent(step) => &step.needs,
             StepSpec::Approval(step) => &step.needs,
+            StepSpec::Input(step) => &step.needs,
             StepSpec::Operation(step) => &step.needs,
             StepSpec::Loop(step) => &step.needs,
             StepSpec::PerItem(step) => &step.needs,
@@ -123,6 +139,7 @@ impl StepSpec {
         match self {
             StepSpec::Agent(step) => step.when.as_ref(),
             StepSpec::Approval(step) => step.when.as_ref(),
+            StepSpec::Input(step) => step.when.as_ref(),
             StepSpec::Operation(step) => step.when.as_ref(),
             StepSpec::Loop(step) => step.when.as_ref(),
             StepSpec::PerItem(step) => step.when.as_ref(),

@@ -19,7 +19,14 @@ pub enum DriveOutcome {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Gate {
     pub step: StepLabel,
+    pub kind: GateKind,
     pub artifact: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GateKind {
+    Approval,
+    Input,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

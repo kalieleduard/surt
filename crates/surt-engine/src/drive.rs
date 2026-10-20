@@ -39,6 +39,6 @@ pub(crate) use driver::{Driving, drive};
 pub(crate) use fast_forward::{Settled, settle_fast_forward};
 pub(crate) use frozen::{CorruptSnapshot, Frozen};
 pub use outcome::{
-    ActivityPause, ActivitySnapshot, DriveOutcome, Gate, Progress, ProgressSink, RunningStep,
-    StepLabel,
+    ActivityPause, ActivitySnapshot, DriveOutcome, Gate, GateKind, Progress, ProgressSink,
+    RunningStep, StepLabel,
 };

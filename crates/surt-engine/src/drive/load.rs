@@ -141,6 +141,7 @@ impl Builder<'_> {
                 Work::Operation(OperationId(operation.run.clone()), self.attempts(row))
             }
             StepSpec::Approval(_) => Work::Approval,
+            StepSpec::Input(_) => Work::Input,
             StepSpec::Loop(spec) => Work::Loop(
                 condition(&spec.until.step, &spec.until.outcome),
                 self.iterations(definition, row, &spec.body)?,

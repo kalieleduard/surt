@@ -6,7 +6,7 @@ use uuid::Uuid;
 use super::super::fixtures::SUBJECT;
 use super::super::refusal;
 use super::fixtures::{ACTOR, Feature, Recording, draft, label};
-use crate::project::{DriveOutcome, Gate, Progress, Refusal};
+use crate::project::{DriveOutcome, Gate, GateKind, Progress, Refusal};
 use crate::runtime::{Behavior, Script};
 
 #[tokio::test(flavor = "multi_thread")]
@@ -22,6 +22,7 @@ async fn an_agent_delivery_stops_at_the_approval_gate_that_reviews_it() {
         DriveOutcome::AtGate {
             gates: vec![Gate {
                 step: label("approve", Some(1)),
+                kind: GateKind::Approval,
                 artifact: "draft".to_owned(),
             }]
         }

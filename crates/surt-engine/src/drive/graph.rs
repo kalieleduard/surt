@@ -92,6 +92,7 @@ pub(crate) enum Work {
     Agent(Attempts),
     Operation(OperationId, Attempts),
     Approval,
+    Input,
     Loop(Condition, Iterations),
     PerItem(Vec<Item>),
 }

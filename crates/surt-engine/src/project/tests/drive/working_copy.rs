@@ -4,7 +4,9 @@ use std::path::PathBuf;
 use super::super::fixtures::SUBJECT;
 use super::fixtures::{ACTOR, Feature, Recording, draft, label, summary};
 use super::pinning::Editing;
-use crate::project::{Decided, DriveOutcome, Gate, GateStatus, Progress, Refusal, RevisionOrigin};
+use crate::project::{
+    Decided, DriveOutcome, Gate, GateKind, GateStatus, Progress, Refusal, RevisionOrigin,
+};
 use crate::runtime::Script;
 
 const EDITED: &str = "# Draft 1, edited by hand\n";
@@ -332,6 +334,7 @@ async fn a_driving_command_records_the_edit_before_it_drives() {
         DriveOutcome::AtGate {
             gates: vec![Gate {
                 step: label("approve", Some(1)),
+                kind: GateKind::Approval,
                 artifact: "draft".to_owned(),
             }]
         }

@@ -35,7 +35,7 @@ pub use crate::cleanup::{Cleanup, Kept, Left};
 pub use crate::drive::cancel::Cancellation;
 pub use crate::drive::graph::BlockReason;
 pub use crate::drive::{
-    ActivityPause, ActivitySnapshot, BaseMerge, DriveOutcome, Gate, NotMerged, Progress,
+    ActivityPause, ActivitySnapshot, BaseMerge, DriveOutcome, Gate, GateKind, NotMerged, Progress,
     ProgressSink, RunningStep, StepLabel,
 };
 pub use crate::git::GitVersion;

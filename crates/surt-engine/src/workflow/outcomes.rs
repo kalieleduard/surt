@@ -5,6 +5,7 @@ use super::steps::{Condition, StepSpec};
 use crate::operations::Operation;
 
 const APPROVAL_OUTCOMES: [&str; 2] = ["approved", "rejected"];
+const INPUT_OUTCOMES: [&str; 1] = ["answered"];
 const ENGINE_OUTCOME: &str = "done";
 
 pub(super) fn check(
@@ -58,6 +59,7 @@ fn declared(agents: &Agents, spec: &StepSpec) -> Vec<String> {
                 .map_or_else(Vec::new, |contract| contract.outcomes());
         }
         StepSpec::Approval(_) => &APPROVAL_OUTCOMES,
+        StepSpec::Input(_) => &INPUT_OUTCOMES,
         StepSpec::Operation(spec) => Operation::find(&spec.run).map_or(&[], Operation::outcomes),
         StepSpec::Loop(_) | StepSpec::PerItem(_) => &[ENGINE_OUTCOME],
     };

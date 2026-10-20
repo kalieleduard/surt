@@ -17,7 +17,7 @@ pub(super) fn check(definition: &Definition) -> Result<(), Box<InvalidDefinition
     for step in &definition.steps {
         check_step(definition, &loops, step).map_err(|problem| invalid(&step.key, problem))?;
     }
-    check_rejection_artifacts(definition).map_err(|(step, problem)| invalid(step, problem))?;
+    check_human_artifacts(definition).map_err(|(step, problem)| invalid(step, problem))?;
     check_acyclic(definition).map_err(|(step, problem)| invalid(step, problem))
 }
 
@@ -96,21 +96,29 @@ fn check_step(
     }
 }
 
-fn check_rejection_artifacts(definition: &Definition) -> Result<(), (&str, Problem)> {
+fn check_human_artifacts(definition: &Definition) -> Result<(), (&str, Problem)> {
     let mut seen = BTreeSet::new();
     for step in &definition.steps {
-        if let StepSpec::Approval(spec) = &step.spec
-            && !seen.insert(spec.rejection_artifact.as_str())
-        {
-            return Err((
-                step.key.as_str(),
-                Problem::DuplicateRejectionArtifact {
-                    artifact: spec.rejection_artifact.clone(),
-                },
-            ));
+        let Some((artifact, duplicate)) = human_artifact(&step.spec) else {
+            continue;
+        };
+        if !seen.insert(artifact) {
+            return Err((step.key.as_str(), duplicate(artifact.to_owned())));
         }
     }
     Ok(())
+}
+
+fn human_artifact(spec: &StepSpec) -> Option<(&str, fn(String) -> Problem)> {
+    match spec {
+        StepSpec::Approval(spec) => Some((&spec.rejection_artifact, |artifact| {
+            Problem::DuplicateRejectionArtifact { artifact }
+        })),
+        StepSpec::Input(spec) => Some((&spec.answer_artifact, |artifact| {
+            Problem::DuplicateAnswerArtifact { artifact }
+        })),
+        _ => None,
+    }
 }
 
 fn check_acyclic(definition: &Definition) -> Result<(), (&str, Problem)> {

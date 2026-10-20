@@ -80,6 +80,10 @@ pub(super) fn approval(key: &str) -> Step {
     step(key, Work::Approval)
 }
 
+pub(super) fn input(key: &str) -> Step {
+    step(key, Work::Input)
+}
+
 pub(super) fn looping(key: &str, until: (&str, &str), bodies: Vec<Vec<Step>>) -> Step {
     let until = Condition {
         step: StepKey(until.0.into()),
@@ -138,7 +142,7 @@ impl Step {
         match &mut self.work {
             Work::Agent(attempts) | Work::Operation(_, attempts) => attempts.budget_start = start,
             Work::Loop(_, iterations) => iterations.budget_start = start,
-            Work::Approval | Work::PerItem(_) => {}
+            Work::Approval | Work::Input | Work::PerItem(_) => {}
         }
         self
     }
