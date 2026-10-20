@@ -17,5 +17,6 @@ Index of the decisions that were hard to reverse, surprising without context and
 | [0011](../adr/0011-two-crates-keep-the-engine-generic.md) | Two crates, so the compiler keeps the engine generic. | [B](B-workspace.md), [K](K-roadmap.md) |
 | [0012](../adr/0012-agent-runtime-is-the-only-trait.md) | `AgentRuntime` is the only trait; store, Git and clock run for real in tests (a recorded exception to the DIP rule). | [B](B-workspace.md), [K](K-roadmap.md) |
 | [0013](../adr/0013-definitions-live-in-the-project.md) | Workflows and Agents are files under `.surt/`; the binary only writes the feature Template and its CLI is generic. | [B](B-workspace.md), [E](E-workflow-schema.md), [F](F-agent-contract.md), [J](J-cli.md) |
+| [0014](../adr/0014-a-conversation-continues-across-a-loop.md) | An Agent with `conversation = "loop"` continues the Claude conversation of its last successful Execution in the same Loop under a new session id; a lost transcript restarts it fresh, so correctness never depends on it. | [F](F-agent-contract.md), [I. Recovery](I-recovery.md), [E](E-workflow-schema.md), [J](J-cli.md) |
 
 The Milestone 1 cuts of [K](K-roadmap.md) are not ADRs: each is a subset of v1 that needs no migration, so reversing one is just building it.

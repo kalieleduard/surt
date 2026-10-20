@@ -31,7 +31,7 @@ One occurrence of a Step inside a Workflow Run, with its own state in the flow.
 _Avoid_: Step (when the occurrence is meant), job
 
 **Execution**:
-One concrete launch of work for a Step Run, either an agent session or an Operation. A Step Run has zero or more Executions, at most one running at a time; an Approval Gate has none.
+One concrete launch of work for a Step Run, either an agent session or an Operation. A Step Run has zero or more Executions, at most one running at a time; an Approval Gate and an Input Step have none. Every agent Execution has its own session id, even when it continues a Conversation.
 _Avoid_: Session, job, invocation
 
 **Iteration**:
@@ -81,6 +81,10 @@ _Avoid_: Approval step, checkpoint
 **Approval**:
 A recorded human decision (approve or reject) on one Artifact Revision: who, when and which Revision. A new Revision never inherits the Approval of an earlier one.
 _Avoid_: Sign-off, acceptance
+
+**Input Step**:
+A step that pauses a Workflow Run until a human answers the questions an Agent delivered, one Revision of an Artifact in the Surt-owned `questions` format. It runs only when the Agent asked. Each round of answers is recorded as a new human-origin Revision of one answers Artifact that holds every round so far. Like an Approval Gate it has no Execution and no limit; it approves nothing.
+_Avoid_: Prompt, chat
 
 ### Running
 
@@ -135,15 +139,19 @@ A role an AI performs in a workflow: what it does, its instructions and the cont
 _Avoid_: Persona, bot
 
 **Agent Profile**:
-The concrete way of running an Agent: runtime, model, effort, permissions and limits. Each Agent has exactly one, used by every Execution of it; repeating work never switches to another model.
+The concrete way of running an Agent: runtime, model, effort, permissions, limits and whether it keeps a Conversation. Each Agent has exactly one, used by every Execution of it; repeating work never switches to another model.
 _Avoid_: Model config, agent config
+
+**Conversation**:
+What an Agent whose profile says `conversation = "loop"` remembers across the Executions of one step inside one Loop: each new Execution continues the conversation of the last successful one, forked under its own session id, and receives only the Inputs that changed. It never crosses a step, a Loop or a run, and nothing depends on it for correctness: one that cannot be continued restarts fresh with every Input, in the same Execution and spending no Attempt.
+_Avoid_: Session, thread
 
 **Agent Runtime**:
 The adapter that knows how to launch and follow one kind of agent, such as Claude Code or the Fake Runtime used in tests.
 _Avoid_: Provider (reserved for external integrations), driver, backend
 
 **Context Assembler**:
-The component that prepares an Execution's context from its fixed Inputs, current item and delivery contract, alongside the Agent's stable instructions.
+The component that prepares an Execution's context from its fixed Inputs, current item and delivery contract, alongside the Agent's stable instructions. For an Execution that continues a Conversation it also prepares the shorter context of only the Inputs that changed.
 _Avoid_: Prompt builder, agent memory
 
 ### Artifacts
@@ -165,7 +173,7 @@ An approved Revision that some Execution has already read as an Input. For the r
 _Avoid_: Locked, frozen (reserved for definitions and agent snapshots)
 
 **Input / Output**:
-An Execution reads specific Artifact Revisions as Inputs, fixed when it starts, and produces new Revisions as Outputs. Every Revision comes from exactly one origin: one Execution or one human edit.
+An Execution reads specific Artifact Revisions as Inputs, fixed when it starts, and produces new Revisions as Outputs. Every Revision comes from exactly one origin: one Execution or one human action (a Run Input, an edit, a rejection reason or a round of answers).
 _Avoid_: Dependency (reserved for ordering between Steps)
 
 **Initial Artifact**:
@@ -193,7 +201,7 @@ The Workflow Definition `task-cycle` that builds and reviews one Task; each Task
 _Avoid_: Task loop, task pipeline
 
 **Spec Agent**:
-The Agent that writes the spec from the user's request.
+The Agent that writes the spec from the user's request. It keeps a Conversation across the spec Loop: until no blocking decision is left open it asks the developer up to five questions per round through the Input Step `answer-spec`, and the spec it delivers records every question and answer under **Decisions**.
 
 **Task Agent**:
 The Agent that breaks an approved spec into the Task manifest.

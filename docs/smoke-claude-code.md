@@ -6,6 +6,8 @@ This checklist makes "Milestone 1 done" a repeatable check ([K. Roadmap](archite
 
 Work through the boxes in order. Every command runs in the toy repository unless stated otherwise. `<name>` is the Feature name `surt run` prints (for example `20261018-greet-and-farewell`).
 
+Since Milestone 6 the Spec Agent may ask questions before it writes the spec. Wherever a section below expects the spec gate and a run instead stops at `? spec-questions rev N awaiting answers (round R)`, run `"$SURT" answer <name> --accept`: it takes every recommendation and drives on like `surt continue`, to another round or to the spec gate. Only the Milestone 6 section checks the questions themselves.
+
 ## 1. Prerequisites
 
 - [ ] macOS with Git 2.38 or newer: `git --version`.
@@ -67,7 +69,7 @@ From the Surt checkout:
   "$SURT" run feature --input request="Add greet.sh, which prints 'Hello, <name>!' for its first argument, and farewell.sh, which prints 'Goodbye, <name>!'. Each script gets its own test under tests/."
   ```
 
-  Expected: `✔ created <name>   workflow: feature   base: main @ <sha7>`, then `● spec started`, then `⏸ spec rev 1 awaiting approval in .surt/subjects/<name>` with the `approve:` and `reject:` commands. Exit code `0` (`echo $?`).
+  Expected: `✔ created <name>   workflow: feature   base: main @ <sha7>`, then `● spec started`, then `⏸ spec rev 1 awaiting approval in .surt/subjects/<name>` with the `approve:` and `reject:` commands (after `"$SURT" answer <name> --accept` if the Spec Agent asked first). Exit code `0` (`echo $?`).
 - [ ] Read the spec: `cat .surt/subjects/<name>/spec.md`. It describes both scripts.
 - [ ] Exercise rejection once: `"$SURT" reject <name> -m "Also say that both scripts exit 2 without an argument"`, then `"$SURT" continue <name>`. The new spec revision mentions exit code 2.
 - [ ] `"$SURT" approve <name>` prints `✔ approved spec rev 2 …` and `next: surt continue <name>`.
@@ -460,6 +462,83 @@ Add a line to the "Smoke results" section of ticket 07 (`.scratch/milestone-5/is
 
 ```
 - YYYY-MM-DD · macOS <version> (<arch>) · Claude Code <version> · surt <commit> · <pass | fail: step and reason>
+```
+
+A failure is still a result: record it with the step that failed and the command's output, and open a ticket for it.
+
+# Milestone 6: talk the spec through with the real Claude Code
+
+This part makes "Milestone 6 done" a repeatable check ([Milestone 6 spec](../.scratch/milestone-6/spec.md), story 28, [ADR 0014](adr/0014-a-conversation-continues-across-a-loop.md)). It covers what only the real `claude` shows: a Spec Agent that asks before it writes, answers typed on a terminal, a conversation that continues under a new session id each round, a rejection that continues it, and a restart after its transcript is deleted from `~/.claude/projects/`. The `--file` and `-m` refusals, `status --json`, the delta context's exact Inputs and every rule of the `questions` format are covered by the automated suite with the Fake Runtime and the stub `claude`.
+
+It reuses sections 1–2 above and spends about five Spec Agent Executions and nothing else: the run stops at the approved spec. Use a **fresh** toy repository: run section 3 again. M6.2 needs an interactive terminal, since `surt answer` without a flag reads the answers from it.
+
+## M6.1 The Spec Agent asks
+
+- [ ] Create the Feature with a request vague enough to leave decisions open. Call it `<name>`:
+
+  ```sh
+  "$SURT" run feature --input request="Add a script that greets people."
+  ```
+
+  It prints `✔ created <name>   workflow: feature   base: main @ <sha7>`, `● spec started`, `✔ spec-questions rev 1 published`, then a block
+
+  ```
+  ? spec-questions rev 1 awaiting answers (round 1)
+    1. <question>
+       why: <what the answer changes in the spec>
+       recommended: <answer>
+    …
+    answer: surt answer <name>
+  ```
+
+  with 1 to 5 numbered questions, each with `why:` and `recommended:`, and `options:` (which include the recommendation) when the answer is a closed set. Exit `0`. If it stops at `⏸ spec rev 1 awaiting approval …` instead, the Agent found nothing to ask: `"$SURT" cancel <name> --yes` and run this step again with a vaguer request.
+- [ ] The questions are worth asking: none is answered by the toy repository itself (`README.md`, `test.sh`, `tests/`), and each one changes what the script does or how it is tested (its name, its message, what happens without an argument).
+- [ ] `"$SURT" status <name>` shows `AWAITING ANSWER`, the line `spec-questions rev 1 (agent) ⏸ awaiting answers (round 1)` and `answer: surt answer <name>`.
+- [ ] `"$SURT" approve <name>` refuses with exit `3`: `✖ <name> has no approval gate waiting`, `answer-spec is waiting for answers, not for approval`, `next: surt answer <name>`.
+
+## M6.2 Answer on the terminal; the conversation continues
+
+- [ ] `"$SURT" answer <name>` prints the first question with its `why:` line and its recommendation in brackets, and waits. Press Enter on the first question to accept its recommendation, and type an answer of your own on the second (for example `greet.sh, printing 'Hi, <name>!'`), then Enter on any other. With a single question, type your own answer on it.
+- [ ] It prints `✔ answered spec-questions rev 1 by <actor>`, then `● spec continued (iteration 2, same conversation)`, not `● spec started`, and stops either at `? spec-questions rev 2 awaiting answers (round 2)` or at `⏸ spec rev 1 awaiting approval in .surt/subjects/<name>`. Exit `0`.
+- [ ] `"$SURT" show <name> spec-answers` prints one round: the questions of rev 1, the first question's recommendation as its answer and your text as the second's.
+- [ ] `"$SURT" inspect <name>` lists an `execution.started` line for `spec iter 1` and one for `spec iter 2`; copy both Execution ids. `"$SURT" inspect <iteration 1 execution-id>` shows `conversation  fresh: no_previous`. `"$SURT" inspect <iteration 2 execution-id>` shows `conversation  continued from <iteration 1 execution-id>`, and its `session` line names a session id different from the first one's: every Execution keeps its own session.
+
+## M6.3 A second round, or the spec
+
+- [ ] If a second round waits: `"$SURT" status <name>` shows `spec-questions rev 1 (agent) ✔ answered by <actor> … (round 1)` and `spec-questions rev 2 (agent) ⏸ awaiting answers (round 2)`. `"$SURT" answer <name> -m "Decide the rest yourself."` prints `✔ answered spec-questions rev 2 by <actor>` and `● spec continued (iteration 3, same conversation)`, then stops at the spec gate (a further round: `"$SURT" answer <name> --accept`). `"$SURT" show <name> spec-answers` prints both rounds, the second with the `note`.
+- [ ] If the Spec Agent wrote the spec after one round, the result line of M6.6 says `one round`.
+- [ ] `cat .surt/subjects/<name>/spec.md` has a **Decisions** section with each question asked and the answer given, your typed answer included, and no **Open questions** section.
+
+## M6.4 A rejection continues the conversation
+
+- [ ] `"$SURT" reject <name> -m "Also say that the script exits 2 without an argument"`, then `"$SURT" continue <name>`. It prints `● spec continued (iteration N, same conversation)` and stops at `⏸ spec rev 2 awaiting approval …` (answer with `--accept` if it asks first). Exit `0`.
+- [ ] `cat .surt/subjects/<name>/spec.md` mentions exit code `2` and still lists the **Decisions**.
+- [ ] `"$SURT" inspect <name>` lists the new `spec iter N` Execution; `"$SURT" inspect <its execution-id>` shows `conversation  continued from <the previous spec Execution's id>`.
+
+## M6.5 A lost transcript restarts the conversation
+
+- [ ] Take the latest spec Execution, the one that wrote spec rev 2 in M6.4, and its session id from the `session` line of `"$SURT" inspect <its execution-id>`. It is the conversation the next spec Execution would continue.
+- [ ] Delete its transcript:
+
+  ```sh
+  ls ~/.claude/projects/*/<session-id>.jsonl
+  rm ~/.claude/projects/*/<session-id>.jsonl
+  ```
+
+  `ls` lists exactly one file, in the directory Claude Code named after the toy repository's path (for example `~/.claude/projects/-Users-<you>-surt-smoke-toy/`).
+- [ ] `"$SURT" reject <name> -m "Name the test file tests/greet.sh"`, then `"$SURT" continue <name>`. It prints `● spec continued (iteration M, same conversation)`, then `↻ spec restarted (iteration M): transcript_missing`, and stops at `⏸ spec rev 3 awaiting approval …`. Exit `0`. There is no `↻ spec iter M attempt 2` line: the restart spent no Attempt.
+- [ ] `"$SURT" inspect <name>` lists the `spec iter M` Execution; `"$SURT" inspect <its execution-id>` shows `conversation  restarted: transcript_missing (previous <the execution-id that wrote spec rev 2>)`, and its `state` line says `succeeded`.
+- [ ] The restarted Spec Agent read every Input again: `spec.md` names `tests/greet.sh`, still says exit code `2` and still lists the **Decisions** of every round.
+
+## M6.6 Approve, and record the result
+
+- [ ] `"$SURT" approve <name>` prints `✔ approved spec rev 3 …` and `next: surt continue <name>`. The rest of the run is what sections 5–7 check; to spend nothing more, `"$SURT" cancel <name> --yes`.
+- [ ] `pgrep -fl 'claude -p'` prints nothing.
+
+Add a line to the "Smoke results" section of ticket 08 (`.scratch/milestone-6/issues/08-m6-close-out.md`) and tick its manual-check box when every box of M6.1–M6.6 is ticked:
+
+```
+- YYYY-MM-DD · macOS <version> (<arch>) · Claude Code <version> · surt <commit> · <rounds of questions> · <pass | fail: step and reason>
 ```
 
 A failure is still a result: record it with the step that failed and the command's output, and open a ticket for it.

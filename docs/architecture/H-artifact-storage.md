@@ -171,6 +171,8 @@ Agents never read the Working Copy. Each Execution gets its own directory, creat
 │   ├── item.json
 │   ├── item/task.md
 │   └── feedback.json  (second Iteration onwards)
+├── context.md         ← the assembled context: why the Iteration started, the Inputs, the delivery directory
+├── context-continued.md ← only for a continued conversation: the same, with only the Inputs that changed (F)
 └── delivery/          ← where the agent writes its outputs (section F)
 ```
 

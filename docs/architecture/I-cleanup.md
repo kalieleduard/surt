@@ -68,6 +68,7 @@ No command treats a kept run as cleanup pending: a driving command on it removes
 - **Succeeded.** The Item Branches' reviewed commits stay reachable from the Integration Branch through its merge commits ([A](A-git-integration.md#integration)), so deleting the branches loses nothing that was accepted. Salvage Refs held leftovers that were never accepted.
 - **Cancelled.** Work that was never integrated (a Task in its third Iteration, the leftovers of a Builder stopped by the cancel) survives as refs, which are cheap. The worktrees, which are not cheap, go. The `on_success` policy does not apply to a cancelled run.
 - **Integration Branch.** It is the product of a `succeeded` run and may be the source of an open pull request, so even `surt delete` keeps it. The Integration Branch of a `cancelled` run is Surt's unfinished work and leaves with the history.
+- **Claude Code transcripts.** A `conversation = "loop"` Agent runs without `--no-session-persistence`, so Claude Code keeps its transcripts under `~/.claude/projects/` ([F](F-agent-contract.md#a-conversation-across-a-loop)). They are Claude Code's, retained by its own `cleanupPeriodDays`: neither an ending nor `surt delete` touches them, and a missing one only makes the next Execution restart fresh ([ADR 0014](../adr/0014-a-conversation-continues-across-a-loop.md)).
 - **SQLite.** After cleanup, `status`, `inspect`, `show` and `logs` keep working: Revisions are blobs in SQLite ([H](H-artifact-storage.md#after-a-run-ends)) and logs stay on disk.
 
 ### Cleanup steps
@@ -132,7 +133,7 @@ Logs are history, not scratch space. They live outside `runtime/`, grouped by Su
 - Files are created when the Execution starts and appended line by line, so `surt logs -f` can follow them ([J](J-cli.md#surt-logs)). Git commands an Operation runs write no log file; their diagnosis is the Execution's `error_message`.
 - One directory per Subject holds the logs of every run of that Subject. `.surt/logs/` is ignored by Git like the rest of `.surt/` ([H](H-artifact-storage.md#what-is-versioned-in-the-users-git)).
 - Cleanup never removes logs; `surt delete` removes the Subject's directory. There is no rotation, size limit or redaction in v1.
-- `.surt/runtime/executions/<id>/` holds only `inputs/` and `delivery/`, which can be rebuilt from blobs.
+- `.surt/runtime/executions/<id>/` holds only `inputs/`, `delivery/` and the assembled `context.md` (plus `context-continued.md` for a continued conversation), which can be rebuilt from blobs.
 
 **Without the log.** When an Execution's log directory is missing (removed by hand), `logs` says so and points at `inspect`. For a single Execution it refuses (exit `3`); among several sources it warns on stderr and prints the others. A missing file inside an existing directory reads as empty:
 
@@ -142,7 +143,7 @@ $ surt logs 0192f3a8
   inspect: surt inspect 0192f3a8-7b1c-7000-8000-4a1f0c3e9b21
 ```
 
-`inspect` needs no stream. It reads the Execution row: state, Outcome, `error_code`/`error_message`, timestamps, process identity, and `runtime_info` (Claude Code version, session id, model, effort, exit code, turn count, usage, cost, permission denials; [D](D-database.md#executions)). The Check summary is in the `check-report` artifact ([A](A-git-integration.md#checks)).
+`inspect` needs no stream. It reads the Execution row: state, Outcome, `error_code`/`error_message`, timestamps, process identity, and `runtime_info` (Claude Code version, session id, model, effort, exit code, turn count, usage, cost, permission denials and, for a `conversation = "loop"` Agent, whether it continued or restarted a conversation; [D](D-database.md#executions)). The Check summary is in the `check-report` artifact ([A](A-git-integration.md#checks)).
 
 ## `surt delete`
 
