@@ -17,6 +17,7 @@ mod checkpoints;
 mod cleanup;
 mod columns;
 mod control;
+mod conversations;
 mod details;
 mod drivers;
 mod events;
@@ -52,6 +53,7 @@ pub use checkpoints::Checkpoint;
 pub(crate) use checkpoints::Faults;
 pub(crate) use cleanup::{ChildBranch, CleanupRecord, Ending};
 pub(crate) use columns::{count, number};
+pub(crate) use conversations::PreviousConversation;
 pub(crate) use drivers::StaleExecution;
 pub(crate) use execution_detail::{ExecutionDetailRow, ExecutionInputRow, ExecutionScopeRow};
 pub(crate) use executions::{

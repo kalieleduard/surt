@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
-use super::{AgentLaunch, RuntimeReport};
+use super::{AgentLaunch, Continuation, RuntimeReport};
 
 #[derive(Clone, Debug)]
 pub struct RuntimeRequest {
@@ -20,6 +20,7 @@ pub struct RuntimeRequest {
     pub(crate) delivery_dir: PathBuf,
     pub(crate) log_dir: PathBuf,
     pub(crate) context: String,
+    pub(crate) continuation: Option<Continuation>,
     pub(crate) launch: AgentLaunch,
 }
 

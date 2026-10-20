@@ -233,10 +233,16 @@ pub(super) fn preserved(request: &RuntimeRequest) -> RuntimeRequest {
     if let Some(name) = request.delivery_dir.file_name() {
         kept.delivery_dir = copy.join(name);
     }
-    kept.context = request.context.replace(
-        execution.to_string_lossy().as_ref(),
-        copy.to_string_lossy().as_ref(),
-    );
+    let moved = |context: &str| {
+        context.replace(
+            execution.to_string_lossy().as_ref(),
+            copy.to_string_lossy().as_ref(),
+        )
+    };
+    kept.context = moved(&request.context);
+    if let Some(continuation) = &mut kept.continuation {
+        continuation.context = moved(&continuation.context);
+    }
     kept
 }
 

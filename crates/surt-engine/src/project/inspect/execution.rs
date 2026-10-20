@@ -9,7 +9,7 @@ use crate::git;
 use crate::store::{ExecutionDetailRow, ExecutionInputRow, Store, number};
 use crate::workflow::AgentContract;
 
-pub use reported::{RuntimeInfo, Usage};
+pub use reported::{ConversationInfo, RuntimeInfo, Usage};
 
 const SALVAGE_REFS: &str = "refs/surt/salvage/";
 

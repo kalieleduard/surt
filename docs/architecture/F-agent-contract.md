@@ -141,6 +141,18 @@ Iteration 3 ended: review = changes_requested
 - conflict   (iteration 2, integrate)
 ```
 
+## A Conversation across a Loop
+
+An Agent whose `[profile]` says `conversation = "loop"` continues, in each Execution, the conversation of its last successful Execution in the same Loop ([ADR 0014](../adr/0014-a-conversation-continues-across-a-loop.md)). The default, `conversation = "none"`, keeps every Execution fresh; the canonical `agent.toml` names the field only for `"loop"`, so the identity of an Agent that does not set it is unchanged. A `"loop"` Agent used by a step outside every Loop body refuses at creation with `InvalidDefinition` on that step.
+
+- **Previous Execution.** Before launching a `"loop"` Agent's step inside a Loop, the Driver looks up the latest `succeeded` Execution of a Step Run with the same step key, in the same Loop of the same Workflow Run, at any earlier Iteration or Attempt, whose `runtime_info` has a `session_id`. Interrupted, cancelled and failed Executions are never chosen, even though their transcripts exist: a half-finished turn never enters the conversation. The conversation never crosses a step, a Loop or a run.
+- **Request.** `RuntimeRequest.continuation` is `Some(Continuation { session_id, execution_id, context })` when a previous Execution was found: its session id, its Execution id and the delta context below. `RuntimeRequest.context` stays the full context, and `RuntimeRequest.session_id` stays a new id: every Execution keeps one session id and one log.
+- **Delta context.** The Context Assembler writes `context-continued.md` beside `context.md`, with the same sections but only the Inputs whose fixed Revision differs from the one the previous Execution had for that name in `execution_input`, leaving out Revisions that previous Execution produced itself. A human edit of its output is a new human-origin Revision, so it is included; the Agent's own unchanged output is not.
+- **Restart.** A continuation that the runtime cannot resume (its transcript is gone, or the CLI refuses it) restarts in the same Execution with the full context and the same new session id. It spends no Attempt, and the Execution's outcome is decided as for any other.
+- **Recorded.** The runtime reports the conversation in its `RuntimeReport`, and the Driver stores it as `runtime_info.conversation`: `{ "continued_from": "<execution id>" }`, `{ "restarted": "transcript_missing" | "continuation_refused", "previous": "<execution id>" }`, or `{ "fresh": "no_previous" }` for a `"loop"` Agent with nothing to continue. It is absent for `"none"` Agents. It is for display only: `surt inspect <execution>` prints it on its `conversation` line, and no decision reads it.
+
+Until the Claude Code launcher forks sessions, the Claude Code runtime launches a continued Execution fresh with the full context and records `{ "fresh": "continuation_unsupported" }`; its arguments are those of [the launcher](#claude-code-launcher-and-compatibility). The Fake Runtime honours a continuation: it is fed the delta context, reports `continued_from`, and writes the session it resumed and the context it was fed as the first line of its stream log. Its scripted `transcript_missing` behaviour (`Behavior::TranscriptMissing` in Rust, `transcript_missing = { … }` in a TOML script, with the same fields as `deliver`) simulates a lost transcript: it restarts with the full context and reports `restarted`.
+
 ## Model and effort validation
 
 Profiles name models by full IDs, not moving aliases. Surt validates known effort values locally and checks the model reported during runtime initialization against the requested model. An incompatible or unavailable model is a technical failure; Surt does not select a replacement model. It does not maintain its own catalog of models available to each account.
@@ -168,7 +180,7 @@ Their tools follow the role table above and no profile sets turn or cost limits.
 | `outputs.<name>.outcomes` | Optional non-empty unique subset of the Agent's Outcomes that deliver this output; omitted means every Outcome. See [Outputs per Outcome](#outputs-per-outcome) |
 | `outputs.<name>.checks` | Optional array of [delivery checks](#delivery-checks), each a table with a `kind`; only on a `json` output |
 | `outputs.<name>.item_files.<file-name>` | Only for `format = "item_list"`; required `format`, optional `json_schema`; every declared file is required on every item |
-| `profile` | Required; `runtime`, full `model` and `effort`; optional `[limits]`; `[claude]` required for `claude-code` |
+| `profile` | Required; `runtime`, full `model` and `effort`; optional `conversation`, `"none"` (default) or `"loop"` ([A Conversation across a Loop](#a-conversation-across-a-loop)); optional `[limits]`; `[claude]` required for `claude-code` |
 | `profile.limits` | Optional positive integer `max_turns` and positive finite numeric `max_budget_usd`; absent means no limits; no timeout field |
 | `profile.claude` | `auth`, `permission_mode`, `tools`, `allowed_tools`, `disallowed_tools`; optional `api_key_env` only with `auth = "api_key"` |
 
@@ -365,12 +377,12 @@ pub trait AgentRuntime: Send + Sync {
 }
 ```
 
-- `RuntimeRequest` carries Execution/session identity, the Agent's frozen profile, prepared instructions/context, working and delivery directories, and fixed input handles. Secrets are resolved at launch and are not part of its persisted snapshot.
+- `RuntimeRequest` carries Execution/session identity, the Agent's frozen profile, prepared instructions/context, an optional continuation of a previous Execution's conversation ([above](#a-conversation-across-a-loop)), working and delivery directories, and fixed input handles. Secrets are resolved at launch and are not part of its persisted snapshot.
 - `RuntimeEventSink` reports startup/process identity, progress, usage and diagnostics. The Driver records state; events do not bypass it.
 - `StopSignal` requests an explicit stop. The runtime owns process-tree cleanup and uses section A's grace/forced-stop sequence. There is no wall-clock execution timer.
 - `RuntimeCompletion` contains normalized initialization, exit/result evidence and usage for Surt's common acceptance path. Success is not a boolean shortcut around delivery validation.
 
-The Fake Runtime takes the same request, creates delivery files and returns scripted events/results through the same protocol. It can simulate valid `done`, `approved` or `changes_requested` deliveries, missing/invalid JSON, missing/invalid files, model/init mismatch, crashes, configured-limit failures, unavailable usage and an Execution that waits until explicitly stopped. All deliveries pass through production validators; it never directly marks SQLite rows successful. Runtime stream parsing additionally requires the real fixtures, because a Fake Runtime cannot prove that the Claude adapter understands the live protocol.
+The Fake Runtime takes the same request, creates delivery files and returns scripted events/results through the same protocol. It can simulate valid `done`, `approved` or `changes_requested` deliveries, missing/invalid JSON, missing/invalid files, model/init mismatch, crashes, configured-limit failures, unavailable usage, an Execution that waits until explicitly stopped and a lost conversation transcript. All deliveries pass through production validators; it never directly marks SQLite rows successful. Runtime stream parsing additionally requires the real fixtures, because a Fake Runtime cannot prove that the Claude adapter understands the live protocol.
 
 ## One Markdown document per Task
 

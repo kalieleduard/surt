@@ -1,6 +1,7 @@
 use serde_json::Value;
 use surt_engine::project::{
-    ExecutionDetail, ExecutionInput, Performer, RuntimeInfo, Timeline, TimelineEvent, Usage,
+    ConversationInfo, ExecutionDetail, ExecutionInput, Performer, RuntimeInfo, Timeline,
+    TimelineEvent, Usage,
 };
 
 use crate::json::Fields;
@@ -101,6 +102,17 @@ fn reported(info: &RuntimeInfo) -> Fields {
         .maybe("cost_usd", info.cost_usd)
         .list("permission_denials", info.permission_denials.clone())
         .time("resets_at", info.resets_at)
+        .maybe("conversation", info.conversation.as_ref().map(conversation))
+}
+
+fn conversation(conversation: &ConversationInfo) -> Fields {
+    match conversation {
+        ConversationInfo::Continued { from } => Fields::new().with("continued_from", from.as_str()),
+        ConversationInfo::Restarted { reason, previous } => Fields::new()
+            .with("restarted", reason.as_str())
+            .with("previous", previous.as_str()),
+        ConversationInfo::Fresh { reason } => Fields::new().with("fresh", reason.as_str()),
+    }
 }
 
 fn usage(usage: Usage) -> Fields {

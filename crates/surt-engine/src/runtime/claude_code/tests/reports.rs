@@ -1,8 +1,11 @@
 use serde_json::{Value, json};
+use uuid::Uuid;
 
 use super::executions::Execution;
 use super::streams::{Fixture, Stream};
-use crate::runtime::Exit;
+use crate::runtime::claude_code::launched_fresh;
+use crate::runtime::{Continuation, Conversation, Exit, FreshReason};
+use crate::workflow::ConversationScope;
 
 fn reported(fixture: Fixture, exit: Exit) -> Value {
     let stream = Stream::captured(fixture);
@@ -132,4 +135,24 @@ fn values_the_result_left_out_are_absent_not_zero() {
     assert_eq!(report.get("cost_usd"), None);
     assert_eq!(report.get("permission_denials"), None);
     assert_eq!(report["usage"], json!({ "output_tokens": 7 }));
+}
+
+#[test]
+fn a_continuation_is_launched_fresh_and_reported_as_unsupported_until_sessions_fork() {
+    let mut execution = Execution::new(Uuid::now_v7());
+    execution.request.launch.profile.conversation = ConversationScope::Loop;
+    let fresh = launched_fresh(&execution.request);
+    execution.request.continuation = Some(Continuation {
+        session_id: Uuid::now_v7(),
+        execution_id: "previous".to_owned(),
+        context: "delta".to_owned(),
+    });
+
+    let continued = launched_fresh(&execution.request);
+
+    assert_eq!(fresh, Some(Conversation::Fresh(FreshReason::NoPrevious)));
+    assert_eq!(
+        continued,
+        Some(Conversation::Fresh(FreshReason::ContinuationUnsupported))
+    );
 }

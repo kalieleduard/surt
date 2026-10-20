@@ -19,8 +19,8 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 use tokio::process::ChildStdin;
 
 use super::{
-    AgentRuntime, FailureClass, RuntimeCompletion, RuntimeError, RuntimeEvent, RuntimeEventSink,
-    RuntimeRequest, STDERR_LOG, STREAM_LOG, StopSignal,
+    AgentRuntime, Conversation, FailureClass, FreshReason, RuntimeCompletion, RuntimeError,
+    RuntimeEvent, RuntimeEventSink, RuntimeRequest, STDERR_LOG, STREAM_LOG, StopSignal,
 };
 use crate::platform;
 use invocation::Invocation;
@@ -84,8 +84,17 @@ impl AgentRuntime for ClaudeCodeRuntime {
             supervision::supervise(child, &stop, &incompatible, self.stop_grace_period),
         );
         let exit = exit?;
-        let _ = events.send(RuntimeEvent::Reported(transcript.report(exit)));
+        let mut report = transcript.report(exit);
+        report.conversation = launched_fresh(&request);
+        let _ = events.send(RuntimeEvent::Reported(report));
         transcript.conclude(exit)
+    }
+}
+
+fn launched_fresh(request: &RuntimeRequest) -> Option<Conversation> {
+    match request.continuation {
+        Some(_) => Some(Conversation::Fresh(FreshReason::ContinuationUnsupported)),
+        None => request.continued(),
     }
 }
 
