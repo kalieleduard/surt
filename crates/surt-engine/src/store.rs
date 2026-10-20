@@ -24,6 +24,7 @@ mod events;
 mod execution_detail;
 mod executions;
 mod frozen;
+mod gates;
 mod graph;
 mod items;
 mod iterations;
@@ -45,7 +46,7 @@ mod timeline;
 mod working_copy;
 
 pub(crate) use acceptance::{Acceptance, Integrated, PublishedOutput};
-pub(crate) use approvals::{Decision, DecisionOutcome, GateRow, NewDecision, WaitingGate};
+pub(crate) use approvals::{Decision, DecisionOutcome, NewDecision};
 pub(crate) use blocked::{BlockedRow, FailureRow};
 pub(crate) use branches::{PreviousExecution, RunBranch};
 pub use checkpoints::Checkpoint;
@@ -60,12 +61,13 @@ pub(crate) use executions::{
     ExecutionEnd, ExecutionKind, ExecutionStart, InputRequest, StartedExecution,
 };
 pub(crate) use frozen::FrozenFile;
+pub(crate) use gates::{GateRow, GateViewRow, WaitingGate};
 pub(crate) use graph::{RunRows, StepRow};
 pub(crate) use items::{Expansion, ListRevision, NewChild};
 pub(crate) use log_sources::LogSourceRow;
 pub(crate) use paused::LastAgentEnd;
 pub(crate) use purge::{SubjectBranch, SubjectRun};
-pub(crate) use reading::{ArtifactSummaryRow, GateViewRow, ItemRunRow, RootRunRow};
+pub(crate) use reading::{ArtifactSummaryRow, ItemRunRow, RootRunRow};
 pub(crate) use ref_moves::{PendingRefMove, RefMove};
 pub(crate) use restoring::RestoreTarget;
 pub(crate) use revision_approval::ApprovalRow;
