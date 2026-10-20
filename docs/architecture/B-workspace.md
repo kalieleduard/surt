@@ -288,7 +288,7 @@ pub(super) const TEMPLATE: Template = Template {
 |---|---|---|
 | `tokio` (rt-multi-thread, macros, process, signal, sync, time, fs) | both | async, child processes, Ctrl-C/SIGHUP/console close |
 | `sqlx` 0.9 (`sqlite`, `runtime-tokio`, `migrate`; no defaults) | engine | [D](D-database.md) |
-| `serde`, `serde_json`, `toml` | engine | definitions, deliveries, configuration |
+| `serde`, `serde_json`, `toml` | engine; `toml` also in surt | definitions, deliveries, configuration; `surt answer --file` |
 | `jsonschema` (no defaults, no HTTP resolver) | engine | validating delivered files against the schemas read from `.surt/agents/` |
 | `uuid` (`v7`), `sha2` | engine | ids, blobs, definition identity |
 | `jiff` | engine | Unix-second `Timestamp`s, their display and the local date of `YYYYMMDD-<slug>` |
