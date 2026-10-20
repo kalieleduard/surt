@@ -71,6 +71,7 @@ A Workflow Definition is the file `.surt/workflows/<name>.toml` of the project; 
 |---|---|---|---|
 | `agent` | an AI, through an Agent Runtime | `agent` (agent id), optional `inputs.<name> = "<artifact>"` renames | the `outcomes` its `agent.toml` declares; `done` if it declares none |
 | `approval` | a human, via `surt approve` / `surt reject` | `artifact`, `rejection_artifact` | `approved` · `rejected` |
+| `input` | a human, via `surt answer` | `artifact` (a `questions` artifact), `answer_artifact` | `answered` |
 | `operation` | Surt's own code, no AI | `run` (operation id from Surt's registry) | declared by the operation in the registry |
 | `loop` | the engine | `body` (step ids), `until = { step, outcome }` | `done` |
 | `per_item` | the engine | `items` (an Item List artifact), `workflow`, `pass` (artifact names) | `done` |
@@ -79,6 +80,16 @@ Notes per kind:
 
 - **agent:** the `agent.toml` owns the contract: `outcomes`, `[inputs]` (with `optional = true` where an input may not exist yet), `[outputs]` and any declared `item_files` on an Item List output ([section F](F-agent-contract.md)). The step does not repeat that list. It only renames, when a workflow's artifact name differs from the agent's input name.
 - **approval:** it approves or rejects the **latest** Revision of `artifact` at the moment `surt approve`/`surt reject` runs, and records an Approval on that Revision. The `-m` reason of `surt reject` becomes a new human-origin Revision of `rejection_artifact`. Each gate needs its own `rejection_artifact` name, because names are per run and two gates sharing one name would hand one gate's reason to another agent.
+- **input:** a human answers the questions of the **latest** Revision of `artifact`, which must be an artifact of format `questions` ([F](F-agent-contract.md#the-questions-format)). It waits like an approval gate: no Execution, no limit. Recording the answers publishes a new human-origin Revision of `answer_artifact` (format `json`, file `<answer_artifact>.json`) holding every earlier round plus this one ([H](H-artifact-storage.md#answers)), and the step ends `answered`. It runs only when the Agent asked, through `when`:
+  ```toml
+  [steps.answer-spec]
+  kind = "input"
+  artifact = "spec-questions"
+  answer_artifact = "spec-answers"
+  needs = ["spec"]
+  when = { step = "spec", outcome = "questions" }
+  ```
+  `answer_artifact` shares one namespace with every `rejection_artifact`: no two steps may name the same one. The questions and answers are not Working Copy artifacts; only approval artifacts are. `surt approve` and `surt reject` act on approval steps only and refuse while only an input step waits.
 - **operation:** this schema only references an Operation by id. The registry of ids, the Inputs each reads, their Outcomes and the artifacts they produce is in [A. Git Integration](A-git-integration.md#operation-registry). Operations take no arguments from the TOML.
 - **loop:** see [Loops](#loops).
 - **per_item:** see [Per-Item Steps](#per-item-steps).
@@ -118,7 +129,7 @@ needs = ["setup"]
 - Each Iteration creates **new Step Runs** for every step of the body. Finished Step Runs are never reopened.
 - When every Step Run of the current Iteration is finished, the engine checks `until`. If the step ended with that Outcome, the Loop is `done`. Otherwise (another Outcome, or SKIPPED) a new Iteration starts.
 - Artifacts produced in one Iteration are visible to the next one by name. That is how the Builder reads the Reviewer's `feedback`, and how the Spec Agent reads its previous `spec` plus `spec-rejection-reason`.
-- The TOML declares **no iteration limit**. The limit is project configuration (`max_iterations`, default 5), applies only to Loops whose body has no `approval` step, and makes the Loop `blocked` when reached ([G. State Machines](G-state-machines.md#iterations)).
+- The TOML declares **no iteration limit**. The limit is project configuration (`max_iterations`, default 5), applies only to Loops whose body has no `approval` or `input` step, and makes the Loop `blocked` when reached ([G. State Machines](G-state-machines.md#iterations)).
 
 ## Per-Item Steps
 
@@ -181,7 +192,7 @@ Checks:
 5. `when` and `until` reference an Outcome the referenced step's kind, agent or operation declares. `until.step` is in the Loop's `body`.
 6. Every `agent` exists. Every required input of an agent or Operation is produced by a step before it (via `needs`, including earlier steps of the same body), is a declared input of the root workflow (`[inputs]`), is `item`, or is passed by the parent (`pass`). An artifact a Git Operation reads as a Git reference (`base`, see [the Operations' artifact contract](#the-operations-artifact-contract)) must come from a `git_ref` input; any other source is refused at the step.
 7. Every `run` is a registered operation. Every `workflow` of a `per_item` exists, and its `items` artifact is produced by a step before it in the Item List format. Any `item_files` declarations have valid names and supported file formats; actual item references and bytes are validated at delivery and expansion.
-8. Every `approval` names an `artifact` produced before it and a `rejection_artifact` unique in the definition.
+8. Every `approval` names an `artifact` produced before it and a `rejection_artifact` unique in the definition. Every `input` names an `artifact` produced before it in the `questions` format and an `answer_artifact`; `rejection_artifact` and `answer_artifact` names are unique together (`DuplicateRejectionArtifact`, `DuplicateAnswerArtifact`, `NotQuestions`). An `input` step produces its `answer_artifact` as `json` for the steps after it.
 9. `[inputs]`: known formats and fields, `default` only on `git_ref`, none in a `per_item` child; `[subject] from` names a declared `text` or `markdown` input.
 
 ## The Operations' artifact contract

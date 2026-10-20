@@ -68,10 +68,11 @@ stateDiagram-v2
 |---|---|---|
 | `agent`, `operation` | It has at most one `queued`/`running` Execution. Between Attempts (after a `failed` or `interrupted` one) it has none. | an Execution `succeeded` |
 | `approval` | It has no Execution; it waits for `surt approve` / `surt reject`. `status` shows it as awaiting approval. | an Approval is recorded |
+| `input` | It has no Execution; it waits for `surt answer`. `status` shows it as awaiting an answer, with its questions' artifact and round. | the answers are recorded (Outcome `answered`) |
 | `loop` | Its current Iteration's Step Runs are in progress. | `until` matches ([E](E-workflow-schema.md#loops)) |
 | `per_item` | Its Child Workflow Runs are in progress. | every child `succeeded` ([Per-Item Steps](#per-item-steps-and-blocked-children)) |
 
-Only `agent`, `operation` and `loop` Step Runs can become `blocked`. An Approval Gate waits for a human by design and has no limit.
+Only `agent`, `operation` and `loop` Step Runs can become `blocked`. An Approval Gate and an input step wait for a human by design and have no limit. Recording the answers closes the input step `done`/`answered`, publishes the answers Revision and writes `answer.recorded` and `step.done` in one transaction, as an Approval does for a gate.
 
 ## Workflow Run
 
@@ -93,6 +94,7 @@ What `surt status` shows for an `active` run is **derived** from its Step Runs o
 |---|---|
 | `RUNNING` | a Driver holds the run lock |
 | `AWAITING APPROVAL` | no Driver, and some Approval Gate is `running` |
+| `AWAITING ANSWER` | no Driver, and some input step is `running` |
 | `BLOCKED` | no Driver, and some Step Run is `blocked` |
 | `INTERRUPTED` | no Driver, and work that could run without a human remains |
 
@@ -113,7 +115,7 @@ A Child Workflow Run follows the same rules. Its derived state is what `status` 
 
 ### When a Driver returns
 
-`drive(root_run_id)` ([A](A-process-model.md#driving-a-run)) returns when nothing can run without a human: every non-final Step Run is a `running` Approval Gate, is `blocked`, or waits (`pending`) behind one of them. The driving command then exits. It exits successfully when it reached an Approval Gate or the run succeeded. It exits with an error when it stopped on `blocked`, printing each blocked step with its last error and the command to resume. Exit codes: `0` and `4` respectively ([J. Exit codes](J-cli.md#exit-codes)).
+`drive(root_run_id)` ([A](A-process-model.md#driving-a-run)) returns when nothing can run without a human: every non-final Step Run is a `running` Approval Gate or input step, is `blocked`, or waits (`pending`) behind one of them. The driving command then exits. It exits successfully when it reached an Approval Gate or an input step (`DriveOutcome::AtGate`, each `Gate` with its `kind`, `approval` or `input`) or the run succeeded. It exits with an error when it stopped on `blocked`, printing each blocked step with its last error and the command to resume. Exit codes: `0` and `4` respectively ([J. Exit codes](J-cli.md#exit-codes)).
 
 ### Cancellation
 
@@ -126,7 +128,7 @@ Two limits stop work that would otherwise repeat without a human watching. Both 
 | Key | Default | Applies to | Counts |
 |---|---|---|---|
 | `max_attempts` | `3` | every `agent` and `operation` Step Run | its `failed` Executions, except Transient Failures |
-| `max_iterations` | `5` | every `loop` Step Run whose body contains no `approval` step | its Iterations |
+| `max_iterations` | `5` | every `loop` Step Run whose body contains no `approval` or `input` step | its Iterations |
 
 ### Attempts
 
@@ -153,7 +155,7 @@ Two limits stop work that would otherwise repeat without a human watching. Both 
 
 - Every Iteration of a Loop counts, whatever ended the previous one. The engine does not know why `until` was not met. In the Task Cycle a rejected review, a failed Check and an integration conflict each cost one Iteration.
 - When a Loop's Iteration ends without matching `until` and the Loop already ran `max_iterations` Iterations since it last became `running`, it does not start another. The Loop Step Run becomes `blocked`.
-- **A Loop whose body contains an `approval` step has no limit.** A human already decides every Iteration of it, as in `spec-loop` and `tasks-loop`. This is a static property of the definition, not knowledge of any workflow.
+- **A Loop whose body contains an `approval` or an `input` step has no limit.** A human already decides every Iteration of it, as in `spec-loop` and `tasks-loop`. This is a static property of the definition, not knowledge of any workflow.
 
 ```
 B  iter 5/5 · review ✖ changes_requested (2 blocking findings)
