@@ -10,7 +10,7 @@ use super::flow::{self, Agents, External};
 use super::freeze::FreezeError;
 use super::inputs::RunInputs;
 use super::steps::StepSpec;
-use super::{outcomes, structure};
+use super::{conversations, outcomes, structure};
 
 pub(super) struct Closure {
     pub(super) root: Definition,
@@ -68,6 +68,7 @@ impl<S: DefinitionSource> Resolver<'_, S> {
         structure::check(&definition)?;
         self.load_agents(&definition)?;
         outcomes::check(&definition, &self.agents)?;
+        conversations::check(&definition, &self.agents)?;
         let uses = flow::check(&definition, &self.agents, &external)?;
         self.stack.push(name.to_owned());
         for child in uses {

@@ -144,6 +144,9 @@ pub enum Problem {
     GitInputNotGitRef {
         input: String,
     },
+    ConversationOutsideLoop {
+        agent: String,
+    },
 }
 
 impl InvalidDefinition {

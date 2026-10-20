@@ -19,10 +19,26 @@ body = ["write"]
 until = { step = "write", outcome = "done" }
 "#;
 
+const ONCE: &str = r#"
+schema = 1
+name = "drafting"
+
+[inputs.request]
+format = "text"
+
+[steps.write]
+kind = "agent"
+agent = "writer"
+"#;
+
 async fn refused(agent_toml: &str) -> InvalidDefinition {
+    refused_in(UNTIL_DONE, agent_toml).await
+}
+
+async fn refused_in(workflow: &'static str, agent_toml: &str) -> InvalidDefinition {
     let dir = ProjectDir::new();
     let catalog = Catalog::new()
-        .workflow("drafting", UNTIL_DONE)
+        .workflow("drafting", workflow)
         .agent("writer", writer());
     dir.project(catalog, default_config()).await;
     dir.write_agent_file("writer", "agent.toml", agent_toml);
@@ -76,6 +92,23 @@ async fn an_agent_requiring_an_input_the_workflow_never_supplies_refuses_at_the_
             "write",
             Problem::MissingInput {
                 input: "style".to_owned()
+            }
+        )
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_agent_continuing_its_conversation_refuses_at_a_step_outside_every_loop() {
+    let continuing = WRITER_AGENT.replace("[profile]", "[profile]\nconversation = \"loop\"");
+
+    let invalid = refused_in(ONCE, &continuing).await;
+
+    assert_eq!(
+        invalid,
+        at_step(
+            "write",
+            Problem::ConversationOutsideLoop {
+                agent: "writer".to_owned()
             }
         )
     );

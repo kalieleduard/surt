@@ -148,6 +148,10 @@ fn every_workflow_problem_is_described_in_one_line_of_words() {
             },
             "rejection artifact \"x\" is declared twice",
         ),
+        (
+            Problem::ConversationOutsideLoop { agent: owned("x") },
+            "agent \"x\" has conversation = \"loop\", but the step is in no loop's body",
+        ),
     ];
 
     for (problem, expected) in cases {

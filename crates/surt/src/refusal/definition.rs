@@ -149,6 +149,9 @@ fn describe(problem: &Problem) -> String {
         Problem::GitInputNotGitRef { input } => {
             format!("needs \"{input}\" from an input with format = \"git_ref\"")
         }
+        Problem::ConversationOutsideLoop { agent } => format!(
+            "agent \"{agent}\" has conversation = \"loop\", but the step is in no loop's body"
+        ),
     }
 }
 
