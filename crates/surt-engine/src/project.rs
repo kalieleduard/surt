@@ -30,6 +30,7 @@ use std::path::Path;
 use std::time::Duration;
 
 pub use crate::artifacts::working_copy::restoring::{Change, FileChange};
+pub use crate::artifacts::{MAX_QUESTIONS, Question, Questions};
 pub use crate::cleanup::{Cleanup, Kept, Left};
 pub use crate::drive::cancel::Cancellation;
 pub use crate::drive::graph::BlockReason;

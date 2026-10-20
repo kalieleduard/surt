@@ -1,4 +1,5 @@
 use super::item_list::ItemListProblem;
+use super::questions::QuestionsProblem;
 
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub(crate) enum DeliveryRejection {
@@ -32,5 +33,10 @@ pub(crate) enum DeliveryRejection {
     InvalidItemList {
         path: String,
         problem: ItemListProblem,
+    },
+    #[error("{path}: {problem}")]
+    InvalidQuestions {
+        path: String,
+        problem: QuestionsProblem,
     },
 }
