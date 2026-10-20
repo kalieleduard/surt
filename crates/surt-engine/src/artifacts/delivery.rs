@@ -3,6 +3,7 @@ mod envelope;
 mod files;
 mod item_list;
 mod portable;
+mod questions;
 mod rejection;
 
 use std::collections::BTreeMap;
@@ -14,6 +15,9 @@ use envelope::Envelope;
 
 pub(crate) use contract::{DeliveryContract, OutputRule};
 pub(crate) use item_list::{Item as ListedItem, ItemListProblem};
+pub use questions::{MAX_QUESTIONS, Question, Questions};
+#[cfg(test)]
+pub(crate) use questions::{QuestionField, QuestionsProblem};
 pub(crate) use rejection::DeliveryRejection;
 
 #[derive(Debug)]

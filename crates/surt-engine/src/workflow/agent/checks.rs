@@ -59,7 +59,7 @@ impl OutputSpec {
             });
         }
         let invalid = self.item_files.iter().find(|(_, file)| {
-            file.format == Format::ItemList
+            matches!(file.format, Format::ItemList | Format::Questions)
                 || (file.json_schema.is_some() && file.format != Format::Json)
         });
         match invalid {

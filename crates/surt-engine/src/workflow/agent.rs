@@ -39,6 +39,7 @@ pub(crate) enum Format {
     Markdown,
     Json,
     ItemList,
+    Questions,
 }
 
 #[derive(Deserialize, Serialize)]

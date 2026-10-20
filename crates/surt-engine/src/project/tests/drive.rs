@@ -43,6 +43,7 @@ mod pausing;
 mod phases;
 mod pinning;
 mod planned;
+mod questions;
 mod recovery;
 mod ref_moves;
 mod repository;

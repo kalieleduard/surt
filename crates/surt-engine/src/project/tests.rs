@@ -1,5 +1,6 @@
 mod active;
 mod agent_files;
+mod agent_formats;
 mod agent_hygiene;
 mod agent_refusals;
 mod agent_schemas;

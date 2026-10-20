@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use super::contract::OutputRule;
 use super::files::read;
-use super::portable::{is_device_name, is_item_key};
+use super::portable::{KeyFault, first_key_fault};
 use super::{DeliveredFile, DeliveryRejection, ValidatedOutput};
 
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
@@ -118,20 +118,15 @@ fn parse(value: &Value) -> Result<Vec<Item>, ItemListProblem> {
 }
 
 fn check_keys(items: &[Item]) -> Result<(), ItemListProblem> {
-    let mut seen = HashSet::new();
-    for item in items {
-        let key = || item.key.clone();
-        if !is_item_key(&item.key) {
-            return Err(ItemListProblem::InvalidKey { key: key() });
-        }
-        if is_device_name(&item.key) {
-            return Err(ItemListProblem::ReservedKey { key: key() });
-        }
-        if !seen.insert(item.key.to_ascii_lowercase()) {
-            return Err(ItemListProblem::DuplicateKey { key: key() });
-        }
-    }
-    Ok(())
+    let Some((key, fault)) = first_key_fault(items.iter().map(|item| item.key.as_str())) else {
+        return Ok(());
+    };
+    let key = key.to_owned();
+    Err(match fault {
+        KeyFault::NotPortable => ItemListProblem::InvalidKey { key },
+        KeyFault::Reserved => ItemListProblem::ReservedKey { key },
+        KeyFault::Duplicate => ItemListProblem::DuplicateKey { key },
+    })
 }
 
 fn check_unique_paths(index: &str, paths: &[(&str, &str)]) -> Result<(), ItemListProblem> {

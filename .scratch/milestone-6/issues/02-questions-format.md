@@ -13,10 +13,10 @@ Spec: [Milestone 6](../spec.md) (Format `questions`) · Plan: [F](../../../docs/
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] `Format::Questions` (`format = "questions"`) parses on inputs and outputs; `json_schema` on it is `MisplacedJsonSchema`
-- [ ] Delivery validation: 1 to `MAX_QUESTIONS = 5` entries; `id` follows the Item List key rules; `question`, `why`, `recommended` non-empty; ids unique; `options`, when present, 2+ unique non-empty strings containing `recommended`; failures are a `QuestionsProblem` turned into a `DeliveryRejection`
-- [ ] A typed read side (`Questions`, `Question`) that later tickets use to print and answer them
-- [ ] Tests for every rule, accepted and rejected, through a delivery
-- [ ] F and H document the format
+- [x] `Format::Questions` (`format = "questions"`) parses on inputs and outputs; `json_schema` on it is `MisplacedJsonSchema`
+- [x] Delivery validation: 1 to `MAX_QUESTIONS = 5` entries; `id` follows the Item List key rules; `question`, `why`, `recommended` non-empty; ids unique; `options`, when present, 2+ unique non-empty strings containing `recommended`; failures are a `QuestionsProblem` turned into a `DeliveryRejection`
+- [x] A typed read side (`Questions`, `Question`) that later tickets use to print and answer them
+- [x] Tests for every rule, accepted and rejected, through a delivery
+- [x] F and H document the format

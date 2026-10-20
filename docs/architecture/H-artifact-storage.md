@@ -91,6 +91,10 @@ $ surt approve 20261016-add-login
 
 Both refusals of an edit, the invalid edit above and the pinned edit below, name this command as their way out (`undo: surt restore <subject> <artifact>`), never `rm <file>`.
 
+### Questions
+
+A Revision of a [`questions`](F-agent-contract.md#the-questions-format) artifact holds exactly one file, the JSON the Agent delivered, stored like any other blob; its identity is that file's. It is validated at delivery, so a Revision that exists is a valid round of 1 to 5 questions, and the engine and the CLI read it back typed with `Questions::parse` on its bytes (`surt show <subject> <artifact>` prints the same bytes). A `questions` artifact has a Working Copy only if an Approval Gate shows it, like every artifact; an edit of it is then validated with the same rules as a delivery.
+
 ## Revalidation
 
 Steps read artifacts by name, at the latest Revision ([ADR 0003](../adr/0003-inputs-resolved-by-artifact-name.md)). This section is therefore the only protection against unapproved content flowing downstream. There are two cases.

@@ -5,6 +5,7 @@ use serde_json::Value;
 
 use super::contract::{FileRule, OutputRule};
 use super::portable::is_portable_path;
+use super::questions::validate_questions;
 use super::{DeliveredFile, DeliveryRejection, ValidatedOutput};
 use crate::platform;
 use crate::workflow::Format;
@@ -17,13 +18,14 @@ impl OutputRule {
     ) -> Result<ValidatedOutput, DeliveryRejection> {
         let file = read(delivery_dir, path)?;
         let json = self.file.check(&file)?;
-        if let (Format::ItemList, Some(value)) = (self.file.format, json.clone()) {
-            return self.validate_item_list(delivery_dir, file, value);
+        match (self.file.format, json) {
+            (Format::ItemList, Some(value)) => self.validate_item_list(delivery_dir, file, value),
+            (Format::Questions, Some(value)) => validate_questions(file, value),
+            (_, json) => Ok(ValidatedOutput {
+                files: vec![file],
+                json,
+            }),
         }
-        Ok(ValidatedOutput {
-            files: vec![file],
-            json,
-        })
     }
 }
 
@@ -31,7 +33,7 @@ impl FileRule {
     pub(super) fn check(&self, file: &DeliveredFile) -> Result<Option<Value>, DeliveryRejection> {
         match self.format {
             Format::Text | Format::Markdown => check_text(file).map(|()| None),
-            Format::Json | Format::ItemList => self.check_json(file).map(Some),
+            Format::Json | Format::ItemList | Format::Questions => self.check_json(file).map(Some),
         }
     }
 

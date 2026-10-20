@@ -184,7 +184,7 @@ Their tools follow the role table above and no profile sets turn or cost limits.
 | `profile.limits` | Optional positive integer `max_turns` and positive finite numeric `max_budget_usd`; absent means no limits; no timeout field |
 | `profile.claude` | `auth`, `permission_mode`, `tools`, `allowed_tools`, `disallowed_tools`; optional `api_key_env` only with `auth = "api_key"` |
 
-Formats are `text`, `markdown`, `json` and `item_list`. Text and Markdown require non-empty UTF-8 content; Markdown is not semantically validated. JSON is parsed and validated against its declared JSON Schema when present. `item_list` also validates keys, references, graph acyclicity and declared item files as specified in section E. Item file formats are `text`, `markdown` or `json`; item files do not recursively contain Item Lists. `json_schema` is only valid for `json` or `item_list`. Schemas use draft-07; formats such as `date-time` do not substitute for explicit validation.
+Formats are `text`, `markdown`, `json`, `item_list` and `questions`. Text and Markdown require non-empty UTF-8 content; Markdown is not semantically validated. JSON is parsed and validated against its declared JSON Schema when present. `item_list` also validates keys, references, graph acyclicity and declared item files as specified in section E. `questions` is the Surt-owned format of an Agent's questions to the developer ([The `questions` format](#the-questions-format)). Item file formats are `text`, `markdown` or `json`; item files do not recursively contain Item Lists or questions (`item file "<file>" has an unsupported format`). `json_schema` is only valid for `json` or `item_list`, never on `questions`, whose rules are Surt's. Schemas use draft-07; formats such as `date-time` do not substitute for explicit validation.
 
 The supported runtime IDs are `claude-code` and test-only `fake`. The latter uses scripted behavior; it is not another model provider. Auth is `subscription` or `api_key`; permission mode is `dontAsk` or explicit `bypassPermissions`. Tool and rule arrays are explicit; an empty array is meaningful. No arbitrary settings or environment table is accepted. Claude-specific controls live in `[claude]`, keeping them out of the generic runtime request's contract semantics.
 
@@ -274,7 +274,7 @@ format = "markdown"
 outcomes = ["done"]
 
 [outputs.spec-questions]
-format = "json"
+format = "questions"
 outcomes = ["questions"]
 ```
 
@@ -283,6 +283,30 @@ The list must be non-empty (`output "<output>" names no outcome`), name only the
 A delivery ending with an Outcome carries exactly the outputs that Outcome delivers. Only those outputs are read and published, and only their item files and [delivery checks](#delivery-checks) run.
 
 The generated envelope schema keeps `outcome` as an enum of the Agent's Outcomes and lists every declared output as a property of `outputs`, with `additionalProperties = false`. Its `required` holds only the outputs every Outcome delivers. It has no `oneOf`: which outputs go with which Outcome is Surt's rule to enforce at acceptance, not the model's.
+
+### The `questions` format
+
+`format = "questions"` is Surt-owned, like the Item List: an output (or an input) of this format holds one JSON file with the questions an Agent needs the developer to answer.
+
+```json
+{ "questions": [
+  { "id": "login-id", "question": "Log in by e-mail only, or by username too?",
+    "why": "changes the users table", "recommended": "e-mail only",
+    "options": ["e-mail only", "e-mail or username"] } ] }
+```
+
+It takes no `json_schema` (`MisplacedJsonSchema`, as for `text`) and is no item file format. A delivered file is parsed as JSON and then checked, in this order; the first rule broken rejects the delivery as an invalid delivery, retried like any other (`<path>: <problem>`):
+
+| Rule | Problem |
+|---|---|
+| An object with exactly `questions`, a list | `the file is not an object holding a list of questions` |
+| 1 to `MAX_QUESTIONS = 5` entries | `there are no questions`, `<n> questions are more than 5` |
+| Each entry has exactly the string fields `id`, `question`, `why`, `recommended` and optionally `options`, a list of strings | `question <n> has no id, question, why or recommended of the right shape` |
+| `id` follows the Item List key rules ([A](A-git-integration.md#item-keys-and-item-file-paths)): portable, not a device name, unique ignoring case | `id <id> is not a portable item key`, `… is a reserved device name`, `… is used by more than one question` |
+| `question`, `why` and `recommended` are not blank | `question <id> has an empty why` |
+| `options`, when present: 2 or more, none blank, each once, `recommended` among them (exact match) | `question <id> offers fewer than 2 options`, `… offers an empty option`, `… offers <option> more than once`, `… recommends an answer that is not one of its options` |
+
+The engine reads a published round back as typed `Questions` (`surt_engine::project::{Questions, Question, MAX_QUESTIONS}`): `Questions::parse(bytes)` returns the questions of a valid file, in order, and `None` for anything else. Static validation treats `questions` like any other format: a step consumes it when it is produced upstream, whatever format the consumer declares.
 
 ### Delivery checks
 
@@ -356,7 +380,7 @@ Acceptance requires all of the following:
 
 Only then may Surt publish the resulting Revisions and successful Outcome. Files left by a failed Execution are not accepted outputs. A present, schema-valid envelope is not evidence of delivery: with `--json-schema`, Claude Code pushes the model to call `StructuredOutput` even after a refusal or a denied write, and the captured model then declared a permitted Outcome with prose in place of a path; step 5 is the real gate. `--max-turns` counts turns, not tool calls, so an Execution stopped by it can leave every file written; SIGTERM ends the stream without a `result` (exit 143) and leaves partial files. The storage transaction and crash recovery around publication belong to sections H, D and I.
 
-Auth failure, unavailable/mismatched model, unsupported settings, non-zero exit, missing result, malformed envelope, missing files, invalid Item List or a configured limit being reached are technical failures. `changes_requested` with valid feedback is a successful Outcome. Interruption and Cancellation retain their distinct meaning from section A; their state names, and the fact that neither counts toward the Attempt limit, are in [G. State Machines](G-state-machines.md).
+Auth failure, unavailable/mismatched model, unsupported settings, non-zero exit, missing result, malformed envelope, missing files, invalid Item List, invalid questions or a configured limit being reached are technical failures. `changes_requested` with valid feedback is a successful Outcome. Interruption and Cancellation retain their distinct meaning from section A; their state names, and the fact that neither counts toward the Attempt limit, are in [G. State Machines](G-state-machines.md).
 
 The runtime neither invents billing precision nor reports a missing usage field as zero. Record available session/model/version identity, requested effort, turn counts, cost estimates and permission denials; unknown data remains unknown. The stream and stderr are written to `.surt/logs/<subject>/<execution-id>/` and survive cleanup; secret redaction is not in v1 ([I. Cleanup](I-cleanup.md#logs)).
 
