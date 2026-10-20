@@ -315,7 +315,7 @@ async fn a_database_from_a_newer_surt_is_refused() {
         refusal(sandbox.open(&sandbox.repo()).await),
         Refusal::SchemaTooNew {
             db: 9,
-            supported: 1
+            supported: 2
         }
     );
 }

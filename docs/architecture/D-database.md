@@ -2,7 +2,7 @@
 
 The physical SQLite schema behind [C. Domain Model](C-domain-model.md). SQLite is the source of truth for every Workflow Run. Vocabulary is defined in [`CONTEXT.md`](../../CONTEXT.md). Decision ticket: [SQLite schema](../../.scratch/surt-architecture/issues/11-sqlite-schema.md).
 
-The complete initial migration is [`migrations/0001_initial.sql`](migrations/0001_initial.sql). It runs in `sqlite3` 3.46+ (the range sqlx 0.9 bundles). In Milestone 1 it moves to the crate's `migrations/` directory unchanged. It carries no comments, following the project's comment rule ([`rules/clean-code.md`](../../rules/clean-code.md)); a tool directive such as sqlx's `-- no-transaction` is the only exception. This section explains it; the SQL file is the authority on columns.
+The complete initial migration is [`migrations/0001_initial.sql`](migrations/0001_initial.sql). It runs in `sqlite3` 3.46+ (the range sqlx 0.9 bundles). In Milestone 1 it moves to the crate's `migrations/` directory unchanged. Milestone 6 adds [`migrations/0002_input_steps.sql`](migrations/0002_input_steps.sql) (see [Migration 0002](#migration-0002-input-steps)). Each file carries no comments, following the project's comment rule ([`rules/clean-code.md`](../../rules/clean-code.md)); a tool directive such as sqlx's `-- no-transaction` is the only exception. This section explains it; the SQL file is the authority on columns.
 
 ## Conventions
 
@@ -92,7 +92,7 @@ No table, column or value names Feature, Task, Spec, Builder, Reviewer or Shippe
 
 ### Step Runs
 
-- `step_key` is the step id in the frozen definition and `kind` is copied from it for queries. The engine validates `step_key` against the definition. There is no `step` table.
+- `step_key` is the step id in the frozen definition and `kind` is copied from it for queries: `agent`, `approval`, `operation`, `loop`, `per_item` or, since `0002`, `input`. The engine validates `step_key` against the definition. There is no `step` table.
 - A Step Run inside a Loop body has `loop_step_run_id` (its Loop's Step Run) and `iteration`. Uniqueness: one Step Run per `(workflow_run_id, step_key)` outside Loops, one per `(loop_step_run_id, iteration, step_key)` inside them.
 - `started_at` is the first time the Step Run became `running` and never changes. `git.integrate` uses it as the fixed author and committer date of its merge commit, so every Attempt recomputes the same SHA ([A. Git Integration](A-git-integration.md#integration)).
 - `budget_base` measures the budget of [G. Limits](G-state-machines.md#limits). For `agent` and `operation` Step Runs it is the number of `failed` Executions that are not `transient`, and for a `loop` the number of Iterations, counted when the Step Run last became `running`. A Step Run blocks when `count − budget_base` reaches the limit. Unblocking sets `budget_base` to the current count. It is integer arithmetic and never depends on the clock:
@@ -113,7 +113,7 @@ No table, column or value names Feature, Task, Spec, Builder, Reviewer or Shippe
 ### Artifacts, Revisions and Approvals
 
 - An Artifact is a name inside one Workflow Run (`UNIQUE (workflow_run_id, name)`). A child resolves `pass` names in its parent run and `item` in the parent's Item List Revision.
-- A Revision has `number` (the `rev N` users see) and `identity_sha256` over its sorted `(rel_path, sha256)` pairs. Its origin is exactly one of an Execution (`execution_id`) or a human action: `initial` (an Initial Artifact such as `request` or `base`), `edit` (a Working Copy edit) or `rejection_reason` (the `-m` of `surt reject`). An Execution outputs at most one Revision per Artifact.
+- A Revision has `number` (the `rev N` users see) and `identity_sha256` over its sorted `(rel_path, sha256)` pairs. Its origin is exactly one of an Execution (`execution_id`) or a human action: `initial` (an Initial Artifact such as `request` or `base`), `edit` (a Working Copy edit), `rejection_reason` (the `-m` of `surt reject`) or, since `0002`, `answer` (the answers Revision `surt answer` records for an Input Step). An Execution outputs at most one Revision per Artifact.
 - `revision_file.rel_path` is checked to be relative, `/`-separated and free of `.`, `..` and empty segments. The full portable-name rules are validated in Rust ([A. Git Integration](A-git-integration.md#item-keys-and-item-file-paths)).
 - `pinned_at` marks a Pinned Revision. It is set in the same transaction that pins: the one fixing the first Input that reads the approved Revision, or the one expanding a Per-Item Step over it. Expansion pins before any child Execution exists, so pinning cannot be derived from `execution_input`. The cause is recorded as a `revision.pinned` event.
 - `approval` has one row per decision. `UNIQUE (revision_id)`: a Revision is decided at most once. A rejected Revision is never approved later, because rejection starts a new Iteration that produces a new Revision.
@@ -279,6 +279,22 @@ Live work the scheduler looks at uses `step_run_by_run (workflow_run_id, state)`
 - `.gitattributes` forces `*.sql text eol=lf`, because sqlx checksums the bytes and CRLF would make a checkout on Windows look like an edited migration.
 - A released migration is never edited; changes are new migrations, additive where possible. A table rebuild uses `-- no-transaction` with `PRAGMA foreign_keys = OFF` around it, followed by `PRAGMA foreign_key_check`.
 - A database newer than the binary is refused with the message of [A. Process Model](A-process-model.md#opening-the-database), mapped from sqlx's `VersionMissing`, not passed through raw.
+
+### Migration 0002: input steps
+
+`0002_input_steps.sql` adds `'input'` to `step_run.kind` and `'answer'` to `artifact_revision.human_action`. SQLite cannot change a CHECK in place, and both tables are parents of `ON DELETE CASCADE` foreign keys (`execution`, `approval`, `ref_move`, `event`, child `workflow_run`s and the Loop body's own `step_run`s; `revision_file`, `approval`, `working_copy_file`, `execution_input`). The file follows SQLite's [twelve-step rebuild](https://www.sqlite.org/lang_altertable.html#otheralter):
+
+1. `-- no-transaction` on the first line: sqlx 0.9 then runs the file outside its own transaction (it tests the prefix of the file), because `PRAGMA foreign_keys` is a no-op inside one.
+2. `PRAGMA foreign_keys = OFF`, then `BEGIN IMMEDIATE`.
+3. Per table: `CREATE TABLE new_<table>` with the 0001 definition and only the value list widened, `INSERT … SELECT` with explicit columns, `DROP TABLE <table>`, `ALTER TABLE new_<table> RENAME TO <table>`, and the table's indexes recreated (`step_run` has four; `artifact_revision` only the automatic ones of its `UNIQUE` constraints, which the rename carries).
+4. `PRAGMA foreign_key_check`, then `COMMIT`, then `PRAGMA foreign_keys = ON`.
+
+- With foreign keys on, `DROP TABLE` would delete every row first and cascade into the children. Renaming the old table out of the way would repoint the children at it, with foreign keys on and, since SQLite 3.26, with them off too (unless `legacy_alter_table` is on). So the old table is never renamed: it is dropped with foreign keys off, and only the new table is renamed. Nothing references `new_<table>`, so that rename rewrites no other table, and the children's `REFERENCES <table>` resolve to the new table by name.
+- sqlx sets `foreign_keys = ON` only when it opens a connection, so the final pragma is what returns the migrating connection to the pool with foreign keys on.
+- sqlx discards the rows `PRAGMA foreign_key_check` returns, so it cannot stop the commit. The copy is column for column, so it cannot break a reference; the store tests are the gate: a database created by `0001` with rows in every table keeps every row, `integrity_check` returns `ok` and `foreign_key_check` returns nothing.
+- If a statement fails, sqlx records no version, `Store::open` fails and drops its pool, and the open transaction never commits: SQLite rolls it back when the connection closes or the process ends, so the database stays at `0001`.
+- The rename stores the table's SQL as `CREATE TABLE "step_run" (…)`, quoted; otherwise `sqlite_schema` matches `0001` except for the two value lists. Every other CHECK, `STRICT`, default and index is unchanged. Neither table has a trigger or a view.
+- [`migrations/0002_input_steps.sql`](migrations/0002_input_steps.sql) is the byte-for-byte copy the store test compares the embedded migration with, as for `0001`.
 
 ## Rule exceptions
 
