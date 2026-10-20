@@ -97,7 +97,13 @@ pub enum Problem {
     NotAnItemList {
         artifact: String,
     },
+    NotQuestions {
+        artifact: String,
+    },
     DuplicateRejectionArtifact {
+        artifact: String,
+    },
+    DuplicateAnswerArtifact {
         artifact: String,
     },
     MissingAsset {

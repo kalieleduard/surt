@@ -78,8 +78,9 @@ impl Project {
         let working_copy = WorkingCopy::load(store, &self.layout, request.root, &frozen).await?;
         let scanned = working_copy.record(store, request.actor).await?;
         let gates = store.waiting_gates(request.root).await?;
-        let decision = match gates.first() {
+        let decision = match gates.iter().find(|gate| !gate.is_input()) {
             Some(gate) => decide_waiting(store, request, gate).await?,
+            None if !gates.is_empty() => return Err(no_gate(store, request.root, &gates).await?),
             None => approve_after_gate(store, request, &working_copy).await?,
         };
         let mut decided = decided(store, request, decision).await?;
@@ -135,7 +136,7 @@ async fn approve_after_gate(
         Some(_) => None,
     };
     let Some(unapproved) = unapproved else {
-        return Err(no_gate(store, request.root).await?);
+        return Err(no_gate(store, request.root, &[]).await?);
     };
     let definition = store.run_definition(request.root).await?;
     let spec = approval_step(store, request.root, &definition, &unapproved.gate).await?;
@@ -189,14 +190,15 @@ async fn decided(
         }
         .into()),
         DecisionOutcome::GateNotWaiting | DecisionOutcome::NoRevision => {
-            Err(no_gate(store, request.root).await?)
+            Err(no_gate(store, request.root, &[]).await?)
         }
     }
 }
 
-async fn no_gate(store: &Store, root: &str) -> Result<Error, Error> {
+async fn no_gate(store: &Store, root: &str, inputs: &[WaitingGate]) -> Result<Error, Error> {
     Ok(Refusal::NoGateWaiting {
         subject: store.subject_of_run(root).await?,
+        input: inputs.first().map(|input| input.key.clone()),
     }
     .into())
 }

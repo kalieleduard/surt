@@ -2,7 +2,7 @@ use std::fs;
 
 use super::super::fixtures::SUBJECT;
 use super::fixtures::{ACTOR, Feature, Recording, draft, label};
-use crate::project::{Decided, DriveOutcome, Gate, RevisionOrigin};
+use crate::project::{Decided, DriveOutcome, Gate, GateKind, RevisionOrigin};
 use crate::runtime::Script;
 
 const REASON: &str = "add a title";
@@ -76,6 +76,7 @@ async fn the_next_iteration_reads_the_rejected_revision_the_reason_and_why_it_st
         DriveOutcome::AtGate {
             gates: vec![Gate {
                 step: label("approve", Some(2)),
+                kind: GateKind::Approval,
                 artifact: "draft".to_owned(),
             }]
         }

@@ -49,7 +49,8 @@ pub(super) fn iteration_allowed(iterations: &Iterations, max_iterations: usize) 
 }
 
 fn gated(body: &[Step]) -> bool {
-    body.iter().any(|step| matches!(step.work, Work::Approval))
+    body.iter()
+        .any(|step| matches!(step.work, Work::Approval | Work::Input))
 }
 
 pub(super) fn holds(scope: &[Step], condition: &Condition) -> bool {

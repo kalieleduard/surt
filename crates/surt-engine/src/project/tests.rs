@@ -19,6 +19,7 @@ mod frozen;
 mod init_template;
 mod input_refusals;
 mod input_schema;
+mod input_steps;
 mod inputs;
 mod output_outcomes;
 mod parsing;

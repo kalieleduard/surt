@@ -2,7 +2,7 @@ mod problem;
 
 use std::collections::HashSet;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::portable::{KeyFault, first_key_fault};
@@ -17,14 +17,14 @@ const MIN_OPTIONS: usize = 2;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Questions(Vec<Question>);
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Question {
     id: String,
     question: String,
     why: String,
     recommended: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     options: Option<Vec<String>>,
 }
 

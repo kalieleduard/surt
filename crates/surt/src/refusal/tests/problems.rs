@@ -143,10 +143,22 @@ fn every_workflow_problem_is_described_in_one_line_of_words() {
             "\"x\" is not an item list",
         ),
         (
+            Problem::NotQuestions {
+                artifact: owned("x"),
+            },
+            "\"x\" is not a questions artifact",
+        ),
+        (
             Problem::DuplicateRejectionArtifact {
                 artifact: owned("x"),
             },
             "rejection artifact \"x\" is declared twice",
+        ),
+        (
+            Problem::DuplicateAnswerArtifact {
+                artifact: owned("x"),
+            },
+            "answer artifact \"x\" is declared twice",
         ),
         (
             Problem::ConversationOutsideLoop { agent: owned("x") },

@@ -1,14 +1,15 @@
 use std::path::PathBuf;
 
 use surt_engine::project::{
-    AgentSlots, BlockReason, BlockedStep, CleanupState, Commit, Conflict, Driver, GateStatus,
-    GateView, IntegrationBranch, ItemListSummary, ItemState, ItemStatus, Kept, LaunchPause, Left,
-    MergeIntoBase, PendingIntegration, RevisionOrigin, RevisionSummary, RunState, RunStatus,
-    StepLabel, Unattended,
+    AgentSlots, BlockReason, BlockedStep, CleanupState, Commit, Conflict, Driver, GateKind,
+    GateStatus, GateView, IntegrationBranch, ItemListSummary, ItemState, ItemStatus, Kept,
+    LaunchPause, Left, MergeIntoBase, PendingIntegration, RevisionOrigin, RevisionSummary,
+    RunState, RunStatus, StepLabel, Unattended,
 };
 
 use serde_json::json;
 
+mod inputs;
 mod items;
 mod merge;
 
@@ -43,7 +44,9 @@ fn gate_over(
 ) -> GateView {
     GateView {
         step: step.to_owned(),
+        kind: GateKind::Approval,
         artifact: artifact.to_owned(),
+        round: None,
         status,
         revision: match status {
             GateStatus::NotReached => None,

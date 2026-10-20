@@ -98,8 +98,14 @@ fn describe(problem: &Problem) -> String {
             format!("\"{artifact}\" is not produced before this step")
         }
         Problem::NotAnItemList { artifact } => format!("\"{artifact}\" is not an item list"),
+        Problem::NotQuestions { artifact } => {
+            format!("\"{artifact}\" is not a questions artifact")
+        }
         Problem::DuplicateRejectionArtifact { artifact } => {
             format!("rejection artifact \"{artifact}\" is declared twice")
+        }
+        Problem::DuplicateAnswerArtifact { artifact } => {
+            format!("answer artifact \"{artifact}\" is declared twice")
         }
         Problem::MissingAsset { path } => {
             format!("\"{path}\" is not a file in the agent's directory")

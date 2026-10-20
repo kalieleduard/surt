@@ -1,3 +1,4 @@
+use super::answers::input_step;
 use super::gates::approval_step;
 use super::{Error, Project, RunId, open_store};
 use crate::store::{GateRow, Store};
@@ -5,6 +6,7 @@ use crate::store::{GateRow, Store};
 const RUNNING: &str = "running";
 const DONE: &str = "done";
 const APPROVED: &str = "approved";
+const ANSWERED: &str = "answered";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GateStatus {
@@ -12,6 +14,7 @@ pub enum GateStatus {
     Waiting { revision: u32 },
     Approved { revision: u32 },
     Rejected { revision: u32 },
+    Answered { revision: u32 },
 }
 
 impl Project {
@@ -32,6 +35,9 @@ async fn status(store: &Store, root: &str, key: &str) -> Result<GateStatus, Erro
         (DONE, Some(revision)) if gate.outcome.as_deref() == Some(APPROVED) => {
             Ok(GateStatus::Approved { revision })
         }
+        (DONE, Some(revision)) if gate.outcome.as_deref() == Some(ANSWERED) => {
+            Ok(GateStatus::Answered { revision })
+        }
         (DONE, Some(revision)) => Ok(GateStatus::Rejected { revision }),
         _ => Ok(GateStatus::NotReached),
     }
@@ -43,10 +49,16 @@ async fn waiting(
     key: &str,
     gate: &GateRow,
 ) -> Result<GateStatus, Error> {
-    let reviewed = approval_step(store, root, &gate.definition, key).await?;
-    let latest = store
-        .latest_revision_number(root, &reviewed.artifact)
-        .await?;
+    let artifact = if gate.is_input() {
+        input_step(store, root, &gate.definition, key)
+            .await?
+            .artifact
+    } else {
+        approval_step(store, root, &gate.definition, key)
+            .await?
+            .artifact
+    };
+    let latest = store.latest_revision_number(root, &artifact).await?;
     Ok(
         latest.map_or(GateStatus::NotReached, |revision| GateStatus::Waiting {
             revision,

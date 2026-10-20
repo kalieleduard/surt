@@ -1,3 +1,4 @@
+mod answers;
 mod base_merge;
 mod blocked;
 mod cancelling;
@@ -35,7 +36,7 @@ pub use crate::cleanup::{Cleanup, Kept, Left};
 pub use crate::drive::cancel::Cancellation;
 pub use crate::drive::graph::BlockReason;
 pub use crate::drive::{
-    ActivityPause, ActivitySnapshot, BaseMerge, DriveOutcome, Gate, NotMerged, Progress,
+    ActivityPause, ActivitySnapshot, BaseMerge, DriveOutcome, Gate, GateKind, NotMerged, Progress,
     ProgressSink, RunningStep, StepLabel,
 };
 pub use crate::git::GitVersion;
@@ -46,6 +47,7 @@ pub use crate::runtime::LogFiles;
 pub use crate::workflow::{
     DefinitionFile, InputFormat, InvalidDefinition, OnSuccess, Problem, StepField,
 };
+pub use answers::{Answered, WaitingInput};
 pub use base_merge::BaseMergeReport;
 pub use blocked::{BlockedStep, LastFailure};
 pub use cancelling::CancelImpact;

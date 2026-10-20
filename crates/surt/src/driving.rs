@@ -4,7 +4,7 @@ mod cleanup;
 mod interruption;
 mod progress;
 
-use surt_engine::project::{DriveOutcome, Gate, GateStatus, Project, RunId};
+use surt_engine::project::{DriveOutcome, Gate, GateKind, GateStatus, Project, RunId};
 use surt_engine::runtime::{AgentRuntime, StopSignal};
 use tokio::sync::mpsc;
 
@@ -105,6 +105,12 @@ impl Driven<'_> {
                 GateStatus::Waiting { revision } => format!(" rev {revision}"),
                 _ => String::new(),
             };
+            if gate.kind == GateKind::Input {
+                Message::new(format!("{}{revision} awaiting answers", gate.artifact))
+                    .way("inspect", format!("surt status {subject}"))
+                    .print(Mark::Paused);
+                continue;
+            }
             Message::new(format!(
                 "{}{revision} awaiting approval in .surt/subjects/{subject}",
                 gate.artifact

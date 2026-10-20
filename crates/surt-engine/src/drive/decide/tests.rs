@@ -1,4 +1,5 @@
 mod fixtures;
+mod inputs;
 mod items;
 mod iterations;
 mod limits;
