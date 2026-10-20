@@ -9,7 +9,7 @@ pub(super) fn no_gate(subject: &str, input: Option<&str>) -> Message {
     match input {
         Some(step) => message
             .context(format!("{step} is waiting for answers, not for approval"))
-            .way("answer", answer_command(subject)),
+            .way("next", answer_command(subject)),
         None => message.way("run", format!("surt status {subject}")),
     }
 }

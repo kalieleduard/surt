@@ -128,7 +128,7 @@ fn approving_or_rejecting_while_only_the_questions_wait_is_refused() {
     let expected = format!(
         "✖ {name} has no approval gate waiting\n  \
          answer-spec is waiting for answers, not for approval\n  \
-         answer: surt answer {name}\n"
+         next: surt answer {name}\n"
     );
 
     let approved = refused(surt(&sandbox, &["approve"]));
