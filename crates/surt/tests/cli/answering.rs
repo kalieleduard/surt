@@ -64,20 +64,16 @@ fn rounds(sandbox: &Sandbox) -> Value {
     document["rounds"].clone()
 }
 
-fn answers(round: &Value) -> Vec<(String, String)> {
-    round["answers"]
-        .as_object()
-        .expect("answers")
-        .iter()
-        .map(|(id, answer)| (id.clone(), answer.as_str().unwrap_or_default().to_owned()))
-        .collect()
+fn answers(round: &Value) -> Value {
+    round["answers"].clone()
 }
 
-fn pairs(expected: &[(&str, &str)]) -> Vec<(String, String)> {
+fn pairs(expected: &[(&str, &str)]) -> Value {
     expected
         .iter()
-        .map(|(id, answer)| ((*id).to_owned(), (*answer).to_owned()))
-        .collect()
+        .map(|(id, answer)| ((*id).to_owned(), Value::from(*answer)))
+        .collect::<serde_json::Map<_, _>>()
+        .into()
 }
 
 #[test]

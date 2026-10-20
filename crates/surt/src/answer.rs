@@ -89,20 +89,30 @@ fn answers(
     match source {
         Source::Accepted => Ok((recommended(&waiting.questions), None)),
         Source::Noted(note) => Ok((recommended(&waiting.questions), Some(note))),
-        Source::File(path) => {
-            let inspect = format!(
-                "surt show {subject} {} --rev {}",
-                waiting.artifact, waiting.revision
-            );
-            Ok((file::read(&cwd.join(&path), &path, inspect)?, None))
-        }
-        Source::Terminal => {
-            let asked = prompt::ask(&waiting.questions, io::stdin().lock(), Printable)?;
-            asked
-                .map(|answers| (answers, None))
-                .ok_or_else(|| Failure::Refused(prompt::ended(subject)))
-        }
+        Source::File(path) => Ok((from_file(cwd, subject, waiting, &path)?, None)),
+        Source::Terminal => Ok((from_terminal(subject, &waiting.questions)?, None)),
     }
+}
+
+fn from_file(
+    cwd: &Path,
+    subject: &str,
+    waiting: &WaitingInput,
+    path: &Path,
+) -> Result<BTreeMap<String, String>, Failure> {
+    let inspect = format!(
+        "surt show {subject} {} --rev {}",
+        waiting.artifact, waiting.revision
+    );
+    file::read(&cwd.join(path), path, inspect)
+}
+
+fn from_terminal(
+    subject: &str,
+    questions: &Questions,
+) -> Result<BTreeMap<String, String>, Failure> {
+    prompt::ask(questions, io::stdin().lock(), Printable)?
+        .ok_or_else(|| Failure::Refused(prompt::ended(subject)))
 }
 
 fn recommended(questions: &Questions) -> BTreeMap<String, String> {
