@@ -69,6 +69,7 @@ impl Execution {
             delivery_dir,
             log_dir: root.join("logs"),
             context: CONTEXT.to_owned(),
+            continuation: None,
             launch,
         };
         Execution {

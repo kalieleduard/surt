@@ -1,5 +1,6 @@
 mod acceptance;
 mod claude_code;
+mod conversation;
 mod error;
 #[cfg(feature = "test-support")]
 mod fake;
@@ -13,6 +14,7 @@ use std::future::Future;
 
 pub(crate) use acceptance::{Rejection, Verdict, accept};
 pub use claude_code::ClaudeCodeRuntime;
+pub use conversation::{Continuation, Conversation, FreshReason, RestartReason};
 pub use error::{FailureClass, RuntimeError};
 #[cfg(feature = "test-support")]
 pub use fake::{Behavior, Delivery, FakeRuntime, InvalidScript, Script};

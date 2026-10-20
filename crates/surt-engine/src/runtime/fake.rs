@@ -1,3 +1,5 @@
+mod conversation;
+mod delivery;
 mod scripted;
 mod worktree;
 
@@ -6,7 +8,7 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 
-use serde_json::{Map, Value, json};
+use serde_json::{Value, json};
 
 use super::{
     AgentRuntime, Exit, FailureClass, FinalResult, Initialization, RuntimeCompletion, RuntimeError,
@@ -14,8 +16,11 @@ use super::{
     StopSignal,
 };
 
+use conversation::Turn;
+pub use delivery::Delivery;
+use delivery::FinalJson;
 pub use scripted::InvalidScript;
-use worktree::{WorktreeCommit, resolve_head};
+use worktree::WorktreeCommit;
 
 const SUCCESS_EXIT_CODE: i32 = 0;
 
@@ -46,21 +51,7 @@ pub enum Behavior {
         seconds: i64,
     },
     WaitUntilStopped,
-}
-
-#[derive(Clone, Debug)]
-pub struct Delivery {
-    outcome: String,
-    outputs: Map<String, Value>,
-    files: Vec<(String, Vec<u8>)>,
-    final_json: FinalJson,
-    commit: Option<WorktreeCommit>,
-}
-
-#[derive(Clone, Debug)]
-enum FinalJson {
-    Envelope,
-    Text(Option<String>),
+    TranscriptMissing(Delivery),
 }
 
 impl FakeRuntime {
@@ -78,66 +69,6 @@ impl Script {
         self.behaviors
             .insert(StepAttempt::new(step, iteration, attempt), behavior);
         self
-    }
-}
-
-impl Delivery {
-    pub fn new(outcome: &str) -> Delivery {
-        Delivery {
-            outcome: outcome.to_owned(),
-            outputs: Map::new(),
-            files: Vec::new(),
-            final_json: FinalJson::Envelope,
-            commit: None,
-        }
-    }
-
-    pub fn output(self, name: &str, path: &str, contents: impl Into<Vec<u8>>) -> Delivery {
-        self.output_without_file(name, path).file(path, contents)
-    }
-
-    pub fn output_without_file(mut self, name: &str, path: &str) -> Delivery {
-        self.outputs
-            .insert(name.to_owned(), Value::String(path.to_owned()));
-        self
-    }
-
-    pub fn file(mut self, path: &str, contents: impl Into<Vec<u8>>) -> Delivery {
-        self.files.push((path.to_owned(), contents.into()));
-        self
-    }
-
-    pub fn final_json(mut self, text: Option<&str>) -> Delivery {
-        self.final_json = FinalJson::Text(text.map(str::to_owned));
-        self
-    }
-
-    fn final_text(&self) -> Option<String> {
-        match &self.final_json {
-            FinalJson::Envelope => Some(self.envelope()),
-            FinalJson::Text(text) => text.clone(),
-        }
-    }
-
-    fn envelope(&self) -> String {
-        let mut envelope = Map::new();
-        envelope.insert("outcome".to_owned(), Value::String(self.outcome.clone()));
-        envelope.insert("outputs".to_owned(), Value::Object(self.outputs.clone()));
-        Value::Object(envelope).to_string()
-    }
-
-    async fn write(&self, delivery_dir: &Path, worktree: &Path) -> Result<(), RuntimeError> {
-        if let Some(commit) = &self.commit {
-            commit.make(worktree).await?;
-        }
-        for (path, contents) in &self.files {
-            let target = delivery_dir.join(path);
-            if let Some(parent) = target.parent() {
-                fs::create_dir_all(parent).map_err(write_failure)?;
-            }
-            fs::write(&target, resolve_head(contents, worktree).await?).map_err(write_failure)?;
-        }
-        Ok(())
     }
 }
 
@@ -159,15 +90,21 @@ impl AgentRuntime for FakeRuntime {
             session_id: request.session_id,
             model: behavior.reported_model(&request.model),
         };
+        let turn = behavior.turn(&request);
+        log(&request.log_dir, &turn.line())?;
         for event in [
             RuntimeEvent::Launched { pid: None },
             RuntimeEvent::Initialized(initialization.clone()),
         ] {
-            log(&request.log_dir, &event)?;
+            log(
+                &request.log_dir,
+                &json!({ "type": "fake", "event": format!("{event:?}") }),
+            )?;
             let _ = events.send(event);
         }
         let played = behavior.play(&request, initialization.clone(), &stop).await;
-        let _ = events.send(RuntimeEvent::Reported(simulated(initialization, &played)));
+        let report = simulated(initialization, &played, turn);
+        let _ = events.send(RuntimeEvent::Reported(report));
         played
     }
 }
@@ -175,6 +112,7 @@ impl AgentRuntime for FakeRuntime {
 fn simulated(
     initialization: Initialization,
     played: &Result<RuntimeCompletion, RuntimeError>,
+    turn: Turn,
 ) -> RuntimeReport {
     RuntimeReport {
         session_id: Some(initialization.session_id.to_string()),
@@ -183,6 +121,7 @@ fn simulated(
             .as_ref()
             .ok()
             .and_then(|completion| completion.exit.code()),
+        conversation: turn.conversation,
         ..RuntimeReport::default()
     }
 }
@@ -207,7 +146,9 @@ impl Behavior {
             result,
         };
         match self {
-            Behavior::Deliver(delivery) | Behavior::ModelMismatch { delivery, .. } => {
+            Behavior::Deliver(delivery)
+            | Behavior::ModelMismatch { delivery, .. }
+            | Behavior::TranscriptMissing(delivery) => {
                 delivery
                     .write(&request.delivery_dir, &request.launch.working_dir)
                     .await?;
@@ -238,14 +179,13 @@ impl Behavior {
     }
 }
 
-fn log(log_dir: &Path, event: &RuntimeEvent) -> Result<(), RuntimeError> {
+fn log(log_dir: &Path, line: &Value) -> Result<(), RuntimeError> {
     fs::create_dir_all(log_dir).map_err(write_failure)?;
     let mut stream = OpenOptions::new()
         .create(true)
         .append(true)
         .open(log_dir.join(STREAM_LOG))
         .map_err(write_failure)?;
-    let line = json!({ "type": "fake", "event": format!("{event:?}") });
     writeln!(stream, "{line}").map_err(write_failure)
 }
 
