@@ -2,9 +2,10 @@ use std::collections::BTreeSet;
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-use serde_json::{Map, Value, json};
+use serde_json::json;
 use uuid::Uuid;
 
+use super::envelope::envelope_schema;
 use super::{environment, rules};
 use crate::runtime::{FailureClass, RuntimeError, RuntimeRequest};
 use crate::workflow::{Auth, ClaudeProfile};
@@ -153,28 +154,6 @@ fn auth_arguments(auth: Auth) -> &'static [&'static str] {
         Auth::Subscription => &["--safe-mode", "--setting-sources", "user"],
         Auth::ApiKey => &["--bare"],
     }
-}
-
-fn envelope_schema(outcomes: &[String], outputs: &[String]) -> String {
-    let properties: Map<String, Value> = outputs
-        .iter()
-        .map(|name| (name.clone(), json!({ "type": "string" })))
-        .collect();
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["outcome", "outputs"],
-        "properties": {
-            "outcome": { "enum": outcomes },
-            "outputs": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": outputs,
-                "properties": properties
-            }
-        }
-    })
-    .to_string()
 }
 
 fn settings() -> String {

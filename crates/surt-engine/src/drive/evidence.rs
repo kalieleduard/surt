@@ -34,10 +34,10 @@ impl<R: AgentRuntime> Driver<'_, R> {
         delivery: &AcceptedDelivery,
     ) -> Result<(), OperationError> {
         for (output, check) in &launch.checks {
-            let json = delivery
-                .outputs
-                .get(output)
-                .and_then(|delivered| delivered.json.as_ref());
+            let Some(delivered) = delivery.outputs.get(output) else {
+                continue;
+            };
+            let json = delivered.json.as_ref();
             let proven = match check {
                 DeliveryCheck::CommitEvidence {} => self.prove_commit(launch, json).await,
                 DeliveryCheck::ReviewedCommit {} => self.prove_review(launch, json).await,

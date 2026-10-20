@@ -7,6 +7,7 @@ use jsonschema::Validator;
 pub(crate) struct DeliveryContract {
     pub(super) outcomes: Vec<String>,
     pub(super) outputs: BTreeMap<String, OutputRule>,
+    pub(super) delivering: BTreeMap<String, Vec<String>>,
 }
 
 #[derive(Debug)]
@@ -41,6 +42,7 @@ impl DeliveryContract {
         Ok(DeliveryContract {
             outcomes: agent.outcomes(),
             outputs,
+            delivering: agent.delivering(),
         })
     }
 
