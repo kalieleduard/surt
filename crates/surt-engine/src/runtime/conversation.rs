@@ -30,7 +30,6 @@ pub enum RestartReason {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FreshReason {
     NoPrevious,
-    ContinuationUnsupported,
 }
 
 impl RuntimeRequest {
@@ -74,7 +73,6 @@ impl FreshReason {
     fn name(self) -> &'static str {
         match self {
             FreshReason::NoPrevious => "no_previous",
-            FreshReason::ContinuationUnsupported => "continuation_unsupported",
         }
     }
 }
