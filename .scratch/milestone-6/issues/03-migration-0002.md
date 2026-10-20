@@ -6,10 +6,10 @@ Spec: [Milestone 6](../spec.md) (Database) · Plan: [D. Database](../../../docs/
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] `crates/surt-engine/migrations/0002_input_steps.sql` starts with `-- no-transaction`, sets `PRAGMA foreign_keys = OFF`, rebuilds `step_run` and `artifact_revision` (new table, copy, drop, rename the new one, recreate every index) inside `BEGIN`/`COMMIT`, runs `PRAGMA foreign_key_check` before committing, and ends with `PRAGMA foreign_keys = ON`; never renames the old table with foreign keys on
-- [ ] Every other CHECK, STRICT and default of both tables is unchanged; confirm sqlx 0.9 honours `-- no-transaction` and that the connection goes back to the pool with foreign keys on
-- [ ] `docs/architecture/migrations/0002_input_steps.sql` is the byte-for-byte copy the store test compares against
-- [ ] Store tests: a database created by `0001` with rows in every table (cascading children included) migrates with every row intact, `integrity_check` ok and `foreign_key_check` empty; an `input` step row and an `answer` Revision insert afterwards; the migration count, `PLAN_SCHEMA` and `SchemaTooNew` expectations follow
-- [ ] D documents `0002` and the new values
+- [x] `crates/surt-engine/migrations/0002_input_steps.sql` starts with `-- no-transaction`, sets `PRAGMA foreign_keys = OFF`, rebuilds `step_run` and `artifact_revision` (new table, copy, drop, rename the new one, recreate every index) inside `BEGIN`/`COMMIT`, runs `PRAGMA foreign_key_check` before committing, and ends with `PRAGMA foreign_keys = ON`; never renames the old table with foreign keys on
+- [x] Every other CHECK, STRICT and default of both tables is unchanged; confirm sqlx 0.9 honours `-- no-transaction` and that the connection goes back to the pool with foreign keys on
+- [x] `docs/architecture/migrations/0002_input_steps.sql` is the byte-for-byte copy the store test compares against
+- [x] Store tests: a database created by `0001` with rows in every table (cascading children included) migrates with every row intact, `integrity_check` ok and `foreign_key_check` empty; an `input` step row and an `answer` Revision insert afterwards; the migration count, `PLAN_SCHEMA` and `SchemaTooNew` expectations follow
+- [x] D documents `0002` and the new values
