@@ -2,9 +2,11 @@ use uuid::Uuid;
 
 use super::driver::Driver;
 use super::frozen::FrozenAgent;
+use super::load::label;
+use super::outcome::Progress;
 use crate::context::Assembly;
 use crate::project::Error;
-use crate::runtime::{AgentRuntime, Continuation};
+use crate::runtime::{AgentRuntime, Continuation, Conversation};
 use crate::store::{PreviousConversation, StartedExecution, StepRow};
 use crate::workflow::ConversationScope;
 
@@ -33,6 +35,15 @@ impl<R: AgentRuntime> Driver<'_, R> {
             execution_id: previous.execution,
             context,
         }))
+    }
+
+    pub(super) fn report_restart(&self, row: &StepRow, conversation: Option<&Conversation>) {
+        if let Some(Conversation::Restarted { reason, .. }) = conversation {
+            self.report(Progress::ConversationRestarted {
+                step: label(row),
+                reason: *reason,
+            });
+        }
     }
 }
 

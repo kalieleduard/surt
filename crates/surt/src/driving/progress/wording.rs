@@ -2,7 +2,8 @@ use surt_engine::project::{ActivityPause, Progress, StepLabel};
 
 use super::super::cleanup::summary;
 use super::activity::paused_until;
-use super::{FIRST, label, short};
+use super::started::{restarted, started};
+use super::{label, short};
 use crate::duration::rounded;
 use crate::message::{Mark, Message};
 use crate::refusal::config_location;
@@ -17,14 +18,12 @@ fn subject(step: &StepLabel) -> String {
 
 pub(super) fn message(progress: &Progress) -> (Mark, Message) {
     match progress {
-        Progress::StepStarted { step, attempt } if *attempt == FIRST => (
-            Mark::Started,
-            Message::new(format!("{} started", label(step))),
-        ),
-        Progress::StepStarted { step, attempt } => (
-            Mark::Retry,
-            Message::new(format!("{} attempt {attempt}", label(step))),
-        ),
+        Progress::StepStarted {
+            step,
+            attempt,
+            continued,
+        } => started(step, *attempt, *continued),
+        Progress::ConversationRestarted { step, reason } => restarted(step, *reason),
         Progress::StepFinished { step, outcome } => (
             Mark::Success,
             Message::new(format!("{} {outcome}", label(step))),

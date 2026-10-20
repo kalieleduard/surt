@@ -1,3 +1,5 @@
+mod conversation;
+
 use std::path::PathBuf;
 
 use surt_engine::project::{ActivityPause, Progress, StepLabel};

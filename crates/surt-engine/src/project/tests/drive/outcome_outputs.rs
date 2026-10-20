@@ -64,6 +64,7 @@ async fn an_outcome_publishes_only_its_outputs_and_skips_the_checks_of_the_other
             Progress::StepStarted {
                 step: label("write", None),
                 attempt: 1,
+                continued: false,
             },
             Progress::RevisionPublished {
                 artifact: "spec-questions".to_owned(),

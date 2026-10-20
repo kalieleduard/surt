@@ -60,6 +60,7 @@ async fn each_execution_reports_its_progress_and_logs_under_the_subject() {
             Progress::StepStarted {
                 step: label("write", Some(1)),
                 attempt: 1,
+                continued: false,
             },
             Progress::RevisionPublished {
                 artifact: "draft".to_owned(),

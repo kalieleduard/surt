@@ -93,6 +93,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             self.report(Progress::StepStarted {
                 step: label(row),
                 attempt: started.attempt,
+                continued: false,
             });
         }
         Ok(OperationLaunch {
