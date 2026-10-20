@@ -103,6 +103,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         self.report(Progress::StepStarted {
             step: label(row),
             attempt: started.attempt,
+            continued: request.continuation.is_some(),
         });
         Ok(Launch {
             slot,
@@ -148,7 +149,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
         let (result, recorded) = tokio::join!(
             self.runtime
                 .execute(launch.request.clone(), events, self.agents.clone()),
-            self.record_identity(&launch.started.id, received),
+            self.record_identity(&launch.row, &launch.started.id, received),
         );
         recorded?;
         if self.cancelling.load(Ordering::SeqCst) {
@@ -184,6 +185,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
 
     async fn record_identity(
         &self,
+        row: &StepRow,
         execution: &str,
         mut events: UnboundedReceiver<RuntimeEvent>,
     ) -> Result<(), Error> {
@@ -198,6 +200,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
                     store
                         .record_runtime_info(execution, &report.fields())
                         .await?;
+                    self.report_restart(row, report.conversation.as_ref());
                 }
                 RuntimeEvent::Launched { pid: Some(pid) } => {
                     if let Some(identity) = platform::identify(pid) {

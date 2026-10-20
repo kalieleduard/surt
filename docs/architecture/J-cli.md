@@ -10,6 +10,7 @@ surt run <workflow> [--input <name>=<value> | --input <name>=@<path>]... [--name
 surt continue <subject> [--new-run [--input <name>=<value> | --input <name>=@<path>]... [--merge | --no-merge]]
 surt approve <subject> [--rev N]
 surt reject  <subject> -m "<reason>" [--rev N]
+surt answer  <subject> [--accept | --file <path> | -m <text>]
 surt stop    <subject>
 surt cancel  <subject> [--yes]
 surt status  [<subject>] [--all] [--run N] [--json]
@@ -28,6 +29,7 @@ surt delete  <subject>
 | `run <workflow>` | yes | Creates a Subject and the first run of `.surt/workflows/<workflow>.toml` from its declared inputs, drives to the first Approval Gate or the end ([below](#surt-run-create-a-run-and-drive-it)). |
 | `continue <subject>` | yes | Drives the active run again to the next Approval Gate or the end; with `--new-run`, starts the next run of the Subject ([below](#surt-continue-drive-again-or-start-the-next-run)). |
 | `approve` / `reject` | **no** | Record an Approval on the waiting gate's latest Revision and return. |
+| `answer` | yes | Records the answers to the waiting input step's questions, then drives on like `continue` ([below](#surt-answer-answer-the-questions)). |
 | `stop` | no | Asks the live Driver to stop (an Interruption). The run stays resumable. |
 | `cancel` | no | Asks the live Driver to cancel, or cancels directly when no Driver is live. |
 | `status`, `inspect`, `show`, `logs` | no | Read only ([Reading never writes](#reading-never-writes)). |
@@ -194,9 +196,81 @@ $ surt reject add-login -m "task C grande demais"
 
 The step named after a rejection is the one whose Agent declares the gate's artifact as an output (`Decided.producer`); when no Agent step of the gate's workflow does, the line says `the step that produced it`.
 
+## `surt answer`: answer the questions
+
+An Agent that asks delivers a `questions` artifact, and an input step ([E](E-workflow-schema.md), [G](G-state-machines.md)) waits for the developer as a gate does. A driving command that stops there prints the questions and exits `0`:
+
+```
+$ surt run feature --input request="add login"
+✔ created 20261020-add-login   workflow: feature   base: main @ a11c9d0
+● spec started
+✔ spec-questions rev 1 published
+✔ spec questions
+? spec-questions rev 1 awaiting answers (round 1)
+  1. Log in by e-mail only, or by username too?
+     why: changes the users table and acceptance criteria 2–4
+     options: e-mail only · e-mail or username
+     recommended: e-mail only
+  2. Does a session expire, and after how long?
+     why: decides whether the Feature needs a refresh flow
+     recommended: 7 days, no refresh
+  answer: surt answer 20261020-add-login
+```
+
+The `?` block names the questions' artifact, its Revision and the round (the rounds already answered plus one), then every question in order with `why:`, `options:` when the answer is a closed set, and `recommended:`. Approval blocks are unchanged; a run waiting on both prints both.
+
+`surt answer <subject>` answers the latest Revision of the waiting input step's questions in one of four ways. `--accept`, `--file` and `-m` are mutually exclusive (exit `2`).
+
+- **On a terminal, without a flag**, it asks each question on stderr and reads one line from stdin; an empty line takes the recommendation. Input that ends before the last question records nothing and refuses (exit `3`).
+  ```
+  $ surt answer add-login
+  1. Log in by e-mail only, or by username too?
+     why: changes the users table and acceptance criteria 2–4
+     options: e-mail only · e-mail or username
+     [e-mail only]
+  2. Does a session expire, and after how long?
+     why: decides whether the Feature needs a refresh flow
+     [7 days, no refresh] 30 days
+  ✔ answered spec-questions rev 1 by you@example.com
+  ● spec continued (iteration 2, same conversation)
+  ✔ spec rev 1 published
+  ✔ spec iter 2 done
+  ⏸ spec rev 1 awaiting approval in .surt/subjects/20261020-add-login
+    approve: surt approve 20261020-add-login
+    reject: surt reject 20261020-add-login -m "<reason>"
+  ```
+- **`--accept`** takes every recommendation.
+- **`--file <path>`** reads TOML with one `"<id>" = "<answer>"` per question, relative to the current directory. A file that cannot be read refuses (exit `3`) with the path and the system's reason; one that is not a table of strings refuses as `invalid answers in <path>:<line>` with the parser's message and `inspect: surt show <subject> <artifact> --rev N`.
+- **`-m "<text>"`** takes every recommendation and records the text as the round's note.
+- **Without a terminal and without a flag** it is a usage error (exit `2`), so a script never hangs: `error: there is no terminal to ask the questions on; answer with --accept, --file <path> or -m <text>`.
+
+Every question needs exactly one answer. Answers that miss an id or name an unknown one refuse (exit `3`), listing both, and record nothing:
+
+```
+✖ the answers do not match the questions of spec-questions rev 1
+  unanswered: expiry
+  unknown: typo
+  inspect: surt show 20261020-add-login spec-questions --rev 1
+```
+
+It answers the Revision it read or printed; if another round replaced it meanwhile, it refuses as a stale Revision. The actor is resolved as for `approve`. Once recorded it prints `✔ answered <artifact> rev N by <actor>` and drives the run exactly as `surt continue <subject>` does, with the same output and exit codes. With no input step waiting it refuses (exit `3`) saying what the run waits for, and `approve` and `reject` refuse while only an input step waits:
+
+```
+$ surt answer add-login
+✖ 20261020-add-login has no input step waiting (AWAITING APPROVAL)
+  inspect: surt status 20261020-add-login
+
+$ surt approve add-login
+✖ 20261020-add-login has no approval gate waiting
+  answer-spec is waiting for answers, not for approval
+  next: surt answer 20261020-add-login
+```
+
+`surt show <subject> spec-questions` and `surt show <subject> spec-answers` print the rounds ([H](H-artifact-storage.md)).
+
 ### Next-command hints
 
-The engine does not know which commands exist, and the workflow schema carries no UX text. There is no table per gate: every place that says how to go on prints `surt continue <subject>`, namely `approve` (`next:`), `reject` (`regenerate:`), `status` (the `resume:` line and `resume` in `--json`), `stop` (`resumable:`), interrupted and blocked runs, an incomplete cleanup (`retry:`), the integration-branch refusals and `already has an active run`. Starting over says `surt continue <subject> --new-run` (the no-active-run refusal, the merge-flag refusal, the `cancel` question).
+The engine does not know which commands exist, and the workflow schema carries no UX text. There is no table per gate: every place that says how to go on prints `surt continue <subject>` (a waiting input step prints `surt answer <subject>` instead: `answer:` in the `?` block and in `status`, `next:` in the approve and reject refusals), namely `approve` (`next:`), `reject` (`regenerate:`), `status` (the `resume:` line and `resume` in `--json`), `stop` (`resumable:`), interrupted and blocked runs, an incomplete cleanup (`retry:`), the integration-branch refusals and `already has an active run`. Starting over says `surt continue <subject> --new-run` (the no-active-run refusal, the merge-flag refusal, the `cancel` question).
 
 ## Stop and cancel
 
@@ -302,6 +376,17 @@ $ surt status fix-cache
            .surt/subjects/20261016-fix-cache/tasks/{A,B,C}.md
          ✎ tasks/B.md edited — recorded as rev 2 on approve (approval then targets rev 2)
   approve: surt approve 20261016-fix-cache    reject: surt reject 20261016-fix-cache -m "…"
+```
+
+An input step waiting for answers puts the run in `AWAITING ANSWER` and shows its questions' Revision, the round and how to answer; an answered one keeps its row with the actor:
+
+```
+$ surt status add-login
+20261020-add-login · run 1   AWAITING ANSWER   (no driver)
+  base     main @ a11c9d0
+  spec-questions rev 1 (agent) ✔ answered by you@example.com 13:05 (round 1)
+  spec-questions rev 2 (agent) ⏸ awaiting answers (round 2)
+  answer: surt answer 20261020-add-login
 ```
 
 Blocked items show the blocked step, its last error and the command to resume, plus `inspect: surt inspect <execution>` and `logs: surt logs <execution>` for the last failed Execution ([G](G-state-machines.md#workflow-run)). Integration shows the merged SHA or the Conflict reason (`merge: src/auth.rs`, `checks: test`). Recovery-related lines (`⟳ integrating … (pending)`, an agent running unattended) are in [I](I-recovery.md). Terminal runs show `cleanup pending` or `kept` ([I. Cleanup](I-cleanup.md#in-surt-status)).
@@ -417,6 +502,7 @@ A driving command prints one line per relevant state change: a Step Run starting
 - While agent launches are paused, the footer says until when and how many agents wait instead of the queue: `── 1 running (C review 1m) · ⏸ paused until 03:00 · 2 waiting · slots 1/3 · 32m ──`, or `paused until 13:01 (backoff 1m)` without a reset time.
 - **Without a TTY** there is no footer. After 5 minutes without an event it prints a line so CI does not assume a hang: `… still running: B build (15m), C review (3m)`. A pause adds itself, and a pause with nothing running still prints: `… agent launches paused until 03:00 — 2 waiting`.
 - A step of a Child Workflow Run is named `item <key> <step>` (`● item B build started`), and an integration `✔ item <key> merged (<sha>)`.
+- An agent Execution that continues the conversation of an earlier one ([F](F-agent-contract.md)) starts with `● <step> continued (iteration I, same conversation)` instead of `● <step> started`. When the runtime reports that it could not continue and restarted fresh in the same Execution, a second line says why: `↻ <step> restarted (iteration I): transcript_missing` (or `continuation_refused`). A later Attempt keeps the retry line `↻ <step> iter I attempt N`, continued or not.
 - It ends with a summary and the next command, as in the mocks of sections A, G and I. A run that succeeds with an Integration Branch first prints `✔ delivered — surt/<subject> @ <tip>`; a run without one prints only `✔ run succeeded`. The line names no step: the engine records which step moved the branch, not which one delivered.
 
 ## Output channels and non-interactive use
@@ -443,6 +529,7 @@ A driving command prints one line per relevant state change: a Step Run starting
     | `↻` | `[retry]` | `✎` | `[edited]` | `—` | `-` |
     | `⏸` | `[paused]` | `⟳` | `[integrating]` | `·` | `\|` |
     | `⛔` | `[blocked]` | `│` | `\|` | `→` | `->` |
+    The `?` of a waiting input step is ASCII already and prints as is.
 - `SURT_LOG` (`tracing` filter syntax, e.g. `SURT_LOG=debug`) turns on Surt's own diagnostic logs on stderr, for any command.
 
 ### `--json` documents
@@ -451,7 +538,7 @@ Each document serialises the read view the human output renders (`RunStatus`, `T
 
 - `"schema": 1` is the first field of every document. Within schema 1 fields are only **added**; removing or renaming a field, or changing its type, bumps the schema.
 - Timestamps are RFC 3339 UTC strings (`2026-10-17T14:09:40Z`). Ids (Execution ids, SHAs, SHA-256 identities) are full strings, never shortened.
-- A run's derived state uses the human table's uppercase names (`RUNNING`, `AWAITING APPROVAL`, `BLOCKED`, `INTERRUPTED`, `SUCCEEDED`, `CANCELLED`); `state` joins them with ` + ` as the table does, `states` lists them. Other closed values are lowercase words (`blocked`, `approved`, `attempts_exhausted`).
+- A run's derived state uses the human table's uppercase names (`RUNNING`, `AWAITING APPROVAL`, `AWAITING ANSWER`, `BLOCKED`, `INTERRUPTED`, `SUCCEEDED`, `CANCELLED`); `state` joins them with ` + ` as the table does, `states` lists them. Other closed values are lowercase words (`blocked`, `approved`, `attempts_exhausted`).
 - A value nobody reported is **absent**, not `null`: no `driver` without a live Driver, no `turns` or `cost_usd` when the runtime did not report them, no `approval` on an undecided Revision. Empty lists other than the top-level collections (`subjects`, `gates`, `items`, `events`, `files`, `inputs`, `artifacts`) are absent too.
 - A refusal or error prints nothing on stdout; the `✖` message goes to stderr with the usual exit code.
 
@@ -472,6 +559,7 @@ Each document serialises the read view the human output renders (`RunStatus`, `T
   "gates": [
     {
       "step": "approve-spec",
+      "kind": "approval",
       "artifact": "spec",
       "status": "approved",
       "revision": {"number": 1, "origin": "agent", "sha256": "5d41402a…(64 hex)", "files": ["spec.md"]},
@@ -495,7 +583,9 @@ Each document serialises the read view the human output renders (`RunStatus`, `T
 }
 ```
 
-Optional fields: `ended_at`, `driver` (`pid`, `since`), `paused` while a Transient Failure pauses agent launches (`code`, plus `resets_at` when the Execution recorded a reset time), `cleanup` (`state` `done`, `pending` or `kept`; `left` lists items with `item` and `reason`; `kept` lists `moved_branch` with `branch`, or `unrecorded_edit` or `foreign_path` with `path`); per gate `edited` and `missing`, and per gate Revision `item_list` (`items` and `item_files`, when the gate's artifact is an Item List); `item_step`, the key of the definition's `per_item` step; per item `waits_for`, `conflict` (`kind` `merge` with `paths`, or `checks` with `failed`); per last error `resets_at`; `merge` once the `merge` step ended, as recorded: `{"outcome": "merged", "from": …, "to": …}`, or `{"outcome": "skipped", "reason": …}` with `reason` `disabled`, `no_base_branch`, `worktree_not_clean` (plus `worktree`, the worktree's path) or `base_moved` (plus `found`, the full SHA the branch was at, unless it no longer exists).
+Optional fields: `ended_at`, `driver` (`pid`, `since`), `paused` while a Transient Failure pauses agent launches (`code`, plus `resets_at` when the Execution recorded a reset time), `cleanup` (`state` `done`, `pending` or `kept`; `left` lists items with `item` and `reason`; `kept` lists `moved_branch` with `branch`, or `unrecorded_edit` or `foreign_path` with `path`); per gate `edited` and `missing`, `round` and, once answered, `answer` (`actor`, `answered_at`) on an input step, and per gate Revision `item_list` (`items` and `item_files`, when the gate's artifact is an Item List); `item_step`, the key of the definition's `per_item` step; per item `waits_for`, `conflict` (`kind` `merge` with `paths`, or `checks` with `failed`); per last error `resets_at`; `merge` once the `merge` step ended, as recorded: `{"outcome": "merged", "from": …, "to": …}`, or `{"outcome": "skipped", "reason": …}` with `reason` `disabled`, `no_base_branch`, `worktree_not_clean` (plus `worktree`, the worktree's path) or `base_moved` (plus `found`, the full SHA the branch was at, unless it no longer exists).
+
+Each gate entry has a `kind`: `approval`, or `input` for an input step. An input entry's `artifact` is its questions, its `status` is `not_reached`, `waiting` or `answered`, and it carries the `round` it waits for or answered.
 
 `agent_slots` is the project-wide count of [`surt status`](#surt-status), the same in every Subject's document, whether or not that Subject has a live Driver.
 
@@ -573,9 +663,9 @@ The same on macOS, Linux and Windows.
 
 | Code | Meaning | Examples |
 |---|---|---|
-| `0` | The command did what it promises | reached an Approval Gate; run `succeeded`; Approval recorded; nothing to do |
+| `0` | The command did what it promises | reached an Approval Gate or questions waiting for answers; run `succeeded`; Approval recorded; nothing to do |
 | `1` | Unexpected error | a bug, I/O failure, unreadable database |
-| `2` | Invalid usage | unknown flag, missing argument (clap's default) |
+| `2` | Invalid usage | unknown flag, missing argument (clap's default); `answer` without a terminal and without `--accept`, `--file` or `-m` |
 | `3` | **Refused**, nothing changed | precondition not met; Driver already live; ambiguous reference; Integration Branch moved; Git too old; pinned Revision edited; confirmation needed without `--yes`; `stop` without a Driver |
 | `4` | **Blocked**: stopped needing a human outside an Approval Gate | Attempt or Iteration limit; `merge_into_base_interrupted` |
 | `5` | The run was **cancelled** while this command drove it | `surt cancel` from another terminal |

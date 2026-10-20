@@ -244,7 +244,7 @@ fn answering_refusals_say_what_the_run_waits_for_and_which_ids_do_not_match() {
         [
             "✖ 20261017-add-login has no approval gate waiting\n  \
              answer-spec is waiting for answers, not for approval\n  \
-             run: surt status 20261017-add-login\n",
+             next: surt answer 20261017-add-login\n",
             "✖ 20261017-add-login has no input step waiting (AWAITING APPROVAL)\n  \
              inspect: surt status 20261017-add-login\n",
             "✖ the answers do not match the questions of spec-questions rev 2\n  \

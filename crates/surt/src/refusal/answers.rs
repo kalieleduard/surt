@@ -1,15 +1,17 @@
 use surt_engine::project::RunState;
 
+use crate::answer::answer_command;
 use crate::message::Message;
 use crate::status::state_names;
 
 pub(super) fn no_gate(subject: &str, input: Option<&str>) -> Message {
     let message = Message::new(format!("{subject} has no approval gate waiting"));
     match input {
-        Some(step) => message.context(format!("{step} is waiting for answers, not for approval")),
-        None => message,
+        Some(step) => message
+            .context(format!("{step} is waiting for answers, not for approval"))
+            .way("next", answer_command(subject)),
+        None => message.way("run", format!("surt status {subject}")),
     }
-    .way("run", format!("surt status {subject}"))
 }
 
 pub(super) fn no_input(subject: &str, states: &[RunState]) -> Message {

@@ -1,5 +1,6 @@
 mod activity;
 mod screen;
+mod started;
 mod wording;
 
 use std::time::Duration;
@@ -46,14 +47,18 @@ pub(crate) async fn print(mut events: UnboundedReceiver<Progress>) -> Printed {
 }
 
 pub(crate) fn label(step: &StepLabel) -> String {
-    let mut text = match &step.item {
-        Some(item) => format!("item {item} {}", step.key),
-        None => step.key.clone(),
-    };
+    let mut text = named(step);
     if let Some(iteration) = step.iteration.filter(|iteration| *iteration > FIRST) {
         text.push_str(&format!(" iter {iteration}"));
     }
     text
+}
+
+fn named(step: &StepLabel) -> String {
+    match &step.item {
+        Some(item) => format!("item {item} {}", step.key),
+        None => step.key.clone(),
+    }
 }
 
 pub(crate) fn short(sha: &str) -> &str {

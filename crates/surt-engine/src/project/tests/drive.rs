@@ -9,6 +9,7 @@ mod carried_inputs;
 mod checks;
 mod cleanup;
 mod conflicts;
+mod conversation_progress;
 mod conversations;
 mod deleting;
 mod drivers;

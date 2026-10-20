@@ -57,14 +57,18 @@ pub(crate) async fn run(cwd: &Path, args: ContinueArgs) -> Result<(), Failure> {
             flag,
         )));
     }
-    if finish_cleanup(&project, &subject).await? {
+    drive_again(&project, &subject).await
+}
+
+pub(crate) async fn drive_again(project: &Project, subject: &Subject) -> Result<(), Failure> {
+    if finish_cleanup(project, subject).await? {
         return Ok(());
     }
     let Some(run) = &subject.active_run else {
-        return Err(new_run::suggested(&project, &subject.name).await);
+        return Err(new_run::suggested(project, &subject.name).await);
     };
-    let runtime = runtime::select(&project)?;
-    drive(&project, &subject.name, run, &runtime).await
+    let runtime = runtime::select(project)?;
+    drive(project, &subject.name, run, &runtime).await
 }
 
 pub(crate) async fn finish_cleanup(project: &Project, subject: &Subject) -> Result<bool, Failure> {

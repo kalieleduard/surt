@@ -1,3 +1,4 @@
+mod answer;
 mod cancel;
 mod confirmation;
 mod continue_run;
@@ -46,6 +47,7 @@ enum Command {
     Continue(continue_run::ContinueArgs),
     Approve(decide::ApproveArgs),
     Reject(decide::RejectArgs),
+    Answer(answer::AnswerArgs),
     Cancel(cancel::CancelArgs),
     Delete(delete::DeleteArgs),
     Restore(restore::RestoreArgs),
@@ -74,6 +76,7 @@ async fn run(command: Command) -> Result<(), Failure> {
         Command::Continue(args) => continue_run::run(&cwd, args).await,
         Command::Approve(args) => decide::approve(&cwd, args).await,
         Command::Reject(args) => decide::reject(&cwd, args).await,
+        Command::Answer(args) => answer::run(&cwd, args).await,
         Command::Cancel(args) => cancel::run(&cwd, args).await,
         Command::Delete(args) => delete::run(&cwd, args).await,
         Command::Restore(args) => restore::run(&cwd, args).await,
