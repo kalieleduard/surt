@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use surt_engine::project::{GateStatus, GateView, ItemListSummary, RunStatus};
+use surt_engine::project::{GateKind, GateStatus, GateView, ItemListSummary, RunStatus};
 
 use super::{CONTINUATION, field, line};
 use crate::driving::local_time;
@@ -13,14 +13,17 @@ pub(super) fn render(text: &mut String, status: &RunStatus) {
         let Some(revision) = &gate.revision else {
             continue;
         };
+        let state = match gate.kind {
+            GateKind::Approval => decision(gate, revision.item_list),
+            GateKind::Input => answering(gate),
+        };
         let summary = format!(
-            "rev {} ({}){}",
+            "rev {} ({}){state}",
             revision.number,
-            origin(revision.origin),
-            decision(gate, revision.item_list)
+            origin(revision.origin)
         );
         field(text, &gate.artifact, &summary);
-        if matches!(gate.status, GateStatus::Waiting { .. }) {
+        if gate.kind == GateKind::Approval && waiting(gate) {
             for file in &revision.files {
                 let directory = gate.working_copy.display();
                 let _ = writeln!(text, "{CONTINUATION}{directory}/{file}");
@@ -28,12 +31,8 @@ pub(super) fn render(text: &mut String, status: &RunStatus) {
         }
         changes(text, gate, revision.number);
     }
-    if status
-        .gates
-        .iter()
-        .any(|gate| matches!(gate.status, GateStatus::Waiting { .. }))
-    {
-        let subject = &status.subject;
+    let subject = &status.subject;
+    if waits(status, GateKind::Approval) {
         line(
             text,
             &format!(
@@ -41,22 +40,52 @@ pub(super) fn render(text: &mut String, status: &RunStatus) {
             ),
         );
     }
+    if waits(status, GateKind::Input) {
+        line(text, &format!("answer: surt answer {subject}"));
+    }
+}
+
+fn waiting(gate: &GateView) -> bool {
+    matches!(gate.status, GateStatus::Waiting { .. })
+}
+
+fn waits(status: &RunStatus, kind: GateKind) -> bool {
+    status
+        .gates
+        .iter()
+        .any(|gate| gate.kind == kind && waiting(gate))
+}
+
+fn answering(gate: &GateView) -> String {
+    let round = gate
+        .round
+        .map(|round| format!(" (round {round})"))
+        .unwrap_or_default();
+    match gate.status {
+        GateStatus::Waiting { .. } => format!(" {PAUSED} awaiting answers{round}"),
+        GateStatus::Answered { .. } => {
+            format!("{}{round}", decided(gate, &format!(" {SUCCESS} answered")))
+        }
+        _ => String::new(),
+    }
+}
+
+fn decided(gate: &GateView, verb: &str) -> String {
+    let actor = gate
+        .decided_by
+        .as_deref()
+        .map(|actor| format!(" by {actor}"))
+        .unwrap_or_default();
+    let at = gate
+        .decided_at
+        .and_then(local_time)
+        .map(|time| format!(" {time}"))
+        .unwrap_or_default();
+    format!("{verb}{actor}{at}")
 }
 
 fn decision(gate: &GateView, item_list: Option<ItemListSummary>) -> String {
-    let by = |verb: &str| {
-        let actor = gate
-            .decided_by
-            .as_deref()
-            .map(|actor| format!(" by {actor}"))
-            .unwrap_or_default();
-        let at = gate
-            .decided_at
-            .and_then(local_time)
-            .map(|time| format!(" {time}"))
-            .unwrap_or_default();
-        format!("{verb}{actor}{at}")
-    };
+    let by = |verb: &str| decided(gate, verb);
     let items = item_list
         .map(|list| format!("{SEPARATOR}{}", item_count(list.items)))
         .unwrap_or_default();
@@ -73,7 +102,7 @@ fn decision(gate: &GateView, item_list: Option<ItemListSummary>) -> String {
         GateStatus::Waiting { .. } => {
             format!(" {PAUSED} awaiting approval {DASH} approving covers:")
         }
-        GateStatus::NotReached => String::new(),
+        GateStatus::NotReached | GateStatus::Answered { .. } => String::new(),
     }
 }
 

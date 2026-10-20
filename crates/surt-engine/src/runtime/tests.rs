@@ -1,10 +1,15 @@
+mod asker;
 mod contracts;
+mod conversations;
 mod deliveries;
 mod failures;
 mod files;
 mod fixtures;
 mod item_files;
 mod item_lists;
+mod outcome_outputs;
 mod planner;
+mod question_texts;
+mod questions;
 mod reports;
 mod scripts;

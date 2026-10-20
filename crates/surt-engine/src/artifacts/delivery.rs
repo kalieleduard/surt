@@ -3,6 +3,7 @@ mod envelope;
 mod files;
 mod item_list;
 mod portable;
+mod questions;
 mod rejection;
 
 use std::collections::BTreeMap;
@@ -14,6 +15,9 @@ use envelope::Envelope;
 
 pub(crate) use contract::{DeliveryContract, OutputRule};
 pub(crate) use item_list::{Item as ListedItem, ItemListProblem};
+pub use questions::{MAX_QUESTIONS, Question, Questions};
+#[cfg(test)]
+pub(crate) use questions::{QuestionField, QuestionsProblem};
 pub(crate) use rejection::DeliveryRejection;
 
 #[derive(Debug)]
@@ -57,25 +61,29 @@ impl DeliveryContract {
     }
 
     fn check_names(&self, envelope: &Envelope) -> Result<(), DeliveryRejection> {
-        if !self.outcomes.contains(&envelope.outcome) {
+        let outcome = &envelope.outcome;
+        if !self.outcomes.contains(outcome) {
             return Err(DeliveryRejection::UnknownOutcome {
-                outcome: envelope.outcome.clone(),
+                outcome: outcome.clone(),
             });
         }
-        if let Some(name) = self
+        let mut expected = self
             .outputs
             .keys()
-            .find(|name| !envelope.outputs.contains_key(*name))
-        {
+            .filter(|name| self.delivers(name, outcome));
+        if let Some(name) = expected.find(|name| !envelope.outputs.contains_key(*name)) {
             return Err(DeliveryRejection::MissingOutput { name: name.clone() });
         }
-        match envelope
-            .outputs
-            .keys()
-            .find(|name| !self.outputs.contains_key(*name))
-        {
+        let mut delivered = envelope.outputs.keys();
+        match delivered.find(|name| !self.delivers(name, outcome)) {
             Some(name) => Err(DeliveryRejection::UndeclaredOutput { name: name.clone() }),
             None => Ok(()),
         }
+    }
+
+    fn delivers(&self, output: &str, outcome: &str) -> bool {
+        self.delivering
+            .get(output)
+            .is_some_and(|outcomes| outcomes.iter().any(|delivering| delivering == outcome))
     }
 }

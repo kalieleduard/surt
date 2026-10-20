@@ -1,5 +1,6 @@
 schema = 1
 id = "spec"
+outcomes = ["done", "questions"]
 
 [inputs.request]
 format = "text"
@@ -12,13 +13,23 @@ optional = true
 format = "text"
 optional = true
 
+[inputs.spec-answers]
+format = "json"
+optional = true
+
 [outputs.spec]
 format = "markdown"
+outcomes = ["done"]
+
+[outputs.spec-questions]
+format = "questions"
+outcomes = ["questions"]
 
 [profile]
 runtime = "claude-code"
 model = "claude-sonnet-5-5"
 effort = "high"
+conversation = "loop"
 
 [profile.claude]
 auth = "subscription"

@@ -38,7 +38,7 @@ Every agent delivers the same envelope shape; its concrete JSON Schema is genera
 }
 ```
 
-The Outcome must belong to the contract's closed set, and output names must match the contract. Paths are relative to this Execution's delivery directory. Paths that escape the directory, symbolic links and missing or invalid required files are rejected. Surt validates each file against its declared format and, where applicable, schema, and only accepts a complete valid delivery.
+The Outcome must belong to the contract's closed set, and the output names must be exactly the outputs that Outcome delivers ([Outputs per Outcome](#outputs-per-outcome)): a missing one is `MissingOutput`, one the Outcome does not deliver (or the contract does not declare) is `UndeclaredOutput`. Paths are relative to this Execution's delivery directory. Paths that escape the directory, symbolic links and missing or invalid required files are rejected. Surt validates each file against its declared format and, where applicable, schema, and only accepts a complete valid delivery.
 
 Concrete file schemas and runtime success checks are specified below. The Claude Code `structured_output` shape and the failure streams below were observed in the real-stream fixtures (`docs/research/fixtures/claude-code/` on branch `research/claude-code-cli-headless`), captured with Claude Code 2.1.301 by [Capture a real Claude Code stream as a fixture](../../.scratch/surt-architecture/issues/19-real-claude-code-stream-fixture.md).
 
@@ -48,7 +48,7 @@ At creation, a root Workflow Run freezes every Agent used by the closure of its 
 
 Every Execution of an Agent runs with that Agent's frozen Agent Profile and records which snapshot it used. Editing an Agent's model settings or instructions after run creation affects new root runs; it does not change an existing run, a later Iteration or a new Attempt of that run.
 
-The snapshot also includes every JSON Schema the contract references, transitively. Its identity is a SHA-256 over the canonical TOML, which includes the [delivery checks](#delivery-checks) its outputs declare, and the contents of its instructions and schema assets; absolute source paths are not part of that identity. Runtime credentials are not copied into it.
+The snapshot also includes every JSON Schema the contract references, transitively. Its identity is a SHA-256 over the canonical TOML, which includes the [delivery checks](#delivery-checks) and the [Outcomes](#outputs-per-outcome) its outputs declare, and the contents of its instructions and schema assets; absolute source paths are not part of that identity. Runtime credentials are not copied into it.
 
 This extends the definition freezing rule in [E. Workflow Definition Schema](E-workflow-schema.md). It freezes Surt's definitions, not the external account, managed policies or installed Claude Code binary. Version compatibility is specified below.
 
@@ -141,6 +141,18 @@ Iteration 3 ended: review = changes_requested
 - conflict   (iteration 2, integrate)
 ```
 
+## A Conversation across a Loop
+
+An Agent whose `[profile]` says `conversation = "loop"` continues, in each Execution, the conversation of its last successful Execution in the same Loop ([ADR 0014](../adr/0014-a-conversation-continues-across-a-loop.md)). The default, `conversation = "none"`, keeps every Execution fresh; the canonical `agent.toml` names the field only for `"loop"`, so the identity of an Agent that does not set it is unchanged. A `"loop"` Agent used by a step outside every Loop body refuses at creation with `InvalidDefinition` on that step.
+
+- **Previous Execution.** Before launching a `"loop"` Agent's step inside a Loop, the Driver looks up the latest `succeeded` Execution of a Step Run with the same step key, in the same Loop of the same Workflow Run, at any earlier Iteration or Attempt, whose `runtime_info` has a `session_id`. Interrupted, cancelled and failed Executions are never chosen, even though their transcripts exist: a half-finished turn never enters the conversation. The conversation never crosses a step, a Loop or a run.
+- **Request.** `RuntimeRequest.continuation` is `Some(Continuation { session_id, execution_id, context })` when a previous Execution was found: its session id, its Execution id and the delta context below. `RuntimeRequest.context` stays the full context, and `RuntimeRequest.session_id` stays a new id: every Execution keeps one session id and one log.
+- **Delta context.** The Context Assembler writes `context-continued.md` beside `context.md`, with the same sections but only the Inputs whose fixed Revision differs from the one the previous Execution had for that name in `execution_input`, leaving out Revisions that previous Execution produced itself. A human edit of its output is a new human-origin Revision, so it is included; the Agent's own unchanged output is not.
+- **Restart.** A continuation that the runtime cannot resume (its transcript is gone, or the CLI refuses it) restarts in the same Execution with the full context and the same new session id. It spends no Attempt, and the Execution's outcome is decided as for any other.
+- **Recorded.** The runtime reports the conversation in its `RuntimeReport`, and the Driver stores it as `runtime_info.conversation`: `{ "continued_from": "<execution id>" }`, `{ "restarted": "transcript_missing" | "continuation_refused", "previous": "<execution id>" }`, or `{ "fresh": "no_previous" }` for a `"loop"` Agent with nothing to continue. It is absent for `"none"` Agents. It is for display only: `surt inspect <execution>` prints it on its `conversation` line, and no decision reads it.
+
+The Claude Code runtime forks the previous session ([the launcher](#claude-code-launcher-and-compatibility)): `--resume <previous session id> --fork-session` next to the Execution's own `--session-id`, with the delta context on stdin, and reports `continued_from` once that launch has emitted `system/init`. A continued launch that ends without any `system/init` is launched once more in the same Execution, fresh, with the full context and the same session id, and reports `restarted`: `transcript_missing` when the result's `errors` contain `No conversation found` (Claude Code 2.1.304 then exits `1` with only that `result` and the same text on stderr), otherwise `continuation_refused`. A failure after `system/init` is classified as any other, and a stop or Interruption during the continued launch ends the Execution without the second launch. The Fake Runtime honours a continuation: it is fed the delta context, reports `continued_from`, and writes the session it resumed and the context it was fed as the first line of its stream log. Its scripted `transcript_missing` behaviour (`Behavior::TranscriptMissing` in Rust, `transcript_missing = { … }` in a TOML script, with the same fields as `deliver`) simulates a lost transcript: it restarts with the full context and reports `restarted`.
+
 ## Model and effort validation
 
 Profiles name models by full IDs, not moving aliases. Surt validates known effort values locally and checks the model reported during runtime initialization against the requested model. An incompatible or unavailable model is a technical failure; Surt does not select a replacement model. It does not maintain its own catalog of models available to each account.
@@ -164,14 +176,15 @@ Their tools follow the role table above and no profile sets turn or cost limits.
 | `schema`, `id` | Required; known format, ID matching its agent directory |
 | `outcomes` | Optional non-empty unique array; omitted means `["done"]` |
 | `inputs.<name>` | `format` required; `optional` defaults to `false`; optional `json_schema` |
-| `outputs.<name>` | `format` required; optional `json_schema`; every declared output is required |
+| `outputs.<name>` | `format` required; optional `json_schema`; a declared output is required on every Outcome that delivers it |
+| `outputs.<name>.outcomes` | Optional non-empty unique subset of the Agent's Outcomes that deliver this output; omitted means every Outcome. See [Outputs per Outcome](#outputs-per-outcome) |
 | `outputs.<name>.checks` | Optional array of [delivery checks](#delivery-checks), each a table with a `kind`; only on a `json` output |
 | `outputs.<name>.item_files.<file-name>` | Only for `format = "item_list"`; required `format`, optional `json_schema`; every declared file is required on every item |
-| `profile` | Required; `runtime`, full `model` and `effort`; optional `[limits]`; `[claude]` required for `claude-code` |
+| `profile` | Required; `runtime`, full `model` and `effort`; optional `conversation`, `"none"` (default) or `"loop"` ([A Conversation across a Loop](#a-conversation-across-a-loop)); optional `[limits]`; `[claude]` required for `claude-code` |
 | `profile.limits` | Optional positive integer `max_turns` and positive finite numeric `max_budget_usd`; absent means no limits; no timeout field |
 | `profile.claude` | `auth`, `permission_mode`, `tools`, `allowed_tools`, `disallowed_tools`; optional `api_key_env` only with `auth = "api_key"` |
 
-Formats are `text`, `markdown`, `json` and `item_list`. Text and Markdown require non-empty UTF-8 content; Markdown is not semantically validated. JSON is parsed and validated against its declared JSON Schema when present. `item_list` also validates keys, references, graph acyclicity and declared item files as specified in section E. Item file formats are `text`, `markdown` or `json`; item files do not recursively contain Item Lists. `json_schema` is only valid for `json` or `item_list`. Schemas use draft-07; formats such as `date-time` do not substitute for explicit validation.
+Formats are `text`, `markdown`, `json`, `item_list` and `questions`. Text and Markdown require non-empty UTF-8 content; Markdown is not semantically validated. JSON is parsed and validated against its declared JSON Schema when present. `item_list` also validates keys, references, graph acyclicity and declared item files as specified in section E. `questions` is the Surt-owned format of an Agent's questions to the developer ([The `questions` format](#the-questions-format)). Item file formats are `text`, `markdown` or `json`; item files do not recursively contain Item Lists or questions (`item file "<file>" has an unsupported format`). `json_schema` is only valid for `json` or `item_list`, never on `questions`, whose rules are Surt's. Schemas use draft-07; formats such as `date-time` do not substitute for explicit validation.
 
 The supported runtime IDs are `claude-code` and test-only `fake`. The latter uses scripted behavior; it is not another model provider. Auth is `subscription` or `api_key`; permission mode is `dontAsk` or explicit `bypassPermissions`. Tool and rule arrays are explicit; an empty array is meaningful. No arbitrary settings or environment table is accepted. Claude-specific controls live in `[claude]`, keeping them out of the generic runtime request's contract semantics.
 
@@ -228,13 +241,13 @@ A project changes an Agent by editing its file, for instance `model = "claude-op
 
 | Agent | Inputs (`?` = optional) | Outputs | Outcomes |
 |---|---|---|---|
-| `spec` | `request: text`, `spec?: markdown`, `spec-rejection-reason?: text` | `spec: markdown` | `done` |
+| `spec` | `request: text`, `spec?: markdown`, `spec-rejection-reason?: text`, `spec-answers?: json` | `spec: markdown` on `done`, `spec-questions: questions` on `questions` | `done`, `questions` |
 | `tasks` | `spec: markdown`, `manifest?: item_list`, `manifest-rejection-reason?: text` | `manifest: item_list`, including one required `task: markdown` item file per Task | `done` |
 | `builder` | `item: json` with its read-only `task` Markdown file, `spec: markdown`, `feedback?: json`, `check-report?: json`, `conflict?: json` | `commit: json` | `done` |
 | `reviewer` | `item: json` with its read-only `task` Markdown file, `spec: markdown`, `commit: json`, `check-report: json`, `feedback?: json`, `conflict?: json` | `feedback: json` | `approved`, `changes_requested` |
 | `shipper` | `manifest: item_list`, `integration: json` | `delivery: json` | `done` |
 
-`request`, `base` and `item` are supplied as defined in section E. `check-report`, `conflict` and `integration` are produced by Operations ([A. Git Integration](A-git-integration.md#operation-registry)).
+The Spec Agent is the only one with `conversation = "loop"`; the other four start every Execution fresh. `request`, `base` and `item` are supplied as defined in section E, and `spec-answers` by the input step `answer-spec` ([E](E-workflow-schema.md#the-feature-template)). `check-report`, `conflict` and `integration` are produced by Operations ([A. Git Integration](A-git-integration.md#operation-registry)).
 
 ## Template output schemas and validation
 
@@ -248,6 +261,52 @@ These schemas belong to the feature Template, not to engine knowledge of particu
 Artifacts produced by Operations, which agents read: [base](schemas/base.schema.json), [check-report](schemas/check-report.schema.json), [conflict](schemas/conflict.schema.json) and [integration](schemas/integration.schema.json).
 
 An approved review with a blocking finding is inconsistent and is rejected. The final envelope is the single source of the review Outcome; feedback does not repeat it. Role-specific consistency checks are declared on the Agent's outputs (below) and run through generic delivery validation, never through engine branches on agent IDs. Merely matching a SHA regex is not proof that a commit exists, was reviewed or is integrated. The exact Git evidence for `commit` and the SHA binding of `feedback` and `check-report` are in [A. Git Integration](A-git-integration.md#evidence-for-a-builders-commit).
+
+### Outputs per Outcome
+
+An output may name the Outcomes that deliver it; absent, every Outcome does. An Outcome that delivers no output is allowed.
+
+```toml
+outcomes = ["done", "questions"]
+
+[outputs.spec]
+format = "markdown"
+outcomes = ["done"]
+
+[outputs.spec-questions]
+format = "questions"
+outcomes = ["questions"]
+```
+
+The list must be non-empty (`output "<output>" names no outcome`), name only the Agent's Outcomes (`output "<output>" names the outcome "<outcome>", which the agent does not declare`) and name each once (`output "<output>" names the outcome "<outcome>" twice`); each refusal points at `outputs.<output>.outcomes` and refuses `create_run` with no row written. The list is part of the canonical `agent.toml`, hence of the snapshot's identity.
+
+A delivery ending with an Outcome carries exactly the outputs that Outcome delivers. Only those outputs are read and published, and only their item files and [delivery checks](#delivery-checks) run.
+
+The generated envelope schema keeps `outcome` as an enum of the Agent's Outcomes and lists every declared output as a property of `outputs`, with `additionalProperties = false`. Its `required` holds only the outputs every Outcome delivers. It has no `oneOf`: which outputs go with which Outcome is Surt's rule to enforce at acceptance, not the model's.
+
+### The `questions` format
+
+`format = "questions"` is Surt-owned, like the Item List: an output (or an input) of this format holds one JSON file with the questions an Agent needs the developer to answer.
+
+```json
+{ "questions": [
+  { "id": "login-id", "question": "Log in by e-mail only, or by username too?",
+    "why": "changes the users table", "recommended": "e-mail only",
+    "options": ["e-mail only", "e-mail or username"] } ] }
+```
+
+It takes no `json_schema` (`MisplacedJsonSchema`, as for `text`) and is no item file format. A delivered file is parsed as JSON and then checked, in this order; the first rule broken rejects the delivery as an invalid delivery, retried like any other (`<path>: <problem>`):
+
+| Rule | Problem |
+|---|---|
+| An object with exactly `questions`, a list | `the file is not an object holding a list of questions` |
+| 1 to `MAX_QUESTIONS = 5` entries | `there are no questions`, `<n> questions are more than 5` |
+| Each entry has exactly the string fields `id`, `question`, `why`, `recommended` and optionally `options`, a list of strings | `question <n> has no id, question, why or recommended of the right shape` |
+| `id` follows the Item List key rules ([A](A-git-integration.md#item-keys-and-item-file-paths)): portable, not a device name, unique ignoring case | `id <id> is not a portable item key`, `… is a reserved device name`, `… is used by more than one question` |
+| `question`, `why` and `recommended` are not blank | `question <id> has an empty why` |
+| `options`, when present: 2 or more, none blank, each once, `recommended` among them (exact match) | `question <id> offers fewer than 2 options`, `… offers an empty option`, `… offers <option> more than once`, `… recommends an answer that is not one of its options` |
+
+The engine reads a published round back as typed `Questions` (`surt_engine::project::{Questions, Question, MAX_QUESTIONS}`): `Questions::parse(bytes)` returns the questions of a valid file, in order, and `None` for anything else. Static validation treats `questions` like any other format: a step consumes it when it is produced upstream, whatever format the consumer declares.
 
 ### Delivery checks
 
@@ -266,9 +325,9 @@ checks = [{ kind = "reviewed_commit" }, { kind = "no_blocking_finding", outcome 
 | `reviewed_commit` | none | The output's `reviewed_commit` is the `sha` of the `commit` Input, and the `check-report` Input, when present, is for that commit |
 | `no_blocking_finding` | `outcome` (required) | A delivery ending with `outcome` has no entry of `findings` with `blocking = true` |
 
-The checks read the Input and field names in the table; they belong to the Operations' artifact contract of [E. Workflow Definition Schema](E-workflow-schema.md). A check is static: the output must be `format = "json"` (otherwise `a delivery check needs the JSON output "<output>"`) and `no_blocking_finding.outcome` must be one of the Agent's Outcomes (otherwise `a delivery check needs the outcome "<outcome>"`). An unknown `kind`, an `outcome` on another kind, a missing `outcome` or any other field is refused like any unknown field. A failing declaration refuses `create_run` with no row written.
+The checks read the Input and field names in the table; they belong to the Operations' artifact contract of [E. Workflow Definition Schema](E-workflow-schema.md). A check is static: the output must be `format = "json"` (otherwise `a delivery check needs the JSON output "<output>"`) and `no_blocking_finding.outcome` must be one of the Agent's Outcomes (otherwise `a delivery check needs the outcome "<outcome>"`) on which the checked output is delivered (otherwise `a delivery check needs "<output>" delivered on the outcome "<outcome>"`, at `outputs.<output>.outcomes`). An unknown `kind`, an `outcome` on another kind, a missing `outcome` or any other field is refused like any unknown field. A failing declaration refuses `create_run` with no row written.
 
-Checks are part of the canonical `agent.toml`, hence of the Agent snapshot's identity. Every Execution runs the checks of its frozen Agent: editing an Agent's checks never changes the checks of a run already created. A delivery that fails a check is an `invalid_delivery` failure of that Attempt, retried like any other invalid delivery. The Template's Builder declares `commit_evidence` on `commit`; its Reviewer declares `reviewed_commit` and `no_blocking_finding` (`approved`) on `feedback`.
+Checks are part of the canonical `agent.toml`, hence of the Agent snapshot's identity. Every Execution runs the checks of its frozen Agent: editing an Agent's checks never changes the checks of a run already created. A check runs only when its output is delivered. A delivery that fails a check is an `invalid_delivery` failure of that Attempt, retried like any other invalid delivery. The Template's Builder declares `commit_evidence` on `commit`; its Reviewer declares `reviewed_commit` and `no_blocking_finding` (`approved`) on `feedback`.
 
 ## Claude Code launcher and compatibility
 
@@ -276,7 +335,7 @@ The minimum supported version is **2.1.301**, the baseline whose current help wa
 
 Before launch, resolve the executable without a shell, inspect `--version` and required controls, validate the profile and schema assets, and check the selected auth mode. Recheck after an executable/version change. Help output is supplementary: documented controls such as `--append-system-prompt-file` and `--max-turns` are absent from the inspected help, so absence there is not evidence of incompatibility. Use the documented baseline and initialization checks; an actual unknown-flag error is an actionable launch failure. Neither successful preflight nor a model-shaped ID proves account access; a runtime auth/model failure remains possible.
 
-Every Execution gets a new UUID session ID. The launcher uses these controls (arguments are an argv vector, not an interpolated shell command):
+Every Execution gets a new UUID session ID. The launcher uses these controls (arguments are an argv vector, not an interpolated shell command); this is the argv of an Agent with `conversation = "none"`:
 
 ```text
 -p
@@ -299,7 +358,9 @@ Every Execution gets a new UUID session ID. The launcher uses these controls (ar
 --disable-slash-commands
 ```
 
-Pass the assembled Execution context on stdin, close stdin afterwards and keep Claude's built-in system prompt, appending the Agent's stable instructions. Never use `--continue`, `--resume`, `--fork-session`, a shared session ID or a fallback-model chain. Add `--max-turns` and `--max-budget-usd` only for configured limits.
+Pass the assembled Execution context on stdin, close stdin afterwards and keep Claude's built-in system prompt, appending the Agent's stable instructions. Never use `--continue`, a shared session ID or a fallback-model chain. Add `--max-turns` and `--max-budget-usd` only for configured limits.
+
+An Agent with `conversation = "loop"` ([A Conversation across a Loop](#a-conversation-across-a-loop), [ADR 0014](../adr/0014-a-conversation-continues-across-a-loop.md)) never gets `--no-session-persistence`, so its transcript survives for the next Execution. Without a continuation its argv is the one above minus that flag, with the full context on stdin. With one, `--resume <previous session id> --fork-session` follow the new `--session-id <fresh-uuid>`, every other argument is unchanged and stdin carries the delta context; `--fork-session` is required, since Claude Code refuses `--session-id` with `--resume` alone. `--resume` and `--fork-session` are used only for such a continued launch, never for an Agent with `conversation = "none"`. The fresh relaunch of a continuation that never initialized is the launch without a continuation, with the same session id.
 
 For subscription auth add `--safe-mode --setting-sources user` and preserve the developer's existing credential lookup directory. Do not create a fresh `CLAUDE_CONFIG_DIR`. The generated settings disable user hooks and automatic content-based model switching (`disableAllHooks = true`, `switchModelsOnFlag = false`); managed policy still applies. The child environment disables auto-update (`DISABLE_AUTOUPDATER=1`, `DISABLE_UPDATES=1`), automatic memory and CLAUDE.md loading. Build the child environment from an allowlist (home, path, user, temp directory, locale and the platform's required variables, such as `SYSTEMROOT`, `USERPROFILE` and `APPDATA` on Windows) plus the variables listed here, instead of removing known variables from the inherited one: in the fixture capture, `CLAUDE_CODE_SIMPLE` and `ANTHROPIC_BASE_URL` inherited from a parent Claude Code session hid a valid subscription login. Inherited model/effort overrides and API-key, gateway and cloud-provider auth selectors are therefore never passed through. Check auth selection rather than treating an inherited key or helper as permission to change billing mode; refuse an unexpected API/provider auth source with an actionable diagnostic. No credentials are copied into the frozen definition or command-line arguments.
 
@@ -321,9 +382,9 @@ Acceptance requires all of the following:
 
 Only then may Surt publish the resulting Revisions and successful Outcome. Files left by a failed Execution are not accepted outputs. A present, schema-valid envelope is not evidence of delivery: with `--json-schema`, Claude Code pushes the model to call `StructuredOutput` even after a refusal or a denied write, and the captured model then declared a permitted Outcome with prose in place of a path; step 5 is the real gate. `--max-turns` counts turns, not tool calls, so an Execution stopped by it can leave every file written; SIGTERM ends the stream without a `result` (exit 143) and leaves partial files. The storage transaction and crash recovery around publication belong to sections H, D and I.
 
-Auth failure, unavailable/mismatched model, unsupported settings, non-zero exit, missing result, malformed envelope, missing files, invalid Item List or a configured limit being reached are technical failures. `changes_requested` with valid feedback is a successful Outcome. Interruption and Cancellation retain their distinct meaning from section A; their state names, and the fact that neither counts toward the Attempt limit, are in [G. State Machines](G-state-machines.md).
+Auth failure, unavailable/mismatched model, unsupported settings, non-zero exit, missing result, malformed envelope, missing files, invalid Item List, invalid questions or a configured limit being reached are technical failures. `changes_requested` with valid feedback is a successful Outcome. Interruption and Cancellation retain their distinct meaning from section A; their state names, and the fact that neither counts toward the Attempt limit, are in [G. State Machines](G-state-machines.md).
 
-The runtime neither invents billing precision nor reports a missing usage field as zero. Record available session/model/version identity, requested effort, turn counts, cost estimates and permission denials; unknown data remains unknown. The stream and stderr are written to `.surt/logs/<subject>/<execution-id>/` and survive cleanup; secret redaction is not in v1 ([I. Cleanup](I-cleanup.md#logs)).
+The runtime neither invents billing precision nor reports a missing usage field as zero. Record available session/model/version identity, requested effort, turn counts, cost estimates and permission denials; unknown data remains unknown. The stream and stderr are written to `.surt/logs/<subject>/<execution-id>/` and survive cleanup; secret redaction is not in v1 ([I. Cleanup](I-cleanup.md#logs)). Both files are appended to, so a restarted continuation keeps both launches in them, the refused continued launch first; `runtime_info` describes the last launch.
 
 ## Agent Runtime and Fake Runtime
 
@@ -342,12 +403,12 @@ pub trait AgentRuntime: Send + Sync {
 }
 ```
 
-- `RuntimeRequest` carries Execution/session identity, the Agent's frozen profile, prepared instructions/context, working and delivery directories, and fixed input handles. Secrets are resolved at launch and are not part of its persisted snapshot.
+- `RuntimeRequest` carries Execution/session identity, the Agent's frozen profile, prepared instructions/context, an optional continuation of a previous Execution's conversation ([above](#a-conversation-across-a-loop)), working and delivery directories, and fixed input handles. Secrets are resolved at launch and are not part of its persisted snapshot.
 - `RuntimeEventSink` reports startup/process identity, progress, usage and diagnostics. The Driver records state; events do not bypass it.
 - `StopSignal` requests an explicit stop. The runtime owns process-tree cleanup and uses section A's grace/forced-stop sequence. There is no wall-clock execution timer.
 - `RuntimeCompletion` contains normalized initialization, exit/result evidence and usage for Surt's common acceptance path. Success is not a boolean shortcut around delivery validation.
 
-The Fake Runtime takes the same request, creates delivery files and returns scripted events/results through the same protocol. It can simulate valid `done`, `approved` or `changes_requested` deliveries, missing/invalid JSON, missing/invalid files, model/init mismatch, crashes, configured-limit failures, unavailable usage and an Execution that waits until explicitly stopped. All deliveries pass through production validators; it never directly marks SQLite rows successful. Runtime stream parsing additionally requires the real fixtures, because a Fake Runtime cannot prove that the Claude adapter understands the live protocol.
+The Fake Runtime takes the same request, creates delivery files and returns scripted events/results through the same protocol. It can simulate valid `done`, `approved` or `changes_requested` deliveries, missing/invalid JSON, missing/invalid files, model/init mismatch, crashes, configured-limit failures, unavailable usage, an Execution that waits until explicitly stopped and a lost conversation transcript. All deliveries pass through production validators; it never directly marks SQLite rows successful. Runtime stream parsing additionally requires the real fixtures, because a Fake Runtime cannot prove that the Claude adapter understands the live protocol.
 
 ## One Markdown document per Task
 

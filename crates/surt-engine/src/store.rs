@@ -9,6 +9,7 @@ use sqlx::{Sqlite, SqliteConnection, SqlitePool, Transaction};
 use crate::platform::{self, ExclusiveLock};
 
 mod acceptance;
+mod answers;
 mod approvals;
 mod blocked;
 mod branches;
@@ -17,12 +18,14 @@ mod checkpoints;
 mod cleanup;
 mod columns;
 mod control;
+mod conversations;
 mod details;
 mod drivers;
 mod events;
 mod execution_detail;
 mod executions;
 mod frozen;
+mod gates;
 mod graph;
 mod items;
 mod iterations;
@@ -44,7 +47,8 @@ mod timeline;
 mod working_copy;
 
 pub(crate) use acceptance::{Acceptance, Integrated, PublishedOutput};
-pub(crate) use approvals::{Decision, DecisionOutcome, GateRow, NewDecision, WaitingGate};
+pub(crate) use answers::{AnswerOutcome, NewAnswer};
+pub(crate) use approvals::{Decision, DecisionOutcome, NewDecision};
 pub(crate) use blocked::{BlockedRow, FailureRow};
 pub(crate) use branches::{PreviousExecution, RunBranch};
 pub use checkpoints::Checkpoint;
@@ -52,18 +56,20 @@ pub use checkpoints::Checkpoint;
 pub(crate) use checkpoints::Faults;
 pub(crate) use cleanup::{ChildBranch, CleanupRecord, Ending};
 pub(crate) use columns::{count, number};
+pub(crate) use conversations::PreviousConversation;
 pub(crate) use drivers::StaleExecution;
 pub(crate) use execution_detail::{ExecutionDetailRow, ExecutionInputRow, ExecutionScopeRow};
 pub(crate) use executions::{
     ExecutionEnd, ExecutionKind, ExecutionStart, InputRequest, StartedExecution,
 };
 pub(crate) use frozen::FrozenFile;
+pub(crate) use gates::{GateRow, GateViewRow, WaitingGate};
 pub(crate) use graph::{RunRows, StepRow};
 pub(crate) use items::{Expansion, ListRevision, NewChild};
 pub(crate) use log_sources::LogSourceRow;
 pub(crate) use paused::LastAgentEnd;
 pub(crate) use purge::{SubjectBranch, SubjectRun};
-pub(crate) use reading::{ArtifactSummaryRow, GateViewRow, ItemRunRow, RootRunRow};
+pub(crate) use reading::{ArtifactSummaryRow, ItemRunRow, RootRunRow};
 pub(crate) use ref_moves::{PendingRefMove, RefMove};
 pub(crate) use restoring::RestoreTarget;
 pub(crate) use revision_approval::ApprovalRow;
@@ -91,6 +97,8 @@ pub(crate) enum StoreError {
     Migration(#[from] MigrateError),
     #[error(transparent)]
     Database(#[from] sqlx::Error),
+    #[error("the recorded answers are not valid JSON: {0}")]
+    CorruptAnswers(#[source] serde_json::Error),
     #[cfg(feature = "test-support")]
     #[error("crashed after {0:?}")]
     Crashed(Checkpoint),

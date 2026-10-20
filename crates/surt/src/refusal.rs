@@ -1,3 +1,4 @@
+mod answers;
 mod definition;
 mod edits;
 mod executions;
@@ -104,10 +105,15 @@ pub(crate) fn message(refusal: &Refusal) -> Message {
             state_names(states)
         ))
         .way("inspect", format!("surt status {subject}")),
-        Refusal::NoGateWaiting { subject } => {
-            Message::new(format!("{subject} has no approval gate waiting"))
-                .way("run", format!("surt status {subject}"))
-        }
+        Refusal::NoGateWaiting { subject, input } => answers::no_gate(subject, input.as_deref()),
+        Refusal::NoInputWaiting { subject, states } => answers::no_input(subject, states),
+        Refusal::UnansweredQuestions {
+            subject,
+            artifact,
+            revision,
+            missing,
+            unknown,
+        } => answers::unanswered(subject, artifact, *revision, missing, unknown),
         Refusal::StaleRevision {
             subject,
             artifact,

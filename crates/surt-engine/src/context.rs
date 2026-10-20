@@ -7,6 +7,7 @@ use crate::store::{Producer, StoredRevision};
 
 const INPUTS_DIR: &str = "inputs";
 const CONTEXT_FILE: &str = "context.md";
+const CONTINUED_FILE: &str = "context-continued.md";
 
 pub(crate) struct ContextInput<'a> {
     pub(crate) name: &'a str,
@@ -27,31 +28,27 @@ pub(crate) struct Assembly<'a> {
 
 impl Assembly<'_> {
     pub(crate) fn write(&self) -> io::Result<String> {
-        let mut text = String::new();
-        if let Some(previous) = &self.previous {
-            let ended: Vec<String> = previous
-                .ended
-                .iter()
-                .map(|(step, ending)| format!("{step} = {ending}"))
-                .collect();
-            let _ = writeln!(text, "## Why this Iteration started");
-            let _ = writeln!(
-                text,
-                "Iteration {} ended: {}",
-                previous.number,
-                ended.join(", ")
-            );
-        }
-        let _ = writeln!(text, "## Inputs");
         for input in &self.inputs {
-            let root = self.materialize(input)?;
+            self.materialize(input)?;
+        }
+        self.write_file(CONTEXT_FILE, |_| true)
+    }
+
+    pub(crate) fn write_continued(&self, changed: &[&str]) -> io::Result<String> {
+        self.write_file(CONTINUED_FILE, |input| changed.contains(&input.name))
+    }
+
+    fn write_file(&self, name: &str, kept: impl Fn(&ContextInput) -> bool) -> io::Result<String> {
+        let mut text = self.previous.as_ref().map_or_else(String::new, why);
+        let _ = writeln!(text, "## Inputs");
+        for input in self.inputs.iter().filter(|input| kept(input)) {
             let _ = writeln!(
                 text,
                 "- {} rev {}   ({})   {}",
                 input.name,
                 input.revision.number,
                 label(&input.revision.producer),
-                root.display()
+                self.root(input).display()
             );
         }
         let _ = writeln!(text, "## Delivery");
@@ -60,12 +57,16 @@ impl Assembly<'_> {
             "Write every output under {}",
             self.delivery_dir.display()
         );
-        fs::write(self.execution_dir.join(CONTEXT_FILE), &text)?;
+        fs::write(self.execution_dir.join(name), &text)?;
         Ok(text)
     }
 
-    fn materialize(&self, input: &ContextInput) -> io::Result<PathBuf> {
-        let root = self.execution_dir.join(INPUTS_DIR).join(input.name);
+    fn root(&self, input: &ContextInput) -> PathBuf {
+        self.execution_dir.join(INPUTS_DIR).join(input.name)
+    }
+
+    fn materialize(&self, input: &ContextInput) -> io::Result<()> {
+        let root = self.root(input);
         for (rel_path, bytes) in &input.revision.files {
             let target = root.join(rel_path);
             if let Some(parent) = target.parent() {
@@ -73,8 +74,21 @@ impl Assembly<'_> {
             }
             fs::write(&target, bytes)?;
         }
-        Ok(root)
+        Ok(())
     }
+}
+
+fn why(previous: &PreviousIteration) -> String {
+    let ended: Vec<String> = previous
+        .ended
+        .iter()
+        .map(|(step, ending)| format!("{step} = {ending}"))
+        .collect();
+    format!(
+        "## Why this Iteration started\nIteration {} ended: {}\n",
+        previous.number,
+        ended.join(", ")
+    )
 }
 
 fn label(producer: &Producer) -> String {

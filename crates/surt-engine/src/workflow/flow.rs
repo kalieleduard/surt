@@ -30,6 +30,7 @@ pub(super) fn check(
                 check_operation(operation, external, &available)
             }),
             StepSpec::Approval(spec) => produced(&spec.artifact, &available).map(|_| ()),
+            StepSpec::Input(spec) => questions(&spec.artifact, &available),
             StepSpec::PerItem(spec) => {
                 child_use(step, spec, external, &available).map(|child| children.push(child))
             }
@@ -106,6 +107,15 @@ fn produced(artifact: &str, available: &Available) -> Result<Option<Format>, Pro
         })
 }
 
+fn questions(artifact: &str, available: &Available) -> Result<(), Problem> {
+    match produced(artifact, available)? {
+        Some(format) if format != Format::Questions => Err(Problem::NotQuestions {
+            artifact: artifact.to_owned(),
+        }),
+        _ => Ok(()),
+    }
+}
+
 fn available_at(
     definition: &Definition,
     agents: &Agents,
@@ -163,6 +173,7 @@ fn produces(
             })
         }
         StepSpec::Approval(spec) => vec![(spec.rejection_artifact.clone(), Some(Format::Text))],
+        StepSpec::Input(spec) => vec![(spec.answer_artifact.clone(), Some(Format::Json))],
         StepSpec::Loop(spec) => spec
             .body
             .iter()

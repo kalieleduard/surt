@@ -64,6 +64,7 @@ impl Execution {
             model: MODEL.to_owned(),
             log_dir: dir.path().join("logs"),
             context: String::new(),
+            continuation: None,
             launch: writer_launch(dir.path()),
             delivery_dir,
         };

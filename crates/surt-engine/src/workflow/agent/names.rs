@@ -1,6 +1,13 @@
-use super::{AgentContract, Effort, PermissionMode};
+use super::{AgentContract, Effort, PermissionMode, RuntimeKind};
 
 impl AgentContract {
+    pub(crate) fn runtime(&self) -> &'static str {
+        match self.profile.runtime {
+            RuntimeKind::ClaudeCode => "claude-code",
+            RuntimeKind::Fake => "fake",
+        }
+    }
+
     pub(crate) fn effort(&self) -> &'static str {
         self.profile.effort.name()
     }

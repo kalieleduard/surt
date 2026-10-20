@@ -63,7 +63,7 @@ fn status_json_of_a_blocked_subject_says_which_item_is_blocked_why_and_how_to_re
     assert_eq!(status["state"], "BLOCKED");
     assert_eq!(status["driver"], Value::Null);
     assert_eq!(status["resume"], format!("surt continue {name}"));
-    let spec = &status["gates"][0];
+    let spec = &status["gates"][1];
     assert_eq!(spec["artifact"], "spec");
     assert_eq!(spec["status"], "approved");
     assert_eq!(

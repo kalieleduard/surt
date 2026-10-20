@@ -3,6 +3,7 @@ use crate::workflow::error::Problem;
 const KEY_SEPARATOR: &str = ".";
 const OUTPUTS: &str = "outputs";
 const FORMAT: &str = "format";
+const OUTCOMES: &str = "outcomes";
 pub(super) const INPUTS: &str = "inputs";
 const DEFAULT: &str = "default";
 const SUBJECT_FROM: &str = "subject.from";
@@ -14,9 +15,15 @@ pub(super) fn agent_field(problem: &Problem, text: &str) -> Option<String> {
         Problem::MisplacedApiKeyEnv => "profile.claude.api_key_env",
         Problem::InvalidBudget => "profile.limits.max_budget_usd",
         Problem::TestOnlyRuntime => "profile.runtime",
-        Problem::MissingCheckedOutcome { .. } => "outcomes",
+        Problem::MissingCheckedOutcome { .. } => OUTCOMES,
         Problem::MissingCheckedOutput { output } => {
             return Some([OUTPUTS, output, FORMAT].join(KEY_SEPARATOR));
+        }
+        Problem::UndeliveredCheckedOutput { output, .. }
+        | Problem::EmptyOutputOutcomes { output }
+        | Problem::UnknownOutputOutcome { output, .. }
+        | Problem::DuplicateOutputOutcome { output, .. } => {
+            return Some([OUTPUTS, output, OUTCOMES].join(KEY_SEPARATOR));
         }
         _ => return common_field(problem, text),
     };

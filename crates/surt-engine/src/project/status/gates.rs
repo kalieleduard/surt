@@ -4,13 +4,15 @@ use std::path::Path;
 use super::{GateView, ItemListSummary, RevisionSummary};
 use crate::artifacts::listed_items;
 use crate::artifacts::working_copy::{self, Comparison};
+use crate::project::answers::{input_step, next_round};
 use crate::project::gates::approval_step;
-use crate::project::{Error, GateStatus, Layout, RevisionOrigin};
-use crate::store::{GateViewRow, Producer, RootRunRow, Store, WorkingCopyArtifact};
+use crate::project::{Error, GateKind, GateStatus, Layout, RevisionOrigin};
+use crate::store::{GateViewRow, Producer, RootRunRow, Store, WorkingCopyArtifact, number};
 
 const RUNNING: &str = "running";
 const DONE: &str = "done";
 const APPROVED: &str = "approved";
+const ANSWERED: &str = "answered";
 
 pub(super) async fn views(
     store: &Store,
@@ -22,20 +24,22 @@ pub(super) async fn views(
     let dir = layout.working_copy(&run.subject);
     let mut views = Vec::new();
     for row in store.gate_views(root).await? {
-        let gate = approval_step(store, root, &row.definition, &row.key).await?;
-        let artifact = gate.artifact;
-        let latest = store.latest_revision_number(root, &artifact).await?;
+        let reviewed = reviewed(store, root, &row).await?;
+        let artifact = reviewed.artifact.as_str();
+        let latest = store.latest_revision_number(root, artifact).await?;
         let status = status(&row, latest);
         let comparison = compare(&dir, working_copy.iter().find(|w| w.name == artifact))?;
         let revision = Revision {
-            artifact: &artifact,
+            artifact,
             status,
-            item_list: gate.item_list,
+            item_list: reviewed.item_list,
         };
         views.push(GateView {
             revision: summary(store, root, revision).await?,
+            round: round(store, root, &row, &reviewed, status).await?,
+            kind: reviewed.kind,
             step: row.key,
-            artifact,
+            artifact: reviewed.artifact,
             status,
             decided_by: row.actor,
             decided_at: row.decided_at,
@@ -45,6 +49,49 @@ pub(super) async fn views(
         });
     }
     Ok(views)
+}
+
+struct Reviewed {
+    kind: GateKind,
+    artifact: String,
+    item_list: bool,
+    answer_artifact: Option<String>,
+}
+
+async fn reviewed(store: &Store, root: &str, row: &GateViewRow) -> Result<Reviewed, Error> {
+    if row.is_input() {
+        let input = input_step(store, root, &row.definition, &row.key).await?;
+        return Ok(Reviewed {
+            kind: GateKind::Input,
+            artifact: input.artifact,
+            item_list: false,
+            answer_artifact: Some(input.answer_artifact),
+        });
+    }
+    let gate = approval_step(store, root, &row.definition, &row.key).await?;
+    Ok(Reviewed {
+        kind: GateKind::Approval,
+        artifact: gate.artifact,
+        item_list: gate.item_list,
+        answer_artifact: None,
+    })
+}
+
+async fn round(
+    store: &Store,
+    root: &str,
+    row: &GateViewRow,
+    reviewed: &Reviewed,
+    status: GateStatus,
+) -> Result<Option<u32>, Error> {
+    let Some(answer_artifact) = &reviewed.answer_artifact else {
+        return Ok(None);
+    };
+    Ok(match status {
+        GateStatus::Waiting { .. } => Some(next_round(store, root, answer_artifact).await?),
+        GateStatus::Answered { .. } => row.round.map(number),
+        _ => None,
+    })
 }
 
 pub(in crate::project) fn origin(producer: &Producer) -> RevisionOrigin {
@@ -62,6 +109,9 @@ fn status(row: &GateViewRow, latest: Option<u32>) -> GateStatus {
         }),
         (DONE, Some(revision)) if row.outcome.as_deref() == Some(APPROVED) => {
             GateStatus::Approved { revision }
+        }
+        (DONE, Some(revision)) if row.outcome.as_deref() == Some(ANSWERED) => {
+            GateStatus::Answered { revision }
         }
         (DONE, Some(revision)) => GateStatus::Rejected { revision },
         _ => GateStatus::NotReached,
@@ -82,7 +132,8 @@ async fn summary(
     let number = match wanted.status {
         GateStatus::Waiting { revision }
         | GateStatus::Approved { revision }
-        | GateStatus::Rejected { revision } => revision,
+        | GateStatus::Rejected { revision }
+        | GateStatus::Answered { revision } => revision,
         GateStatus::NotReached => return Ok(None),
     };
     let Some(id) = store

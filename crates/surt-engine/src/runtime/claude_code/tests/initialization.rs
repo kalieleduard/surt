@@ -3,8 +3,8 @@ use uuid::Uuid;
 
 use super::executions::Execution;
 use super::streams::{Fixture, Stream};
-use crate::runtime::claude_code::Transcript;
 use crate::runtime::claude_code::transcript::Observation;
+use crate::runtime::claude_code::transcript::Transcript;
 use crate::runtime::{Exit, FailureClass, RuntimeError, Verdict};
 
 fn delivered_note() -> Stream {

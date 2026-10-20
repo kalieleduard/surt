@@ -1,5 +1,7 @@
 use serde_json::{Map, Value};
 
+use super::Conversation;
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RuntimeReport {
     pub(crate) session_id: Option<String>,
@@ -10,6 +12,7 @@ pub struct RuntimeReport {
     pub(crate) usage: Option<Map<String, Value>>,
     pub(crate) cost_usd: Option<f64>,
     pub(crate) permission_denials: Option<Vec<Value>>,
+    pub(crate) conversation: Option<Conversation>,
 }
 
 impl RuntimeReport {
@@ -25,6 +28,10 @@ impl RuntimeReport {
             (
                 "permission_denials",
                 self.permission_denials.clone().map(Value::Array),
+            ),
+            (
+                "conversation",
+                self.conversation.as_ref().map(Conversation::value),
             ),
         ];
         Value::Object(

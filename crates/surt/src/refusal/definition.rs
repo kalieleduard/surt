@@ -98,8 +98,14 @@ fn describe(problem: &Problem) -> String {
             format!("\"{artifact}\" is not produced before this step")
         }
         Problem::NotAnItemList { artifact } => format!("\"{artifact}\" is not an item list"),
+        Problem::NotQuestions { artifact } => {
+            format!("\"{artifact}\" is not a questions artifact")
+        }
         Problem::DuplicateRejectionArtifact { artifact } => {
             format!("rejection artifact \"{artifact}\" is declared twice")
+        }
+        Problem::DuplicateAnswerArtifact { artifact } => {
+            format!("answer artifact \"{artifact}\" is declared twice")
         }
         Problem::MissingAsset { path } => {
             format!("\"{path}\" is not a file in the agent's directory")
@@ -129,6 +135,20 @@ fn describe(problem: &Problem) -> String {
         Problem::MissingCheckedOutcome { outcome } => {
             format!("a delivery check needs the outcome \"{outcome}\"")
         }
+        Problem::UndeliveredCheckedOutput { output, outcome } => {
+            format!("a delivery check needs \"{output}\" delivered on the outcome \"{outcome}\"")
+        }
+        Problem::EmptyOutputOutcomes { output } => {
+            format!("output \"{output}\" names no outcome")
+        }
+        Problem::UnknownOutputOutcome { output, outcome } => {
+            format!(
+                "output \"{output}\" names the outcome \"{outcome}\", which the agent does not declare"
+            )
+        }
+        Problem::DuplicateOutputOutcome { output, outcome } => {
+            format!("output \"{output}\" names the outcome \"{outcome}\" twice")
+        }
         Problem::TestOnlyRuntime => "runtime \"fake\" is test-only".to_owned(),
         Problem::StrayAgentFile => {
             "surt reads only agent.toml, instructions.md and schemas/ here".to_owned()
@@ -149,6 +169,9 @@ fn describe(problem: &Problem) -> String {
         Problem::GitInputNotGitRef { input } => {
             format!("needs \"{input}\" from an input with format = \"git_ref\"")
         }
+        Problem::ConversationOutsideLoop { agent } => format!(
+            "agent \"{agent}\" has conversation = \"loop\", but the step is in no loop's body"
+        ),
     }
 }
 

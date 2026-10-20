@@ -7,7 +7,8 @@ use super::{Error, Project, RunSelector};
 use crate::store::{EventRow, Store};
 
 pub use execution::{
-    AgentProfile, ExecutionDetail, ExecutionFailure, ExecutionInput, Performer, RuntimeInfo, Usage,
+    AgentProfile, ConversationInfo, ExecutionDetail, ExecutionFailure, ExecutionInput, Performer,
+    RuntimeInfo, Usage,
 };
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

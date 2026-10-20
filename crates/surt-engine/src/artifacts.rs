@@ -1,3 +1,4 @@
+mod answers;
 mod delivery;
 mod items;
 pub(crate) mod working_copy;
@@ -6,10 +7,14 @@ use std::fmt::Write;
 
 use sha2::{Digest, Sha256};
 
+pub(crate) use answers::{Round, Unanswered, accumulate};
 pub(crate) use delivery::{
     AcceptedDelivery, DeliveryContract, DeliveryRejection, ItemListProblem, OutputRule,
     ValidatedOutput,
 };
+pub use delivery::{MAX_QUESTIONS, Question, Questions};
+#[cfg(test)]
+pub(crate) use delivery::{QuestionField, QuestionsProblem};
 pub(crate) use items::{ListedItem, item_view, listed_items};
 
 const SHA256_HEX_LEN: usize = 64;

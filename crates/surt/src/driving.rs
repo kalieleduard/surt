@@ -4,10 +4,11 @@ mod cleanup;
 mod interruption;
 mod progress;
 
-use surt_engine::project::{DriveOutcome, Gate, GateStatus, Project, RunId};
+use surt_engine::project::{DriveOutcome, Gate, GateKind, GateStatus, Project, RunId};
 use surt_engine::runtime::{AgentRuntime, StopSignal};
 use tokio::sync::mpsc;
 
+use crate::answer::waiting_block;
 use crate::continue_run::continue_command;
 use crate::failure::Failure;
 use crate::message::{Mark, Message};
@@ -101,6 +102,11 @@ impl Driven<'_> {
     async fn awaiting(&self, gates: &[Gate]) -> Result<(), Failure> {
         let subject = self.subject;
         for gate in gates {
+            if gate.kind == GateKind::Input {
+                let waiting = self.project.waiting_input(self.run).await?;
+                waiting_block(subject, &waiting).print(Mark::Question);
+                continue;
+            }
             let revision = match self.project.gate_status(self.run, &gate.step.key).await? {
                 GateStatus::Waiting { revision } => format!(" rev {revision}"),
                 _ => String::new(),

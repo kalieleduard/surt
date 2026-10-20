@@ -47,6 +47,7 @@ enum ScriptedBehavior {
         resets_in: Option<i64>,
     },
     WaitUntilStopped {},
+    TranscriptMissing(ScriptedDelivery),
 }
 
 #[derive(Deserialize)]
@@ -103,6 +104,9 @@ impl From<ScriptedBehavior> for Behavior {
                 Behavior::LimitFailure { resets_at }
             }
             ScriptedBehavior::WaitUntilStopped {} => Behavior::WaitUntilStopped,
+            ScriptedBehavior::TranscriptMissing(delivery) => {
+                Behavior::TranscriptMissing(delivery.into())
+            }
         }
     }
 }

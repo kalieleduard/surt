@@ -3,6 +3,7 @@ mod base_merge;
 mod branches;
 pub(crate) mod cancel;
 mod checks;
+mod conversation;
 mod decide;
 mod driver;
 mod ending;
@@ -24,6 +25,7 @@ mod operate;
 mod outcome;
 mod pause;
 mod pausing;
+mod prepare;
 mod public;
 mod record;
 mod recovered;
@@ -37,6 +39,6 @@ pub(crate) use driver::{Driving, drive};
 pub(crate) use fast_forward::{Settled, settle_fast_forward};
 pub(crate) use frozen::{CorruptSnapshot, Frozen};
 pub use outcome::{
-    ActivityPause, ActivitySnapshot, DriveOutcome, Gate, Progress, ProgressSink, RunningStep,
-    StepLabel,
+    ActivityPause, ActivitySnapshot, DriveOutcome, Gate, GateKind, Progress, ProgressSink,
+    RunningStep, StepLabel,
 };

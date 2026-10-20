@@ -1,6 +1,7 @@
 mod agent;
 mod agent_schemas;
 mod closure;
+mod conversations;
 mod definition;
 mod error;
 mod fields;
@@ -15,7 +16,8 @@ mod steps;
 mod structure;
 
 pub(crate) use agent::{
-    AgentContract, Auth, ClaudeProfile, DeliveryCheck, Format, ItemFileSpec, OutputSpec, Profile,
+    AgentContract, Auth, ClaudeProfile, ConversationScope, DeliveryCheck, Format, ItemFileSpec,
+    OutputSpec, Profile,
 };
 pub(crate) use closure::validate;
 pub use definition::OnSuccess;

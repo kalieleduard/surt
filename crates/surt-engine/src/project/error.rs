@@ -2,7 +2,11 @@ use std::error::Error as StdError;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::{DeclaredInput, ExecutionState, InputProblem};
+mod runs;
+
+pub use runs::{AwaitedRevision, Candidate, ExecutionCandidate, KnownRun, RunState};
+
+use super::{DeclaredInput, InputProblem};
 use crate::git::{GitError, GitVersion};
 use crate::store::StoreError;
 use crate::workflow::{FreezeError, InvalidDefinition};
@@ -13,47 +17,6 @@ pub enum Error {
     Refused(Refusal),
     #[error(transparent)]
     Internal(#[from] InternalError),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RunState {
-    Running,
-    AwaitingApproval,
-    Blocked,
-    Interrupted,
-    Succeeded,
-    Cancelled,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Candidate {
-    pub name: String,
-    pub states: Vec<RunState>,
-    pub awaiting: Option<AwaitedRevision>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct KnownRun {
-    pub run: u32,
-    pub states: Vec<RunState>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ExecutionCandidate {
-    pub id: String,
-    pub subject: String,
-    pub run: u32,
-    pub item: Option<String>,
-    pub step: String,
-    pub iteration: Option<u32>,
-    pub attempt: u32,
-    pub state: ExecutionState,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AwaitedRevision {
-    pub artifact: String,
-    pub revision: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -114,6 +77,18 @@ pub enum Refusal {
     },
     NoGateWaiting {
         subject: String,
+        input: Option<String>,
+    },
+    NoInputWaiting {
+        subject: String,
+        states: Vec<RunState>,
+    },
+    UnansweredQuestions {
+        subject: String,
+        artifact: String,
+        revision: u32,
+        missing: Vec<String>,
+        unknown: Vec<String>,
     },
     StaleRevision {
         subject: String,

@@ -7,6 +7,7 @@ use surt_engine::project::Error;
 use crate::message::{Mark, Message};
 
 const INTERNAL: u8 = 1;
+const USAGE: u8 = 2;
 const REFUSED: u8 = 3;
 const BLOCKED: u8 = 4;
 const CANCELLED: u8 = 5;
@@ -18,6 +19,7 @@ pub(crate) enum Failure {
     Cancelled(Message),
     Interrupted(Message),
     Incomplete(Message),
+    Usage(clap::Error),
     Internal(Box<dyn StdError>),
 }
 
@@ -29,6 +31,10 @@ impl Failure {
             Failure::Cancelled(message) => stop(&message, Mark::Error, CANCELLED),
             Failure::Interrupted(message) => stop(&message, Mark::Stopped, INTERRUPTED),
             Failure::Incomplete(message) => stop(&message, Mark::Error, INTERNAL),
+            Failure::Usage(error) => {
+                let _ = error.print();
+                ExitCode::from(USAGE)
+            }
             Failure::Internal(error) => {
                 Message::new(format!("internal error: {}", chain(error.as_ref())))
                     .context("rerun with SURT_LOG=debug for details")

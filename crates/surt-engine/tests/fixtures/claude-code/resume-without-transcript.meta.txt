@@ -1,0 +1,5 @@
+scenario=resume-without-transcript
+exit_code=1
+claude_version=2.1.304 (Claude Code)
+resumed_session_id=c8e3ede1-90d5-4f0e-bb7a-5be836a9bacd
+argv=claude -p --resume c8e3ede1-90d5-4f0e-bb7a-5be836a9bacd --fork-session --session-id <new> plus the flag set of F with --safe-mode --setting-sources user

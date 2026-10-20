@@ -24,6 +24,7 @@ pub(super) enum Fixture {
     SchemaMiss,
     PermissionDenied,
     MaxTurns,
+    ResumeWithoutTranscript,
 }
 
 impl Fixture {
@@ -36,6 +37,9 @@ impl Fixture {
             Fixture::SchemaMiss => captured!("schema-miss", "stdout.jsonl"),
             Fixture::PermissionDenied => captured!("permission-denied", "stdout.jsonl"),
             Fixture::MaxTurns => captured!("max-turns", "stdout.jsonl"),
+            Fixture::ResumeWithoutTranscript => {
+                captured!("resume-without-transcript", "stdout.jsonl")
+            }
         }
     }
 
@@ -48,6 +52,7 @@ impl Fixture {
             Fixture::SchemaMiss => captured!("schema-miss", "meta.txt"),
             Fixture::PermissionDenied => captured!("permission-denied", "meta.txt"),
             Fixture::MaxTurns => captured!("max-turns", "meta.txt"),
+            Fixture::ResumeWithoutTranscript => captured!("resume-without-transcript", "meta.txt"),
         }
     }
 
@@ -78,9 +83,11 @@ impl Stream {
             events,
             session_id: Uuid::nil(),
         };
-        let session = stream.init()["session_id"]
-            .as_str()
-            .expect("init carries the session id");
+        let session = stream
+            .events
+            .iter()
+            .find_map(|event| event["session_id"].as_str())
+            .expect("an event carries the session id");
         stream.session_id = Uuid::parse_str(session).expect("a UUID session id");
         stream
     }
@@ -97,6 +104,11 @@ impl Stream {
     pub(super) fn without_init(mut self) -> Stream {
         self.events
             .retain(|event| !is(event, "system", Some("init")));
+        self
+    }
+
+    pub(super) fn without_result(mut self) -> Stream {
+        self.events.retain(|event| !is(event, "result", None));
         self
     }
 
@@ -142,13 +154,6 @@ impl Stream {
         self.events.iter().map(Value::to_string).collect()
     }
 
-    fn init(&self) -> &Value {
-        self.events
-            .iter()
-            .find(|event| is(event, "system", Some("init")))
-            .expect("an init event")
-    }
-
     fn init_mut(&mut self) -> &mut Value {
         self.events
             .iter_mut()
@@ -162,6 +167,11 @@ impl Stream {
             .find(|event| is(event, "result", None))
             .expect("a result event")
     }
+}
+
+pub(super) fn delivered_note() -> Stream {
+    Stream::captured(Fixture::Success)
+        .with_envelope(json!({ "outcome": "done", "outputs": { "note": "note.md" } }))
 }
 
 fn is(event: &Value, kind: &str, subtype: Option<&str>) -> bool {

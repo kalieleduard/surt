@@ -4,6 +4,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::cleanup::Cleanup;
 use crate::project::Refusal;
+use crate::runtime::RestartReason;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DriveOutcome {
@@ -19,7 +20,14 @@ pub enum DriveOutcome {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Gate {
     pub step: StepLabel,
+    pub kind: GateKind,
     pub artifact: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GateKind {
+    Approval,
+    Input,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -34,6 +42,11 @@ pub enum Progress {
     StepStarted {
         step: StepLabel,
         attempt: u32,
+        continued: bool,
+    },
+    ConversationRestarted {
+        step: StepLabel,
+        reason: RestartReason,
     },
     StepFinished {
         step: StepLabel,

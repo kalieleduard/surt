@@ -36,6 +36,7 @@ fn fields(detail: &ExecutionDetail, now: i64) -> Vec<Field> {
     fields.extend(performer(detail));
     fields.extend([
         ("session", reported::session(&detail.reported)),
+        ("conversation", reported::conversation(&detail.reported)),
         ("process", reported::process(detail, now)),
         ("usage", reported::usage(&detail.reported)),
         ("denied", reported::denied(&detail.reported)),

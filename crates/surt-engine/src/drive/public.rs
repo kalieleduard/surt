@@ -3,8 +3,9 @@ use super::driver::Driver;
 use super::frozen::CorruptSnapshot;
 use super::graph::StepRunId;
 use super::load::{Loaded, label};
-use super::outcome::{DriveOutcome, Gate};
+use super::outcome::{DriveOutcome, Gate, GateKind};
 use crate::runtime::AgentRuntime;
+use crate::store::StepRow;
 use crate::workflow::{Definition, StepSpec};
 
 impl<R: AgentRuntime> Driver<'_, R> {
@@ -23,10 +24,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
             decide::DriveOutcome::AtGate { gates } => {
                 let mut public = Vec::new();
                 for row in rows(&gates) {
-                    public.push(Gate {
-                        step: label(row),
-                        artifact: gate_artifact(self.definition(loaded, row)?, &row.key),
-                    });
+                    public.push(gate(self.definition(loaded, row)?, row)?);
                 }
                 DriveOutcome::AtGate { gates: public }
             }
@@ -40,9 +38,15 @@ impl<R: AgentRuntime> Driver<'_, R> {
     }
 }
 
-fn gate_artifact(definition: &Definition, key: &str) -> String {
-    match definition.step(key).map(|step| &step.spec) {
-        Some(StepSpec::Approval(gate)) => gate.artifact.clone(),
-        _ => String::new(),
-    }
+fn gate(definition: &Definition, row: &StepRow) -> Result<Gate, CorruptSnapshot> {
+    let (kind, artifact) = match definition.step(&row.key).map(|step| &step.spec) {
+        Some(StepSpec::Approval(gate)) => (GateKind::Approval, &gate.artifact),
+        Some(StepSpec::Input(input)) => (GateKind::Input, &input.artifact),
+        _ => return Err(CorruptSnapshot::new(&row.key, "not a gate step")),
+    };
+    Ok(Gate {
+        step: label(row),
+        kind,
+        artifact: artifact.clone(),
+    })
 }

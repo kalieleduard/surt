@@ -73,6 +73,7 @@ pub(crate) fn state_name(state: RunState) -> &'static str {
     match state {
         RunState::Running => "RUNNING",
         RunState::AwaitingApproval => "AWAITING APPROVAL",
+        RunState::AwaitingAnswer => "AWAITING ANSWER",
         RunState::Blocked => "BLOCKED",
         RunState::Interrupted => "INTERRUPTED",
         RunState::Succeeded => "SUCCEEDED",

@@ -97,7 +97,13 @@ pub enum Problem {
     NotAnItemList {
         artifact: String,
     },
+    NotQuestions {
+        artifact: String,
+    },
     DuplicateRejectionArtifact {
+        artifact: String,
+    },
+    DuplicateAnswerArtifact {
         artifact: String,
     },
     MissingAsset {
@@ -130,6 +136,21 @@ pub enum Problem {
     MissingCheckedOutcome {
         outcome: String,
     },
+    UndeliveredCheckedOutput {
+        output: String,
+        outcome: String,
+    },
+    EmptyOutputOutcomes {
+        output: String,
+    },
+    UnknownOutputOutcome {
+        output: String,
+        outcome: String,
+    },
+    DuplicateOutputOutcome {
+        output: String,
+        outcome: String,
+    },
     MisplacedInputDefault {
         input: String,
     },
@@ -143,6 +164,9 @@ pub enum Problem {
     InputsInChildWorkflow,
     GitInputNotGitRef {
         input: String,
+    },
+    ConversationOutsideLoop {
+        agent: String,
     },
 }
 

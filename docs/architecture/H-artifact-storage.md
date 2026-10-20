@@ -41,7 +41,7 @@ $ surt approve 20261016-add-login
 
 ## Working Copy
 
-Humans read and edit artifacts through a **Working Copy** under `.surt/subjects/<subject>/`. It only exists for artifacts that pass through an Approval Gate in the run's frozen Workflow Definition. The engine derives the list from the `kind = "approval"` steps; it does not know what a spec or a manifest is. For the Template's `feature` workflow:
+Humans read and edit artifacts through a **Working Copy** under `.surt/subjects/<subject>/`. It only exists for artifacts that pass through an Approval Gate in the run's frozen Workflow Definition. The engine derives the list from the `kind = "approval"` steps (never from `kind = "input"` steps: questions and answers have no Working Copy); it does not know what a spec or a manifest is. For the Template's `feature` workflow:
 
 ```
 .surt/subjects/20261016-add-login/
@@ -90,6 +90,25 @@ $ surt approve 20261016-add-login
 - on a terminal run it refuses and keeps the file ([I. Cleanup](I-cleanup.md#unrecorded-working-copy-edits)).
 
 Both refusals of an edit, the invalid edit above and the pinned edit below, name this command as their way out (`undo: surt restore <subject> <artifact>`), never `rm <file>`.
+
+### Questions
+
+A Revision of a [`questions`](F-agent-contract.md#the-questions-format) artifact holds exactly one file, the JSON the Agent delivered, stored like any other blob; its identity is that file's. It is validated at delivery, so a Revision that exists is a valid round of 1 to 5 questions, and the engine and the CLI read it back typed with `Questions::parse` on its bytes (`surt show <subject> <artifact>` prints the same bytes). A `questions` artifact has a Working Copy only if an Approval Gate shows it, like every artifact; an edit of it is then validated with the same rules as a delivery.
+
+### Answers
+
+An `input` step's answers accumulate in one artifact, its `answer_artifact` ([E](E-workflow-schema.md#step-kinds)). Recording a round publishes a new **human-origin Revision** (`human_action = "answer"`, the answering actor) with one file, `<answer_artifact>.json`:
+
+```json
+{ "rounds": [
+  { "questions": [ { "id": "login-id", "question": "…", "why": "…", "recommended": "e-mail only" } ],
+    "answers": { "login-id": "e-mail only" } },
+  { "questions": [ { "id": "session", "question": "…", "why": "…", "recommended": "7 days" } ],
+    "answers": { "session": "30 days" }, "note": "decide the rest yourself" }
+] }
+```
+
+Each round copies the questions of the Revision it answered, maps every question id to its answer and carries the optional free `note`. The new Revision holds the previous Revision's rounds followed by this one, so the latest Revision is the whole conversation and a round's number is its position. The engine requires an answer for every question id and refuses an unknown one (`UnansweredQuestions { missing, unknown }`); the CLI fills the recommendations for `--accept` and `-m` before it calls the engine. The Revision, the input step's `done`/`answered`, `answer.recorded` (artifact, revision, answer artifact and revision, round, actor) and `step.done` are written in one transaction. Like the questions, the answers have no Working Copy and are never edited: a wrong answer is corrected by rejecting the output it led to.
 
 ## Revalidation
 
@@ -152,6 +171,8 @@ Agents never read the Working Copy. Each Execution gets its own directory, creat
 │   ├── item.json
 │   ├── item/task.md
 │   └── feedback.json  (second Iteration onwards)
+├── context.md         ← the assembled context: why the Iteration started, the Inputs, the delivery directory
+├── context-continued.md ← only for a continued conversation: the same, with only the Inputs that changed (F)
 └── delivery/          ← where the agent writes its outputs (section F)
 ```
 

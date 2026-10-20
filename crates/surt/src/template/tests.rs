@@ -2,6 +2,7 @@ mod roles;
 #[cfg(not(feature = "test-support"))]
 mod runtime;
 mod schemas;
+mod spec;
 
 use std::collections::BTreeSet;
 use std::fs;

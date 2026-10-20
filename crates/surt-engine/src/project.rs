@@ -1,3 +1,4 @@
+mod answers;
 mod base_merge;
 mod blocked;
 mod cancelling;
@@ -30,11 +31,12 @@ use std::path::Path;
 use std::time::Duration;
 
 pub use crate::artifacts::working_copy::restoring::{Change, FileChange};
+pub use crate::artifacts::{MAX_QUESTIONS, Question, Questions};
 pub use crate::cleanup::{Cleanup, Kept, Left};
 pub use crate::drive::cancel::Cancellation;
 pub use crate::drive::graph::BlockReason;
 pub use crate::drive::{
-    ActivityPause, ActivitySnapshot, BaseMerge, DriveOutcome, Gate, NotMerged, Progress,
+    ActivityPause, ActivitySnapshot, BaseMerge, DriveOutcome, Gate, GateKind, NotMerged, Progress,
     ProgressSink, RunningStep, StepLabel,
 };
 pub use crate::git::GitVersion;
@@ -45,6 +47,7 @@ pub use crate::runtime::LogFiles;
 pub use crate::workflow::{
     DefinitionFile, InputFormat, InvalidDefinition, OnSuccess, Problem, StepField,
 };
+pub use answers::{Answered, WaitingInput};
 pub use base_merge::BaseMergeReport;
 pub use blocked::{BlockedStep, LastFailure};
 pub use cancelling::CancelImpact;
@@ -63,8 +66,8 @@ pub use gate_status::GateStatus;
 pub use gates::{Decided, RevisionOrigin};
 pub use init::{FileState, InitFile, Initialized};
 pub use inspect::{
-    AgentProfile, ExecutionDetail, ExecutionFailure, ExecutionInput, InspectRequest, Performer,
-    RuntimeInfo, Timeline, TimelineEvent, Usage,
+    AgentProfile, ConversationInfo, ExecutionDetail, ExecutionFailure, ExecutionInput,
+    InspectRequest, Performer, RuntimeInfo, Timeline, TimelineEvent, Usage,
 };
 pub use interrupted_merge::InterruptedMerge;
 pub use logs::{LogRequest, LogSource, Logs};

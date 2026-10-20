@@ -4,7 +4,7 @@ Part of section A (Architecture); the component overview is [A. Overview](A-over
 
 ## Driving a run
 
-The engine has one primitive: `drive(root_run_id)`. It advances a root Workflow Run and all its Child Workflow Runs until nothing is left that can run without a human. That means every non-terminal Step Run is waiting on an Approval Gate or is blocked ([G. State Machines](G-state-machines.md#when-a-driver-returns)), or the run is terminal. Then it returns. A root Workflow Run has **at most one Driver**. Child Workflow Runs are always driven by their root's Driver, never on their own.
+The engine has one primitive: `drive(root_run_id)`. It advances a root Workflow Run and all its Child Workflow Runs until nothing is left that can run without a human. That means every non-terminal Step Run is waiting on an Approval Gate or an input step, or is blocked ([G. State Machines](G-state-machines.md#when-a-driver-returns)), or the run is terminal. Then it returns. A root Workflow Run has **at most one Driver**. Child Workflow Runs are always driven by their root's Driver, never on their own.
 
 `drive` keeps no global state. All state it needs to continue lives in SQLite and on disk, so any Driver can pick up a run that another Driver left, whether it stopped cleanly or not.
 
@@ -14,10 +14,11 @@ Two commands drive, for any workflow under `.surt/workflows/`: `surt run` create
 
 | Command | Drives? | Precondition | Runs until |
 |---|---|---|---|
-| `surt run <workflow> [--input k=v]…` | yes | no active run for a Subject of the same slug (unless `--new`) | the first Approval Gate, a block, or the end |
-| `surt continue <subject>` | yes | the Subject has an active run (or a pending cleanup, which it finishes) | the next Approval Gate, a block, or the end |
+| `surt run <workflow> [--input k=v]…` | yes | no active run for a Subject of the same slug (unless `--new`) | the first Approval Gate or input step, a block, or the end |
+| `surt continue <subject>` | yes | the Subject has an active run (or a pending cleanup, which it finishes) | the next Approval Gate or input step, a block, or the end |
 | `surt continue <subject> --new-run [--input k=v]…` | yes | the Subject has no active run | as `surt run`, for run `N+1` of the workflow the latest run used |
 | `surt approve <subject>` / `surt reject <subject>` | **no**, they only record the Approval | an Approval Gate is waiting | return immediately |
+| `surt answer <subject>` | yes, after recording the answers | an input step is waiting | as `surt continue` ([J](J-cli.md#surt-answer-answer-the-questions)) |
 | `surt stop <subject>` | no (see [External control](#external-control)) | a Driver is live | Interruption requested |
 | `surt cancel <subject>` | no (see [External control](#external-control)) | run not terminal | Cancellation recorded |
 
@@ -33,7 +34,7 @@ $ surt approve add-login
 $ surt continue add-login                           # implement, snapshot, ship, merge
 ```
 
-Every driving command calls the same `drive`. Where a run pauses comes from the Approval Gates declared in the workflow, not from engine or CLI knowledge of specs or tasks. `surt approve --no-run` does not exist, because `approve` never drives.
+Every driving command calls the same `drive`. Where a run pauses comes from the Approval Gates and input steps declared in the workflow, not from engine or CLI knowledge of specs or tasks. `surt approve --no-run` does not exist, because `approve` never drives. `surt answer` is the one recording command that drives: answering questions is a turn of the conversation, so it records the answers and then drives exactly as `surt continue` does. With the feature Template the Spec Agent may ask first; the run then stops at `? spec-questions rev 1 awaiting answers`, and `surt answer add-login` drives on, to another round of questions or to the spec gate.
 
 ## Ownership: one Driver per root run
 
@@ -60,7 +61,7 @@ Rationale and rejected alternatives: [ADR 0002](../adr/0002-file-locks-over-sqli
 
 1. The first Ctrl-C (or SIGHUP when the terminal closes, or the console closing on Windows) starts a graceful stop of every running agent Execution, in parallel (see [Supervising agent processes](#supervising-agent-processes)).
 2. A **Operation already in progress is never cut** by the first interruption. The Driver waits for it to finish, because Operations are the intention → effect points that recovery would otherwise have to reconcile.
-3. Stopped agent Executions are recorded as `interrupted` ([G. State Machines](G-state-machines.md#execution)); this does not count toward the Attempt limit. The run stays resumable, and the next driving command creates new Attempts for them in fresh Claude sessions. The work of an interrupted session is lost. Its worktree may be dirty: the next Attempt salvages and resets it ([I. Recovery](I-recovery.md#preparing-a-worktree-for-every-attempt)).
+3. Stopped agent Executions are recorded as `interrupted` ([G. State Machines](G-state-machines.md#execution)); this does not count toward the Attempt limit. The run stays resumable, and the next driving command creates new Attempts for them in fresh Claude sessions, or, for an Agent with `conversation = "loop"`, continuing the conversation of its last `succeeded` Execution ([F](F-agent-contract.md#a-conversation-across-a-loop)). The work of an interrupted session is lost: its transcript is never continued. Its worktree may be dirty: the next Attempt salvages and resets it ([I. Recovery](I-recovery.md#preparing-a-worktree-for-every-attempt)).
 4. A second Ctrl-C forces it: the agent process trees are killed and the Driver exits at once, even in the middle of a Operation. Recovery reconciles the partial state.
 
 ```
@@ -182,7 +183,7 @@ A local daemon is out of scope, but nothing here prevents one. These rules hold 
 1. **The Driver is a library function**, `drive(root_run_id)`, with no global state. CLI commands only call it. A daemon would call it N times in one process.
 2. **No state lives only in memory between commands.** Everything needed to continue is in SQLite and on disk.
 3. **Ownership and capacity are file locks** (run, slots, git, db). A daemon would hold the same locks, so CLI and daemon coexist without knowing about each other.
-4. **External control goes only through SQLite** (cancel, approve), never through signals.
+4. **External control goes only through SQLite** (cancel, approve, answer), never through signals.
 5. **Agents are never adopted.** An agent that outlives its Driver is stopped and relaunched as a new Attempt, so a daemon never needs to reattach processes.
 
 What a daemon would add (`--detach`, and a live log channel for clients) is out of scope.

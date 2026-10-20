@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use super::super::fixtures::Catalog;
 use super::super::fixtures::{SUBJECT, default_config};
 use super::fixtures::{ACTOR, Feature, PUBLISHER, WRITER, agent, draft, label, summary};
-use crate::project::{DriveOutcome, Error, Gate, Project, Refusal, RunId};
+use crate::project::{DriveOutcome, Error, Gate, GateKind, Project, Refusal, RunId};
 use crate::runtime::{
     AgentRuntime, FakeRuntime, RuntimeCompletion, RuntimeError, RuntimeEventSink, RuntimeRequest,
     Script, StopSignal,
@@ -159,6 +159,7 @@ async fn a_second_driver_refuses_with_the_live_drivers_pid_and_the_lock_is_relea
     let at_gate = DriveOutcome::AtGate {
         gates: vec![Gate {
             step: label("approve", Some(1)),
+            kind: GateKind::Approval,
             artifact: "draft".to_owned(),
         }],
     };

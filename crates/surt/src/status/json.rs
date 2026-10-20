@@ -1,16 +1,15 @@
 mod cleanup;
+mod gates;
 mod merge;
 
 use serde_json::Value;
 use surt_engine::project::{
-    BlockReason, BlockedStep, Conflict, GateStatus, GateView, ItemListSummary, ItemStatus,
-    LastFailure, RunStatus,
+    BlockReason, BlockedStep, Conflict, ItemStatus, LastFailure, RunStatus,
 };
 
 use super::detail::merge_into_base;
 use super::{resume_command, state_name, state_names};
 use crate::json::Fields;
-use crate::show::origin;
 use crate::states::item_state_name;
 
 pub(super) fn subjects(statuses: &[RunStatus]) -> Fields {
@@ -90,47 +89,14 @@ fn work(fields: Fields, status: &RunStatus, resume: &str) -> Fields {
                     .time("resets_at", pause.resets_at)
             }),
         )
-        .with("gates", status.gates.iter().map(gate).collect::<Vec<_>>())
+        .with(
+            "gates",
+            status.gates.iter().map(gates::gate).collect::<Vec<_>>(),
+        )
         .maybe("item_step", status.item_step.as_deref())
         .with("items", items)
         .list("blocked", status.blocked.iter().map(blocked).collect())
         .with("resume", resume)
-}
-
-fn gate(view: &GateView) -> Value {
-    let (status, decision) = match view.status {
-        GateStatus::NotReached => ("not_reached", None),
-        GateStatus::Waiting { .. } => ("waiting", None),
-        GateStatus::Approved { .. } => ("approved", Some("approve")),
-        GateStatus::Rejected { .. } => ("rejected", Some("reject")),
-    };
-    Fields::new()
-        .with("step", view.step.as_str())
-        .with("artifact", view.artifact.as_str())
-        .with("status", status)
-        .maybe(
-            "revision",
-            view.revision.as_ref().map(|revision| {
-                Fields::new()
-                    .with("number", revision.number)
-                    .with("origin", origin(revision.origin))
-                    .with("sha256", revision.sha256.as_str())
-                    .with("files", revision.files.clone())
-                    .maybe("item_list", revision.item_list.map(item_list))
-            }),
-        )
-        .maybe(
-            "approval",
-            decision.map(|decision| {
-                Fields::new()
-                    .with("decision", decision)
-                    .maybe("actor", view.decided_by.as_deref())
-                    .time("decided_at", view.decided_at)
-            }),
-        )
-        .list("edited", view.edited.clone())
-        .list("missing", view.missing.clone())
-        .into()
 }
 
 fn item_fields(item: &ItemStatus, status: &RunStatus, resume: &str) -> Value {
@@ -194,10 +160,4 @@ fn last_error(failure: &LastFailure) -> Fields {
         .with("code", failure.code.as_str())
         .with("message", failure.message.as_str())
         .time("resets_at", failure.resets_at)
-}
-
-fn item_list(list: ItemListSummary) -> Fields {
-    Fields::new()
-        .with("items", list.items)
-        .with("item_files", list.item_files)
 }

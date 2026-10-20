@@ -12,6 +12,7 @@ pub(crate) const BLOCKED: &str = "⛔";
 pub(crate) const STOPPED: &str = "⏹";
 pub(crate) const STARTED: &str = "●";
 pub(crate) const WAITING: &str = "⏳";
+pub(crate) const QUESTION: &str = "?";
 pub(crate) const EDITED: &str = "✎";
 pub(crate) const INTEGRATING: &str = "⟳";
 pub(crate) const VERTICAL: &str = "│";

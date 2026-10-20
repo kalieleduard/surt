@@ -100,6 +100,7 @@ fn every_refusal() -> Vec<Refusal> {
         },
         Refusal::NoGateWaiting {
             subject: "20261017-add-login".to_owned(),
+            input: None,
         },
         Refusal::StaleRevision {
             subject: "20261017-add-login".to_owned(),
@@ -128,6 +129,16 @@ fn every_refusal() -> Vec<Refusal> {
             problem: "manifest.json: tasks/C.md is not referenced by any item".to_owned(),
             files: vec!["tasks/C.md".to_owned()],
         },
+        Refusal::NoGateWaiting {
+            subject: "20261017-add-login".to_owned(),
+            input: Some("answer-spec".to_owned()),
+        },
+        Refusal::NoInputWaiting {
+            subject: "20261017-add-login".to_owned(),
+            states: vec![RunState::AwaitingApproval],
+        },
+        unanswered(&["lockout"], &["typo"]),
+        unanswered(&["lockout", "login-id"], &[]),
         Refusal::IntegrationBranchMoved {
             subject: "20261017-add-login".to_owned(),
             branch: "surt/20261017-add-login".to_owned(),
@@ -204,6 +215,47 @@ fn every_refusal() -> Vec<Refusal> {
             subject: "20261017-add-login".to_owned(),
         },
     ]
+}
+
+fn unanswered(missing: &[&str], unknown: &[&str]) -> Refusal {
+    let owned = |ids: &[&str]| ids.iter().map(|id| (*id).to_owned()).collect();
+    Refusal::UnansweredQuestions {
+        subject: "20261017-add-login".to_owned(),
+        artifact: "spec-questions".to_owned(),
+        revision: 2,
+        missing: owned(missing),
+        unknown: owned(unknown),
+    }
+}
+
+#[test]
+fn answering_refusals_say_what_the_run_waits_for_and_which_ids_do_not_match() {
+    let answering = named(|refusal| {
+        matches!(
+            refusal,
+            Refusal::NoGateWaiting { input: Some(_), .. }
+                | Refusal::NoInputWaiting { .. }
+                | Refusal::UnansweredQuestions { .. }
+        )
+    });
+
+    assert_eq!(
+        answering,
+        [
+            "✖ 20261017-add-login has no approval gate waiting\n  \
+             answer-spec is waiting for answers, not for approval\n  \
+             next: surt answer 20261017-add-login\n",
+            "✖ 20261017-add-login has no input step waiting (AWAITING APPROVAL)\n  \
+             inspect: surt status 20261017-add-login\n",
+            "✖ the answers do not match the questions of spec-questions rev 2\n  \
+             unanswered: lockout\n  \
+             unknown: typo\n  \
+             inspect: surt show 20261017-add-login spec-questions --rev 2\n",
+            "✖ the answers do not match the questions of spec-questions rev 2\n  \
+             unanswered: lockout, login-id\n  \
+             inspect: surt show 20261017-add-login spec-questions --rev 2\n",
+        ]
+    );
 }
 
 fn not_restorable(artifact: &str, restorable: &[&str]) -> Refusal {

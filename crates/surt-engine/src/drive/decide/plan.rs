@@ -80,7 +80,7 @@ impl<'a> Plan<'a> {
     fn advance(&mut self, step: &Step) {
         match &step.work {
             Work::Agent(attempts) | Work::Operation(_, attempts) => self.retry(step, attempts),
-            Work::Approval => self.gates.push(step.id.clone()),
+            Work::Approval | Work::Input => self.gates.push(step.id.clone()),
             Work::Loop(until, iterations) => self.iterate(step, until, iterations),
             Work::PerItem(items) => self.visit_items(step, items),
         }
@@ -144,7 +144,7 @@ impl<'a> Plan<'a> {
                 step: id,
                 op: op.clone(),
             },
-            Work::Approval => Action::OpenGate { step: id },
+            Work::Approval | Work::Input => Action::OpenGate { step: id },
             Work::Loop(..) => Action::StartIteration { loop_: id },
             Work::PerItem(_) => Action::ExpandItems { step: id },
         };

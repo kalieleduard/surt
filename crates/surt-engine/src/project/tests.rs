@@ -1,5 +1,6 @@
 mod active;
 mod agent_files;
+mod agent_formats;
 mod agent_hygiene;
 mod agent_refusals;
 mod agent_schemas;
@@ -18,7 +19,9 @@ mod frozen;
 mod init_template;
 mod input_refusals;
 mod input_schema;
+mod input_steps;
 mod inputs;
+mod output_outcomes;
 mod parsing;
 mod per_item;
 mod policy;
@@ -315,7 +318,7 @@ async fn a_database_from_a_newer_surt_is_refused() {
         refusal(sandbox.open(&sandbox.repo()).await),
         Refusal::SchemaTooNew {
             db: 9,
-            supported: 1
+            supported: 2
         }
     );
 }

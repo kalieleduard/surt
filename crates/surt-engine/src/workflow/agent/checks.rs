@@ -16,6 +16,7 @@ impl AgentContract {
             });
         }
         self.check_formats()?;
+        self.check_output_outcomes()?;
         self.check_deliveries()?;
         self.profile.check()?;
         match self
@@ -58,7 +59,7 @@ impl OutputSpec {
             });
         }
         let invalid = self.item_files.iter().find(|(_, file)| {
-            file.format == Format::ItemList
+            matches!(file.format, Format::ItemList | Format::Questions)
                 || (file.json_schema.is_some() && file.format != Format::Json)
         });
         match invalid {

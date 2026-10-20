@@ -62,7 +62,12 @@ fn a_request_creates_a_dated_subject_and_drives_it_to_the_spec_gate() {
         sandbox.texts(
             "SELECT step_key || ' ' || state FROM step_run WHERE state <> 'pending' ORDER BY step_key"
         ),
-        ["approve-spec running", "spec done", "spec-loop running"]
+        [
+            "answer-spec skipped",
+            "approve-spec running",
+            "spec done",
+            "spec-loop running"
+        ]
     );
     assert_eq!(initial_artifact(&sandbox, "request"), "Add Login");
     let base: serde_json::Value =
