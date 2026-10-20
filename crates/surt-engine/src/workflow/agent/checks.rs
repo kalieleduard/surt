@@ -16,6 +16,7 @@ impl AgentContract {
             });
         }
         self.check_formats()?;
+        self.check_output_outcomes()?;
         self.check_deliveries()?;
         self.profile.check()?;
         match self

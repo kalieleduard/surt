@@ -130,6 +130,21 @@ pub enum Problem {
     MissingCheckedOutcome {
         outcome: String,
     },
+    UndeliveredCheckedOutput {
+        output: String,
+        outcome: String,
+    },
+    EmptyOutputOutcomes {
+        output: String,
+    },
+    UnknownOutputOutcome {
+        output: String,
+        outcome: String,
+    },
+    DuplicateOutputOutcome {
+        output: String,
+        outcome: String,
+    },
     MisplacedInputDefault {
         input: String,
     },

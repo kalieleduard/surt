@@ -39,17 +39,27 @@ impl OutputSpec {
                 output: name.to_owned(),
             });
         }
-        let undeclared = self.checks.iter().find_map(|check| match check {
-            DeliveryCheck::NoBlockingFinding { outcome } if !outcomes.contains(outcome) => {
-                Some(outcome)
-            }
-            _ => None,
-        });
-        match undeclared {
-            Some(outcome) => Err(Problem::MissingCheckedOutcome {
-                outcome: outcome.clone(),
-            }),
-            None => Ok(()),
+        self.checks
+            .iter()
+            .filter_map(|check| match check {
+                DeliveryCheck::NoBlockingFinding { outcome } => Some(outcome),
+                _ => None,
+            })
+            .try_for_each(|outcome| self.check_outcome(name, outcomes, outcome))
+    }
+
+    fn check_outcome(&self, name: &str, outcomes: &[String], outcome: &str) -> Result<(), Problem> {
+        if !outcomes.iter().any(|declared| declared == outcome) {
+            return Err(Problem::MissingCheckedOutcome {
+                outcome: outcome.to_owned(),
+            });
         }
+        if !self.delivers(outcome) {
+            return Err(Problem::UndeliveredCheckedOutput {
+                output: name.to_owned(),
+                outcome: outcome.to_owned(),
+            });
+        }
+        Ok(())
     }
 }

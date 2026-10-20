@@ -9,6 +9,7 @@ use super::files::SchemaSource;
 
 mod checks;
 mod deliveries;
+mod delivering;
 mod names;
 
 pub(crate) use deliveries::DeliveryCheck;
@@ -52,6 +53,8 @@ pub(crate) struct InputSpec {
 #[serde(deny_unknown_fields)]
 pub(crate) struct OutputSpec {
     pub(crate) format: Format,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    outcomes: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) json_schema: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -164,13 +167,6 @@ impl AgentContract {
 
     pub(crate) fn model(&self) -> &str {
         &self.profile.model
-    }
-
-    pub(crate) fn runtime(&self) -> &'static str {
-        match self.profile.runtime {
-            RuntimeKind::ClaudeCode => "claude-code",
-            RuntimeKind::Fake => "fake",
-        }
     }
 
     pub(crate) fn outcomes(&self) -> Vec<String> {
