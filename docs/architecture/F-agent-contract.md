@@ -38,7 +38,7 @@ Every agent delivers the same envelope shape; its concrete JSON Schema is genera
 }
 ```
 
-The Outcome must belong to the contract's closed set, and output names must match the contract. Paths are relative to this Execution's delivery directory. Paths that escape the directory, symbolic links and missing or invalid required files are rejected. Surt validates each file against its declared format and, where applicable, schema, and only accepts a complete valid delivery.
+The Outcome must belong to the contract's closed set, and the output names must be exactly the outputs that Outcome delivers ([Outputs per Outcome](#outputs-per-outcome)): a missing one is `MissingOutput`, one the Outcome does not deliver (or the contract does not declare) is `UndeclaredOutput`. Paths are relative to this Execution's delivery directory. Paths that escape the directory, symbolic links and missing or invalid required files are rejected. Surt validates each file against its declared format and, where applicable, schema, and only accepts a complete valid delivery.
 
 Concrete file schemas and runtime success checks are specified below. The Claude Code `structured_output` shape and the failure streams below were observed in the real-stream fixtures (`docs/research/fixtures/claude-code/` on branch `research/claude-code-cli-headless`), captured with Claude Code 2.1.301 by [Capture a real Claude Code stream as a fixture](../../.scratch/surt-architecture/issues/19-real-claude-code-stream-fixture.md).
 
@@ -48,7 +48,7 @@ At creation, a root Workflow Run freezes every Agent used by the closure of its 
 
 Every Execution of an Agent runs with that Agent's frozen Agent Profile and records which snapshot it used. Editing an Agent's model settings or instructions after run creation affects new root runs; it does not change an existing run, a later Iteration or a new Attempt of that run.
 
-The snapshot also includes every JSON Schema the contract references, transitively. Its identity is a SHA-256 over the canonical TOML, which includes the [delivery checks](#delivery-checks) its outputs declare, and the contents of its instructions and schema assets; absolute source paths are not part of that identity. Runtime credentials are not copied into it.
+The snapshot also includes every JSON Schema the contract references, transitively. Its identity is a SHA-256 over the canonical TOML, which includes the [delivery checks](#delivery-checks) and the [Outcomes](#outputs-per-outcome) its outputs declare, and the contents of its instructions and schema assets; absolute source paths are not part of that identity. Runtime credentials are not copied into it.
 
 This extends the definition freezing rule in [E. Workflow Definition Schema](E-workflow-schema.md). It freezes Surt's definitions, not the external account, managed policies or installed Claude Code binary. Version compatibility is specified below.
 
@@ -164,7 +164,8 @@ Their tools follow the role table above and no profile sets turn or cost limits.
 | `schema`, `id` | Required; known format, ID matching its agent directory |
 | `outcomes` | Optional non-empty unique array; omitted means `["done"]` |
 | `inputs.<name>` | `format` required; `optional` defaults to `false`; optional `json_schema` |
-| `outputs.<name>` | `format` required; optional `json_schema`; every declared output is required |
+| `outputs.<name>` | `format` required; optional `json_schema`; a declared output is required on every Outcome that delivers it |
+| `outputs.<name>.outcomes` | Optional non-empty unique subset of the Agent's Outcomes that deliver this output; omitted means every Outcome. See [Outputs per Outcome](#outputs-per-outcome) |
 | `outputs.<name>.checks` | Optional array of [delivery checks](#delivery-checks), each a table with a `kind`; only on a `json` output |
 | `outputs.<name>.item_files.<file-name>` | Only for `format = "item_list"`; required `format`, optional `json_schema`; every declared file is required on every item |
 | `profile` | Required; `runtime`, full `model` and `effort`; optional `[limits]`; `[claude]` required for `claude-code` |
@@ -249,6 +250,28 @@ Artifacts produced by Operations, which agents read: [base](schemas/base.schema.
 
 An approved review with a blocking finding is inconsistent and is rejected. The final envelope is the single source of the review Outcome; feedback does not repeat it. Role-specific consistency checks are declared on the Agent's outputs (below) and run through generic delivery validation, never through engine branches on agent IDs. Merely matching a SHA regex is not proof that a commit exists, was reviewed or is integrated. The exact Git evidence for `commit` and the SHA binding of `feedback` and `check-report` are in [A. Git Integration](A-git-integration.md#evidence-for-a-builders-commit).
 
+### Outputs per Outcome
+
+An output may name the Outcomes that deliver it; absent, every Outcome does. An Outcome that delivers no output is allowed.
+
+```toml
+outcomes = ["done", "questions"]
+
+[outputs.spec]
+format = "markdown"
+outcomes = ["done"]
+
+[outputs.spec-questions]
+format = "json"
+outcomes = ["questions"]
+```
+
+The list must be non-empty (`output "<output>" names no outcome`), name only the Agent's Outcomes (`output "<output>" names the outcome "<outcome>", which the agent does not declare`) and name each once (`output "<output>" names the outcome "<outcome>" twice`); each refusal points at `outputs.<output>.outcomes` and refuses `create_run` with no row written. The list is part of the canonical `agent.toml`, hence of the snapshot's identity.
+
+A delivery ending with an Outcome carries exactly the outputs that Outcome delivers. Only those outputs are read and published, and only their item files and [delivery checks](#delivery-checks) run.
+
+The generated envelope schema keeps `outcome` as an enum of the Agent's Outcomes and lists every declared output as a property of `outputs`, with `additionalProperties = false`. Its `required` holds only the outputs every Outcome delivers. It has no `oneOf`: which outputs go with which Outcome is Surt's rule to enforce at acceptance, not the model's.
+
 ### Delivery checks
 
 An output may declare `checks`, the evidence Surt demands of a delivery before accepting it, beyond its format and schema:
@@ -266,9 +289,9 @@ checks = [{ kind = "reviewed_commit" }, { kind = "no_blocking_finding", outcome 
 | `reviewed_commit` | none | The output's `reviewed_commit` is the `sha` of the `commit` Input, and the `check-report` Input, when present, is for that commit |
 | `no_blocking_finding` | `outcome` (required) | A delivery ending with `outcome` has no entry of `findings` with `blocking = true` |
 
-The checks read the Input and field names in the table; they belong to the Operations' artifact contract of [E. Workflow Definition Schema](E-workflow-schema.md). A check is static: the output must be `format = "json"` (otherwise `a delivery check needs the JSON output "<output>"`) and `no_blocking_finding.outcome` must be one of the Agent's Outcomes (otherwise `a delivery check needs the outcome "<outcome>"`). An unknown `kind`, an `outcome` on another kind, a missing `outcome` or any other field is refused like any unknown field. A failing declaration refuses `create_run` with no row written.
+The checks read the Input and field names in the table; they belong to the Operations' artifact contract of [E. Workflow Definition Schema](E-workflow-schema.md). A check is static: the output must be `format = "json"` (otherwise `a delivery check needs the JSON output "<output>"`) and `no_blocking_finding.outcome` must be one of the Agent's Outcomes (otherwise `a delivery check needs the outcome "<outcome>"`) on which the checked output is delivered (otherwise `a delivery check needs "<output>" delivered on the outcome "<outcome>"`, at `outputs.<output>.outcomes`). An unknown `kind`, an `outcome` on another kind, a missing `outcome` or any other field is refused like any unknown field. A failing declaration refuses `create_run` with no row written.
 
-Checks are part of the canonical `agent.toml`, hence of the Agent snapshot's identity. Every Execution runs the checks of its frozen Agent: editing an Agent's checks never changes the checks of a run already created. A delivery that fails a check is an `invalid_delivery` failure of that Attempt, retried like any other invalid delivery. The Template's Builder declares `commit_evidence` on `commit`; its Reviewer declares `reviewed_commit` and `no_blocking_finding` (`approved`) on `feedback`.
+Checks are part of the canonical `agent.toml`, hence of the Agent snapshot's identity. Every Execution runs the checks of its frozen Agent: editing an Agent's checks never changes the checks of a run already created. A check runs only when its output is delivered. A delivery that fails a check is an `invalid_delivery` failure of that Attempt, retried like any other invalid delivery. The Template's Builder declares `commit_evidence` on `commit`; its Reviewer declares `reviewed_commit` and `no_blocking_finding` (`approved`) on `feedback`.
 
 ## Claude Code launcher and compatibility
 
