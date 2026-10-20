@@ -9,6 +9,30 @@ pub fn spec(iteration: u32, text: &str) -> String {
     )
 }
 
+pub fn questions(iteration: u32, asked: &[Value]) -> String {
+    let document = json!({ "questions": asked }).to_string();
+    format!(
+        "[[on]]\nstep = \"spec\"\niteration = {iteration}\n\
+         deliver = {{ outcome = \"questions\", outputs = {{ spec-questions = \"questions.json\" }}, files = {{ \"questions.json\" = {document:?} }} }}\n\n"
+    )
+}
+
+pub fn question(id: &str, recommended: &str) -> Value {
+    json!({
+        "id": id,
+        "question": format!("Which {id}?"),
+        "why": format!("{id} changes the acceptance criteria"),
+        "recommended": recommended,
+    })
+}
+
+pub fn spec_restarted(iteration: u32, text: &str) -> String {
+    format!(
+        "[[on]]\nstep = \"spec\"\niteration = {iteration}\n\
+         transcript_missing = {{ outcome = \"done\", outputs = {{ spec = \"spec.md\" }}, files = {{ \"spec.md\" = {text:?} }} }}\n\n"
+    )
+}
+
 pub fn tasks(iteration: u32, keys: &[&str]) -> String {
     let independent: Vec<(&str, &[&str])> = keys.iter().map(|key| (*key, &[][..])).collect();
     tasks_needing(iteration, &independent)
