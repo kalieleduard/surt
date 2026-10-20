@@ -37,6 +37,7 @@ mod merge_worktree;
 mod merge_worktree_gone;
 mod merging;
 mod new_runs;
+mod outcome_outputs;
 mod pausing;
 mod phases;
 mod pinning;

@@ -19,6 +19,7 @@ mod init_template;
 mod input_refusals;
 mod input_schema;
 mod inputs;
+mod output_outcomes;
 mod parsing;
 mod per_item;
 mod policy;

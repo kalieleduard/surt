@@ -65,6 +65,33 @@ fn every_agent_problem_is_described_in_one_line_of_words() {
             },
             "a delivery check needs the outcome \"approved\"",
         ),
+        (
+            Problem::UndeliveredCheckedOutput {
+                output: owned("feedback"),
+                outcome: owned("approved"),
+            },
+            "a delivery check needs \"feedback\" delivered on the outcome \"approved\"",
+        ),
+        (
+            Problem::EmptyOutputOutcomes {
+                output: owned("spec"),
+            },
+            "output \"spec\" names no outcome",
+        ),
+        (
+            Problem::UnknownOutputOutcome {
+                output: owned("spec"),
+                outcome: owned("approved"),
+            },
+            "output \"spec\" names the outcome \"approved\", which the agent does not declare",
+        ),
+        (
+            Problem::DuplicateOutputOutcome {
+                output: owned("spec"),
+                outcome: owned("done"),
+            },
+            "output \"spec\" names the outcome \"done\" twice",
+        ),
     ];
 
     for (problem, expected) in cases {

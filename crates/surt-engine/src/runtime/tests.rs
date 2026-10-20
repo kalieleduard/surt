@@ -5,6 +5,7 @@ mod files;
 mod fixtures;
 mod item_files;
 mod item_lists;
+mod outcome_outputs;
 mod planner;
 mod reports;
 mod scripts;
