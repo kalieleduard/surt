@@ -8,7 +8,7 @@ use uuid::Uuid;
 use super::envelope::envelope_schema;
 use super::{environment, rules};
 use crate::runtime::{FailureClass, RuntimeError, RuntimeRequest};
-use crate::workflow::{Auth, ClaudeProfile};
+use crate::workflow::{Auth, ClaudeProfile, ConversationScope};
 
 const STRUCTURED_OUTPUT_TOOL: &str = "StructuredOutput";
 const INSTRUCTIONS_FILE: &str = "instructions.md";
@@ -58,7 +58,7 @@ impl Invocation {
             environment: environment::child_environment(parent_environment, claude)?,
             files,
             working_dir: launch.working_dir.clone(),
-            stdin: request.context.clone(),
+            stdin: stdin(request).to_owned(),
             expectation: Expectation::new(request, claude),
         })
     }
@@ -87,11 +87,9 @@ impl Expectation {
 fn arguments(request: &RuntimeRequest, claude: &ClaudeProfile) -> Vec<OsString> {
     let launch = &request.launch;
     let text = |values: &[&str]| values.iter().map(OsString::from).collect::<Vec<_>>();
-    let mut arguments = text(&[
-        "-p",
-        "--session-id",
-        &request.session_id.to_string(),
-        "--no-session-persistence",
+    let mut arguments = text(&["-p"]);
+    arguments.extend(session_arguments(request));
+    arguments.extend(text(&[
         "--output-format",
         "stream-json",
         "--verbose",
@@ -106,7 +104,7 @@ fn arguments(request: &RuntimeRequest, claude: &ClaudeProfile) -> Vec<OsString> 
         "--tools",
         &claude.tools.join(","),
         "--allowedTools",
-    ]);
+    ]));
     arguments.extend(
         rules::allowed(request, claude)
             .into_iter()
@@ -129,6 +127,28 @@ fn arguments(request: &RuntimeRequest, claude: &ClaudeProfile) -> Vec<OsString> 
     arguments.extend(limits(request));
     arguments.extend(text(auth_arguments(claude.auth)));
     arguments
+}
+
+fn session_arguments(request: &RuntimeRequest) -> Vec<OsString> {
+    let mut arguments = vec!["--session-id".into(), request.session_id.to_string().into()];
+    if request.launch.profile.conversation == ConversationScope::None {
+        arguments.push("--no-session-persistence".into());
+    }
+    if let Some(continuation) = &request.continuation {
+        arguments.extend([
+            "--resume".into(),
+            continuation.session_id.to_string().into(),
+            "--fork-session".into(),
+        ]);
+    }
+    arguments
+}
+
+fn stdin(request: &RuntimeRequest) -> &str {
+    request
+        .continuation
+        .as_ref()
+        .map_or(&request.context, |continuation| &continuation.context)
 }
 
 fn limits(request: &RuntimeRequest) -> Vec<OsString> {

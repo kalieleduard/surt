@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use super::transcript::ResultEvent;
+use super::result::ResultEvent;
 use crate::runtime::{FailureClass, RuntimeError};
 
 const ALLOWED_RATE: &str = "allowed";

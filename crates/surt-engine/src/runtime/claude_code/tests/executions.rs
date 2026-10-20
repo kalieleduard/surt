@@ -7,16 +7,20 @@ use uuid::Uuid;
 
 use super::streams::Stream;
 use crate::artifacts::DeliveryContract;
-use crate::runtime::claude_code::{Invocation, Transcript};
+use crate::runtime::claude_code::Invocation;
+use crate::runtime::claude_code::transcript::Transcript;
 use crate::runtime::{
-    AgentLaunch, Exit, RuntimeCompletion, RuntimeError, RuntimeReport, RuntimeRequest, StepAttempt,
-    Verdict, accept,
+    AgentLaunch, Continuation, Exit, RuntimeCompletion, RuntimeError, RuntimeReport,
+    RuntimeRequest, StepAttempt, Verdict, accept,
 };
-use crate::workflow::{AgentContract, AgentFiles};
+use crate::workflow::{AgentContract, AgentFiles, ConversationScope};
 
 pub(super) const NOTE: &str = "hello from fixture\n";
 pub(super) const CONTEXT: &str = "Create note.md, then deliver.\n";
 pub(super) const INSTRUCTIONS: &str = "Write output files only inside the delivery directory.\n";
+pub(super) const DELTA: &str = "Answers changed; deliver again.\n";
+pub(super) const PREVIOUS_EXECUTION: &str = "0192f3a8-7b1c-7000-8000-000000000000";
+pub(super) const PREVIOUS_SESSION: &str = "c8e3ede1-90d5-4f0e-bb7a-5be836a9bacd";
 
 pub(super) const NOTER_AGENT: &str = r#"
 schema = 1
@@ -95,6 +99,21 @@ impl Execution {
         Invocation::assemble(&self.request, &environment).expect("an invocation")
     }
 
+    pub(super) fn in_a_loop(mut self) -> Execution {
+        self.request.launch.profile.conversation = ConversationScope::Loop;
+        self
+    }
+
+    pub(super) fn continuing(self) -> Execution {
+        let mut execution = self.in_a_loop();
+        execution.request.continuation = Some(Continuation {
+            session_id: Uuid::parse_str(PREVIOUS_SESSION).expect("a UUID"),
+            execution_id: PREVIOUS_EXECUTION.to_owned(),
+            context: DELTA.to_owned(),
+        });
+        execution
+    }
+
     pub(super) fn with_model(mut self, model: &str) -> Execution {
         self.request.model = model.to_owned();
         self
@@ -113,19 +132,19 @@ impl Execution {
         lines: &[String],
         exit: Exit,
     ) -> Result<RuntimeCompletion, RuntimeError> {
+        self.transcript(lines).conclude(exit)
+    }
+
+    pub(super) fn report(&self, stream: &Stream, exit: Exit) -> RuntimeReport {
+        self.transcript(&stream.lines()).report(exit)
+    }
+
+    pub(super) fn transcript(&self, lines: &[String]) -> Transcript {
         let mut transcript = Transcript::new(self.invocation(&[]).expectation);
         for line in lines {
             transcript.observe(line.as_bytes());
         }
-        transcript.conclude(exit)
-    }
-
-    pub(super) fn report(&self, stream: &Stream, exit: Exit) -> RuntimeReport {
-        let mut transcript = Transcript::new(self.invocation(&[]).expectation);
-        for line in stream.lines() {
-            transcript.observe(line.as_bytes());
-        }
-        transcript.report(exit)
+        transcript
     }
 
     pub(super) fn failure(&self, stream: &Stream, exit: Exit) -> RuntimeError {

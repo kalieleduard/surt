@@ -8,7 +8,7 @@ use serde_json::json;
 
 use super::executions::{CONTEXT, Execution, INSTRUCTIONS, NOTE};
 use super::process::{parent_environment, run};
-use super::streams::{Fixture, Stream};
+use super::streams::{Fixture, Stream, delivered_note};
 use crate::project::GlobalConfig;
 use crate::runtime::{ClaudeCodeRuntime, Exit, FailureClass, RuntimeEvent, StopSignal, Verdict};
 
@@ -89,11 +89,6 @@ impl Stub {
             global.stop_grace_period,
         )
     }
-}
-
-fn delivered_note() -> Stream {
-    Stream::captured(Fixture::Success)
-        .with_envelope(json!({ "outcome": "done", "outputs": { "note": "note.md" } }))
 }
 
 fn write_note(execution: &Execution) -> String {

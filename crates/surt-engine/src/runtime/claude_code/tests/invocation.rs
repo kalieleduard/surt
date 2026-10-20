@@ -68,7 +68,7 @@ model = "claude-haiku-5-5"
 effort = "low"
 "#;
 
-fn strings(arguments: &[OsString]) -> Vec<String> {
+pub(super) fn strings(arguments: &[OsString]) -> Vec<String> {
     arguments
         .iter()
         .map(|argument| argument.to_string_lossy().into_owned())
@@ -122,7 +122,7 @@ fn absolute_roots_are_rendered_from_the_filesystem_root() {
 }
 
 #[test]
-fn a_subscription_launch_isolates_a_fresh_session() {
+fn a_subscription_launch_without_a_conversation_isolates_a_fresh_session() {
     let session_id = Uuid::now_v7();
     let execution = Execution::new(session_id);
     let launch_dir = execution.root().join("launch");
@@ -353,7 +353,7 @@ fn the_environment_is_an_allowlist_plus_the_isolation_switches() {
 }
 
 #[test]
-fn never_resumes_or_continues_a_session() {
+fn an_agent_without_a_conversation_never_resumes_or_continues_a_session() {
     let execution = Execution::with_agent(BUILDER_AGENT, Uuid::now_v7());
 
     let arguments = strings(&execution.invocation(&[]).arguments);
