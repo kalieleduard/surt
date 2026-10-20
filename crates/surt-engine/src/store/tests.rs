@@ -7,8 +7,15 @@ use tempfile::TempDir;
 
 use super::{Store, StoreError};
 
+mod migration;
+
 const PLAN_SCHEMA: &[u8] =
     include_bytes!("../../../../docs/architecture/migrations/0001_initial.sql");
+
+const PLAN_INPUT_STEPS: &[u8] =
+    include_bytes!("../../../../docs/architecture/migrations/0002_input_steps.sql");
+
+const SUPPORTED_SCHEMA: i64 = 2;
 
 const PROJECT_NAME: &str = "my-app";
 
@@ -157,14 +164,14 @@ async fn every_connection_uses_wal_full_sync_and_foreign_keys() {
 }
 
 #[test]
-fn the_embedded_migration_is_the_plan_schema_byte_for_byte() {
+fn the_embedded_migrations_are_the_plan_migrations_byte_for_byte() {
     let embedded: Vec<&[u8]> = super::MIGRATOR
         .iter()
         .map(|migration| migration.sql.as_ref().as_bytes())
         .collect();
 
-    assert_eq!(embedded, [PLAN_SCHEMA]);
-    assert!(!PLAN_SCHEMA.contains(&b'\r'));
+    assert_eq!(embedded, [PLAN_SCHEMA, PLAN_INPUT_STEPS]);
+    assert!(embedded.iter().all(|sql| !sql.contains(&b'\r')));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -184,7 +191,7 @@ async fn reopening_keeps_the_data_and_applies_no_migration_twice() {
     let reopened = dir.open().await;
 
     assert_eq!(count(&reopened, "subject").await, 1);
-    assert_eq!(count(&reopened, "_sqlx_migrations").await, 1);
+    assert_eq!(count(&reopened, "_sqlx_migrations").await, SUPPORTED_SCHEMA);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -351,7 +358,7 @@ async fn concurrent_openers_of_a_new_database_all_succeed() {
 
     assert!(failures.is_empty(), "{failures:?}");
     let store = dir.open().await;
-    assert_eq!(count(&store, "_sqlx_migrations").await, 1);
+    assert_eq!(count(&store, "_sqlx_migrations").await, SUPPORTED_SCHEMA);
     assert_eq!(count(&store, "project").await, 1);
 }
 
@@ -380,7 +387,7 @@ async fn a_database_migrated_by_a_newer_binary_is_refused() {
                 refused,
                 Some(StoreError::SchemaTooNew {
                     db: 7,
-                    supported: 1
+                    supported: SUPPORTED_SCHEMA
                 })
             ),
             "{refused:?}"
