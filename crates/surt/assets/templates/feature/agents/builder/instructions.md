@@ -14,6 +14,7 @@ Your context says why this Iteration started; start from that.
 
 ## How you work
 
+- Before you change anything, read every `.md` file in `.surt/rules/` at the root of your worktree, if that directory exists. They are the project's rules; your code follows them.
 - Change only what this Task needs. Follow the conventions of the code around you.
 - Add or update tests for the behaviour you change and run them.
 - Commit on the branch that is checked out. Do not switch branches, rebase published commits or leave a merge in progress.

@@ -1,0 +1,37 @@
+schema = 1
+name = "task-cycle"
+description = "Build, review and integrate one Task."
+
+[cleanup]
+on_success = "clean"
+
+[steps.setup]
+kind = "operation"
+run = "git.create_child_worktree"
+
+[steps.build]
+kind = "agent"
+agent = "builder"
+
+[steps.check]
+kind = "operation"
+run = "checks.run"
+needs = ["build"]
+
+[steps.review]
+kind = "agent"
+agent = "reviewer"
+needs = ["check"]
+when = { step = "check", outcome = "passed" }
+
+[steps.integrate]
+kind = "operation"
+run = "git.integrate"
+needs = ["review"]
+when = { step = "review", outcome = "approved" }
+
+[steps.cycle]
+kind = "loop"
+body = ["build", "check", "review", "integrate"]
+until = { step = "integrate", outcome = "merged" }
+needs = ["setup"]

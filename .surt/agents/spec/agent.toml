@@ -1,0 +1,39 @@
+schema = 1
+id = "spec"
+outcomes = ["done", "questions"]
+
+[inputs.request]
+format = "text"
+
+[inputs.spec]
+format = "markdown"
+optional = true
+
+[inputs.spec-rejection-reason]
+format = "text"
+optional = true
+
+[inputs.spec-answers]
+format = "json"
+optional = true
+
+[outputs.spec]
+format = "markdown"
+outcomes = ["done"]
+
+[outputs.spec-questions]
+format = "questions"
+outcomes = ["questions"]
+
+[profile]
+runtime = "claude-code"
+model = "claude-sonnet-5-5"
+effort = "high"
+conversation = "loop"
+
+[profile.claude]
+auth = "subscription"
+permission_mode = "dontAsk"
+tools = ["Read", "Glob", "Grep", "Write"]
+allowed_tools = ["Read", "Glob", "Grep"]
+disallowed_tools = ["mcp__*"]

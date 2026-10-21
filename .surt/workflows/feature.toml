@@ -1,0 +1,84 @@
+schema = 1
+name = "feature"
+description = "Specify, plan, build and ship one Feature."
+
+[cleanup]
+on_success = "clean"
+
+[inputs.request]
+format = "text"
+description = "what to build"
+
+[inputs.base]
+format = "git_ref"
+default = "HEAD"
+description = "branch, tag or commit to start from"
+
+[subject]
+from = "request"
+
+[steps.spec]
+kind = "agent"
+agent = "spec"
+
+[steps.answer-spec]
+kind = "input"
+artifact = "spec-questions"
+answer_artifact = "spec-answers"
+needs = ["spec"]
+when = { step = "spec", outcome = "questions" }
+
+[steps.approve-spec]
+kind = "approval"
+artifact = "spec"
+rejection_artifact = "spec-rejection-reason"
+needs = ["answer-spec"]
+when = { step = "spec", outcome = "done" }
+
+[steps.spec-loop]
+kind = "loop"
+body = ["spec", "answer-spec", "approve-spec"]
+until = { step = "approve-spec", outcome = "approved" }
+
+[steps.plan-tasks]
+kind = "agent"
+agent = "tasks"
+
+[steps.approve-tasks]
+kind = "approval"
+artifact = "manifest"
+rejection_artifact = "manifest-rejection-reason"
+needs = ["plan-tasks"]
+
+[steps.tasks-loop]
+kind = "loop"
+body = ["plan-tasks", "approve-tasks"]
+until = { step = "approve-tasks", outcome = "approved" }
+needs = ["spec-loop"]
+
+[steps.prepare]
+kind = "operation"
+run = "git.create_run_branch"
+needs = ["tasks-loop"]
+
+[steps.implement]
+kind = "per_item"
+items = "manifest"
+workflow = "task-cycle"
+pass = ["spec"]
+needs = ["prepare"]
+
+[steps.snapshot]
+kind = "operation"
+run = "git.snapshot_run_branch"
+needs = ["implement"]
+
+[steps.ship]
+kind = "agent"
+agent = "shipper"
+needs = ["snapshot"]
+
+[steps.merge]
+kind = "operation"
+run = "git.merge_into_base"
+needs = ["ship"]

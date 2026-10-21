@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Base (a git_ref run input resolved to a commit)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ref", "sha"],
+  "properties": {
+    "ref": {
+      "description": "Short branch name the Base was taken from; null for a detached commit or a tag.",
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "sha": { "$ref": "#/definitions/sha" }
+  },
+  "definitions": {
+    "sha": { "type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$" }
+  }
+}

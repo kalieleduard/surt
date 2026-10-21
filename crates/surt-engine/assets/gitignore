@@ -6,3 +6,5 @@
 !workflows/**
 !agents/
 !agents/**
+!rules/
+!rules/**
