@@ -28,7 +28,16 @@ pub(crate) fn wording(merge: &BaseMerge, base: Option<&Commit>) -> Option<MergeW
         .unwrap_or(UNNAMED_BRANCH);
     let base = base.map_or(UNKNOWN_BASE, |base| short(&base.sha));
     match merge {
-        BaseMerge::Merged { from, to } => Some(MergeWording::Merged(format!(
+        BaseMerge::Merged {
+            from,
+            to,
+            merge_commit: true,
+        } => Some(MergeWording::Merged(format!(
+            "merged into {branch} (merge commit {} {ARROW} {})",
+            short(from),
+            short(to)
+        ))),
+        BaseMerge::Merged { from, to, .. } => Some(MergeWording::Merged(format!(
             "merged into {branch} (fast-forward {} {ARROW} {})",
             short(from),
             short(to)
@@ -54,6 +63,9 @@ fn reason(not_merged: &NotMerged, branch: &str, base: &str) -> Option<String> {
             "{branch} is checked out in {} with changes",
             worktree.display()
         ),
+        NotMerged::Conflict { paths } => {
+            format!("merging into {branch} conflicts in {}", paths.join(", "))
+        }
     })
 }
 
