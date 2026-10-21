@@ -33,6 +33,7 @@ mod limits;
 mod live_limit;
 mod logging;
 mod merge_choices;
+mod merge_commit;
 mod merge_interrupted;
 mod merge_recovery;
 mod merge_status;

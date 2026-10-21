@@ -12,8 +12,10 @@ use crate::reconcile::{Found, find};
 use crate::runtime::AgentRuntime;
 use crate::store::{RefMove, Store};
 use checked_out::{clean_checkout, interrupted, move_base, not_clean};
+use merge_commit::{Planned, is_merge_commit};
 
 mod checked_out;
+mod merge_commit;
 
 const BASE_INPUT: &str = "base";
 const INTEGRATION_INPUT: &str = "integration";
@@ -34,7 +36,10 @@ pub(crate) async fn settle_fast_forward(
     intended: &RefMove,
 ) -> Result<Settled, Error> {
     match find(repository, intended).await? {
-        Found::Moved => Ok(Settled::Recorded(merged(intended))),
+        Found::Moved => {
+            let merge_commit = is_merge_commit(repository, intended).await?;
+            Ok(Settled::Recorded(merged(intended, merge_commit)))
+        }
         Found::NotMoved => {
             if let Some(worktree) = &intended.worktree_path
                 && worktree.is_dir()
@@ -75,39 +80,46 @@ impl<R: AgentRuntime> Driver<'_, R> {
         if self.frozen.merge_into_base == MergeIntoBase::Never {
             return Ok(BaseMerge::Skipped(NotMerged::Disabled));
         }
-        let intended = match self.intended_move(launch).await? {
-            Ok(intended) => intended,
+        let planned = match self.intended_move(launch).await? {
+            Ok(planned) => planned,
             Err(skipped) => return Ok(BaseMerge::Skipped(skipped)),
         };
-        if intended.old_sha == intended.new_sha {
-            return Ok(merged(&intended));
+        if planned.intended.old_sha == planned.intended.new_sha {
+            return Ok(merged(&planned.intended, false));
         }
-        self.fast_forward(launch, &intended).await
+        self.fast_forward(launch, &planned).await
     }
 
     async fn intended_move(
         &self,
         launch: &OperationLaunch,
-    ) -> Result<Result<RefMove, NotMerged>, OperationError> {
+    ) -> Result<Result<Planned, NotMerged>, OperationError> {
         let Some(reference) = self.base_reference(launch).await? else {
             return Ok(Err(NotMerged::NoBaseBranch));
         };
         let base_sha = self.input_sha(launch, BASE_INPUT).await?;
         let root = self.driving.layout.root();
         let found = git::commit_sha(root, &reference).await?;
-        if found.as_deref() != Some(base_sha.as_str()) {
-            return Ok(Err(NotMerged::BaseMoved { found }));
-        }
+        let moved = found.as_deref() != Some(base_sha.as_str());
+        let old_sha = match found {
+            Some(found) if moved && self.frozen.merge_into_base == MergeIntoBase::Merge => found,
+            found if moved => return Ok(Err(NotMerged::BaseMoved { found })),
+            _ => base_sha,
+        };
         let worktree_path = match clean_checkout(root, &reference).await? {
             Ok(worktree_path) => worktree_path,
             Err(skipped) => return Ok(Err(skipped)),
         };
-        Ok(Ok(RefMove {
+        let intended = RefMove {
             ref_name: reference,
-            old_sha: base_sha,
+            old_sha,
             new_sha: self.delivered_tip(launch).await?,
             worktree_path,
-        }))
+        };
+        if !moved {
+            return Ok(Ok(Planned::fast_forward(intended)));
+        }
+        self.combine_with_moved_base(launch, intended).await
     }
 
     async fn base_reference(
@@ -132,18 +144,18 @@ impl<R: AgentRuntime> Driver<'_, R> {
     async fn fast_forward(
         &self,
         launch: &OperationLaunch,
-        intended: &RefMove,
+        planned: &Planned,
     ) -> Result<BaseMerge, OperationError> {
-        let store = self.driving.store;
+        let (store, intended) = (self.driving.store, &planned.intended);
         store.intend_ref_move(&launch.row.id, intended).await?;
-        let message = reflog_message(launch, intended);
+        let message = reflog_message(launch, planned);
         let root = self.driving.layout.root();
         let moved = {
             let _git = self.git_lock().await?;
             move_base(root, intended, &message).await
         };
         match moved {
-            Ok(FastForward::Moved) => Ok(merged(intended)),
+            Ok(FastForward::Moved) => Ok(merged(intended, planned.merge_commit)),
             Ok(FastForward::WouldOverwrite) => {
                 store.forget_ref_move(&launch.row.id).await?;
                 Ok(BaseMerge::Skipped(not_clean(intended)))
@@ -169,19 +181,21 @@ impl<R: AgentRuntime> Driver<'_, R> {
     }
 }
 
-fn reflog_message(launch: &OperationLaunch, intended: &RefMove) -> String {
-    format!(
-        "surt: fast-forward {} to surt/{}",
-        git::short_branch(&intended.ref_name),
-        run_stem(&launch.subject, launch.ordinal)
-    )
+fn reflog_message(launch: &OperationLaunch, planned: &Planned) -> String {
+    let branch = git::short_branch(&planned.intended.ref_name);
+    let stem = run_stem(&launch.subject, launch.ordinal);
+    if planned.merge_commit {
+        format!("surt: merge surt/{stem} into {branch}")
+    } else {
+        format!("surt: fast-forward {branch} to surt/{stem}")
+    }
 }
 
-fn merged(intended: &RefMove) -> BaseMerge {
+fn merged(intended: &RefMove, merge_commit: bool) -> BaseMerge {
     BaseMerge::Merged {
         from: intended.old_sha.clone(),
         to: intended.new_sha.clone(),
-        merge_commit: false,
+        merge_commit,
     }
 }
 

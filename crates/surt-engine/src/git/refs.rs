@@ -66,6 +66,15 @@ pub(crate) async fn is_ancestor(
     }
 }
 
+pub(crate) async fn commit_parents(cwd: &Path, commit: &str) -> Result<Vec<String>, GitError> {
+    let listing = run(cwd, &["rev-list", "--parents", "-n", "1", commit]).await?;
+    Ok(listing
+        .split_whitespace()
+        .skip(1)
+        .map(str::to_owned)
+        .collect())
+}
+
 pub(crate) async fn create_ref(cwd: &Path, reference: &str, sha: &str) -> Result<(), GitError> {
     run(cwd, &["update-ref", "--no-deref", reference, sha, ""]).await?;
     Ok(())

@@ -15,7 +15,7 @@ async fn checked_out_feature() -> (Feature, String) {
 }
 
 impl Feature {
-    async fn succeeds(&self) {
+    pub(super) async fn succeeds(&self) {
         let driven = self.drive_with(&delivering_team()).await;
         assert_eq!(
             driven.outcome.expect("drive returns"),
@@ -23,12 +23,12 @@ impl Feature {
         );
     }
 
-    fn tip(&self) -> String {
+    pub(super) fn tip(&self) -> String {
         self.sha(&integration_branch())
             .expect("the integration branch")
     }
 
-    fn file(&self, name: &str) -> Option<String> {
+    pub(super) fn file(&self, name: &str) -> Option<String> {
         fs::read_to_string(self.root().join(name)).ok()
     }
 }
