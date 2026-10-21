@@ -1,5 +1,6 @@
 mod activity;
 mod screen;
+mod spinner;
 mod started;
 mod wording;
 

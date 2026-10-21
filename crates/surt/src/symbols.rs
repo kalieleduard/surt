@@ -23,8 +23,13 @@ pub(crate) const DASH: &str = "—";
 pub(crate) const DOT: &str = "·";
 pub(crate) const ARROW: &str = "→";
 pub(crate) const SEPARATOR: &str = " · ";
+pub(crate) const SPIN_1: &str = "◜";
+pub(crate) const SPIN_2: &str = "◝";
+pub(crate) const SPIN_3: &str = "◞";
+pub(crate) const SPIN_4: &str = "◟";
+pub(crate) const SPINNER: [&str; 4] = [SPIN_1, SPIN_2, SPIN_3, SPIN_4];
 
-const ASCII: [(&str, &str); 18] = [
+const ASCII: [(&str, &str); 22] = [
     (SUCCESS, "[ok]"),
     (ERROR, "[error]"),
     (WARNING, "[warn]"),
@@ -43,6 +48,10 @@ const ASCII: [(&str, &str); 18] = [
     (DASH, "-"),
     (DOT, "|"),
     (ARROW, "->"),
+    (SPIN_1, "|"),
+    (SPIN_2, "/"),
+    (SPIN_3, "-"),
+    (SPIN_4, "\\"),
 ];
 
 #[derive(Clone, Copy)]
