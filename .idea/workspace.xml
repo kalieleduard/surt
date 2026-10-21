@@ -16,14 +16,6 @@
   <component name="ChangeListManager">
     <list default="true" id="20d6b4d3-f335-41fd-87c4-add048d01db6" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/surt-engine/assets/gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/crates/surt-engine/assets/gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/surt/assets/templates/feature/agents/builder/instructions.md" beforeDir="false" afterPath="$PROJECT_DIR$/crates/surt/assets/templates/feature/agents/builder/instructions.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/surt/assets/templates/feature/agents/reviewer/instructions.md" beforeDir="false" afterPath="$PROJECT_DIR$/crates/surt/assets/templates/feature/agents/reviewer/instructions.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rules/architecture.md" beforeDir="false" afterPath="$PROJECT_DIR$/.surt/rules/architecture.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rules/clean-code.md" beforeDir="false" afterPath="$PROJECT_DIR$/.surt/rules/clean-code.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rules/rust.md" beforeDir="false" afterPath="$PROJECT_DIR$/.surt/rules/rust.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rules/sqlite.md" beforeDir="false" afterPath="$PROJECT_DIR$/.surt/rules/sqlite.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rules/testing.md" beforeDir="false" afterPath="$PROJECT_DIR$/.surt/rules/testing.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

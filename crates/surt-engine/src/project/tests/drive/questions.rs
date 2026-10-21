@@ -3,7 +3,7 @@ use serde_json::{Value, json};
 use super::super::fixtures::{Catalog, SUBJECT};
 use super::fixtures::{Feature, Recording, agent};
 use super::team::input;
-use crate::project::{DriveOutcome, Questions, RunSelector, ShowRequest};
+use crate::project::{Choice, DriveOutcome, Questions, RunSelector, ShowRequest};
 use crate::runtime::{Behavior, Delivery, Script};
 
 const FLOW: &str = r#"
@@ -136,7 +136,9 @@ async fn a_published_round_reads_back_as_typed_questions() {
                 question.question(),
                 question.why(),
                 question.recommended(),
-                question.options().map(<[String]>::to_vec),
+                question
+                    .options()
+                    .map(|options| options.iter().map(Choice::value).collect::<Vec<_>>()),
             )
         })
         .collect();
@@ -148,10 +150,7 @@ async fn a_published_round_reads_back_as_typed_questions() {
                 "Log in by e-mail only, or by username too?",
                 "changes the users table",
                 "e-mail only",
-                Some(vec![
-                    "e-mail only".to_owned(),
-                    "e-mail or username".to_owned()
-                ])
+                Some(vec!["e-mail only", "e-mail or username"])
             ),
             (
                 "lockout",

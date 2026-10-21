@@ -68,6 +68,7 @@ fn the_spec_instructions_bound_each_round_and_record_decisions_instead_of_open_q
         "`why`",
         "`recommended`",
         "`options`",
+        "`description`",
         "outcome `questions`",
         "outcome `done`",
         "**Decisions**",

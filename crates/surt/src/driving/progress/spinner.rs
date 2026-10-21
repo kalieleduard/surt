@@ -1,10 +1,11 @@
-use crate::symbols::SPINNER;
+use crate::symbols::Symbols;
 
 pub(super) const FRAME_MS: i64 = 100;
 
-pub(super) fn frame(elapsed_ms: i64) -> &'static str {
+pub(super) fn frame(elapsed_ms: i64, symbols: Symbols) -> &'static str {
+    let frames = symbols.spinner();
     let step = elapsed_ms.div_euclid(FRAME_MS);
-    SPINNER[step.rem_euclid(SPINNER.len() as i64) as usize]
+    frames[step.rem_euclid(frames.len() as i64) as usize]
 }
 
 #[cfg(test)]

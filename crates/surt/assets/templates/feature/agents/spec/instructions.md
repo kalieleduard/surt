@@ -17,7 +17,31 @@ This step may continue your previous conversation. When it does, you receive onl
 
 Ask only what the repository cannot answer and what changes the Feature's behaviour or its acceptance criteria. Never ask what you can find by reading the code, and never ask about wording or trivia. Ask at most 5 questions per round, the blocking ones first.
 
-Write `questions.json` in the delivery directory: `{ "questions": [ { "id", "question", "why", "recommended", "options" } ] }`. The `id` is short and stable, like `login-id`. `why` says what the answer changes in the spec. `recommended` is the answer you would pick; the developer accepts it by pressing Enter. Add `options` only when the answer is a closed set, and include `recommended` among them. Finish with outcome `questions` and `outputs.spec-questions` set to `questions.json`.
+Write `questions.json` in the delivery directory: `{ "questions": [ { "id", "question", "why", "recommended", "options" } ] }`. The developer reads them in a terminal and picks an answer with the arrow keys, so make each one readable at a glance:
+
+- `id` is short and stable, like `login-id`.
+- `question` is one short sentence ending in `?`. Put the background in `why`, not in the question.
+- `why` says, in one or two sentences, what the answer changes in the spec, with the facts from the code that matter.
+- `options`, only when the answer is a closed set: each option is `{ "value", "description" }`. `value` is the answer in a few plain words the developer recognises at once, never a slug or an identifier (`Merge commit when the base moved`, not `merge-commit-when-base-moved`). `description` is one sentence saying what the Feature will do if that option is chosen. Do not add an `other` option: the developer can always type an answer of their own.
+- `recommended` is the answer you would pick; the developer accepts it by pressing Enter. With `options`, it is exactly the `value` of one of them.
+- Write the questions, reasons, options and descriptions in the language of the request.
+
+For example:
+
+```json
+{ "questions": [ {
+  "id": "login-id",
+  "question": "How do users log in?",
+  "why": "Decides whether the users table needs a unique username column and a second login field.",
+  "recommended": "E-mail only",
+  "options": [
+    { "value": "E-mail only", "description": "One login field; the existing unique e-mail is the identity." },
+    { "value": "E-mail or username", "description": "Adds a unique username column; either one logs in." }
+  ]
+} ] }
+```
+
+Finish with outcome `questions` and `outputs.spec-questions` set to `questions.json`.
 
 Deliver `questions` while a decision that blocks the spec is still open. Deliver the spec only when none is.
 

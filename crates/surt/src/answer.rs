@@ -1,5 +1,7 @@
 mod file;
+mod picker;
 mod prompt;
+mod terminal;
 mod waiting;
 
 use std::collections::BTreeMap;
@@ -7,12 +9,12 @@ use std::io::{self, IsTerminal};
 use std::path::{Path, PathBuf};
 
 use clap::builder::NonEmptyStringValueParser;
-use surt_engine::project::{Answered, Project, Questions, WaitingInput};
+use surt_engine::project::{Answered, Choice, Project, Questions, RunId, WaitingInput};
 
 use crate::continue_run::{active_run, drive_again};
 use crate::failure::Failure;
-use crate::message::Message;
-use crate::symbols::{SEPARATOR, printable};
+use crate::message::{Mark, Message};
+use crate::symbols::{DASH, SEPARATOR, printable};
 pub(crate) use waiting::block as waiting_block;
 
 const INDENT: &str = "   ";
@@ -47,12 +49,41 @@ pub(crate) async fn run(cwd: &Path, args: AnswerArgs) -> Result<(), Failure> {
     let run = active_run(&subject)?;
     let waiting = project.waiting_input(run).await?;
     let (answers, note) = answers(cwd, &subject.name, &waiting, source)?;
+    record(&project, run, &waiting, &answers, note.as_deref()).await?;
+    drive_again(&project, &subject).await
+}
+
+pub(crate) fn interactive() -> bool {
+    io::stdin().is_terminal() && io::stderr().is_terminal()
+}
+
+pub(crate) async fn here(
+    project: &Project,
+    subject: &str,
+    run: &RunId,
+    waiting: &WaitingInput,
+) -> Result<bool, Failure> {
+    let Some(answers) = from_terminal(subject, waiting)? else {
+        abandoned(subject).print(Mark::Question);
+        return Ok(false);
+    };
+    record(project, run, waiting, &answers, None).await?;
+    Ok(true)
+}
+
+async fn record(
+    project: &Project,
+    run: &RunId,
+    waiting: &WaitingInput,
+    answers: &BTreeMap<String, String>,
+    note: Option<&str>,
+) -> Result<(), Failure> {
     let actor = project.actor().await?;
     let answered = project
-        .answer(run, waiting.revision, &answers, note.as_deref(), &actor)
+        .answer(run, waiting.revision, answers, note, &actor)
         .await?;
     recorded(&answered).print_success();
-    drive_again(&project, &subject).await
+    Ok(())
 }
 
 fn source(accept: bool, file: Option<PathBuf>, note: Option<String>) -> Result<Source, Failure> {
@@ -90,7 +121,13 @@ fn answers(
         Source::Accepted => Ok((recommended(&waiting.questions), None)),
         Source::Noted(note) => Ok((recommended(&waiting.questions), Some(note))),
         Source::File(path) => Ok((from_file(cwd, subject, waiting, &path)?, None)),
-        Source::Terminal => Ok((from_terminal(subject, &waiting.questions)?, None)),
+        Source::Terminal => {
+            let answers = from_terminal(subject, waiting)?;
+            Ok((
+                answers.ok_or_else(|| Failure::Refused(abandoned(subject)))?,
+                None,
+            ))
+        }
     }
 }
 
@@ -109,10 +146,19 @@ fn from_file(
 
 fn from_terminal(
     subject: &str,
-    questions: &Questions,
-) -> Result<BTreeMap<String, String>, Failure> {
-    prompt::ask(questions, io::stdin().lock(), Printable)?
+    waiting: &WaitingInput,
+) -> Result<Option<BTreeMap<String, String>>, Failure> {
+    Message::new(waiting::headline(waiting)).print(Mark::Question);
+    if let Ok(picked) = terminal::ask(&waiting.questions) {
+        return Ok(picked);
+    }
+    prompt::ask(&waiting.questions, io::stdin().lock(), Printable)?
+        .map(Some)
         .ok_or_else(|| Failure::Refused(prompt::ended(subject)))
+}
+
+fn abandoned(subject: &str) -> Message {
+    Message::new("answering stopped; nothing was recorded").way("answer", answer_command(subject))
 }
 
 fn recommended(questions: &Questions) -> BTreeMap<String, String> {
@@ -130,8 +176,18 @@ fn recorded(answered: &Answered) -> Message {
     ))
 }
 
-fn options(choices: &[String]) -> String {
-    choices.join(SEPARATOR)
+fn options(choices: &[Choice]) -> Vec<String> {
+    if choices.iter().all(|choice| choice.description().is_none()) {
+        let values: Vec<&str> = choices.iter().map(Choice::value).collect();
+        return vec![format!("options: {}", values.join(SEPARATOR))];
+    }
+    let described = choices.iter().map(|choice| match choice.description() {
+        Some(description) => format!("  {} {DASH} {description}", choice.value()),
+        None => format!("  {}", choice.value()),
+    });
+    std::iter::once("options:".to_owned())
+        .chain(described)
+        .collect()
 }
 
 struct Printable;

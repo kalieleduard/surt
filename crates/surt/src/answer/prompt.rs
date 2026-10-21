@@ -41,8 +41,8 @@ fn asked(number: usize, question: &Question) -> String {
         question.question(),
         question.why()
     );
-    if let Some(choices) = question.options() {
-        text.push_str(&format!("{INDENT}options: {}\n", options(choices)));
+    for line in question.options().map(options).unwrap_or_default() {
+        text.push_str(&format!("{INDENT}{line}\n"));
     }
     text.push_str(&format!("{INDENT}[{}] ", question.recommended()));
     text

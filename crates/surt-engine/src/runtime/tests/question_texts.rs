@@ -76,3 +76,61 @@ async fn the_recommendation_is_one_of_the_options() {
         }
     );
 }
+
+#[tokio::test]
+async fn an_option_may_carry_a_description_and_mix_with_plain_options() {
+    let document = offering(json!([
+        { "value": "e-mail only", "description": "one login field, no username column" },
+        "e-mail or username",
+    ]));
+
+    assert_eq!(accepted(&document).await.len(), 1);
+}
+
+#[tokio::test]
+async fn a_described_option_needs_a_non_blank_value_and_description() {
+    let id = || "login-id".to_owned();
+
+    assert_eq!(
+        problem(&offering(json!([
+            { "value": "e-mail only", "description": " " },
+            "username",
+        ])))
+        .await,
+        QuestionsProblem::EmptyDescription {
+            id: id(),
+            option: "e-mail only".to_owned()
+        }
+    );
+    assert_eq!(
+        problem(&offering(json!([
+            { "value": "", "description": "no login" },
+            "e-mail only",
+        ])))
+        .await,
+        QuestionsProblem::EmptyOption { id: id() }
+    );
+}
+
+#[tokio::test]
+async fn a_described_option_naming_an_unknown_field_is_malformed() {
+    let document = offering(json!([
+        { "value": "e-mail only", "description": "one login field", "label": "E-mail" },
+        "username",
+    ]));
+
+    assert_eq!(
+        problem(&document).await,
+        QuestionsProblem::MalformedQuestion { index: 0 }
+    );
+}
+
+#[tokio::test]
+async fn the_recommendation_matches_a_described_option_by_its_value() {
+    let document = offering(json!([
+        { "value": "e-mail only", "description": "one login field" },
+        { "value": "e-mail or username", "description": "two login fields" },
+    ]));
+
+    assert_eq!(accepted(&document).await.len(), 1);
+}

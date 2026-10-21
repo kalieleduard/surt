@@ -50,6 +50,10 @@ impl Mark {
     }
 }
 
+pub(crate) fn stderr_colored() -> bool {
+    anstream::AutoStream::choice(&std::io::stderr()) != anstream::ColorChoice::Never
+}
+
 pub(crate) struct Message {
     headline: String,
     lines: Vec<String>,

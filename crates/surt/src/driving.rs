@@ -8,7 +8,7 @@ use surt_engine::project::{DriveOutcome, Gate, GateKind, GateStatus, Project, Ru
 use surt_engine::runtime::{AgentRuntime, StopSignal};
 use tokio::sync::mpsc;
 
-use crate::answer::waiting_block;
+use crate::answer::{self, waiting_block};
 use crate::continue_run::continue_command;
 use crate::failure::Failure;
 use crate::message::{Mark, Message};
@@ -28,8 +28,18 @@ pub(crate) struct Driven<'a> {
     pub(crate) run: &'a RunId,
 }
 
+enum Next {
+    Done,
+    DriveAgain,
+}
+
 impl Driven<'_> {
     pub(crate) async fn drive(&self, runtime: &impl AgentRuntime) -> Result<(), Failure> {
+        while let Next::DriveAgain = self.drive_once(runtime).await? {}
+        Ok(())
+    }
+
+    async fn drive_once(&self, runtime: &impl AgentRuntime) -> Result<Next, Failure> {
         let (sink, events) = mpsc::unbounded_channel();
         let stop = StopSignal::new();
         let relay = tokio::spawn(interruption::relay(Interruptions::listen()?, stop.clone()));
@@ -48,10 +58,10 @@ impl Driven<'_> {
         concluded
     }
 
-    async fn conclude(&self, outcome: DriveOutcome, stopped: bool) -> Result<(), Failure> {
+    async fn conclude(&self, outcome: DriveOutcome, stopped: bool) -> Result<Next, Failure> {
         match outcome {
             DriveOutcome::AtGate { gates } => self.awaiting(&gates).await,
-            DriveOutcome::Succeeded => self.succeeded().await,
+            DriveOutcome::Succeeded => self.succeeded().await.map(|()| Next::Done),
             DriveOutcome::Blocked { .. } => {
                 let steps = self.project.blocked_steps(self.run).await?;
                 let interrupted = self.project.interrupted_merge(self.run).await?;
@@ -67,7 +77,7 @@ impl Driven<'_> {
             )),
             DriveOutcome::AlreadyCancelled => {
                 Message::new(format!("{} was already cancelled", self.subject)).print_success();
-                Ok(())
+                Ok(Next::Done)
             }
             DriveOutcome::Interrupted => Err(Failure::Interrupted(
                 Message::new(interruption(stopped)).way("resume", self.resume_command()),
@@ -99,12 +109,21 @@ impl Driven<'_> {
         continue_command(self.subject)
     }
 
-    async fn awaiting(&self, gates: &[Gate]) -> Result<(), Failure> {
+    async fn awaiting(&self, gates: &[Gate]) -> Result<Next, Failure> {
         let subject = self.subject;
+        let asking = gates.iter().any(|gate| gate.kind == GateKind::Input) && answer::interactive();
+        if asking {
+            let waiting = self.project.waiting_input(self.run).await?;
+            if answer::here(self.project, subject, self.run, &waiting).await? {
+                return Ok(Next::DriveAgain);
+            }
+        }
         for gate in gates {
             if gate.kind == GateKind::Input {
-                let waiting = self.project.waiting_input(self.run).await?;
-                waiting_block(subject, &waiting).print(Mark::Question);
+                if !asking {
+                    let waiting = self.project.waiting_input(self.run).await?;
+                    waiting_block(subject, &waiting).print(Mark::Question);
+                }
                 continue;
             }
             let revision = match self.project.gate_status(self.run, &gate.step.key).await? {
@@ -119,7 +138,7 @@ impl Driven<'_> {
             .way("reject", format!("surt reject {subject} -m \"<reason>\""))
             .print(Mark::Paused);
         }
-        Ok(())
+        Ok(Next::Done)
     }
 }
 

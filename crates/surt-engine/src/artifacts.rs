@@ -12,7 +12,7 @@ pub(crate) use delivery::{
     AcceptedDelivery, DeliveryContract, DeliveryRejection, ItemListProblem, OutputRule,
     ValidatedOutput,
 };
-pub use delivery::{MAX_QUESTIONS, Question, Questions};
+pub use delivery::{Choice, MAX_QUESTIONS, Question, Questions};
 #[cfg(test)]
 pub(crate) use delivery::{QuestionField, QuestionsProblem};
 pub(crate) use items::{ListedItem, item_view, listed_items};

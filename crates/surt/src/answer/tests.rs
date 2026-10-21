@@ -165,3 +165,52 @@ fn an_answers_file_that_cannot_be_read_is_refused_naming_it() {
         "{refused}"
     );
 }
+
+fn described() -> Questions {
+    let document = serde_json::json!({ "questions": [
+        {
+            "id": "login-id",
+            "question": "Log in by e-mail only, or by username too?",
+            "why": "changes the users table",
+            "recommended": "e-mail only",
+            "options": [
+                { "value": "e-mail only", "description": "one login field" },
+                "e-mail or username",
+            ],
+        },
+    ]});
+    Questions::parse(document.to_string().as_bytes()).expect("valid questions")
+}
+
+#[test]
+fn described_options_are_listed_one_per_line_in_the_waiting_block_and_the_prompt() {
+    let waiting = WaitingInput {
+        step: "answer-spec".to_owned(),
+        artifact: "spec-questions".to_owned(),
+        revision: 1,
+        round: 1,
+        questions: described(),
+    };
+    let mut output = Vec::new();
+
+    let answers = prompt::ask(&described(), "\n".as_bytes(), &mut output);
+
+    assert_eq!(
+        waiting_block(SUBJECT, &waiting).plain(Mark::Question),
+        "? spec-questions rev 1 awaiting answers (round 1)\n  \
+         1. Log in by e-mail only, or by username too?\n     \
+         why: changes the users table\n     \
+         options:\n       \
+         e-mail only \u{2014} one login field\n       \
+         e-mail or username\n     \
+         recommended: e-mail only\n  \
+         answer: surt answer 20261020-add-login\n"
+    );
+    assert_eq!(
+        answers.expect("the prompt reads"),
+        Some(owned(&[("login-id", "e-mail only")]))
+    );
+    assert!(String::from_utf8(output).expect("UTF-8").contains(
+        "   options:\n     e-mail only \u{2014} one login field\n     e-mail or username\n"
+    ));
+}

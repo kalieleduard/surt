@@ -24,6 +24,8 @@ pub(crate) enum QuestionsProblem {
     TooFewOptions { id: String },
     #[error("question {id} offers an empty option")]
     EmptyOption { id: String },
+    #[error("question {id} describes its option {option} with an empty description")]
+    EmptyDescription { id: String, option: String },
     #[error("question {id} offers {option} more than once")]
     DuplicateOption { id: String, option: String },
     #[error("question {id} recommends an answer that is not one of its options")]

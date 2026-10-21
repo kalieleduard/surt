@@ -198,3 +198,25 @@ fn launches_pause_until_the_reset_time_or_for_the_backoff_delay_then_resume() {
         )
     );
 }
+
+#[test]
+fn a_colored_footer_paints_the_spinner_cyan_and_fades_the_rules_and_separators() {
+    let footer = "\u{280b} \u{2500}\u{2500} 1 running \u{b7} slots 1/3 \u{2500}\u{2500}";
+
+    let painted = super::screen::painted(footer, "\u{280b}", Symbols::Unicode);
+
+    assert_eq!(
+        painted,
+        "\u{1b}[1m\u{1b}[36m\u{280b}\u{1b}[0m \u{1b}[2m\u{2500}\u{2500}\u{1b}[0m 1 running\
+         \u{1b}[2m \u{b7} \u{1b}[0mslots 1/3 \u{1b}[2m\u{2500}\u{2500}\u{1b}[0m"
+    );
+    assert_eq!(anstream::adapter::strip_str(&painted).to_string(), footer);
+}
+
+#[test]
+fn a_footer_cut_before_its_spinner_is_left_unpainted() {
+    assert_eq!(
+        super::screen::painted("\u{2026}", "[=   ]", Symbols::Ascii),
+        "\u{2026}"
+    );
+}

@@ -23,11 +23,13 @@ pub(crate) const DASH: &str = "—";
 pub(crate) const DOT: &str = "·";
 pub(crate) const ARROW: &str = "→";
 pub(crate) const SEPARATOR: &str = " · ";
-pub(crate) const SPIN_1: &str = "◜";
-pub(crate) const SPIN_2: &str = "◝";
-pub(crate) const SPIN_3: &str = "◞";
-pub(crate) const SPIN_4: &str = "◟";
-pub(crate) const SPINNER: [&str; 4] = [SPIN_1, SPIN_2, SPIN_3, SPIN_4];
+pub(crate) const POINTER: &str = "❯";
+pub(crate) const UP: &str = "↑";
+pub(crate) const DOWN: &str = "↓";
+pub(crate) const BAR: &str = "▌";
+pub(crate) const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+pub(crate) const ASCII_SPINNER: [&str; 6] =
+    ["[=   ]", "[ =  ]", "[  = ]", "[   =]", "[  = ]", "[ =  ]"];
 
 const ASCII: [(&str, &str); 22] = [
     (SUCCESS, "[ok]"),
@@ -48,20 +50,20 @@ const ASCII: [(&str, &str); 22] = [
     (DASH, "-"),
     (DOT, "|"),
     (ARROW, "->"),
-    (SPIN_1, "|"),
-    (SPIN_2, "/"),
-    (SPIN_3, "-"),
-    (SPIN_4, "\\"),
+    (POINTER, ">"),
+    (UP, "up"),
+    (DOWN, "down"),
+    (BAR, "_"),
 ];
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Symbols {
     Unicode,
     Ascii,
 }
 
 impl Symbols {
-    fn of_console() -> Symbols {
+    pub(crate) fn of_console() -> Symbols {
         static CONSOLE: OnceLock<Symbols> = OnceLock::new();
         *CONSOLE.get_or_init(|| {
             if console_outputs_utf8() {
@@ -70,6 +72,13 @@ impl Symbols {
                 Symbols::Ascii
             }
         })
+    }
+
+    pub(crate) fn spinner(self) -> &'static [&'static str] {
+        match self {
+            Symbols::Unicode => &SPINNER,
+            Symbols::Ascii => &ASCII_SPINNER,
+        }
     }
 
     pub(crate) fn render(self, text: &str) -> Cow<'_, str> {

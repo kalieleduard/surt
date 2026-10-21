@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use super::{SPINNER, Symbols};
+use super::{ASCII_SPINNER, SPINNER, Symbols};
 
 const SOURCE_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src");
 const TABLE_FILE: &str = "symbols.rs";
@@ -25,15 +25,17 @@ fn ascii_mode_maps_every_other_glyph_to_an_ascii_equivalent() {
 }
 
 #[test]
-fn ascii_mode_maps_the_four_spinner_frames_to_a_rotating_bar() {
-    assert_eq!(Symbols::Ascii.render(&SPINNER.join(" ")), "| / - \\");
+fn ascii_mode_maps_the_picker_glyphs_to_words_and_marks() {
+    assert_eq!(Symbols::Ascii.render("❯ a ↑/↓ b▌"), "> a up/down b_");
 }
 
 #[test]
-fn unicode_mode_keeps_the_spinner_frames() {
-    let text = SPINNER.join(" ");
-
-    assert_eq!(Symbols::Unicode.render(&text), text);
+fn each_mode_has_its_own_spinner_and_the_ascii_one_needs_no_conversion() {
+    assert_eq!(Symbols::Unicode.spinner(), SPINNER);
+    assert_eq!(Symbols::Ascii.spinner(), ASCII_SPINNER);
+    for frame in ASCII_SPINNER {
+        assert_eq!(Symbols::Ascii.render(frame), frame);
+    }
 }
 
 #[test]

@@ -15,7 +15,7 @@ use envelope::Envelope;
 
 pub(crate) use contract::{DeliveryContract, OutputRule};
 pub(crate) use item_list::{Item as ListedItem, ItemListProblem};
-pub use questions::{MAX_QUESTIONS, Question, Questions};
+pub use questions::{Choice, MAX_QUESTIONS, Question, Questions};
 #[cfg(test)]
 pub(crate) use questions::{QuestionField, QuestionsProblem};
 pub(crate) use rejection::DeliveryRejection;

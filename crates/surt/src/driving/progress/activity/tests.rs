@@ -1,12 +1,20 @@
 use surt_engine::project::{ActivityPause, ActivitySnapshot, RunningStep, StepLabel};
 
+use super::super::spinner::frame;
 use super::{Activity, Output, Terminal, on_tick};
 use crate::driving::local_time;
-use crate::symbols::{SPIN_1, SPIN_2, SPIN_3, SPIN_4, SPINNER, Symbols};
+use crate::symbols::{ASCII_SPINNER, SPINNER, Symbols};
 
 const STARTED: i64 = 1_000_000;
 const MINUTE: i64 = 60;
-const WIDE: Terminal = Terminal::Tty { width: 200 };
+const WIDE: Terminal = Terminal::Tty {
+    width: 200,
+    symbols: Symbols::Unicode,
+};
+const ASCII_WIDE: Terminal = Terminal::Tty {
+    width: 200,
+    symbols: Symbols::Ascii,
+};
 
 // Even seconds are multiples of 400 ms, so they land on the first frame.
 fn ms(seconds: i64) -> i64 {
@@ -14,7 +22,11 @@ fn ms(seconds: i64) -> i64 {
 }
 
 fn spun(text: &str) -> String {
-    format!("{SPIN_1} {text}")
+    format!("{} {text}", SPINNER[0])
+}
+
+fn ascii_spun(at_ms: i64, text: &str) -> String {
+    format!("{} {text}", frame(at_ms, Symbols::Ascii))
 }
 
 fn running(item: Option<&str>, key: &str, iteration: Option<u32>, started_at: i64) -> RunningStep {
@@ -160,7 +172,7 @@ fn ascii(output: Option<Output>) -> String {
 fn the_footer_and_the_heartbeat_line_print_only_ascii_in_ascii_mode() {
     let now = STARTED + 32 * MINUTE + 10;
 
-    let footer = ascii(on_tick(&activity(busy(), STARTED), ms(now), WIDE));
+    let footer = ascii(on_tick(&activity(busy(), STARTED), ms(now), ASCII_WIDE));
     let heartbeat = ascii(on_tick(
         &activity(busy(), STARTED),
         ms(now),
@@ -169,7 +181,10 @@ fn the_footer_and_the_heartbeat_line_print_only_ascii_in_ascii_mode() {
 
     assert_eq!(
         footer,
-        "| -- 2 running (B build 6m, C review 1m) | 1 queued | slots 3/3 | 32m --"
+        ascii_spun(
+            ms(now),
+            "-- 2 running (B build 6m, C review 1m) | 1 queued | slots 3/3 | 32m --"
+        )
     );
     assert_eq!(heartbeat, "... still running: B build (6m), C review (1m)");
 }
@@ -177,7 +192,13 @@ fn the_footer_and_the_heartbeat_line_print_only_ascii_in_ascii_mode() {
 #[test]
 fn a_footer_wider_than_the_terminal_is_cut_to_stay_on_one_line() {
     let now = STARTED + 32 * MINUTE + 10;
-    let footer = |width| on_tick(&activity(busy(), STARTED), ms(now), Terminal::Tty { width });
+    let footer = |width| {
+        let terminal = Terminal::Tty {
+            width,
+            symbols: Symbols::Unicode,
+        };
+        on_tick(&activity(busy(), STARTED), ms(now), terminal)
+    };
 
     assert_eq!(
         footer(30),
@@ -261,12 +282,15 @@ fn the_paused_footer_reads_in_ascii_mode() {
     let footer = ascii(on_tick(
         &activity(paused(Vec::new(), 2, None), STARTED),
         ms(now),
-        WIDE,
+        ASCII_WIDE,
     ));
 
     assert_eq!(
         footer,
-        format!("| -- 0 running | [paused] paused until {at} | 2 waiting | slots 0/3 | 32m --")
+        ascii_spun(
+            ms(now),
+            &format!("-- 0 running | [paused] paused until {at} | 2 waiting | slots 0/3 | 32m --")
+        )
     );
 }
 
@@ -331,46 +355,52 @@ fn the_times_move_one_second_at_a_time_while_the_spinner_turns_ten_times_a_secon
         without_spinner(&footer(now + 50 * MINUTE * 1000)),
         "── 2 running (B build 56m, C review 51m) · 1 queued · slots 3/3 · 1h22m ──"
     );
-    assert_eq!(footer(now), footer(now + 4 * 100 * 3));
+    assert_eq!(
+        without_spinner(&footer(now)),
+        without_spinner(&footer(now + 999))
+    );
 }
 
 #[test]
 fn the_footer_never_exceeds_the_last_column_even_on_tiny_terminals() {
     let now = ms(STARTED + 32 * MINUTE + 10);
 
-    for width in [0, 1, 2, 5, 30, 80] {
-        let terminal = Terminal::Tty { width };
-        let limit = width.saturating_sub(1);
-        let with = text(on_tick(&activity(busy(), STARTED), now, terminal));
-        let without = text(on_tick(&nothing_yet(), now, terminal));
+    for symbols in [Symbols::Unicode, Symbols::Ascii] {
+        for width in [0, 1, 2, 5, 30, 80] {
+            let terminal = Terminal::Tty { width, symbols };
+            let limit = width.saturating_sub(1);
+            let with = ascii(on_tick(&activity(busy(), STARTED), now, terminal));
+            let without = ascii(on_tick(&nothing_yet(), now, terminal));
 
-        assert!(with.chars().count() <= limit, "{width}: {with:?}");
-        assert!(without.chars().count() <= limit, "{width}: {without:?}");
+            assert!(with.chars().count() <= limit, "{width}: {with:?}");
+            assert!(without.chars().count() <= limit, "{width}: {without:?}");
+        }
     }
 }
 
 #[test]
-fn in_ascii_mode_the_spinner_turns_through_a_bar() {
-    let now = ms(STARTED + 32 * MINUTE + 10);
-    let footer = |at: i64, activity: &Activity| ascii(on_tick(activity, at, WIDE));
+fn in_ascii_mode_the_spinner_bounces_a_bar() {
+    let start = ms(STARTED + 32 * MINUTE + 10);
+    let now = start - start.rem_euclid(ASCII_SPINNER.len() as i64 * 100);
+    let footer = |at: i64, activity: &Activity| ascii(on_tick(activity, at, ASCII_WIDE));
 
-    let frames: Vec<String> = (0..4)
+    let frames: Vec<String> = (0..ASCII_SPINNER.len() as i64)
         .map(|step| {
             let footer = footer(now + step * 100, &nothing_yet());
             assert!(footer.is_ascii());
-            footer.chars().next().expect("a frame").to_string()
+            footer.split_once("] ").expect("a frame").0.to_owned() + "]"
         })
         .collect();
 
-    assert_eq!(frames.join(" "), "| / - \\");
-    assert_eq!(footer(now, &nothing_yet()), "| -- 32m --");
-    assert!(footer(now + 100, &activity(busy(), STARTED)).starts_with("/ -- 2 running"));
-    assert!(footer(now, &activity(busy(), STARTED)).is_ascii());
+    assert_eq!(frames, ASCII_SPINNER);
+    assert!(footer(now, &nothing_yet()).starts_with("[=   ] -- 32m"));
+    assert!(footer(now + 100, &activity(busy(), STARTED)).starts_with("[ =  ] -- 2 running"));
 }
 
 #[test]
-fn the_four_spinner_glyphs_are_the_ones_of_the_table() {
-    assert_eq!(SPINNER, [SPIN_1, SPIN_2, SPIN_3, SPIN_4]);
+fn the_unicode_spinner_turns_through_braille_dots() {
+    assert_eq!(SPINNER.len(), 10);
+    assert!(SPINNER.iter().all(|glyph| glyph.chars().count() == 1));
 }
 
 #[test]

@@ -1,3 +1,4 @@
+mod choice;
 mod problem;
 
 use std::collections::HashSet;
@@ -8,6 +9,7 @@ use serde_json::Value;
 use super::portable::{KeyFault, first_key_fault};
 use super::{DeliveredFile, DeliveryRejection, ValidatedOutput};
 
+pub use choice::Choice;
 pub(crate) use problem::{QuestionField, QuestionsProblem};
 
 pub const MAX_QUESTIONS: usize = 5;
@@ -25,7 +27,7 @@ pub struct Question {
     why: String,
     recommended: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    options: Option<Vec<String>>,
+    options: Option<Vec<Choice>>,
 }
 
 #[derive(Deserialize)]
@@ -79,7 +81,7 @@ impl Question {
         &self.recommended
     }
 
-    pub fn options(&self) -> Option<&[String]> {
+    pub fn options(&self) -> Option<&[Choice]> {
         self.options.as_deref()
     }
 
@@ -106,19 +108,28 @@ impl Question {
         .find_map(|(field, text)| is_blank(text).then_some(field))
     }
 
-    fn check_options(&self, options: &[String]) -> Result<(), QuestionsProblem> {
+    fn check_options(&self, options: &[Choice]) -> Result<(), QuestionsProblem> {
         let id = || self.id.clone();
         if options.len() < MIN_OPTIONS {
             return Err(QuestionsProblem::TooFewOptions { id: id() });
         }
-        if options.iter().any(|option| is_blank(option)) {
+        if options.iter().any(|option| is_blank(option.value())) {
             return Err(QuestionsProblem::EmptyOption { id: id() });
         }
+        if let Some(option) = options
+            .iter()
+            .find(|option| option.description().is_some_and(is_blank))
+        {
+            return Err(QuestionsProblem::EmptyDescription {
+                id: id(),
+                option: option.value().to_owned(),
+            });
+        }
         let mut seen = HashSet::new();
-        if let Some(option) = options.iter().find(|option| !seen.insert(option.as_str())) {
+        if let Some(option) = options.iter().find(|option| !seen.insert(option.value())) {
             return Err(QuestionsProblem::DuplicateOption {
                 id: id(),
-                option: option.clone(),
+                option: option.value().to_owned(),
             });
         }
         if !seen.contains(self.recommended.as_str()) {

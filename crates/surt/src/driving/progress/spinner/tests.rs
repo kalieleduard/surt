@@ -1,48 +1,68 @@
 use super::{FRAME_MS, frame};
-use crate::symbols::SPINNER;
+use crate::symbols::{ASCII_SPINNER, SPINNER, Symbols};
 
-const CYCLE_MS: i64 = SPINNER.len() as i64 * FRAME_MS;
 const EPOCH_MS: i64 = 1_700_000_000_000;
+const MODES: [Symbols; 2] = [Symbols::Unicode, Symbols::Ascii];
 
-#[test]
-fn the_first_frame_lasts_until_the_frame_duration_is_reached() {
-    assert_eq!(frame(0), SPINNER[0]);
-    assert_eq!(frame(FRAME_MS - 1), SPINNER[0]);
-    assert_eq!(frame(FRAME_MS), SPINNER[1]);
+fn cycle_ms(symbols: Symbols) -> i64 {
+    symbols.spinner().len() as i64 * FRAME_MS
 }
 
 #[test]
-fn frames_follow_the_symbol_table_in_order() {
-    let frames: Vec<&str> = (0..SPINNER.len() as i64)
-        .map(|step| frame(step * FRAME_MS))
-        .collect();
+fn the_first_frame_lasts_until_the_frame_duration_is_reached() {
+    assert_eq!(frame(0, Symbols::Unicode), SPINNER[0]);
+    assert_eq!(frame(FRAME_MS - 1, Symbols::Unicode), SPINNER[0]);
+    assert_eq!(frame(FRAME_MS, Symbols::Unicode), SPINNER[1]);
+}
 
-    assert_eq!(frames, SPINNER);
+#[test]
+fn frames_follow_the_spinner_of_each_mode_in_order() {
+    let frames = |symbols: Symbols| -> Vec<&str> {
+        (0..symbols.spinner().len() as i64)
+            .map(|step| frame(step * FRAME_MS, symbols))
+            .collect()
+    };
+
+    assert_eq!(frames(Symbols::Unicode), SPINNER);
+    assert_eq!(frames(Symbols::Ascii), ASCII_SPINNER);
+}
+
+#[test]
+fn the_ascii_spinner_is_ascii_and_bounces_a_bar_back_and_forth() {
+    assert!(ASCII_SPINNER.iter().all(|frame| frame.is_ascii()));
+    assert_eq!(frame(3 * FRAME_MS, Symbols::Ascii), "[   =]");
+    assert_eq!(frame(4 * FRAME_MS, Symbols::Ascii), "[  = ]");
 }
 
 #[test]
 fn consecutive_steps_always_give_different_frames() {
-    for step in 0..(SPINNER.len() as i64 * 3) {
-        assert_ne!(frame(step * FRAME_MS), frame((step + 1) * FRAME_MS));
+    for symbols in MODES {
+        for step in 0..(symbols.spinner().len() as i64 * 3) {
+            assert_ne!(
+                frame(step * FRAME_MS, symbols),
+                frame((step + 1) * FRAME_MS, symbols)
+            );
+        }
     }
 }
 
 #[test]
 fn the_cycle_repeats_after_all_frames_were_shown() {
-    for elapsed in [0, 1, FRAME_MS, 250, CYCLE_MS - 1] {
-        assert_eq!(frame(elapsed), frame(elapsed + CYCLE_MS));
+    for symbols in MODES {
+        let cycle = cycle_ms(symbols);
+        for elapsed in [0, 1, FRAME_MS, 250, cycle - 1] {
+            assert_eq!(frame(elapsed, symbols), frame(elapsed + cycle, symbols));
+        }
     }
 }
 
 #[test]
-fn an_epoch_timestamp_does_not_panic() {
-    assert!(SPINNER.contains(&frame(EPOCH_MS)));
-    assert!(SPINNER.contains(&frame(i64::MAX)));
-}
-
-#[test]
-fn a_negative_time_picks_a_frame_without_panicking() {
-    assert!(SPINNER.contains(&frame(-1)));
-    assert!(SPINNER.contains(&frame(i64::MIN)));
-    assert_eq!(frame(-1), SPINNER[SPINNER.len() - 1]);
+fn extreme_times_pick_a_frame_without_panicking() {
+    for symbols in MODES {
+        let frames = symbols.spinner();
+        for elapsed in [EPOCH_MS, i64::MAX, -1, i64::MIN] {
+            assert!(frames.contains(&frame(elapsed, symbols)));
+        }
+        assert_eq!(frame(-1, symbols), frames[frames.len() - 1]);
+    }
 }

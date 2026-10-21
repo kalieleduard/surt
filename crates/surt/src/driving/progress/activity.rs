@@ -3,7 +3,7 @@ use surt_engine::project::{ActivityPause, ActivitySnapshot, RunningStep};
 use super::spinner;
 use crate::driving::local_time;
 use crate::duration::rounded;
-use crate::symbols::{DASH, ELLIPSIS, HORIZONTAL, PAUSED, SEPARATOR};
+use crate::symbols::{DASH, ELLIPSIS, HORIZONTAL, PAUSED, SEPARATOR, Symbols};
 
 const QUIET_LIMIT: i64 = 5 * 60;
 const MILLIS_PER_SECOND: i64 = 1000;
@@ -14,7 +14,7 @@ const ELLIPSIS_ROOM: usize = 3;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Terminal {
-    Tty { width: usize },
+    Tty { width: usize, symbols: Symbols },
     Plain,
 }
 
@@ -34,13 +34,14 @@ pub(super) fn on_tick(activity: &Activity, now_ms: i64, terminal: Terminal) -> O
     let seconds = now_ms.div_euclid(MILLIS_PER_SECOND);
     let snapshot = activity.snapshot.as_ref();
     match terminal {
-        Terminal::Tty { width } => {
+        Terminal::Tty { width, symbols } => {
             let text = match snapshot {
                 Some(snapshot) => footer(snapshot, activity.started, seconds),
                 None => ruled(&rounded(seconds - activity.started)),
             };
-            let frame = spinner::frame(now_ms);
-            Some(Output::Footer(fit(&format!("{frame} {text}"), width)))
+            let frame = spinner::frame(now_ms, symbols);
+            let line = format!("{frame} {}", symbols.render(&text));
+            Some(Output::Footer(fit(&line, width)))
         }
         Terminal::Plain => still_running(snapshot?, activity.last_line, seconds).map(Output::Line),
     }
@@ -82,8 +83,8 @@ fn fit(text: &str, width: usize) -> String {
     if text.chars().count() <= limit {
         return text.to_owned();
     }
-    if limit == 0 {
-        return String::new();
+    if limit < ELLIPSIS_ROOM {
+        return text.chars().take(limit).collect();
     }
     let kept: String = text
         .chars()
