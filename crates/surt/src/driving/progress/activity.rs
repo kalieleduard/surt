@@ -1,16 +1,16 @@
 use surt_engine::project::{ActivityPause, ActivitySnapshot, RunningStep};
 
+use super::row::Row;
 use super::spinner;
 use crate::driving::local_time;
 use crate::duration::rounded;
-use crate::symbols::{DASH, ELLIPSIS, HORIZONTAL, PAUSED, SEPARATOR, Symbols};
+use crate::symbols::{DASH, ELLIPSIS, PAUSED, SEPARATOR, Symbols};
 
 const QUIET_LIMIT: i64 = 5 * 60;
 const MILLIS_PER_SECOND: i64 = 1000;
 const FIRST: u32 = 1;
-const RULE_WIDTH: usize = 2;
-const LAST_COLUMN: usize = 1;
-const ELLIPSIS_ROOM: usize = 3;
+const SHOWN_STEPS: usize = 6;
+const GUTTER: &str = "  ";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Terminal {
@@ -20,7 +20,7 @@ pub(super) enum Terminal {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Output {
-    Footer(String),
+    Footer(Vec<Row>),
     Line(String),
 }
 
@@ -35,27 +35,52 @@ pub(super) fn on_tick(activity: &Activity, now_ms: i64, terminal: Terminal) -> O
     let snapshot = activity.snapshot.as_ref();
     match terminal {
         Terminal::Tty { width, symbols } => {
-            let text = match snapshot {
-                Some(snapshot) => footer(snapshot, activity.started, seconds),
-                None => ruled(&rounded(seconds - activity.started)),
-            };
             let frame = spinner::frame(now_ms, symbols);
-            let line = format!("{frame} {}", symbols.render(&text));
-            Some(Output::Footer(fit(&line, width)))
+            let rows = match snapshot {
+                Some(snapshot) => block(snapshot, activity.started, seconds, frame),
+                None => vec![Row {
+                    lead: format!("{frame} "),
+                    label: String::new(),
+                    faded: rounded(seconds - activity.started),
+                }],
+            };
+            let rows = rows.into_iter().map(|row| row.rendered(symbols).fit(width));
+            Some(Output::Footer(rows.collect()))
         }
         Terminal::Plain => still_running(snapshot?, activity.last_line, seconds).map(Output::Line),
     }
 }
 
-fn footer(snapshot: &ActivitySnapshot, started: i64, now: i64) -> String {
-    let mut parts = vec![format!("{} running", snapshot.running.len())];
-    if !snapshot.running.is_empty() {
-        let running: Vec<String> = snapshot
-            .running
-            .iter()
-            .map(|step| format!("{} {}", name(step), rounded(now - step.started_at)))
-            .collect();
-        parts[0].push_str(&format!(" ({})", running.join(", ")));
+fn block(snapshot: &ActivitySnapshot, started: i64, now: i64, frame: &str) -> Vec<Row> {
+    let shown = &snapshot.running[..snapshot.running.len().min(SHOWN_STEPS)];
+    let names: Vec<String> = shown.iter().map(name).collect();
+    let column = names.iter().map(|name| name.chars().count()).max();
+    let mut rows: Vec<Row> = shown
+        .iter()
+        .zip(names)
+        .map(|(step, name)| Row {
+            lead: format!("{frame} "),
+            label: format!("{name:<width$}{GUTTER}", width = column.unwrap_or(0)),
+            faded: rounded(now - step.started_at),
+        })
+        .collect();
+    let lead = match rows.is_empty() {
+        true => format!("{frame} "),
+        false => " ".repeat(frame.chars().count() + 1),
+    };
+    rows.push(Row {
+        lead,
+        label: String::new(),
+        faded: summary(snapshot, shown.len(), started, now),
+    });
+    rows
+}
+
+fn summary(snapshot: &ActivitySnapshot, shown: usize, started: i64, now: i64) -> String {
+    let mut parts = Vec::new();
+    let hidden = snapshot.running.len() - shown;
+    if hidden > 0 {
+        parts.push(format!("+{hidden} more running"));
     }
     match snapshot.paused {
         Some(pause) => {
@@ -70,27 +95,7 @@ fn footer(snapshot: &ActivitySnapshot, started: i64, now: i64) -> String {
         snapshot.slots_in_use, snapshot.slots_limit
     ));
     parts.push(rounded(now - started));
-    ruled(&parts.join(SEPARATOR))
-}
-
-fn ruled(text: &str) -> String {
-    let rule = HORIZONTAL.repeat(RULE_WIDTH);
-    format!("{rule} {text} {rule}")
-}
-
-fn fit(text: &str, width: usize) -> String {
-    let limit = width.saturating_sub(LAST_COLUMN);
-    if text.chars().count() <= limit {
-        return text.to_owned();
-    }
-    if limit < ELLIPSIS_ROOM {
-        return text.chars().take(limit).collect();
-    }
-    let kept: String = text
-        .chars()
-        .take(limit.saturating_sub(ELLIPSIS_ROOM))
-        .collect();
-    format!("{}{ELLIPSIS}", kept.trim_end())
+    parts.join(SEPARATOR)
 }
 
 fn still_running(snapshot: &ActivitySnapshot, last_line: i64, now: i64) -> Option<String> {

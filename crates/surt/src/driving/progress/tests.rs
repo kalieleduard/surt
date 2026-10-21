@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use surt_engine::project::{ActivityPause, Progress, StepLabel};
 
 use super::message;
+use super::row::Row;
 use crate::driving::blocked::local_time;
 use crate::symbols::Symbols;
 
@@ -199,24 +200,52 @@ fn launches_pause_until_the_reset_time_or_for_the_backoff_delay_then_resume() {
     );
 }
 
-#[test]
-fn a_colored_footer_paints_the_spinner_cyan_and_fades_the_rules_and_separators() {
-    let footer = "\u{280b} \u{2500}\u{2500} 1 running \u{b7} slots 1/3 \u{2500}\u{2500}";
-
-    let painted = super::screen::painted(footer, "\u{280b}", Symbols::Unicode);
-
-    assert_eq!(
-        painted,
-        "\u{1b}[1m\u{1b}[36m\u{280b}\u{1b}[0m \u{1b}[2m\u{2500}\u{2500}\u{1b}[0m 1 running\
-         \u{1b}[2m \u{b7} \u{1b}[0mslots 1/3 \u{1b}[2m\u{2500}\u{2500}\u{1b}[0m"
-    );
-    assert_eq!(anstream::adapter::strip_str(&painted).to_string(), footer);
+fn row(lead: &str, label: &str, faded: &str) -> Row {
+    Row {
+        lead: lead.to_owned(),
+        label: label.to_owned(),
+        faded: faded.to_owned(),
+    }
 }
 
 #[test]
-fn a_footer_cut_before_its_spinner_is_left_unpainted() {
+fn a_colored_footer_row_paints_the_spinner_cyan_and_fades_the_elapsed_time() {
+    let step = row("\u{280b} ", "B build  ", "6m");
+
+    let painted = super::screen::painted(&step);
+
     assert_eq!(
-        super::screen::painted("\u{2026}", "[=   ]", Symbols::Ascii),
-        "\u{2026}"
+        painted,
+        "\u{1b}[1m\u{1b}[36m\u{280b} \u{1b}[0mB build  \u{1b}[2m6m\u{1b}[0m"
+    );
+    assert_eq!(
+        anstream::adapter::strip_str(&painted).to_string(),
+        step.plain()
+    );
+}
+
+#[test]
+fn a_footer_row_cut_inside_its_spinner_paints_no_empty_styles() {
+    assert_eq!(
+        super::screen::painted(&row("\u{2026}", "", "")),
+        "\u{1b}[1m\u{1b}[36m\u{2026}\u{1b}[0m"
+    );
+}
+
+#[test]
+fn a_stamped_event_line_starts_with_the_clock_and_keeps_its_context_under_the_headline() {
+    let warning = Progress::ConfigInvalid {
+        path: PathBuf::from("/work/shop/.surt/config.toml"),
+        line: Some(4),
+        reason: "string values must be quoted".to_owned(),
+        limit: 2,
+    };
+    let (mark, message) = message(&warning);
+
+    assert_eq!(
+        message.plain_stamped(mark, "12:04:41"),
+        "12:04:41 ⚠ invalid configuration in /work/shop/.surt/config.toml:4 — keeping max_concurrent_agents = 2\n\
+         \x20          string values must be quoted\n\
+         \x20          fix: edit /work/shop/.surt/config.toml:4\n"
     );
 }

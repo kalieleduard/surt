@@ -1,4 +1,5 @@
 mod activity;
+mod row;
 mod screen;
 mod spinner;
 mod started;
