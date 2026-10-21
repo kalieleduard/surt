@@ -45,6 +45,7 @@ pub enum MergeIntoBase {
     #[default]
     Never,
     FfOnly,
+    Merge,
 }
 
 impl Default for Config {

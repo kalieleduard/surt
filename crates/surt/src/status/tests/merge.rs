@@ -48,6 +48,23 @@ fn the_detail_ends_a_merged_run_with_the_fast_forward_it_made() {
 }
 
 #[test]
+fn the_detail_names_the_merge_mode_as_merge() {
+    let status = RunStatus {
+        merge_into_base: MergeIntoBase::Merge,
+        ..finished(Some("main"), Some(merged()))
+    };
+
+    assert!(
+        detail::render(&status).contains("merge into base: merge"),
+        "{status:?}"
+    );
+    assert_eq!(
+        Value::from(json::subject(&status))["merge_into_base"],
+        json!("merge")
+    );
+}
+
+#[test]
 fn the_detail_names_why_a_run_was_not_merged() {
     let cases = [
         (

@@ -42,7 +42,7 @@ fn cancelled() -> Sandbox {
 }
 
 #[test]
-fn merge_freezes_ff_only_and_names_the_flag_under_the_creation_line() {
+fn merge_freezes_merge_and_names_the_flag_under_the_creation_line() {
     let sandbox = project();
 
     let created = ok(sandbox.run_feature("add login", &["--merge"]));
@@ -50,10 +50,10 @@ fn merge_freezes_ff_only_and_names_the_flag_under_the_creation_line() {
     assert!(created.starts_with("✔ created "), "{created}");
     assert_eq!(
         second_line(&created),
-        "  merge into base: ff-only (--merge)",
+        "  merge into base: merge (--merge)",
         "{created}"
     );
-    assert_eq!(frozen_mode(&sandbox, &subject_name()), "ff-only");
+    assert_eq!(frozen_mode(&sandbox, &subject_name()), "merge");
 }
 
 #[test]
@@ -114,10 +114,10 @@ fn a_new_run_freezes_the_flag_it_was_given() {
     assert!(merged.starts_with("✔ run 2 of "), "{merged}");
     assert_eq!(
         second_line(&merged),
-        "  merge into base: ff-only (--merge)",
+        "  merge into base: merge (--merge)",
         "{merged}"
     );
-    assert_eq!(frozen_mode(&sandbox, &name), "ff-only");
+    assert_eq!(frozen_mode(&sandbox, &name), "merge");
 }
 
 #[test]
@@ -152,12 +152,12 @@ fn either_flag_on_resume_refuses_naming_the_frozen_value_and_the_new_run() {
         assert_eq!(
             resumed.stderr,
             format!(
-                "✖ run 1 of {name} already froze merge_into_base = \"ff-only\"\n  \
+                "✖ run 1 of {name} already froze merge_into_base = \"merge\"\n  \
                  to choose again, start a new run: surt continue {name} --new-run {flag}\n"
             )
         );
     }
-    assert_eq!(frozen_mode(&sandbox, &name), "ff-only");
+    assert_eq!(frozen_mode(&sandbox, &name), "merge");
 }
 
 #[test]
