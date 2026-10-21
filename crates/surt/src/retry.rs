@@ -12,14 +12,6 @@ impl Retry {
         }
     }
 
-    pub(crate) fn option(mut self, flag: &str, value: Option<&str>) -> Retry {
-        if let Some(value) = value {
-            self.words.push(flag.to_owned());
-            self.words.push(word(value));
-        }
-        self
-    }
-
     pub(crate) fn word(mut self, word: &str) -> Retry {
         self.words.push(word.to_owned());
         self

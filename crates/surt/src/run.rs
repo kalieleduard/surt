@@ -22,8 +22,6 @@ pub(crate) struct RunArgs {
     inputs: Vec<InputArg>,
     #[arg(long, value_name = "slug")]
     name: Option<String>,
-    #[arg(long)]
-    new: bool,
     #[arg(long, conflicts_with = "no_merge")]
     merge: bool,
     #[arg(long = "no-merge")]
@@ -34,8 +32,8 @@ pub(crate) async fn run(cwd: &Path, args: RunArgs) -> Result<(), Failure> {
     let project = Project::open(cwd).await?;
     let merge = MergeFlag::chosen(args.merge, args.no_merge);
     let inputs = inputs::read(cwd, &args.inputs)?;
-    let subject = project.subject_input(&args.workflow, &inputs)?;
-    let name = naming::free_name(&project, &args, subject).await?;
+    project.subject_input(&args.workflow, &inputs)?;
+    let name = naming::free_name(&project, &args).await?;
     let new_run = NewRun {
         subject: name.name.clone(),
         workflow: args.workflow.clone(),

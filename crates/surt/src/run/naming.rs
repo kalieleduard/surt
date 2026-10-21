@@ -8,21 +8,13 @@ use crate::retry::{Retry, quoted};
 
 const NAME_PLACEHOLDER: &str = "--name <slug>";
 
-pub(super) async fn free_name(
-    project: &Project,
-    args: &RunArgs,
-    subject: Option<&str>,
-) -> Result<FreeName, Failure> {
-    let source = args.name.as_deref().or(subject).unwrap_or(&args.workflow);
-    let slug = Slug::derive(source).ok_or_else(|| Failure::Refused(no_slug(args, subject)))?;
-    if !args.new
-        && let Some(active) = project.active_subject_with_slug(&slug).await?
-    {
-        return Err(Failure::Refused(active_slug(args, &active)));
-    }
-    Ok(project
-        .free_subject_name(&slug, Zoned::now().date())
-        .await?)
+pub(super) async fn free_name(project: &Project, args: &RunArgs) -> Result<FreeName, Failure> {
+    let today = Zoned::now().date();
+    let Some(name) = &args.name else {
+        return Ok(project.next_numbered_subject_name(today).await?);
+    };
+    let slug = Slug::derive(name).ok_or_else(|| Failure::Refused(no_slug(args, name)))?;
+    Ok(project.free_subject_name(&slug, today).await?)
 }
 
 fn retry(args: &RunArgs) -> Retry {
@@ -32,26 +24,8 @@ fn retry(args: &RunArgs) -> Retry {
     )
 }
 
-fn no_slug(args: &RunArgs, subject: Option<&str>) -> Message {
-    let headline = match (&args.name, subject) {
-        (Some(name), _) => format!("cannot derive a name from --name {}", quoted(name)),
-        (None, Some(_)) => {
-            "cannot derive a name from the subject input; pass --name <slug>".to_owned()
-        }
-        (None, None) => format!(
-            "cannot derive a name from workflow {}; pass --name <slug>",
-            quoted(&args.workflow)
-        ),
-    };
+fn no_slug(args: &RunArgs, name: &str) -> Message {
+    let headline = format!("cannot derive a name from --name {}", quoted(name));
     let fix = retry(args).word(NAME_PLACEHOLDER);
     Message::new(headline).way("fix", fix.render())
-}
-
-fn active_slug(args: &RunArgs, active: &str) -> Message {
-    let anew = retry(args)
-        .option("--name", args.name.as_deref())
-        .word("--new");
-    Message::new(format!("{active} already has an active run"))
-        .way("resume", format!("surt continue {active}"))
-        .way("or", anew.render())
 }

@@ -1,6 +1,7 @@
 use std::fs;
 
 use crate::run::{project, subjects, today};
+use crate::scripts::spec;
 use crate::support::Sandbox;
 
 const HELLO_WORKFLOW: &str = r#"schema = 1
@@ -48,14 +49,14 @@ fn with_hello(sandbox: &Sandbox) {
 }
 
 #[test]
-fn a_workflow_without_inputs_runs_and_takes_its_name_from_the_workflow() {
+fn a_workflow_without_inputs_runs_and_is_numbered() {
     let sandbox = project();
     with_hello(&sandbox);
 
     let run = sandbox.surt(&sandbox.repo(), &["run", "hello"]);
 
     assert_eq!(run.code, Some(0), "{}", run.stderr);
-    let name = format!("{}-hello", today());
+    let name = format!("{}-1", today());
     assert!(
         run.stderr
             .starts_with(&format!("✔ created {name}   workflow: hello\n")),
@@ -66,6 +67,42 @@ fn a_workflow_without_inputs_runs_and_takes_its_name_from_the_workflow() {
     assert_eq!(
         sandbox.texts("SELECT state FROM workflow_run"),
         ["succeeded"]
+    );
+}
+
+#[test]
+fn numbering_is_shared_between_workflows() {
+    let sandbox = project();
+    with_hello(&sandbox);
+    sandbox.script(&[
+        spec(
+            1, "# Spec
+",
+        ),
+        GREETING.to_owned(),
+    ]);
+    sandbox.run_feature_unnamed("add login", &[]);
+    sandbox.run_feature_unnamed("add logout", &[]);
+
+    let run = sandbox.surt(&sandbox.repo(), &["run", "hello"]);
+
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
+    let today = today();
+    assert!(
+        run.stderr.starts_with(&format!(
+            "✔ created {today}-3   workflow: hello
+"
+        )),
+        "{}",
+        run.stderr
+    );
+    assert_eq!(
+        subjects(&sandbox),
+        [
+            format!("{today}-1"),
+            format!("{today}-2"),
+            format!("{today}-3")
+        ]
     );
 }
 

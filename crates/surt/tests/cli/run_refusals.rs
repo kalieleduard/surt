@@ -1,4 +1,4 @@
-use crate::run::{project, subjects};
+use crate::run::{project, subjects, today};
 use crate::scripts::spec;
 use crate::support::{REFUSED_EXIT_CODE, Sandbox};
 
@@ -52,15 +52,27 @@ fn a_repository_without_commits_has_no_base_to_start_from() {
 }
 
 #[test]
-fn a_request_with_no_portable_characters_asks_for_a_name() {
+fn a_request_with_no_portable_characters_still_gets_a_numbered_name() {
     let sandbox = project();
 
-    let run = sandbox.run_feature("ログイン", &[]);
+    let run = sandbox.run_feature_unnamed("ログイン", &[]);
+
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
+    assert_eq!(subjects(&sandbox), [format!("{}-1", today())]);
+}
+
+#[test]
+fn a_name_with_no_portable_characters_is_refused() {
+    let sandbox = project();
+
+    let run = sandbox.run_feature("add login", &["--name", "ログイン"]);
 
     assert_eq!(run.code, Some(REFUSED_EXIT_CODE), "{}", run.stderr);
     assert_eq!(
         run.stderr,
-        "✖ cannot derive a name from the subject input; pass --name <slug>\n  fix: surt run feature --input request=\"ログイン\" --name <slug>\n"
+        "✖ cannot derive a name from --name \"ログイン\"
+  fix: surt run feature --input request=\"add login\" --name <slug>
+"
     );
     assert!(subjects(&sandbox).is_empty());
 }
