@@ -189,7 +189,7 @@ _Avoid_: Parameter, argument, flag
 What `surt init --template feature` writes: the workflows `feature` and `task-cycle` and the five Agents below. Once written they are files of the project like any other; these terms name what the Template defines, and a project that edits or replaces the files may use other words.
 
 **Feature**:
-The Subject of a run of the `feature` workflow, named `YYYYMMDD-<slug>` from its request.
+The Subject of a run of the `feature` workflow, named `YYYYMMDD-N`: the day it was created and a counter that starts at `1` each day and is shared by every workflow (one more than the highest `N` used that day). With `--name <slug>` it is `YYYYMMDD-<slug>` instead, with `-2`, `-3`… added if that name exists.
 _Avoid_: Project, epic, change
 
 **Task**:
