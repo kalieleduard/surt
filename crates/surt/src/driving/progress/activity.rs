@@ -1,10 +1,12 @@
 use surt_engine::project::{ActivityPause, ActivitySnapshot, RunningStep};
 
+use super::spinner;
 use crate::driving::local_time;
 use crate::duration::rounded;
 use crate::symbols::{DASH, ELLIPSIS, HORIZONTAL, PAUSED, SEPARATOR};
 
 const QUIET_LIMIT: i64 = 5 * 60;
+const MILLIS_PER_SECOND: i64 = 1000;
 const FIRST: u32 = 1;
 const RULE_WIDTH: usize = 2;
 const LAST_COLUMN: usize = 1;
@@ -28,14 +30,19 @@ pub(super) struct Activity {
     pub(super) last_line: i64,
 }
 
-pub(super) fn on_tick(activity: &Activity, now: i64, terminal: Terminal) -> Option<Output> {
-    let snapshot = activity.snapshot.as_ref()?;
+pub(super) fn on_tick(activity: &Activity, now_ms: i64, terminal: Terminal) -> Option<Output> {
+    let seconds = now_ms.div_euclid(MILLIS_PER_SECOND);
+    let snapshot = activity.snapshot.as_ref();
     match terminal {
-        Terminal::Tty { width } => Some(Output::Footer(fit(
-            &footer(snapshot, activity.started, now),
-            width,
-        ))),
-        Terminal::Plain => still_running(snapshot, activity.last_line, now).map(Output::Line),
+        Terminal::Tty { width } => {
+            let text = match snapshot {
+                Some(snapshot) => footer(snapshot, activity.started, seconds),
+                None => ruled(&rounded(seconds - activity.started)),
+            };
+            let frame = spinner::frame(now_ms);
+            Some(Output::Footer(fit(&format!("{frame} {text}"), width)))
+        }
+        Terminal::Plain => still_running(snapshot?, activity.last_line, seconds).map(Output::Line),
     }
 }
 
@@ -62,14 +69,21 @@ fn footer(snapshot: &ActivitySnapshot, started: i64, now: i64) -> String {
         snapshot.slots_in_use, snapshot.slots_limit
     ));
     parts.push(rounded(now - started));
+    ruled(&parts.join(SEPARATOR))
+}
+
+fn ruled(text: &str) -> String {
     let rule = HORIZONTAL.repeat(RULE_WIDTH);
-    format!("{rule} {} {rule}", parts.join(SEPARATOR))
+    format!("{rule} {text} {rule}")
 }
 
 fn fit(text: &str, width: usize) -> String {
     let limit = width.saturating_sub(LAST_COLUMN);
     if text.chars().count() <= limit {
         return text.to_owned();
+    }
+    if limit == 0 {
+        return String::new();
     }
     let kept: String = text
         .chars()

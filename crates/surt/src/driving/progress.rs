@@ -14,7 +14,7 @@ use wording::message;
 
 const FIRST: u32 = 1;
 const SHORT_SHA_CHARS: usize = 7;
-const REDRAW: Duration = Duration::from_secs(1);
+const REDRAW: Duration = Duration::from_millis(spinner::FRAME_MS as u64);
 
 #[derive(Default)]
 pub(crate) struct Printed {
