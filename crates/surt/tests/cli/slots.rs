@@ -20,7 +20,14 @@ const WAL_READ_MARKS: &str = "surt.db-shm";
 fn second_subject(sandbox: &Sandbox) -> String {
     let name = subject_name().replace("-add-login", "-fix-cache");
     for args in [
-        vec!["run", "feature", "--input", "request=fix cache"],
+        vec![
+            "run",
+            "feature",
+            "--input",
+            "request=fix cache",
+            "--name",
+            "fix-cache",
+        ],
         vec!["approve", &name],
         vec!["continue", &name],
         vec!["approve", &name],
