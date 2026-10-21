@@ -1,6 +1,6 @@
 use jiff::civil::Date;
 
-use super::naming::{DATE_FORMAT, Slug, dated_name, first_free, is_named_after, next_numbered};
+use super::naming::{DATE_FORMAT, Slug, dated_name, first_free, next_numbered};
 use super::{Error, Project, open_store};
 use crate::drive::Frozen;
 use crate::store::Store;
@@ -40,13 +40,6 @@ impl Project {
             stem: name.clone(),
             name,
         })
-    }
-
-    pub async fn active_subject_with_slug(&self, slug: &Slug) -> Result<Option<String>, Error> {
-        let store = open_store(&self.layout).await?;
-        let names = store.names_of_subjects_with_active_runs().await;
-        store.close().await;
-        Ok(names?.into_iter().find(|name| is_named_after(name, slug)))
     }
 
     pub async fn latest_workflow(&self, subject: &str) -> Result<Option<String>, Error> {
