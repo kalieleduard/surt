@@ -187,6 +187,17 @@ fn merging_into_base_fast_forward_only_parses() {
 }
 
 #[test]
+fn merging_into_base_with_a_merge_commit_parses() {
+    let config = ConfigFile::with("[git]
+merge_into_base = \"merge\"
+")
+        .load()
+        .expect("merge loads");
+
+    assert_eq!(config.git.merge_into_base, MergeIntoBase::Merge);
+}
+
+#[test]
 fn an_unknown_merge_mode_is_an_invalid_config() {
     let file = ConfigFile::with("[git]\nmerge_into_base = \"always\"\n");
 

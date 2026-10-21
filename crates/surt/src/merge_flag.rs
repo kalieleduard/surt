@@ -21,7 +21,7 @@ impl MergeFlag {
 
     pub(crate) fn mode(self) -> MergeIntoBase {
         match self {
-            MergeFlag::Merge => MergeIntoBase::FfOnly,
+            MergeFlag::Merge => MergeIntoBase::Merge,
             MergeFlag::NoMerge => MergeIntoBase::Never,
         }
     }

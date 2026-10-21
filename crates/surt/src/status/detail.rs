@@ -75,6 +75,7 @@ pub(crate) fn merge_into_base(mode: MergeIntoBase) -> &'static str {
     match mode {
         MergeIntoBase::Never => "never",
         MergeIntoBase::FfOnly => "ff-only",
+        MergeIntoBase::Merge => "merge",
     }
 }
 
