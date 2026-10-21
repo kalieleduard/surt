@@ -7,6 +7,7 @@ use crate::message::{Mark, Message};
 use crate::symbols::printable;
 
 const ERASE_LINE: &str = "\r\x1b[2K";
+const MILLIS_PER_SECOND: i64 = 1000;
 
 pub(super) struct Screen {
     activity: Activity,
@@ -15,11 +16,12 @@ pub(super) struct Screen {
 }
 
 pub(super) fn now() -> i64 {
-    jiff::Timestamp::now().as_second()
+    jiff::Timestamp::now().as_millisecond()
 }
 
 impl Screen {
-    pub(super) fn new(started: i64) -> Screen {
+    pub(super) fn new(started_ms: i64) -> Screen {
+        let started = started_ms.div_euclid(MILLIS_PER_SECOND);
         let tty = std::io::stderr().is_terminal();
         Screen {
             activity: Activity {
@@ -32,27 +34,27 @@ impl Screen {
         }
     }
 
-    pub(super) fn snapshot(&mut self, snapshot: ActivitySnapshot, now: i64) {
+    pub(super) fn snapshot(&mut self, snapshot: ActivitySnapshot, now_ms: i64) {
         self.activity.snapshot = Some(snapshot);
-        self.tick(now);
+        self.tick(now_ms);
     }
 
-    pub(super) fn line(&mut self, mark: Mark, message: &Message, now: i64) {
+    pub(super) fn line(&mut self, mark: Mark, message: &Message, now_ms: i64) {
         self.erase();
         message.print(mark);
-        self.activity.last_line = now;
-        self.tick(now);
+        self.activity.last_line = now_ms.div_euclid(MILLIS_PER_SECOND);
+        self.tick(now_ms);
     }
 
-    pub(super) fn tick(&mut self, now: i64) {
-        match on_tick(&self.activity, now, self.terminal()) {
+    pub(super) fn tick(&mut self, now_ms: i64) {
+        match on_tick(&self.activity, now_ms, self.terminal()) {
             Some(Output::Footer(text)) => {
                 write(&format!("{ERASE_LINE}{text}"));
                 self.footer = true;
             }
             Some(Output::Line(text)) => {
                 write(&format!("{text}\n"));
-                self.activity.last_line = now;
+                self.activity.last_line = now_ms.div_euclid(MILLIS_PER_SECOND);
             }
             None => {}
         }
