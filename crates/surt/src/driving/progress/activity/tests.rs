@@ -1,5 +1,6 @@
 use surt_engine::project::{ActivityPause, ActivitySnapshot, RunningStep, StepLabel};
 
+use super::super::row::Row;
 use super::super::spinner::frame;
 use super::{Activity, Output, Terminal, on_tick};
 use crate::driving::local_time;
@@ -19,6 +20,13 @@ const ASCII_WIDE: Terminal = Terminal::Tty {
 // Even seconds are multiples of 400 ms, so they land on the first frame.
 fn ms(seconds: i64) -> i64 {
     seconds * 1000
+}
+
+fn drawn(output: Option<Output>) -> String {
+    match output.expect("an output") {
+        Output::Footer(rows) => rows.iter().map(Row::plain).collect::<Vec<_>>().join("\n"),
+        Output::Line(text) => text,
+    }
 }
 
 fn spun(text: &str) -> String {
@@ -70,16 +78,42 @@ fn activity(snapshot: ActivitySnapshot, last_line: i64) -> Activity {
 }
 
 #[test]
-fn the_footer_shows_what_runs_for_how_long_the_queue_the_slots_and_the_elapsed_time() {
+fn the_footer_gives_each_running_step_its_own_spinning_row_above_the_queue_slots_and_time() {
     let now = STARTED + 32 * MINUTE + 10;
 
-    let footer = on_tick(&activity(busy(), STARTED), ms(now), WIDE);
+    let footer = drawn(on_tick(&activity(busy(), STARTED), ms(now), WIDE));
 
     assert_eq!(
         footer,
-        Some(Output::Footer(spun(
-            "── 2 running (B build 6m, C review 1m) · 1 queued · slots 3/3 · 32m ──"
-        )))
+        "⠋ B build   6m\n\
+         ⠋ C review  1m\n\
+         \x20 1 queued · slots 3/3 · 32m"
+    );
+}
+
+#[test]
+fn the_footer_shows_at_most_six_steps_and_counts_the_rest_in_the_summary() {
+    let crowded = ActivitySnapshot {
+        running: (0..8)
+            .map(|index| running(Some(&index.to_string()), "build", None, STARTED))
+            .collect(),
+        queued: 0,
+        slots_in_use: 8,
+        slots_limit: 8,
+        paused: None,
+    };
+
+    let footer = drawn(on_tick(&activity(crowded, STARTED), ms(STARTED + 42), WIDE));
+
+    assert_eq!(
+        footer,
+        "⠋ 0 build  42s\n\
+         ⠋ 1 build  42s\n\
+         ⠋ 2 build  42s\n\
+         ⠋ 3 build  42s\n\
+         ⠋ 4 build  42s\n\
+         ⠋ 5 build  42s\n\
+         \x20 +2 more running · slots 8/8 · 42s"
     );
 }
 
@@ -94,24 +128,16 @@ fn the_footer_names_root_steps_and_later_iterations_and_counts_seconds_then_hour
     };
     let now = STARTED + 2 * 3600 + 42;
 
-    let footer = on_tick(&activity(snapshot, STARTED), ms(now), WIDE);
+    let footer = drawn(on_tick(&activity(snapshot, STARTED), ms(now), WIDE));
 
-    assert_eq!(
-        footer,
-        Some(Output::Footer(spun(
-            "── 1 running (spec iter 2 42s) · slots 1/3 · 2h00m ──"
-        )))
-    );
+    assert_eq!(footer, "⠋ spec iter 2  42s\n  slots 1/3 · 2h00m");
 }
 
 #[test]
 fn before_the_first_snapshot_the_footer_is_the_spinner_and_the_total_time() {
     let now = ms(STARTED + 10 * MINUTE);
 
-    assert_eq!(
-        on_tick(&nothing_yet(), now, WIDE),
-        Some(Output::Footer(spun("── 10m ──")))
-    );
+    assert_eq!(drawn(on_tick(&nothing_yet(), now, WIDE)), spun("10m"));
 }
 
 #[test]
@@ -163,9 +189,7 @@ fn without_a_tty_nothing_fires_when_nothing_runs() {
 }
 
 fn ascii(output: Option<Output>) -> String {
-    match output.expect("an output") {
-        Output::Footer(text) | Output::Line(text) => Symbols::Ascii.render(&text).into_owned(),
-    }
+    Symbols::Ascii.render(&drawn(output)).into_owned()
 }
 
 #[test]
@@ -181,34 +205,33 @@ fn the_footer_and_the_heartbeat_line_print_only_ascii_in_ascii_mode() {
 
     assert_eq!(
         footer,
-        ascii_spun(
-            ms(now),
-            "-- 2 running (B build 6m, C review 1m) | 1 queued | slots 3/3 | 32m --"
+        format!(
+            "{frame} B build   6m\n{frame} C review  1m\n{indent}1 queued | slots 3/3 | 32m",
+            frame = frame(ms(now), Symbols::Ascii),
+            indent = " ".repeat(ASCII_SPINNER[0].len() + 1)
         )
     );
     assert_eq!(heartbeat, "... still running: B build (6m), C review (1m)");
 }
 
 #[test]
-fn a_footer_wider_than_the_terminal_is_cut_to_stay_on_one_line() {
+fn a_footer_row_wider_than_the_terminal_is_cut_to_stay_on_one_line() {
     let now = STARTED + 32 * MINUTE + 10;
     let footer = |width| {
         let terminal = Terminal::Tty {
             width,
             symbols: Symbols::Unicode,
         };
-        on_tick(&activity(busy(), STARTED), ms(now), terminal)
+        drawn(on_tick(&activity(busy(), STARTED), ms(now), terminal))
     };
 
     assert_eq!(
-        footer(30),
-        Some(Output::Footer(spun("── 2 running (B build 6m…")))
+        footer(20),
+        "⠋ B build   6m\n⠋ C review  1m\n  1 queued · slo…"
     );
     assert_eq!(
         footer(80),
-        Some(Output::Footer(spun(
-            "── 2 running (B build 6m, C review 1m) · 1 queued · slots 3/3 · 32m ──"
-        )))
+        "⠋ B build   6m\n⠋ C review  1m\n  1 queued · slots 3/3 · 32m"
     );
 }
 
@@ -231,19 +254,19 @@ fn paused(running: Vec<RunningStep>, waiting: usize, backoff: Option<i64>) -> Ac
 fn the_footer_says_until_when_launches_are_paused_and_how_many_agents_wait() {
     let at = local_time(RESET).expect("a local time");
     let now = STARTED + 32 * MINUTE + 10;
-    let footer = |snapshot| on_tick(&activity(snapshot, STARTED), ms(now), WIDE);
+    let footer = |snapshot| drawn(on_tick(&activity(snapshot, STARTED), ms(now), WIDE));
 
     assert_eq!(
         footer(paused(Vec::new(), 2, None)),
-        Some(Output::Footer(spun(&format!(
-            "── 0 running · ⏸ paused until {at} · 2 waiting · slots 0/3 · 32m ──"
-        ))))
+        spun(&format!(
+            "⏸ paused until {at} · 2 waiting · slots 0/3 · 32m"
+        ))
     );
     assert_eq!(
         footer(paused(Vec::new(), 1, Some(120))),
-        Some(Output::Footer(spun(&format!(
-            "── 0 running · ⏸ paused until {at} (backoff 2m) · 1 waiting · slots 0/3 · 32m ──"
-        ))))
+        spun(&format!(
+            "⏸ paused until {at} (backoff 2m) · 1 waiting · slots 0/3 · 32m"
+        ))
     );
 }
 
@@ -289,7 +312,7 @@ fn the_paused_footer_reads_in_ascii_mode() {
         footer,
         ascii_spun(
             ms(now),
-            &format!("-- 0 running | [paused] paused until {at} | 2 waiting | slots 0/3 | 32m --")
+            &format!("[paused] paused until {at} | 2 waiting | slots 0/3 | 32m")
         )
     );
 }
@@ -312,25 +335,33 @@ fn the_paused_heartbeat_line_reads_in_ascii_mode() {
     );
 }
 
-fn text(output: Option<Output>) -> String {
-    match output.expect("an output") {
-        Output::Footer(text) | Output::Line(text) => text,
+fn leads(output: &Option<Output>) -> Vec<String> {
+    match output {
+        Some(Output::Footer(rows)) => rows.iter().map(|row| row.lead.clone()).collect(),
+        _ => Vec::new(),
     }
 }
 
-fn without_spinner(footer: &str) -> &str {
-    footer.split_once(' ').expect("a spinner and a text").1
+fn without_spinner(output: &Option<Output>) -> Vec<String> {
+    match output {
+        Some(Output::Footer(rows)) => rows
+            .iter()
+            .map(|row| format!("{}{}", row.label, row.faded))
+            .collect(),
+        _ => Vec::new(),
+    }
 }
 
 #[test]
-fn consecutive_redraws_in_the_same_second_change_only_the_spinner() {
+fn consecutive_redraws_in_the_same_second_turn_every_spinner_and_change_nothing_else() {
     let now = ms(STARTED + 32 * MINUTE + 10);
-    let footer = |at: i64| text(on_tick(&activity(busy(), STARTED), at, WIDE));
+    let footer = |at: i64| on_tick(&activity(busy(), STARTED), at, WIDE);
 
-    let frames: Vec<String> = (0..4).map(|step| footer(now + step * 100)).collect();
+    let frames: Vec<Option<Output>> = (0..4).map(|step| footer(now + step * 100)).collect();
 
     for (frame, footer) in SPINNER.iter().zip(&frames) {
-        assert!(footer.starts_with(frame));
+        let spinning = format!("{frame} ");
+        assert_eq!(leads(footer), [spinning.as_str(), spinning.as_str(), "  "]);
     }
     for pair in frames.windows(2) {
         assert_ne!(pair[0], pair[1]);
@@ -341,7 +372,7 @@ fn consecutive_redraws_in_the_same_second_change_only_the_spinner() {
 #[test]
 fn the_times_move_one_second_at_a_time_while_the_spinner_turns_ten_times_a_second() {
     let now = ms(STARTED + 32 * MINUTE + 10);
-    let footer = |at: i64| text(on_tick(&activity(busy(), STARTED), at, WIDE));
+    let footer = |at: i64| on_tick(&activity(busy(), STARTED), at, WIDE);
 
     assert_eq!(
         without_spinner(&footer(now + 999)),
@@ -353,11 +384,11 @@ fn the_times_move_one_second_at_a_time_while_the_spinner_turns_ten_times_a_secon
     );
     assert_eq!(
         without_spinner(&footer(now + 50 * MINUTE * 1000)),
-        "── 2 running (B build 56m, C review 51m) · 1 queued · slots 3/3 · 1h22m ──"
-    );
-    assert_eq!(
-        without_spinner(&footer(now)),
-        without_spinner(&footer(now + 999))
+        [
+            "B build   56m",
+            "C review  51m",
+            "1 queued · slots 3/3 · 1h22m"
+        ]
     );
 }
 
@@ -372,8 +403,9 @@ fn the_footer_never_exceeds_the_last_column_even_on_tiny_terminals() {
             let with = ascii(on_tick(&activity(busy(), STARTED), now, terminal));
             let without = ascii(on_tick(&nothing_yet(), now, terminal));
 
-            assert!(with.chars().count() <= limit, "{width}: {with:?}");
-            assert!(without.chars().count() <= limit, "{width}: {without:?}");
+            for row in with.split('\n').chain(without.split('\n')) {
+                assert!(row.chars().count() <= limit, "{width}: {row:?}");
+            }
         }
     }
 }
@@ -393,8 +425,8 @@ fn in_ascii_mode_the_spinner_bounces_a_bar() {
         .collect();
 
     assert_eq!(frames, ASCII_SPINNER);
-    assert!(footer(now, &nothing_yet()).starts_with("[=   ] -- 32m"));
-    assert!(footer(now + 100, &activity(busy(), STARTED)).starts_with("[ =  ] -- 2 running"));
+    assert!(footer(now, &nothing_yet()).starts_with("[=   ] 32m"));
+    assert!(footer(now + 100, &activity(busy(), STARTED)).starts_with("[ =  ] B build"));
 }
 
 #[test]
@@ -415,7 +447,7 @@ fn without_a_tty_nothing_spins_and_the_heartbeat_stays_one_per_quiet_period() {
             ms(last_line + 5 * MINUTE) - 1 - offset,
             Terminal::Plain,
         );
-        let after = text(on_tick(
+        let after = drawn(on_tick(
             &quiet,
             ms(last_line + 5 * MINUTE) + offset,
             Terminal::Plain,

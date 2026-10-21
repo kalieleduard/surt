@@ -2,6 +2,9 @@ use anstyle::{AnsiColor, Style};
 
 use crate::symbols;
 
+const CONTEXT_INDENT: usize = 2;
+const STAMP: Style = Style::new().dimmed();
+
 #[derive(Clone, Copy)]
 pub(crate) enum Mark {
     Success,
@@ -92,10 +95,29 @@ impl Message {
         );
     }
 
+    pub(crate) fn print_stamped(&self, mark: Mark, stamp: &str) {
+        anstream::eprint!(
+            "{}",
+            symbols::printable(&self.render_at(stamp, STAMP, mark.symbol(), mark.style()))
+        );
+    }
+
     fn render(&self, symbol: &str, style: Style) -> String {
-        let mut text = format!("{style}{symbol}{style:#} {}\n", self.headline);
+        self.render_at("", Style::new(), symbol, style)
+    }
+
+    fn render_at(&self, stamp: &str, stamp_style: Style, symbol: &str, style: Style) -> String {
+        let (lead, margin) = match stamp.is_empty() {
+            true => (String::new(), 0),
+            false => (
+                format!("{stamp_style}{stamp}{stamp_style:#} "),
+                stamp.chars().count() + 1,
+            ),
+        };
+        let indent = " ".repeat(margin + CONTEXT_INDENT);
+        let mut text = format!("{lead}{style}{symbol}{style:#} {}\n", self.headline);
         for line in &self.lines {
-            text.push_str("  ");
+            text.push_str(&indent);
             text.push_str(line);
             text.push('\n');
         }
@@ -110,5 +132,10 @@ impl Message {
     #[cfg(test)]
     pub(crate) fn plain(&self, mark: Mark) -> String {
         self.render(mark.symbol(), Style::new())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn plain_stamped(&self, mark: Mark, stamp: &str) -> String {
+        self.render_at(stamp, Style::new(), mark.symbol(), Style::new())
     }
 }
