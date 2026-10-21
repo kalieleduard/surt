@@ -3,7 +3,7 @@ use std::iter;
 use jiff::civil::Date;
 
 const MAX_SLUG_CHARS: usize = 40;
-const DATE_FORMAT: &str = "%Y%m%d";
+pub(crate) const DATE_FORMAT: &str = "%Y%m%d";
 const DATE_CHARS: usize = 8;
 const FIRST_SUFFIX: u32 = 2;
 
@@ -55,6 +55,18 @@ impl Slug {
 
 pub(crate) fn dated_name(slug: &Slug, date: Date) -> String {
     format!("{}-{}", date.strftime(DATE_FORMAT), slug.as_str())
+}
+
+pub(crate) fn next_numbered(date: Date, taken: &[String]) -> String {
+    let prefix = format!("{}-", date.strftime(DATE_FORMAT));
+    let highest = taken
+        .iter()
+        .filter_map(|name| name.strip_prefix(&prefix))
+        .filter(|suffix| !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit()))
+        .filter_map(|suffix| suffix.parse::<u64>().ok())
+        .max()
+        .unwrap_or(0);
+    format!("{prefix}{}", highest.saturating_add(1))
 }
 
 pub(crate) fn first_free(stem: &str, taken: &[String]) -> String {
