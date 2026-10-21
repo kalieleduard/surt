@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
+      <package file="$PROJECT_DIR$/crates/surt">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/surt-engine">
+        <feature name="default" enabled="true" />
+      </package>
+    </cargoProject>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="20d6b4d3-f335-41fd-87c4-add048d01db6" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/01-workspace-toolchain-and-ci.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/02-store-opens-the-schema.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/03-surt-init-and-project-discovery.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/04-pure-scheduler-decide.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/05-workflow-parse-validate-freeze.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/06-builtin-catalog-and-surt-feature-creates.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/07-agent-runtime-fake-and-delivery-validation.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/08-drive-through-agent-steps-and-gates.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/09-spec-and-plan-phases-through-the-binary.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/10-working-copy-edits-pinning-and-revalidation.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/11-per-item-limits-blocked-and-ctrl-c.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/12-git-adapter-integration-branch-and-worktrees.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/13-checks-and-builder-commit-evidence.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/14-integration-conflicts-and-shipper.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/15-surt-start-delivers-a-feature.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/16-reconcile-on-every-driving-command.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/17-fault-points-and-kill-smoke.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/18-cleanup-with-pending-retry.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/19-surt-cancel.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/20-surt-status-and-show.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/21-claude-code-runtime-against-fixtures.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/issues/22-real-claude-code-in-the-binary-and-macos-smoke.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-1/spec.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/01-run-selector-and-run-flag.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/02-events-carry-their-details.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/03-full-runtime-info.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/04-inspect-run-and-task-timelines.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/05-inspect-an-execution.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/06-surt-logs.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/07-surt-logs-follow.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/08-show-iter-and-file.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/09-json-on-read-commands.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/10-surt-stop.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/11-surt-restore.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/12-feature-new-run.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/13-surt-delete.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/14-activity-footer-and-heartbeat.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/15-utf8-detection-and-ascii-symbols.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/issues/16-m2-close-out-and-macos-smoke.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-2/spec.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-3/issues/01-global-config-and-stop-grace-period.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-3/issues/02-transient-failure-pauses-agent-launches.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-3/issues/03-pause-visible-from-any-terminal.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-3/issues/04-agent-slots-as-project-wide-lock-files.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-3/issues/05-max-concurrent-agents-read-live.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-3/issues/06-project-wide-slot-count-in-status.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-3/issues/07-m3-close-out-and-macos-smoke.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-3/spec.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-4/issues/01-local-agent-toml-overrides-a-built-in-agent.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-4/issues/02-local-instructions-and-schemas.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-4/issues/03-overrides-that-would-break-a-run-are-refused.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-4/issues/04-fast-forward-into-a-base-branch-not-checked-out.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-4/issues/05-fast-forward-into-a-checked-out-base-branch.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-4/issues/06-merge-and-no-merge-per-run.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-4/issues/07-status-shows-the-merge-result.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-4/issues/08-keep-a-successful-run.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-4/issues/09-new-run-on-a-kept-subject.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-4/issues/10-m4-close-out-and-macos-smoke.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-4/spec.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-5/issues/01-delivery-checks-declared-on-outputs.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-5/issues/02-definitions-are-read-from-surt.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-5/issues/03-run-inputs-and-surt-run.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-5/issues/04-surt-continue.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-5/issues/05-generic-cli-wording.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-5/issues/06-engine-vocabulary.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-5/issues/07-m5-close-out.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-5/spec.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-6/fixtures/resume-without-transcript.stderr.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-6/fixtures/resume-without-transcript.stdout.jsonl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-6/issues/01-outputs-per-outcome.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-6/issues/02-questions-format.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-6/issues/03-migration-0002.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-6/issues/04-input-step-kind.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-6/issues/05-conversation-in-the-engine.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-6/issues/06-claude-code-continues.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-6/issues/07-surt-answer.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-6/issues/08-m6-close-out.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/milestone-6/spec.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/01-domain-glossary.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/02-claude-code-cli-headless.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/03-sqlx-sqlite-in-practice.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/04-git-worktree-merge-partial-states.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/05-process-and-concurrency-model.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/06-workflow-toml-schema.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/07-agent-contract.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/08-artifact-storage-freezing-revalidation.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/09-git-integration-model.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/10-builder-reviewer-loop.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/11-sqlite-schema.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/12-recovery-and-reconciliation.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/13-cleanup-delete-and-logs.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/14-cli-surface-and-ux.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/15-rust-workspace-and-traits.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/16-test-strategy.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/17-roadmap-and-milestone-1.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/18-cross-platform-primitives.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/issues/19-real-claude-code-stream-fixture.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.scratch/surt-architecture/map.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/adr/0001-task-cycle-as-child-workflow-run.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/adr/0002-file-locks-over-sqlite-leases.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/adr/0003-inputs-resolved-by-artifact-name.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/adr/0004-item-list-files-share-approved-revision.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/adr/0005-edits-to-pinned-revisions-are-refused.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/adr/0006-merge-into-base-is-opt-in-fast-forward.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/adr/0007-integrate-reviewed-sha-as-merge-commit.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/adr/0008-limits-block-instead-of-failing.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/adr/0009-history-is-purged-not-soft-deleted.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/adr/0010-every-attempt-starts-from-a-clean-worktree.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/adr/0011-two-crates-keep-the-engine-generic.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/adr/0012-agent-runtime-is-the-only-trait.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/adr/0013-definitions-live-in-the-project.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/adr/0014-a-conversation-continues-across-a-loop.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/A-git-integration.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/A-overview.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/A-process-model.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/B-workspace.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/C-domain-model.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/D-database.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/E-workflow-schema.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/F-agent-contract.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/G-state-machines.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/H-artifact-storage.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/I-cleanup.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/I-recovery.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/J-cli.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/K-roadmap.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/L-decisions.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/migrations/0001_initial.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/migrations/0002_input_steps.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/schemas/base.schema.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/schemas/check-report.schema.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/schemas/commit.schema.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/schemas/conflict.schema.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/schemas/delivery.schema.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/schemas/feedback.schema.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/schemas/integration.schema.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture/schemas/manifest.schema.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/smoke-claude-code.md" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="2DKozhsw" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3,
+  &quot;fromUser&quot;: false
+}</component>
+  <component name="ProjectId" id="3KseLX1Jh1Z9qF269bcC2FE9b2R" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;CidrDebugProfileConversion&quot;: &quot;true&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/dev/surt&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
+    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
+    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;language.rust&quot;
+  }
+}</component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="20d6b4d3-f335-41fd-87c4-add048d01db6" name="Changes" comment="" />
+      <created>1792350648355</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1792350648355</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
+  </component>
+</project>
