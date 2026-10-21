@@ -41,7 +41,8 @@ async fn status_reports_the_fast_forward_it_recorded() {
         feature.status_merge().await,
         Some(BaseMerge::Merged {
             from: base,
-            to: tip
+            to: tip,
+            merge_commit: false,
         })
     );
 }
