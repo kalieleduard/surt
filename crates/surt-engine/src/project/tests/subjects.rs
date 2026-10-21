@@ -14,7 +14,7 @@ async fn create(project: &Project, subject: &str) {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_new_subject_is_named_after_the_local_date_and_the_slug() {
+async fn a_new_subject_takes_the_local_date_and_the_slug() {
     let dir = ProjectDir::new();
     let project = dir.project(draft_catalog(), default_config()).await;
 
@@ -56,38 +56,18 @@ async fn a_taken_name_gets_the_next_free_numeric_suffix() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn an_active_run_of_the_same_slug_is_found_across_dates_and_suffixes() {
-    let dir = ProjectDir::new();
-    let project = dir.project(draft_catalog(), default_config()).await;
-    create(&project, "20261016-add-login-2").await;
-    create(&project, "20261016-add-login-page").await;
-
-    let active = project
-        .active_subject_with_slug(&add_login())
-        .await
-        .expect("the query runs");
-
-    assert_eq!(active.as_deref(), Some("20261016-add-login-2"));
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn a_cancelled_run_does_not_hold_its_slug_and_its_name_stays_taken() {
+async fn a_cancelled_subject_keeps_its_name_taken() {
     let dir = ProjectDir::new();
     let project = dir.project(draft_catalog(), default_config()).await;
     create(&project, "20261017-add-login").await;
     dir.execute("UPDATE workflow_run SET state = 'cancelled', finished_at = created_at")
         .await;
 
-    let active = project
-        .active_subject_with_slug(&add_login())
-        .await
-        .expect("the query runs");
     let name = project
         .free_subject_name(&add_login(), date(2026, 10, 17))
         .await
         .expect("a name");
 
-    assert_eq!(active, None);
     assert_eq!(name.name, "20261017-add-login-2");
 }
 

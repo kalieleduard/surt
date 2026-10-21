@@ -77,19 +77,6 @@ pub(crate) fn first_free(stem: &str, taken: &[String]) -> String {
         .unwrap_or_else(|| stem.to_owned())
 }
 
-pub(crate) fn is_named_after(name: &str, slug: &Slug) -> bool {
-    let Some(undated) = without_date(name) else {
-        return false;
-    };
-    let Some(rest) = undated.strip_prefix(slug.as_str()) else {
-        return false;
-    };
-    rest.is_empty()
-        || rest.strip_prefix('-').is_some_and(|suffix| {
-            !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit())
-        })
-}
-
 pub(crate) fn without_date(name: &str) -> Option<&str> {
     let (date, rest) = name.split_at_checked(DATE_CHARS)?;
     if !date.bytes().all(|byte| byte.is_ascii_digit()) {
