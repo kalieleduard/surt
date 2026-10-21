@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use super::Symbols;
+use super::{SPINNER, Symbols};
 
 const SOURCE_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src");
 const TABLE_FILE: &str = "symbols.rs";
@@ -22,6 +22,18 @@ fn ascii_mode_maps_every_other_glyph_to_an_ascii_equivalent() {
         Symbols::Ascii.render("● ⏳ ⏹ ✎ ⟳ │ ─ … − — · →"),
         "* [waiting] [stopped] [edited] [integrating] | - ... - - | ->"
     );
+}
+
+#[test]
+fn ascii_mode_maps_the_four_spinner_frames_to_a_rotating_bar() {
+    assert_eq!(Symbols::Ascii.render(&SPINNER.join(" ")), "| / - \\");
+}
+
+#[test]
+fn unicode_mode_keeps_the_spinner_frames() {
+    let text = SPINNER.join(" ");
+
+    assert_eq!(Symbols::Unicode.render(&text), text);
 }
 
 #[test]
