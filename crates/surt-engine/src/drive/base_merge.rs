@@ -8,7 +8,12 @@ use crate::project::Error;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "outcome", rename_all = "snake_case")]
 pub enum BaseMerge {
-    Merged { from: String, to: String },
+    Merged {
+        from: String,
+        to: String,
+        #[serde(default, skip_serializing_if = "is_false")]
+        merge_commit: bool,
+    },
     Skipped(NotMerged),
 }
 
@@ -24,6 +29,13 @@ pub enum NotMerged {
         #[serde(default)]
         worktree: PathBuf,
     },
+    Conflict {
+        paths: Vec<String>,
+    },
+}
+
+fn is_false(value: &bool) -> bool {
+    !value
 }
 
 impl BaseMerge {
@@ -50,6 +62,7 @@ impl NotMerged {
             NotMerged::NoBaseBranch => "no_base_branch",
             NotMerged::BaseMoved { .. } => "base_moved",
             NotMerged::WorktreeNotClean { .. } => "worktree_not_clean",
+            NotMerged::Conflict { .. } => "conflict",
         }
     }
 }

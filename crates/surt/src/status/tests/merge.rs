@@ -33,6 +33,21 @@ fn merged() -> BaseMerge {
     BaseMerge::Merged {
         from: BASE.to_owned(),
         to: NEW_TIP.to_owned(),
+        merge_commit: false,
+    }
+}
+
+fn merge_commit() -> BaseMerge {
+    BaseMerge::Merged {
+        from: BASE.to_owned(),
+        to: NEW_TIP.to_owned(),
+        merge_commit: true,
+    }
+}
+
+fn conflict() -> NotMerged {
+    NotMerged::Conflict {
+        paths: vec!["src/lib.rs".to_owned(), "README.md".to_owned()],
     }
 }
 
@@ -61,6 +76,46 @@ fn the_detail_names_the_merge_mode_as_merge() {
     assert_eq!(
         Value::from(json::subject(&status))["merge_into_base"],
         json!("merge")
+    );
+}
+
+#[test]
+fn the_detail_words_a_merge_commit_apart_from_a_fast_forward() {
+    let text = detail::render(&finished(Some("main"), Some(merge_commit())));
+
+    assert!(
+        text.ends_with("  merge    merged into main (merge commit a11c9d0 → 3c1aa20)
+"),
+        "{text}"
+    );
+}
+
+#[test]
+fn the_detail_lists_the_conflicting_paths() {
+    let status = finished(Some("main"), Some(BaseMerge::Skipped(conflict())));
+
+    assert_eq!(
+        merge_line(&status).as_deref(),
+        Some("  merge    not merged: merging into main conflicts in src/lib.rs, README.md")
+    );
+}
+
+#[test]
+fn status_json_carries_the_merge_commit_marker_and_the_conflicting_paths() {
+    assert_eq!(
+        merge_json(&finished(Some("main"), Some(merge_commit()))),
+        json!({"outcome": "merged", "from": BASE, "to": NEW_TIP, "merge_commit": true})
+    );
+    assert_eq!(
+        merge_json(&finished(
+            Some("main"),
+            Some(BaseMerge::Skipped(conflict()))
+        )),
+        json!({
+            "outcome": "skipped",
+            "reason": "conflict",
+            "paths": ["src/lib.rs", "README.md"]
+        })
     );
 }
 

@@ -58,12 +58,51 @@ fn every_skip_names_its_reason_and_leaves_the_merge_to_the_developer() {
 }
 
 #[test]
+fn a_conflict_lists_its_paths_and_leaves_the_merge_to_the_developer() {
+    let conflict = report(
+        Some("main"),
+        BaseMerge::Skipped(NotMerged::Conflict {
+            paths: vec!["src/lib.rs".to_owned(), "README.md".to_owned()],
+        }),
+    );
+
+    assert_eq!(
+        printed(&conflict).as_deref(),
+        Some(
+            "⚠ not merged: merging into main conflicts in src/lib.rs, README.md; merge surt/20261017-add-login yourself
+"
+        )
+    );
+}
+
+#[test]
+fn a_merge_commit_is_worded_apart_from_a_fast_forward() {
+    let merged = report(
+        Some("main"),
+        BaseMerge::Merged {
+            from: BASE.to_owned(),
+            to: "4e1b2c0ffffffffffffffffffffffffffffffff0".to_owned(),
+            merge_commit: true,
+        },
+    );
+
+    assert_eq!(
+        printed(&merged).as_deref(),
+        Some(
+            "✔ merged into main (merge commit a11c9d0 → 4e1b2c0)
+"
+        )
+    );
+}
+
+#[test]
 fn every_merge_line_renders_as_ascii_without_a_utf8_console() {
     let merged = report(
         Some("main"),
         BaseMerge::Merged {
             from: BASE.to_owned(),
             to: "4e1b2c0ffffffffffffffffffffffffffffffff0".to_owned(),
+            merge_commit: false,
         },
     );
     let moved = report(

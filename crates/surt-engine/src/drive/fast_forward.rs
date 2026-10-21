@@ -181,6 +181,7 @@ fn merged(intended: &RefMove) -> BaseMerge {
     BaseMerge::Merged {
         from: intended.old_sha.clone(),
         to: intended.new_sha.clone(),
+        merge_commit: false,
     }
 }
 
