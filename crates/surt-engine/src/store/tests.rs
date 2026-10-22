@@ -9,11 +9,9 @@ use super::{Store, StoreError};
 
 mod migration;
 
-const PLAN_SCHEMA: &[u8] =
-    include_bytes!("../../../../docs/architecture/migrations/0001_initial.sql");
+const INITIAL_SCHEMA: &[u8] = include_bytes!("../../migrations/0001_initial.sql");
 
-const PLAN_INPUT_STEPS: &[u8] =
-    include_bytes!("../../../../docs/architecture/migrations/0002_input_steps.sql");
+const INPUT_STEPS: &[u8] = include_bytes!("../../migrations/0002_input_steps.sql");
 
 const SUPPORTED_SCHEMA: i64 = 2;
 
@@ -164,13 +162,13 @@ async fn every_connection_uses_wal_full_sync_and_foreign_keys() {
 }
 
 #[test]
-fn the_embedded_migrations_are_the_plan_migrations_byte_for_byte() {
+fn the_binary_embeds_the_migration_files_in_order_byte_for_byte_with_unix_line_endings() {
     let embedded: Vec<&[u8]> = super::MIGRATOR
         .iter()
         .map(|migration| migration.sql.as_ref().as_bytes())
         .collect();
 
-    assert_eq!(embedded, [PLAN_SCHEMA, PLAN_INPUT_STEPS]);
+    assert_eq!(embedded, [INITIAL_SCHEMA, INPUT_STEPS]);
     assert!(embedded.iter().all(|sql| !sql.contains(&b'\r')));
 }
 

@@ -13,7 +13,7 @@ pub(crate) use delivery::{
     ValidatedOutput,
 };
 pub use delivery::{Choice, MAX_QUESTIONS, Question, Questions};
-#[cfg(test)]
+#[cfg(all(test, feature = "test-support"))]
 pub(crate) use delivery::{QuestionField, QuestionsProblem};
 pub(crate) use items::{ListedItem, item_view, listed_items};
 

@@ -16,7 +16,7 @@ use envelope::Envelope;
 pub(crate) use contract::{DeliveryContract, OutputRule};
 pub(crate) use item_list::{Item as ListedItem, ItemListProblem};
 pub use questions::{Choice, MAX_QUESTIONS, Question, Questions};
-#[cfg(test)]
+#[cfg(all(test, feature = "test-support"))]
 pub(crate) use questions::{QuestionField, QuestionsProblem};
 pub(crate) use rejection::DeliveryRejection;
 
