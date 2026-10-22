@@ -188,11 +188,13 @@ fn merging_into_base_fast_forward_only_parses() {
 
 #[test]
 fn merging_into_base_with_a_merge_commit_parses() {
-    let config = ConfigFile::with("[git]
+    let config = ConfigFile::with(
+        "[git]
 merge_into_base = \"merge\"
-")
-        .load()
-        .expect("merge loads");
+",
+    )
+    .load()
+    .expect("merge loads");
 
     assert_eq!(config.git.merge_into_base, MergeIntoBase::Merge);
 }

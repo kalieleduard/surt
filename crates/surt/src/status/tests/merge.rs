@@ -84,8 +84,10 @@ fn the_detail_words_a_merge_commit_apart_from_a_fast_forward() {
     let text = detail::render(&finished(Some("main"), Some(merge_commit())));
 
     assert!(
-        text.ends_with("  merge    merged into main (merge commit a11c9d0 → 3c1aa20)
-"),
+        text.ends_with(
+            "  merge    merged into main (merge commit a11c9d0 → 3c1aa20)
+"
+        ),
         "{text}"
     );
 }
