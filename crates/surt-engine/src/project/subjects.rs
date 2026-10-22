@@ -1,6 +1,6 @@
 use jiff::civil::Date;
 
-use super::naming::{Slug, dated_name, first_free, is_named_after};
+use super::naming::{DATE_FORMAT, Slug, dated_name, first_free, next_numbered};
 use super::{Error, Project, open_store};
 use crate::drive::Frozen;
 use crate::store::Store;
@@ -29,11 +29,17 @@ impl Project {
         })
     }
 
-    pub async fn active_subject_with_slug(&self, slug: &Slug) -> Result<Option<String>, Error> {
+    pub async fn next_numbered_subject_name(&self, date: Date) -> Result<FreeName, Error> {
         let store = open_store(&self.layout).await?;
-        let names = store.names_of_subjects_with_active_runs().await;
+        let taken = store
+            .subject_names_starting_with(&format!("{}-", date.strftime(DATE_FORMAT)))
+            .await;
         store.close().await;
-        Ok(names?.into_iter().find(|name| is_named_after(name, slug)))
+        let name = next_numbered(date, &taken?);
+        Ok(FreeName {
+            stem: name.clone(),
+            name,
+        })
     }
 
     pub async fn latest_workflow(&self, subject: &str) -> Result<Option<String>, Error> {

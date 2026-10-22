@@ -214,6 +214,14 @@ impl Sandbox {
     }
 
     pub fn run_feature(&self, request: &str, args: &[&str]) -> Run {
+        let mut all = args.to_vec();
+        if !args.contains(&"--name") {
+            all.extend_from_slice(&["--name", "add-login"]);
+        }
+        self.run_feature_unnamed(request, &all)
+    }
+
+    pub fn run_feature_unnamed(&self, request: &str, args: &[&str]) -> Run {
         let input = format!("request={request}");
         let mut all = vec!["run", "feature", "--input", &input];
         all.extend_from_slice(args);

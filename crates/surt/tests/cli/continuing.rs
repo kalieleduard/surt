@@ -201,7 +201,7 @@ fn an_ambiguous_prefix_refuses_listing_the_candidates() {
     let sandbox = project();
     sandbox.script(&[spec(1, "# Spec 1\n")]);
     ok(sandbox.run_feature("add login", &[]));
-    ok(sandbox.run_feature("add login", &["--new"]));
+    ok(sandbox.run_feature("add login", &[]));
     let name = subject_name();
     let prefix = &name[..name.len() - 2];
 

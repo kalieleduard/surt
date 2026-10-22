@@ -3,7 +3,7 @@ use std::iter;
 use jiff::civil::Date;
 
 const MAX_SLUG_CHARS: usize = 40;
-const DATE_FORMAT: &str = "%Y%m%d";
+pub(crate) const DATE_FORMAT: &str = "%Y%m%d";
 const DATE_CHARS: usize = 8;
 const FIRST_SUFFIX: u32 = 2;
 
@@ -57,25 +57,24 @@ pub(crate) fn dated_name(slug: &Slug, date: Date) -> String {
     format!("{}-{}", date.strftime(DATE_FORMAT), slug.as_str())
 }
 
+pub(crate) fn next_numbered(date: Date, taken: &[String]) -> String {
+    let prefix = format!("{}-", date.strftime(DATE_FORMAT));
+    let highest = taken
+        .iter()
+        .filter_map(|name| name.strip_prefix(&prefix))
+        .filter(|suffix| !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit()))
+        .filter_map(|suffix| suffix.parse::<u64>().ok())
+        .max()
+        .unwrap_or(0);
+    format!("{prefix}{}", highest.saturating_add(1))
+}
+
 pub(crate) fn first_free(stem: &str, taken: &[String]) -> String {
     let is_free = |candidate: &String| taken.iter().all(|name| name != candidate);
     iter::once(stem.to_owned())
         .chain((FIRST_SUFFIX..).map(|suffix| format!("{stem}-{suffix}")))
         .find(is_free)
         .unwrap_or_else(|| stem.to_owned())
-}
-
-pub(crate) fn is_named_after(name: &str, slug: &Slug) -> bool {
-    let Some(undated) = without_date(name) else {
-        return false;
-    };
-    let Some(rest) = undated.strip_prefix(slug.as_str()) else {
-        return false;
-    };
-    rest.is_empty()
-        || rest.strip_prefix('-').is_some_and(|suffix| {
-            !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit())
-        })
 }
 
 pub(crate) fn without_date(name: &str) -> Option<&str> {
