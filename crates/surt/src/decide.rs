@@ -5,6 +5,7 @@ use surt_engine::project::{Decided, Project, RevisionOrigin};
 
 use crate::continue_run::{active_run, continue_command};
 use crate::failure::Failure;
+use crate::follow::suggestion::{self, Moment};
 use crate::message::{Mark, Message};
 use crate::symbols::{DASH, ELLIPSIS};
 
@@ -36,6 +37,7 @@ pub(crate) async fn approve(cwd: &Path, args: ApproveArgs) -> Result<(), Failure
         .await?;
     warn_restored(&subject.name, &decided);
     approved(&subject.name, &decided).print_success();
+    suggestion::offer(Moment::Approved, &subject.name);
     Ok(())
 }
 
@@ -48,6 +50,7 @@ pub(crate) async fn reject(cwd: &Path, args: RejectArgs) -> Result<(), Failure> 
         .await?;
     warn_restored(&subject.name, &decided);
     rejected(&subject.name, &decided).print_success();
+    suggestion::offer(Moment::Rejected, &subject.name);
     Ok(())
 }
 

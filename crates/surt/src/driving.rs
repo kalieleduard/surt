@@ -11,6 +11,7 @@ use tokio::sync::mpsc;
 use crate::answer::{self, waiting_block};
 use crate::continue_run::continue_command;
 use crate::failure::Failure;
+use crate::follow::suggestion::{self, Moment};
 use crate::message::{Mark, Message};
 use crate::refusal;
 use crate::symbols::DASH;
@@ -65,6 +66,7 @@ impl Driven<'_> {
             DriveOutcome::Blocked { .. } => {
                 let steps = self.project.blocked_steps(self.run).await?;
                 let interrupted = self.project.interrupted_merge(self.run).await?;
+                suggestion::offer(Moment::Blocked, self.subject);
                 Err(Failure::Blocked(blocked::report(
                     &steps,
                     interrupted.as_ref(),
@@ -79,9 +81,12 @@ impl Driven<'_> {
                 Message::new(format!("{} was already cancelled", self.subject)).print_success();
                 Ok(Next::Done)
             }
-            DriveOutcome::Interrupted => Err(Failure::Interrupted(
-                Message::new(interruption(stopped)).way("resume", self.resume_command()),
-            )),
+            DriveOutcome::Interrupted => {
+                suggestion::offer(Moment::Interrupted, self.subject);
+                Err(Failure::Interrupted(
+                    Message::new(interruption(stopped)).way("resume", self.resume_command()),
+                ))
+            }
             DriveOutcome::Halted(refusal) => Err(Failure::Refused(refusal::message(&refusal))),
         }
     }
@@ -118,6 +123,7 @@ impl Driven<'_> {
                 return Ok(Next::DriveAgain);
             }
         }
+        let mut approvable = false;
         for gate in gates {
             if gate.kind == GateKind::Input {
                 if !asking {
@@ -137,6 +143,10 @@ impl Driven<'_> {
             .way("approve", format!("surt approve {subject}"))
             .way("reject", format!("surt reject {subject} -m \"<reason>\""))
             .print(Mark::Paused);
+            approvable = true;
+        }
+        if approvable {
+            suggestion::offer(Moment::AtGates, subject);
         }
         Ok(Next::Done)
     }
