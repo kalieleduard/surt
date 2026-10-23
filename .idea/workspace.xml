@@ -16,10 +16,7 @@
   <component name="ChangeListManager">
     <list default="true" id="20d6b4d3-f335-41fd-87c4-add048d01db6" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.surt/agents/builder/agent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/.surt/agents/builder/agent.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.surt/agents/reviewer/agent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/.surt/agents/reviewer/agent.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.surt/agents/shipper/agent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/.surt/agents/shipper/agent.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.surt/agents/spec/agent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/.surt/agents/spec/agent.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.surt/config.toml" beforeDir="false" afterPath="$PROJECT_DIR$/.surt/config.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
