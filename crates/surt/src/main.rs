@@ -8,6 +8,8 @@ mod diagnostics;
 mod driving;
 mod duration;
 mod failure;
+#[allow(dead_code, unused_imports)]
+mod follow;
 mod init;
 mod inspect;
 mod json;
