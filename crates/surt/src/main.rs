@@ -8,7 +8,6 @@ mod diagnostics;
 mod driving;
 mod duration;
 mod failure;
-#[allow(dead_code, unused_imports)]
 mod follow;
 mod init;
 mod inspect;
@@ -64,7 +63,18 @@ enum Command {
 async fn main() -> ExitCode {
     let cli = Cli::parse();
     diagnostics::install();
-    match run(cli.command).await {
+    let code = execute(cli.command).await;
+    follow::follow(
+        code,
+        follow::suggestion::take,
+        follow::prompt::edit,
+        execute,
+    )
+    .await
+}
+
+async fn execute(command: Command) -> ExitCode {
+    match run(command).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(failure) => failure.report(),
     }
