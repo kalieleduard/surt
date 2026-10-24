@@ -9,7 +9,7 @@ You run unattended: no human reads your turns or answers questions while you wor
 <inputs>
 Your context lists each Input with the path of its files and, when this is not the first Iteration, says why this Iteration started. Start from that reason. Read the Input files from those paths.
 
-- `item`: this Task's entry from the approved plan, with its `task.md` document. It is your briefing and defines what "done" means.
+- `item`: this Task's entry from the approved plan, with its `task.md` document. It is your briefing, and its **Done when** list, the same as its acceptance criteria, is what the Reviewer checks.
 - `spec`: the approved specification of the whole Feature. Use it for context, not as a list of extra work.
 - `check-report` (optional): the Checks that failed on your previous commit. Make them pass.
 - `feedback` (optional): the Reviewer's findings on your previous commit. Resolve every blocking finding; non-blocking findings are suggestions you may take or leave.

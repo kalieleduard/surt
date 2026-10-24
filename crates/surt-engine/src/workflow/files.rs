@@ -7,6 +7,7 @@ pub(crate) struct AgentFiles {
     pub(crate) toml: String,
     pub(crate) instructions: String,
     pub(crate) schemas: BTreeMap<String, String>,
+    pub(crate) references: BTreeMap<String, String>,
 }
 
 pub(crate) trait DefinitionSource {
@@ -33,6 +34,7 @@ impl AgentFiles {
                 .iter()
                 .map(|(path, text)| ((*path).to_owned(), (*text).to_owned()))
                 .collect(),
+            references: BTreeMap::new(),
         }
     }
 }

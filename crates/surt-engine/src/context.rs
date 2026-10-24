@@ -24,12 +24,16 @@ pub(crate) struct Assembly<'a> {
     pub(crate) delivery_dir: &'a Path,
     pub(crate) previous: Option<PreviousIteration>,
     pub(crate) inputs: Vec<ContextInput<'a>>,
+    pub(crate) references: Vec<(&'a str, &'a str)>,
 }
 
 impl Assembly<'_> {
     pub(crate) fn write(&self) -> io::Result<String> {
         for input in &self.inputs {
             self.materialize(input)?;
+        }
+        for (rel_path, text) in &self.references {
+            write_creating(&self.execution_dir.join(rel_path), text.as_bytes())?;
         }
         self.write_file(CONTEXT_FILE, |_| true)
     }
@@ -51,6 +55,12 @@ impl Assembly<'_> {
                 self.root(input).display()
             );
         }
+        if !self.references.is_empty() {
+            let _ = writeln!(text, "## References");
+            for (rel_path, _) in &self.references {
+                let _ = writeln!(text, "- {}", self.execution_dir.join(rel_path).display());
+            }
+        }
         let _ = writeln!(text, "## Delivery");
         let _ = writeln!(
             text,
@@ -68,14 +78,17 @@ impl Assembly<'_> {
     fn materialize(&self, input: &ContextInput) -> io::Result<()> {
         let root = self.root(input);
         for (rel_path, bytes) in &input.revision.files {
-            let target = root.join(rel_path);
-            if let Some(parent) = target.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            fs::write(&target, bytes)?;
+            write_creating(&root.join(rel_path), bytes)?;
         }
         Ok(())
     }
+}
+
+fn write_creating(target: &Path, bytes: &[u8]) -> io::Result<()> {
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(target, bytes)
 }
 
 fn why(previous: &PreviousIteration) -> String {

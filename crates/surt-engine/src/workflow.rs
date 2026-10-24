@@ -22,7 +22,7 @@ pub(crate) use agent::{
 pub(crate) use closure::validate;
 pub use definition::OnSuccess;
 pub(crate) use definition::{CleanupPolicy, Definition};
-pub(crate) use error::{AGENT_FILE, INSTRUCTIONS_FILE};
+pub(crate) use error::{AGENT_FILE, INSTRUCTIONS_FILE, REFERENCES_DIR};
 pub use error::{DefinitionFile, InvalidDefinition, Problem, StepField};
 pub(crate) use files::{AgentFiles, DefinitionSource};
 pub(crate) use freeze::{FreezeError, FrozenRun, Snapshot, freeze};

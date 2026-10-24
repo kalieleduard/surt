@@ -6,26 +6,28 @@ use std::path::{Path, PathBuf};
 use super::{is_placeholder, read_text};
 use crate::workflow::{DefinitionFile, FreezeError};
 
-const SCHEMAS_DIR: &str = "schemas";
-
 struct Walk<'a> {
     agent_dir: &'a Path,
     id: &'a str,
     pending: Vec<String>,
-    schemas: BTreeMap<String, String>,
+    files: BTreeMap<String, String>,
 }
 
-pub(super) fn read(agent_dir: &Path, id: &str) -> Result<BTreeMap<String, String>, FreezeError> {
+pub(super) fn read(
+    agent_dir: &Path,
+    id: &str,
+    root: &str,
+) -> Result<BTreeMap<String, String>, FreezeError> {
     let mut walk = Walk {
         agent_dir,
         id,
-        pending: vec![SCHEMAS_DIR.to_owned()],
-        schemas: BTreeMap::new(),
+        pending: vec![root.to_owned()],
+        files: BTreeMap::new(),
     };
     while let Some(rel_dir) = walk.pending.pop() {
         walk.visit(&rel_dir)?;
     }
-    Ok(walk.schemas)
+    Ok(walk.files)
 }
 
 impl Walk<'_> {
@@ -37,19 +39,19 @@ impl Walk<'_> {
             if path.is_dir() {
                 self.pending.push(rel_path);
             } else if !is_placeholder(&path) {
-                self.read_schema(&path, rel_path)?;
+                self.read_file(&path, rel_path)?;
             }
         }
         Ok(())
     }
 
-    fn read_schema(&mut self, path: &Path, rel_path: String) -> Result<(), FreezeError> {
+    fn read_file(&mut self, path: &Path, rel_path: String) -> Result<(), FreezeError> {
         let file = DefinitionFile::AgentFile {
             agent: self.id.to_owned(),
             path: rel_path.clone(),
         };
         if let Some(text) = read_text(path, file)? {
-            self.schemas.insert(rel_path, text);
+            self.files.insert(rel_path, text);
         }
         Ok(())
     }

@@ -1,12 +1,11 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use super::is_placeholder;
+use super::{SCHEMAS_DIR, is_placeholder};
 use crate::workflow::{
     AGENT_FILE, DefinitionFile, FreezeError, INSTRUCTIONS_FILE, InvalidDefinition, Problem,
+    REFERENCES_DIR,
 };
-
-const SCHEMAS_DIR: &str = "schemas";
 
 struct Entry {
     name: String,
@@ -17,7 +16,7 @@ pub(super) fn check(dir: &Path, id: &str) -> Result<(), FreezeError> {
     for entry in entries(dir)? {
         let is_dir = entry.path.is_dir();
         let allowed = if is_dir {
-            entry.name == SCHEMAS_DIR
+            [SCHEMAS_DIR, REFERENCES_DIR].contains(&entry.name.as_str())
         } else {
             [AGENT_FILE, INSTRUCTIONS_FILE].contains(&entry.name.as_str())
         };

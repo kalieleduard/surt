@@ -135,8 +135,12 @@ _Avoid_: Cleanup, soft delete, archive
 ### Agents
 
 **Agent**:
-A role an AI performs in a workflow: what it does, its instructions and the contract of what it must deliver. It is the project's directory `.surt/agents/<id>/` (`agent.toml`, `instructions.md`, optional `schemas/`), complete on its own: it is read when a root Workflow Run that uses it is created and frozen as an agent snapshot, with no defaults merged in.
+A role an AI performs in a workflow: what it does, its instructions and the contract of what it must deliver. It is the project's directory `.surt/agents/<id>/` (`agent.toml`, `instructions.md`, optional `schemas/` and `references/`), complete on its own: it is read when a root Workflow Run that uses it is created and frozen as an agent snapshot, with no defaults merged in.
 _Avoid_: Persona, bot
+
+**Reference**:
+A file under an Agent's `references/`, such as the template a document it writes must follow. It is frozen with the agent snapshot and copied into every Execution's directory, where the context lists it. It guides the agent; Surt never validates a delivery against it, which is what `schemas/` is for.
+_Avoid_: Asset, attachment, example
 
 **Agent Profile**:
 The concrete way of running an Agent: runtime, model, effort, permissions, limits and whether it keeps a Conversation. Each Agent has exactly one, used by every Execution of it; repeating work never switches to another model.

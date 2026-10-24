@@ -58,7 +58,7 @@ fn a_stray_file_in_an_agent_directory_says_to_rename_or_remove_it() {
 
     assert_eq!(
         text(&refusal),
-        "✖ .surt/agents/builder/notes.txt: surt reads only agent.toml, instructions.md and schemas/ here\n  \
+        "✖ .surt/agents/builder/notes.txt: surt reads only agent.toml, instructions.md, schemas/ and references/ here\n  \
          fix: rename or remove .surt/agents/builder/notes.txt\n"
     );
 }

@@ -50,7 +50,7 @@ fn every_agent_problem_is_described_in_one_line_of_words() {
         (Problem::MissingFile, "the file does not exist"),
         (
             Problem::StrayAgentFile,
-            "surt reads only agent.toml, instructions.md and schemas/ here",
+            "surt reads only agent.toml, instructions.md, schemas/ and references/ here",
         ),
         (Problem::TestOnlyRuntime, "runtime \"fake\" is test-only"),
         (

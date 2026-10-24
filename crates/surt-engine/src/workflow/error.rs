@@ -4,6 +4,7 @@ pub(crate) const WORKFLOWS_DIR: &str = ".surt/workflows";
 pub(crate) const AGENTS_DIR: &str = ".surt/agents";
 pub(crate) const AGENT_FILE: &str = "agent.toml";
 pub(crate) const INSTRUCTIONS_FILE: &str = "instructions.md";
+pub(crate) const REFERENCES_DIR: &str = "references";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InvalidDefinition {

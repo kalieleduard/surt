@@ -28,6 +28,10 @@ const SPEC: AgentFiles = &[
         "instructions.md",
         include_str!("../../assets/templates/feature/agents/spec/instructions.md"),
     ),
+    (
+        "references/spec-template.md",
+        include_str!("../../assets/templates/feature/agents/spec/references/spec-template.md"),
+    ),
 ];
 
 const TASKS: AgentFiles = &[
@@ -38,6 +42,10 @@ const TASKS: AgentFiles = &[
     (
         "instructions.md",
         include_str!("../../assets/templates/feature/agents/tasks/instructions.md"),
+    ),
+    (
+        "references/task-template.md",
+        include_str!("../../assets/templates/feature/agents/tasks/references/task-template.md"),
     ),
     MANIFEST_SCHEMA,
 ];

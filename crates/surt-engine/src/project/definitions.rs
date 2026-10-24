@@ -1,5 +1,5 @@
 mod hygiene;
-mod schemas;
+mod tree;
 
 use std::fs;
 use std::io;
@@ -9,10 +9,11 @@ use super::error::{Error, Refusal};
 use super::layout::Layout;
 use crate::workflow::{
     AGENT_FILE, AgentFiles, DefinitionFile, DefinitionSource, FreezeError, INSTRUCTIONS_FILE,
-    InvalidDefinition, Problem, validate,
+    InvalidDefinition, Problem, REFERENCES_DIR, validate,
 };
 
 const WORKFLOW_EXTENSION: &str = "toml";
+const SCHEMAS_DIR: &str = "schemas";
 const PLACEHOLDERS: [&str; 2] = [".gitkeep", ".keep"];
 const UNSAFE_NAME_CHARS: [char; 3] = ['/', '\\', ':'];
 
@@ -91,7 +92,8 @@ impl DefinitionSource for ProjectDefinitions {
         Ok(Some(AgentFiles {
             toml: required(&dir.join(AGENT_FILE), DefinitionFile::Agent(id.to_owned()))?,
             instructions: required(&dir.join(INSTRUCTIONS_FILE), agent_file(INSTRUCTIONS_FILE))?,
-            schemas: schemas::read(&dir, id)?,
+            schemas: tree::read(&dir, id, SCHEMAS_DIR)?,
+            references: tree::read(&dir, id, REFERENCES_DIR)?,
         }))
     }
 }

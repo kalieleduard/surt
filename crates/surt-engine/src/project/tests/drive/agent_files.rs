@@ -1,3 +1,4 @@
+use std::fs;
 use std::num::NonZeroU32;
 
 use super::super::fixtures::{AgentAssets, Catalog};
@@ -94,6 +95,54 @@ async fn the_runtime_receives_the_instructions_read_from_the_agents_directory() 
         .map(|request| request.launch.instructions.clone())
         .collect();
     assert_eq!(instructions, [local]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_runtime_finds_the_agents_references_in_its_execution_directory_and_context() {
+    let template = "# Spec\n\n## Problem\n";
+    let feature = Feature::review_edited("writer", "references/spec-template.md", template).await;
+    let recording = Recording::new(Script::new().on("write", 1, 1, draft("# Draft\n")));
+
+    feature
+        .drive_with(&recording)
+        .await
+        .outcome
+        .expect("the draft reaches the gate");
+
+    let requests = recording.requests();
+    let [request] = requests.as_slice() else {
+        panic!("one Execution, got {requests:?}");
+    };
+    let reference = request
+        .delivery_dir
+        .parent()
+        .expect("the Execution directory")
+        .join("references/spec-template.md");
+    assert_eq!(
+        fs::read_to_string(&reference).expect("the materialized reference"),
+        template
+    );
+    let listed = format!("## References\n- {}\n", reference.display());
+    assert!(request.context.contains(&listed), "{}", request.context);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_agent_without_references_gets_no_references_section() {
+    let feature = Feature::review_edited("writer", "instructions.md", "Write.\n").await;
+    let recording = Recording::new(Script::new().on("write", 1, 1, draft("# Draft\n")));
+
+    feature
+        .drive_with(&recording)
+        .await
+        .outcome
+        .expect("the draft reaches the gate");
+
+    let contexts: Vec<bool> = recording
+        .requests()
+        .iter()
+        .map(|request| request.context.contains("## References"))
+        .collect();
+    assert_eq!(contexts, [false]);
 }
 
 const NOTED_WORKFLOW: &str = r#"

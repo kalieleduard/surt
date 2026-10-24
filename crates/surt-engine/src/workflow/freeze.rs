@@ -154,6 +154,12 @@ fn agent_snapshots(closure: &Closure) -> Result<Vec<Snapshot>, FreezeError> {
             pending.extend(local_references(&path, text));
             files.push(SnapshotFile::new(&path, text.as_bytes().to_vec()));
         }
+        files.extend(
+            sources
+                .references
+                .iter()
+                .map(|(path, text)| SnapshotFile::new(path, text.as_bytes().to_vec())),
+        );
         snapshots.push(Snapshot {
             kind: SnapshotKind::Agent,
             name: id.clone(),

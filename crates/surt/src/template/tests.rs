@@ -128,6 +128,17 @@ fn the_template_holds_exactly_five_agents_each_with_its_instructions() {
 }
 
 #[test]
+fn the_spec_and_tasks_agents_ship_the_document_templates_their_instructions_name() {
+    for (id, reference) in [("spec", "spec-template.md"), ("tasks", "task-template.md")] {
+        let instructions = file(&format!("agents/{id}/instructions.md")).expect("the instructions");
+        let template = file(&format!("agents/{id}/references/{reference}")).expect("the reference");
+
+        assert!(instructions.contains(&format!("`{reference}`")), "{id}");
+        assert!(template.contains("<template>"), "{id}");
+    }
+}
+
+#[test]
 fn the_feature_workflow_takes_a_text_request_and_a_git_base_defaulting_to_head() {
     let workflow: Table = file("workflows/feature.toml")
         .expect("the feature workflow")

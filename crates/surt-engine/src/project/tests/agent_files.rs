@@ -80,6 +80,23 @@ async fn a_schema_split_with_a_local_ref_freezes_its_closure() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn every_file_under_references_is_frozen_byte_for_byte_with_the_agent() {
+    let references = [
+        ("references/spec-template.md", "# Spec\r\n"),
+        ("references/examples/task.md", "# Task\n"),
+    ];
+    let dir = created(&references).await;
+
+    for (path, text) in references {
+        assert_eq!(
+            dir.frozen_agent_file("writer", path).await.as_deref(),
+            Some(text),
+            "{path}"
+        );
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn a_schema_named_by_agent_toml_but_absent_from_schemas_refuses() {
     let dir = ProjectDir::new();
     dir.project(draft_catalog(), default_config()).await;

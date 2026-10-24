@@ -10,7 +10,9 @@ use crate::operations::checks::CheckSpec;
 use crate::project::{Check, Error, GitConfig, MergeIntoBase, parse_timeout};
 use crate::runtime::AgentLaunch;
 use crate::store::FrozenFile;
-use crate::workflow::{AgentContract, CleanupPolicy, Definition, OnSuccess, StepSpec};
+use crate::workflow::{
+    AgentContract, CleanupPolicy, Definition, OnSuccess, REFERENCES_DIR, StepSpec,
+};
 
 const WORKFLOW_FILE: &str = "workflow.toml";
 const AGENT_FILE: &str = "agent.toml";
@@ -174,6 +176,15 @@ impl FrozenAgent {
             working_dir,
             launch_dir,
         ))
+    }
+
+    pub(crate) fn references(&self) -> Vec<(&str, &str)> {
+        let prefix = format!("{REFERENCES_DIR}/");
+        self.files
+            .iter()
+            .filter(|(rel_path, _)| rel_path.starts_with(&prefix))
+            .map(|(rel_path, text)| (rel_path.as_str(), text.as_str()))
+            .collect()
     }
 
     pub(crate) fn delivery_contract(&self) -> Result<DeliveryContract, CorruptSnapshot> {

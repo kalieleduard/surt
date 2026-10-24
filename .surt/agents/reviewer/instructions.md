@@ -43,7 +43,7 @@ Before you review, read every `.md` file in `.surt/rules/` at the root of your w
 <finding_quality>
 Write each finding so the Builder can act on it without guessing:
 - `path` and, when you can, `line` point at the code at fault.
-- `message` says what is wrong, why it matters (the acceptance criterion, spec statement or rule it breaks) and what to do.
+- `message` says what is wrong, why it matters (the acceptance criterion, spec statement or rule it breaks, by its ID such as `A-2` or `AC-3` when the documents number them) and what to do.
 - One problem per finding. Prefer a few confirmed findings over many speculative ones.
 </finding_quality>
 

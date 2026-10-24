@@ -37,6 +37,14 @@ async fn nested_files_under_schemas_are_allowed_beside_agent_toml() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn nested_files_under_references_are_allowed_beside_agent_toml() {
+    let dir = ProjectDir::new();
+    dir.write_agent_file("writer", "references/nested/spec-template.md", "# Spec\n");
+
+    created(&dir).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn git_placeholder_files_anywhere_under_an_agent_directory_are_ignored() {
     let dir = ProjectDir::new();
     for placeholder in [

@@ -151,7 +151,7 @@ fn describe(problem: &Problem) -> String {
         }
         Problem::TestOnlyRuntime => "runtime \"fake\" is test-only".to_owned(),
         Problem::StrayAgentFile => {
-            "surt reads only agent.toml, instructions.md and schemas/ here".to_owned()
+            "surt reads only agent.toml, instructions.md, schemas/ and references/ here".to_owned()
         }
         Problem::MisplacedInputDefault { input } => {
             format!("input \"{input}\" has a default; only git_ref inputs take one")

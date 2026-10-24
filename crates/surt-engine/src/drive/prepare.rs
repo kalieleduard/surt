@@ -45,6 +45,7 @@ impl<R: AgentRuntime> Driver<'_, R> {
                 .iter()
                 .map(|(name, revision)| ContextInput { name, revision })
                 .collect(),
+            references: agent.references(),
         };
         let context = assembly
             .write()
