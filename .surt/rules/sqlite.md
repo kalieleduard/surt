@@ -21,8 +21,15 @@
     - Set foreign_keys = ON per connection outside transactions; set busy_timeout.
     - Prefer WAL on local disks; expect one writer and short transactions.
     - Use synchronous = FULL for power-loss durability, else consider NORMAL.
-    - Use parameters and transactions for related writes.
+    - Bind every value as a query parameter; never build SQL by string formatting.
+    - Use transactions for related writes.
   </connections>
+
+  <migrations>
+    <why>Every project's .surt/surt.db outlives the binary that created it; an edited migration leaves deployed databases on a schema the code no longer expects.</why>
+    - Never edit a migration that has shipped; add a new one.
+    - Make each migration preserve existing data and test it against a database at the previous version.
+  </migrations>
 
   <performance>
     - Index real WHERE/JOIN/ORDER BY patterns and queried FKs.
@@ -31,17 +38,13 @@
   </performance>
 
   <reliability>
-    - Version migrations; test data preservation and recovery.
+    - Test data preservation and recovery.
     - Back up live DBs with Backup API or VACUUM INTO, not only .db.
     - Validate with integrity_check and foreign_key_check.
   </reliability>
 
   <report>
-    After edits, output exactly three lines; separate multiple items with " | ".
-    Changed: path - summary
-    Checks: command = PASS/FAIL/NOT RUN (reason)
-    Exceptions: rule; path:symbol; reason; trade-off. Or "none".
+    Report with the three-line format of clean-code.md.
     Example exception: WAL; src/db.rs:open; network share; rollback journal retained.
-    Never claim unrun checks passed.
   </report>
 </sqlite_rules>

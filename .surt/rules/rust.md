@@ -1,6 +1,6 @@
 <rust_rules>
   <scope>
-    Apply to changed Rust code. Respect project edition, MSRV and conventions. Complement other rules; avoid unrelated refactors.
+    Apply to changed Rust code. Respect the workspace edition (2024), MSRV (rust-version in Cargo.toml) and the pinned toolchain in rust-toolchain.toml. Complement other rules; avoid unrelated refactors.
   </scope>
 
   <ownership>
@@ -10,8 +10,8 @@
 
   <errors>
     Return Result for recoverable failures; propagate with ?. Handle Option explicitly and use let-else for simple guards.
-    Avoid panic!, unwrap() and expect() in production unless a proven invariant or unrecoverable bug justifies them.
-    Prefer typed library errors (thiserror if available); reserve anyhow for application boundaries.
+    Avoid panic!, unwrap() and expect() in production unless a proven invariant or unrecoverable bug justifies them; tests may use them.
+    Use typed errors with thiserror; carry the context a user needs to act (path, command, step) in the error, not in logs alone.
   </errors>
 
   <design>
@@ -26,13 +26,18 @@
   </performance>
 
   <quality>
-    Run cargo fmt --all -- --check, cargo clippy --all-targets -- -D warnings, and cargo test when applicable; honor workspace checks.
-    Test success, error and edge cases. Fix Clippy warnings; justify scoped #[expect(...)].
-    Follow the comment ban; preserve required API docs, tool directives and unsafe safety notes.
+    <why>CI runs these exact commands on Linux, macOS and Windows with RUSTFLAGS=-D warnings; running anything weaker locally hides failures until CI.</why>
+    Run, from the workspace root:
+    - cargo fmt --all -- --check
+    - cargo clippy --all-targets --features test-support -- -D warnings
+    - cargo test --features test-support
+    Test success, error and edge cases. Fix Clippy warnings; justify any scoped #[expect(...)] in Exceptions.
+    Keep code portable across the three CI platforms: build paths with Path/PathBuf, never assume "/" separators or case-sensitive file systems.
+    Follow the comment ban in clean-code.md; preserve required API docs, tool directives and unsafe safety notes.
   </quality>
 
   <verification>
-    Use the clean-code three-line report: Changed, Checks, Exceptions. Report skipped checks and justified deviations; never claim an unrun check passed.
+    Report with the three-line format of clean-code.md, including skipped checks and justified deviations.
   </verification>
   <reference>https://github.com/apollographql/rust-best-practices</reference>
 </rust_rules>

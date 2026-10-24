@@ -11,10 +11,12 @@
   </priorities>
 
   <boundaries>
+    <why>The engine must stay testable with the Fake Runtime and temporary repositories, so policy cannot depend on concrete processes, files or databases.</why>
     - Keep domain logic independent of frameworks, databases, CLI, HTTP, and APIs.
     - Use cases coordinate behavior and define ports for external dependencies.
     - Adapters implement ports; wire at the composition root.
     - Dependencies point inward; avoid cycles and cross-layer shortcuts.
+    - The surt crate (CLI) depends on surt-engine, never the reverse.
   </boundaries>
 
   <solid>
@@ -35,11 +37,7 @@
 
   <verification>
     - Test domain without I/O; test adapters at boundaries.
-    - After edits, output exactly three lines; separate multiple items with " | ".
-    Changed: path - summary
-    Checks: command = PASS/FAIL/NOT RUN (reason)
-    Exceptions: rule; path:symbol; reason; trade-off. Or "none".
-    Example exception: DIP; src/legacy.rs:load; fixed vendor API; adapter extraction deferred.
-    Never claim unrun checks passed.
+    - Report with the three-line format of clean-code.md.
+    - Example exception: DIP; src/legacy.rs:load; fixed vendor API; adapter extraction deferred.
   </verification>
 </architecture>
