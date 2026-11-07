@@ -1,0 +1,136 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+}
+
+.app__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.workspace {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.stage--full {
+  position: absolute;
+  inset: 0;
+}
+
+.dock {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  z-index: 8;
+  transform: translateX(-50%);
+}
+
+.dock .canvas-toolbar {
+  gap: 18px;
+  height: 46px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--surt-radius);
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
+}
+
+.dock .canvas-toolbar__center {
+  padding: 0 14px;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+
+.dock .palette {
+  top: auto;
+  bottom: 44px;
+}
+
+.floating-panel {
+  position: absolute;
+  z-index: 7;
+  display: flex;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--surt-radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.floating-panel--left {
+  top: 66px;
+  left: 12px;
+  bottom: 84px;
+}
+
+.floating-panel--left .tree {
+  border-right: 0;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.floating-panel__collapse {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  display: none;
+}
+
+.floating-panel--left:hover .floating-panel__collapse {
+  display: grid;
+  background: var(--panel-2);
+}
+
+.floating-panel--right {
+  top: 66px;
+  right: 12px;
+  max-height: calc(100% - 270px);
+}
+
+.floating-panel--right .inspector {
+  border-left: 0;
+  width: 300px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.floating-pill {
+  position: absolute;
+  top: 66px;
+  left: 12px;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+}
+
+.stage--full .run-minimap {
+  bottom: 4px;
+  right: 4px;
+}
+
+.app .rail {
+  padding-bottom: 76px;
+}

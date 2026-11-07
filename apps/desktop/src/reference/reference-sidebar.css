@@ -1,0 +1,255 @@
+.ref-rail {
+  grid-column: 1;
+  grid-row: 2 / 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--chrome);
+  border-right: 1px solid var(--line);
+}
+
+.ref-rail-logo {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 100%;
+  height: 36px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ref-rail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: none;
+  width: 48px;
+  height: 50px;
+  margin-top: 7px;
+  border-radius: var(--surt-radius);
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.ref-rail-item:hover {
+  background: var(--hover);
+  color: var(--text-2);
+}
+
+.ref-rail-item[aria-current="page"] {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.ref-files {
+  grid-column: 2;
+  grid-row: 2 / 5;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+.ref-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: none;
+  height: 36px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--line);
+}
+
+.ref-tab {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.ref-tab[aria-selected="true"] {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.ref-search,
+.ref-add-input {
+  flex: none;
+  height: 27px;
+  padding: 0 10px;
+  background: var(--chrome);
+  border: 1px solid var(--line);
+  border-radius: var(--surt-radius);
+  font-size: 11.5px;
+  outline: none;
+}
+
+.ref-search {
+  margin: 12px 7px 0;
+}
+
+.ref-search::placeholder,
+.ref-add-input::placeholder {
+  color: var(--text-3);
+}
+
+.ref-files-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  height: 28px;
+  margin-top: 13px;
+  padding: 0 9px 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ref-files-tools {
+  display: flex;
+  gap: 11px;
+  margin-left: auto;
+  color: var(--text-3);
+}
+
+.ref-tree {
+  display: flex;
+  flex-direction: column;
+  margin-top: 2px;
+}
+
+.ref-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 25px;
+  padding: 0 9px 0 10px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.ref-tree-row[data-depth="1"] {
+  padding-left: 19px;
+}
+
+.ref-tree-row[data-depth="2"] {
+  padding-left: 31px;
+}
+
+.ref-tree-row:hover {
+  background: var(--hover);
+}
+
+.ref-tree-row[aria-selected="true"] {
+  background: var(--active);
+}
+
+.ref-caret {
+  flex: none;
+  width: 6px;
+  height: 8px;
+  background: var(--text-3);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.ref-caret[data-open="true"] {
+  transform: rotate(90deg);
+}
+
+.ref-tree-icon {
+  flex: none;
+  color: var(--text-3);
+}
+
+.ref-tree-icon[data-kind="component"] {
+  color: var(--surt-lava);
+}
+
+.ref-tree-letter {
+  width: 13px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.ref-dirty {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--surt-brasa);
+}
+
+.ref-tree-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+  color: var(--text-3);
+  opacity: 0;
+}
+
+.ref-tree-row:hover .ref-tree-actions,
+.ref-tree-row[data-pinned="true"] .ref-tree-actions {
+  opacity: 1;
+}
+
+.ref-add {
+  position: absolute;
+  z-index: 5;
+  top: 580px;
+  left: 22px;
+  width: 210px;
+  padding: 8px 0;
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--surt-radius);
+  box-shadow: var(--shadow);
+}
+
+.ref-add-input {
+  display: block;
+  width: calc(100% - 16px);
+  height: 28px;
+  margin: 0 8px 6px;
+}
+
+.ref-add-group + .ref-add-group {
+  margin-top: 4px;
+}
+
+.ref-add-title {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.ref-add-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  height: 26px;
+  padding: 0 12px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.ref-add-item svg {
+  color: var(--text-3);
+}
+
+.ref-add-item[data-kind="component"] svg {
+  color: var(--surt-lava);
+}
+
+.ref-add-item:hover,
+.ref-add-item[data-active="true"] {
+  background: var(--active);
+  color: var(--text);
+}
