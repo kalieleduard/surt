@@ -1,20 +1,14 @@
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, type EdgeProps } from "@xyflow/react";
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, type EdgeProps } from "@xyflow/react";
 import type { GraphEdge } from "../data/types";
-import { useChoice } from "../prototype/ChoiceContext";
 
 type EdgeData = { state: GraphEdge["state"]; label?: string };
 
 export function SurtEdge(props: EdgeProps) {
   const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition } = props;
   const data = props.data as EdgeData;
-  const { edge, node } = useChoice();
-  const geometry = { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition };
-  const [path, labelX, labelY] =
-    edge === "orthogonal" ? getSmoothStepPath({ ...geometry, borderRadius: 6, offset: 24 }) : getBezierPath(geometry);
+  const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   const active = data.state === "active";
   const gradientId = `ignite-${id.replace(/[^a-zA-Z0-9]/g, "")}`;
-  const stroke = active ? `url(#${gradientId})` : undefined;
-  const showLabel = data.label && node !== "card";
 
   return (
     <>
@@ -26,9 +20,9 @@ export function SurtEdge(props: EdgeProps) {
           </linearGradient>
         </defs>
       ) : null}
-      <BaseEdge id={id} path={path} className={`edge edge--${data.state} edge-style--${edge}`} style={stroke ? { stroke } : undefined} />
-      {active && edge === "flow" ? <FlowOverlay path={path} /> : null}
-      {showLabel ? (
+      <BaseEdge id={id} path={path} className={`edge edge--${data.state}`} style={active ? { stroke: `url(#${gradientId})` } : undefined} />
+      {active ? <FlowOverlay path={path} /> : null}
+      {data.label ? (
         <EdgeLabelRenderer>
           <span className="edge__label mono" style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}>
             {data.label}

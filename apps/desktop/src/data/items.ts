@@ -1,19 +1,14 @@
-import { step } from "./build";
+import { column, row, step } from "./build";
 import { TASKS, type TaskItem } from "./tasks";
 import type { GraphNode } from "./types";
 
-const ITEM_POSITIONS: Record<string, [number, number]> = {
-  A: [20, 136],
-  B: [270, 56],
-  C: [270, 224],
-  D: [520, 136],
-};
+const MIDDLE_ROW = (row(0) + row(1)) / 2;
 
-const ITEM_TAIL: Record<string, string[]> = {
-  A: ["✔ review approved", "⟳ integrate · merge --no-ff", "✔ merged +184 −12"],
-  B: ["↻ attempt 2 after invalid output", "$ cargo test -p auth callback", "running 18 tests", "test callback::state_mismatch ... ok"],
-  C: ["● review started 4m ago", "reading commit 3f9a1c2", "check-report: 212 passed"],
-  D: ["⏳ waits for B and C"],
+const ITEM_POSITIONS: Record<string, [number, number]> = {
+  A: [column(0), MIDDLE_ROW],
+  B: [column(1), row(0)],
+  C: [column(1), row(1)],
+  D: [column(2), MIDDLE_ROW],
 };
 
 function itemNode(task: TaskItem): GraphNode {
@@ -38,7 +33,6 @@ function itemNode(task: TaskItem): GraphNode {
       presence: task.agent,
       inputs: [{ id: "needs", label: task.dependsOn.length ? `needs ${task.dependsOn.join(", ")}` : "base" }],
       outputs: [{ id: "merged", label: task.diff ?? "commit" }],
-      tail: ITEM_TAIL[task.key],
     },
     "implement",
   );

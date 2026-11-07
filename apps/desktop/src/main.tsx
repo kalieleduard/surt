@@ -6,9 +6,9 @@ import "./brand/base.css";
 import "./panels/chrome.css";
 import "./panels/side.css";
 import "./panels/floating.css";
-import "./panels/bottom.css";
-import "./layouts/layouts.css";
-import "./prototype/prototype.css";
+import "./panels/toolbar.css";
+import "./theme/theme.css";
+import "./workspace/workspace.css";
 import { App } from "./App";
 
 const root = document.getElementById("root");

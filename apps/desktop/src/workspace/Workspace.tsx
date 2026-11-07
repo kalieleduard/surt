@@ -9,22 +9,20 @@ import { Inspector } from "../panels/Inspector";
 import { RunTree } from "../panels/RunTree";
 import { SourceOverlay } from "../panels/SourceOverlay";
 
-const FOCUS_PADDING = { top: "76px", right: "330px", bottom: "90px", left: "300px" } as const;
+const CANVAS_PADDING = { top: "80px", right: "330px", bottom: "96px", left: "280px" } as const;
 
-export function FocusLayout() {
+export function Workspace() {
   return (
     <RunViewProvider>
-      <div className="app">
-        <div className="stage stage--full">
-          <RunCanvas padding={FOCUS_PADDING} minimap />
-          <TitleBar floating />
-          <FloatingRuns />
-          <FloatingInspector />
-          <div className="dock">
-            <CanvasToolbar />
-          </div>
-          <SourceOverlay />
+      <div className="workspace">
+        <RunCanvas padding={CANVAS_PADDING} />
+        <TitleBar />
+        <FloatingRuns />
+        <FloatingInspector />
+        <div className="dock">
+          <CanvasToolbar />
         </div>
+        <SourceOverlay />
       </div>
     </RunViewProvider>
   );

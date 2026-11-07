@@ -1,31 +1,24 @@
 import { Fragment } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Bot, Copy, Minus, Play, ScrollText, Settings, Workflow, X, Waypoints } from "lucide-react";
+import { Copy, Minus, Play, X } from "lucide-react";
 import { SurtWordmark } from "../brand/SurtMark";
-import { RUN_SUMMARY } from "../data/subjects";
+import { AGENT_SLOTS } from "../data/subjects";
 import { useRunView } from "../graph/RunViewContext";
+import { ThemePicker } from "../theme/ThemePicker";
 
-const MENUS = ["File", "Edit", "View", "Run", "Window", "Help"];
-
-export function TitleBar({ floating = false }: { floating?: boolean }) {
+export function TitleBar() {
   return (
-    <div className={`titlebar${floating ? " titlebar--floating" : ""}`} data-tauri-drag-region>
+    <div className="titlebar" data-tauri-drag-region>
       <span className="titlebar__brand" data-tauri-drag-region>
         <SurtWordmark size={15} />
       </span>
-      {floating ? null : (
-        <nav className="titlebar__menu">
-          {MENUS.map((menu) => (
-            <button key={menu} className="titlebar__menu-item">{menu}</button>
-          ))}
-        </nav>
-      )}
       <div className="titlebar__center" data-tauri-drag-region>
         <RunPath />
       </div>
       <div className="titlebar__actions">
         <SlotMeter />
+        <ThemePicker />
         <button className="btn btn-primary">
           <Play size={13} fill="currentColor" /> New run
         </button>
@@ -35,7 +28,7 @@ export function TitleBar({ floating = false }: { floating?: boolean }) {
   );
 }
 
-export function RunPath() {
+function RunPath() {
   const { graph, back } = useRunView();
   return (
     <span className="run-path">
@@ -54,8 +47,8 @@ export function RunPath() {
   );
 }
 
-export function SlotMeter() {
-  const { used, total } = RUN_SUMMARY.slots;
+function SlotMeter() {
+  const { used, total } = AGENT_SLOTS;
   return (
     <span className="slot-meter" title="Agent Slots in use">
       <span className="caption">slots</span>
@@ -67,7 +60,7 @@ export function SlotMeter() {
   );
 }
 
-export function WindowControls() {
+function WindowControls() {
   const native = isTauri();
   const run = (action: "minimize" | "toggleMaximize" | "close") => {
     if (native) getCurrentWindow()[action]();
@@ -84,30 +77,5 @@ export function WindowControls() {
         <X size={15} />
       </button>
     </span>
-  );
-}
-
-const RAIL = [
-  { id: "runs", label: "Runs", icon: Waypoints },
-  { id: "workflows", label: "Workflows", icon: Workflow },
-  { id: "agents", label: "Agents", icon: Bot },
-  { id: "logs", label: "Logs", icon: ScrollText },
-];
-
-export function IconRail() {
-  return (
-    <nav className="rail">
-      {RAIL.map(({ id, label, icon: Icon }) => (
-        <button key={id} className={`rail__item${id === "runs" ? " is-active" : ""}`}>
-          <Icon size={17} />
-          <span>{label}</span>
-        </button>
-      ))}
-      <span className="rail__spacer" />
-      <button className="rail__item">
-        <Settings size={17} />
-        <span>Settings</span>
-      </button>
-    </nav>
   );
 }

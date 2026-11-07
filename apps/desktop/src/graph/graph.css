@@ -4,6 +4,10 @@
   background: var(--canvas);
 }
 
+.run-canvas.is-panning .react-flow__pane {
+  cursor: grab;
+}
+
 .run-canvas .react-flow {
   background: transparent;
 }
@@ -12,16 +16,21 @@
   fill: var(--canvas-mark);
 }
 
-.run-canvas .react-flow__background-pattern.lines {
-  stroke: var(--canvas-mark);
+.run-canvas .react-flow__selection {
+  background: color-mix(in srgb, var(--surt-lava) 8%, transparent);
+  border: 1px dashed var(--surt-lava);
 }
 
-.canvas-diagonal {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image: linear-gradient(45deg, transparent calc(50% - 0.6px), var(--canvas-mark) calc(50% - 0.6px), var(--canvas-mark) calc(50% + 0.6px), transparent calc(50% + 0.6px));
+.run-canvas .react-flow__attribution {
+  background: transparent;
+  padding: 2px 6px;
+  font: 9.5px var(--surt-mono);
+  opacity: 0.55;
+}
+
+.run-canvas .react-flow__attribution a {
+  color: var(--text-3);
+  text-decoration: none;
 }
 
 .react-flow__handle.port__handle {
@@ -34,17 +43,17 @@
   border: 1.5px solid var(--text-3);
 }
 
-.state-running > .node__ports .port__handle,
-.port__handle:hover {
-  border-color: var(--surt-lava);
-}
-
 .node {
   position: relative;
-  width: 210px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 184px;
+  height: 48px;
+  padding: 0 14px 0 7px;
   background: var(--node);
   border: 1px solid var(--line-strong);
-  border-radius: var(--surt-radius);
+  border-radius: 24px;
   color: var(--text);
   box-shadow: 0 8px 20px #0000002e;
   transition: box-shadow 0.15s, border-color 0.15s;
@@ -69,6 +78,7 @@
 
 .node.state-blocked {
   border-color: color-mix(in srgb, var(--st-blocked) 70%, transparent);
+  background: var(--st-blocked-fill), var(--node);
 }
 
 .node.state-pending {
@@ -80,33 +90,54 @@
   color: var(--text-2);
 }
 
-.node__head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
+.node__ring {
+  display: grid;
+  place-items: center;
+  width: 32px;
   height: 32px;
-  padding: 0 10px;
-  background: var(--node-head);
-  border-bottom: 1px solid var(--line);
-  border-radius: 3px 3px 0 0;
-}
-
-.node.state-blocked .node__head {
-  background: var(--st-blocked-fill), var(--node-head);
-}
-
-.node__icon {
-  color: var(--text-2);
   flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  color: var(--text-2);
 }
 
-.node.state-running .node__icon {
-  color: var(--surt-lava);
+.state-running > .node__ring {
+  border-color: var(--st-running);
+  border-right-color: transparent;
+  animation: ring-spin 1.6s linear infinite;
+}
+
+.state-running > .node__ring > * {
+  animation: ring-spin 1.6s linear infinite reverse;
+}
+
+.state-waiting > .node__ring {
+  border-color: var(--st-waiting);
+}
+
+.state-succeeded > .node__ring {
+  border-color: var(--st-succeeded);
+}
+
+.state-blocked > .node__ring {
+  border-color: var(--st-blocked);
+  border-style: dashed;
+}
+
+@keyframes ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.node__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .node__name {
-  flex: 1;
-  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -115,12 +146,19 @@
   letter-spacing: -0.01em;
 }
 
+.node__meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 10px/1.4 var(--surt-mono);
+  color: var(--text-3);
+}
+
 .node__key {
   display: inline-grid;
   place-items: center;
   width: 18px;
   height: 18px;
-  flex-shrink: 0;
   border-radius: 3px;
   background: var(--raised);
   font: 600 10.5px/1 var(--surt-mono);
@@ -130,77 +168,6 @@
 .state-running .node__key {
   background: var(--surt-lava);
   color: var(--surt-obsidiana);
-}
-
-.node__sub {
-  padding: 7px 10px 1px;
-  font: 10.5px/1.3 var(--surt-mono);
-  color: var(--text-3);
-}
-
-.node__ports {
-  padding: 3px 0 6px;
-}
-
-.node__row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  min-height: 22px;
-  align-items: center;
-}
-
-.port {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  height: 22px;
-  font-size: 11.5px;
-  color: var(--text-2);
-}
-
-.port--in {
-  padding-left: 12px;
-}
-
-.port--out {
-  justify-content: flex-end;
-  padding-right: 12px;
-}
-
-.port__label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.port__rev {
-  flex-shrink: 0;
-  font: 10px var(--surt-mono);
-  color: var(--text-3);
-}
-
-.node__foot {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 7px 10px 8px;
-  border-top: 1px solid var(--line);
-}
-
-.chip {
-  padding: 3px 5px;
-  border-radius: 3px;
-  background: var(--hover);
-  font: 10px/1 var(--surt-mono);
-  color: var(--text-2);
-  white-space: nowrap;
-}
-
-.chip--outcome {
-  background: color-mix(in srgb, var(--st-succeeded) 14%, transparent);
-  color: var(--text);
 }
 
 .state-mark {
@@ -273,128 +240,6 @@
   background: var(--raised);
   color: var(--text);
   font-weight: 700;
-}
-
-.node--compact {
-  transform: translateY(48px);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 50px;
-  padding: 0 14px 0 8px;
-  border-radius: 25px;
-}
-
-.node--compact .node__head {
-  display: none;
-}
-
-.compact__ring {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  border: 2px solid var(--line-strong);
-  color: var(--text-2);
-}
-
-.state-running > .compact__ring {
-  border-color: var(--st-running);
-  border-right-color: transparent;
-  animation: compact-spin 1.6s linear infinite;
-}
-
-.state-running > .compact__ring > * {
-  animation: compact-spin 1.6s linear infinite reverse;
-}
-
-.state-waiting > .compact__ring {
-  border-color: var(--st-waiting);
-}
-
-.state-succeeded > .compact__ring {
-  border-color: var(--st-succeeded);
-}
-
-.state-blocked > .compact__ring {
-  border-color: var(--st-blocked);
-  border-style: dashed;
-}
-
-@keyframes compact-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.compact__text {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.compact__meta {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: 10px/1.4 var(--surt-mono);
-  color: var(--text-3);
-}
-
-.node--terminal {
-  background: #0b0c0d;
-  border-color: #ffffff1f;
-  color: #f4f1ea;
-}
-
-.terminal__bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 28px;
-  padding: 0 10px;
-  border-bottom: 1px solid #ffffff14;
-}
-
-.terminal__bar .caption {
-  color: #f4f1ea;
-}
-
-.terminal__who {
-  margin-left: auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: 10px var(--surt-mono);
-  color: #6c6e70;
-}
-
-.terminal__body {
-  display: flex;
-  flex-direction: column;
-  min-height: 62px;
-  margin: 0;
-  padding: 8px 10px 10px;
-  font: 10.5px/1.6 var(--surt-mono);
-  color: #8d8f90;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.terminal__line:last-of-type {
-  color: #f4f1ea;
-}
-
-.terminal__caret {
-  color: var(--surt-lava);
-  animation: surt-caret 1s steps(1) infinite;
-}
-
-.port__handle--stacked {
-  opacity: 0.9;
 }
 
 .presence {
@@ -497,6 +342,9 @@
 
 .frame__detail {
   margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 10.5px;
   color: var(--text-3);
 }
@@ -518,7 +366,8 @@
   padding-right: 10px;
 }
 
-.frame__port--top {
+.frame__port--top,
+.frame__port--bottom {
   width: 0;
   height: 0;
 }
@@ -526,6 +375,13 @@
 .frame__port--top .frame__port-label {
   position: absolute;
   bottom: 7px;
+  left: 8px;
+  white-space: nowrap;
+}
+
+.frame__port--bottom .frame__port-label {
+  position: absolute;
+  top: 7px;
   left: 8px;
   white-space: nowrap;
 }
@@ -556,9 +412,6 @@
 
 .react-flow__edge-path.edge--active {
   stroke-width: 2px;
-}
-
-.edge-style--flow.edge--active {
   opacity: 0.45;
 }
 
@@ -598,16 +451,4 @@
 .run-minimap .react-flow__minimap-node {
   fill: var(--raised);
   stroke: var(--line-strong);
-}
-
-.run-canvas .react-flow__attribution {
-  background: transparent;
-  padding: 2px 6px;
-  font: 9.5px var(--surt-mono);
-  opacity: 0.55;
-}
-
-.run-canvas .react-flow__attribution a {
-  color: var(--text-3);
-  text-decoration: none;
 }

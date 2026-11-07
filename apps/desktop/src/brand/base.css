@@ -128,12 +128,6 @@ button {
   color: var(--text);
 }
 
-.icon-btn.is-lava,
-.icon-btn.is-lava:hover {
-  background: var(--surt-lava);
-  color: var(--surt-obsidiana);
-}
-
 @keyframes surt-pulse {
   0%,
   100% {

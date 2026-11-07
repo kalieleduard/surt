@@ -19,15 +19,4 @@ export const SUBJECTS: Subject[] = [
   { id: "20261104-1", slug: "theme-tokens", workflow: "feature", state: "cancelled", status: "cancelled at plan-tasks" },
 ];
 
-export const RUN_SUMMARY = {
-  subject: "20261107-3",
-  slug: "oauth-login",
-  request: "Login with GitHub OAuth on the web dashboard",
-  base: "master @ b72ec4f",
-  branch: "surt/20261107-3",
-  stepsDone: 7,
-  stepsTotal: 12,
-  elapsed: "1h 04m",
-  slots: { used: 2, total: 3 },
-  delta: "+1 Task merged · 12 min ago",
-};
+export const AGENT_SLOTS = { used: 2, total: 3 };

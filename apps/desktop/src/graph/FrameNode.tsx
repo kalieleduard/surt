@@ -2,10 +2,10 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { FrameData, Port } from "../data/types";
 import { StateMark, kindIcon } from "../ui/status";
 
-const SIDE_PORT_TOP = 64;
+const SIDE_PORT_TOP = 120;
 const SIDE_PORT_GAP = 34;
-const TOP_PORT_LEFT = 300;
-const TOP_PORT_GAP = 160;
+const EDGE_PORT_LEFT = 288;
+const EDGE_PORT_GAP = 160;
 
 export function FrameNode({ data }: NodeProps) {
   const frame = data as FrameData;
@@ -26,9 +26,16 @@ export function FrameNode({ data }: NodeProps) {
   );
 }
 
-function portPlacement(port: Port, side: "in" | "out", index: number) {
+function countBefore(ports: Port[], index: number, onEdge: boolean) {
+  return ports.slice(0, index).filter((port) => Boolean(port.edge) === onEdge).length;
+}
+
+function placement(port: Port, side: "in" | "out", index: number) {
   if (port.edge === "top") {
-    return { position: Position.Top, style: { left: TOP_PORT_LEFT + index * TOP_PORT_GAP, top: 0 } };
+    return { position: Position.Top, style: { left: EDGE_PORT_LEFT + index * EDGE_PORT_GAP, top: 0 } };
+  }
+  if (port.edge === "bottom") {
+    return { position: Position.Bottom, style: { left: EDGE_PORT_LEFT + index * EDGE_PORT_GAP, top: "100%" } };
   }
   return {
     position: side === "in" ? Position.Left : Position.Right,
@@ -41,13 +48,13 @@ function FramePorts({ ports, side }: { ports?: Port[]; side: "in" | "out" }) {
   return (
     <>
       {ports.map((port, index) => {
-        const placement = portPlacement(port, side, index);
-        const edgeClass = port.edge === "top" ? "frame__port--top" : `frame__port--${side}`;
+        const place = placement(port, side, countBefore(ports, index, Boolean(port.edge)));
+        const edgeClass = port.edge ? `frame__port--${port.edge}` : `frame__port--${side}`;
         return (
-          <div key={port.id} className={`frame__port ${edgeClass}`} style={placement.style}>
+          <div key={port.id} className={`frame__port ${edgeClass}`} style={place.style}>
             <Handle
               type={side === "in" ? "target" : "source"}
-              position={placement.position}
+              position={place.position}
               id={`${side}:${port.id}`}
               className="port__handle"
             />

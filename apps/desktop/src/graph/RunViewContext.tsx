@@ -4,6 +4,8 @@ import { FEATURE_GRAPH } from "../data/featureGraph";
 import { taskCycleGraph } from "../data/taskCycleGraph";
 import type { GraphNode, RunGraph } from "../data/types";
 
+export type CanvasTool = "select" | "pan";
+
 type RunView = {
   graph: RunGraph;
   selectedId: string;
@@ -13,6 +15,8 @@ type RunView = {
   back: () => void;
   sourceOpen: boolean;
   toggleSource: () => void;
+  tool: CanvasTool;
+  setTool: (tool: CanvasTool) => void;
 };
 
 const RunViewContext = createContext<RunView | null>(null);
@@ -27,6 +31,7 @@ export function RunViewProvider({ children }: { children: ReactNode }) {
   const [graph, setGraph] = useState<RunGraph>(FEATURE_GRAPH);
   const [selectedId, setSelectedId] = useState(FEATURE_GRAPH.defaultSelection);
   const [sourceOpen, setSourceOpen] = useState(false);
+  const [tool, setTool] = useState<CanvasTool>("select");
 
   const show = useCallback((next: RunGraph) => {
     setGraph(next);
@@ -43,8 +48,10 @@ export function RunViewProvider({ children }: { children: ReactNode }) {
       back: () => show(FEATURE_GRAPH),
       sourceOpen,
       toggleSource: () => setSourceOpen((open) => !open),
+      tool,
+      setTool,
     }),
-    [graph, selectedId, sourceOpen, show],
+    [graph, selectedId, sourceOpen, tool, show],
   );
 
   return (

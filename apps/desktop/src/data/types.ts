@@ -2,7 +2,7 @@ export type StepKind = "agent" | "approval" | "input" | "operation" | "loop" | "
 export type StepState = "pending" | "running" | "waiting" | "succeeded" | "blocked" | "cancelled" | "skipped";
 export type AgentId = "spec" | "tasks" | "builder" | "reviewer" | "shipper";
 
-export type Port = { id: string; label: string; revision?: string; edge?: "top" };
+export type Port = { id: string; label: string; revision?: string; edge?: "top" | "bottom" };
 
 export type Execution = {
   id: string;
@@ -25,7 +25,6 @@ export type StepData = {
   duration?: string;
   inputs: Port[];
   outputs: Port[];
-  tail?: string[];
   executions?: Execution[];
   presence?: AgentId;
   itemKey?: string;

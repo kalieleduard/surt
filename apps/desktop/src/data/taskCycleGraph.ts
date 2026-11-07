@@ -1,4 +1,4 @@
-import { frame, link, step } from "./build";
+import { column, frame, frameSize, link, row, step } from "./build";
 import { taskByKey, type TaskItem } from "./tasks";
 import type { GraphEdge, RunGraph, StepData, StepState } from "./types";
 
@@ -21,15 +21,11 @@ function edgeState(task: TaskItem, target: string): GraphEdge["state"] {
 
 function cycleSteps(task: TaskItem): Record<string, StepData> {
   const iteration = task.iteration;
-  const builderTail = task.key === "B"
-    ? ["↻ attempt 2 after invalid output", "$ cargo test -p auth callback", "running 18 tests", "test callback::state_mismatch ... ok"]
-    : ["✔ commit 3f9a1c2 delivered", "outcome done"];
   return {
     setup: {
       name: "setup", kind: "operation", operation: "git.create_child_worktree", state: stateOf(task, "setup"),
       inputs: [{ id: "run-branch", label: "run branch" }],
       outputs: [{ id: "worktree", label: "worktree", revision: task.key }],
-      tail: ["$ git worktree add .surt/worktrees/" + task.key, "✔ worktree ready"],
     },
     build: {
       name: "build", kind: "agent", agent: "builder", state: stateOf(task, "build"), outcomes: ["done"],
@@ -40,7 +36,6 @@ function cycleSteps(task: TaskItem): Record<string, StepData> {
         { id: "feedback", label: "feedback", revision: task.key === "B" ? "r1" : undefined },
       ],
       outputs: [{ id: "commit", label: "commit", revision: task.key === "B" ? "pending" : "3f9a1c2" }],
-      tail: builderTail,
       executions: task.key === "B"
         ? [
             { id: "build#1", label: "iteration 1 · attempt 1", state: "succeeded", duration: "9m 12s", note: "commit 81c0d4e" },
@@ -54,21 +49,18 @@ function cycleSteps(task: TaskItem): Record<string, StepData> {
       outcome: stateOf(task, "check") === "succeeded" ? "passed" : undefined,
       inputs: [{ id: "commit", label: "commit" }],
       outputs: [{ id: "check-report", label: "check-report" }],
-      tail: ["$ cargo test --workspace", "test result: ok. 212 passed"],
     },
     review: {
       name: "review", kind: "agent", agent: "reviewer", state: stateOf(task, "review"), outcomes: ["approved", "changes_requested"],
       attempt: [1, 3], iteration, presence: task.currentStep === "review" ? "reviewer" : undefined,
       inputs: [{ id: "commit", label: "commit" }, { id: "check-report", label: "check-report" }],
       outputs: [{ id: "feedback", label: "feedback" }, { id: "approved", label: "approved commit" }],
-      tail: ["● reading commit 3f9a1c2", "findings so far: 1 minor", "src/session/cookie.rs:42"],
     },
     integrate: {
       name: "integrate", kind: "operation", operation: "git.integrate", state: stateOf(task, "integrate"), outcomes: ["merged", "conflict"],
       outcome: task.state === "succeeded" ? "merged" : undefined,
       inputs: [{ id: "approved", label: "approved commit" }],
       outputs: [{ id: "conflict", label: "conflict" }, { id: "merged", label: "integration" }],
-      tail: ["⟳ merge --no-ff into surt/20261107-3", "run checks on the merge"],
     },
   };
 }
@@ -76,7 +68,7 @@ function cycleSteps(task: TaskItem): Record<string, StepData> {
 export function taskCycleGraph(key: string): RunGraph {
   const task = taskByKey(key);
   const data = cycleSteps(task);
-  const cycle = frame("cycle", 260, 0, [770, 420], {
+  const cycle = frame("cycle", 232, 0, frameSize(3, 2), {
     name: "cycle",
     kind: "loop",
     state: task.state,
@@ -89,11 +81,11 @@ export function taskCycleGraph(key: string): RunGraph {
     path: ["surt", "20261107-3", "implement", task.key],
     nodes: [
       cycle,
-      step("setup", 0, 56, data.setup),
-      step("build", 20, 56, data.build, "cycle"),
-      step("check", 270, 56, data.check, "cycle"),
-      step("review", 520, 56, data.review, "cycle"),
-      step("integrate", 520, 240, data.integrate, "cycle"),
+      step("setup", 0, row(0), data.setup),
+      step("build", column(0), row(0), data.build, "cycle"),
+      step("check", column(1), row(0), data.check, "cycle"),
+      step("review", column(2), row(0), data.review, "cycle"),
+      step("integrate", column(2), row(1), data.integrate, "cycle"),
     ],
     edges: [
       link("setup", "worktree", "build", "worktree", edgeState(task, "build")),

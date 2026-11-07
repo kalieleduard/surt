@@ -1,5 +1,7 @@
 import { useEffect, useMemo } from "react";
 import {
+  Background,
+  BackgroundVariant,
   MiniMap,
   ReactFlow,
   useNodesState,
@@ -11,8 +13,6 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
 import type { RunGraph, StepData } from "../data/types";
-import { useChoice } from "../prototype/ChoiceContext";
-import { CanvasBackground } from "./CanvasBackground";
 import { FrameNode } from "./FrameNode";
 import { useRunView } from "./RunViewContext";
 import { StepNode } from "./StepNode";
@@ -21,6 +21,7 @@ import "./graph.css";
 
 const NODE_TYPES = { step: StepNode, frame: FrameNode };
 const EDGE_TYPES = { surt: SurtEdge };
+const PAN_WITH_MIDDLE_OR_RIGHT_BUTTON = [1, 2];
 
 function toFlowNodes(graph: RunGraph, selectedId: string): Node[] {
   return graph.nodes.map((node) => ({
@@ -51,29 +52,17 @@ function toFlowEdges(graph: RunGraph): Edge[] {
   }));
 }
 
-type RunCanvasProps = {
-  padding?: FitViewOptions["padding"];
-  focus?: string[];
-  minimap?: boolean;
-};
-
-function fitOptions(graph: RunGraph, padding: FitViewOptions["padding"], focus?: string[]): FitViewOptions {
-  const present = focus?.filter((id) => graph.nodes.some((node) => node.id === id)) ?? [];
-  return present.length ? { padding, nodes: present.map((id) => ({ id })) } : { padding };
-}
-
-export function RunCanvas({ padding = 0.08, focus, minimap = false }: RunCanvasProps) {
-  const { graph, selectedId, select, drill } = useRunView();
-  const choice = useChoice();
+export function RunCanvas({ padding }: { padding: FitViewOptions["padding"] }) {
+  const { graph, selectedId, select, drill, tool } = useRunView();
   const initialNodes = useMemo(() => toFlowNodes(graph, selectedId), [graph]);
   const edges = useMemo(() => toFlowEdges(graph), [graph]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const flow = useReactFlow();
-  const fit = fitOptions(graph, padding, focus);
+  const panning = tool === "pan";
 
   useEffect(() => {
     setNodes(initialNodes);
-    requestAnimationFrame(() => flow.fitView({ ...fit, duration: 250 }));
+    requestAnimationFrame(() => flow.fitView({ padding, duration: 250 }));
   }, [initialNodes]);
 
   useEffect(() => {
@@ -90,7 +79,7 @@ export function RunCanvas({ padding = 0.08, focus, minimap = false }: RunCanvasP
   };
 
   return (
-    <div className={`run-canvas edge-mode--${choice.edge}`}>
+    <div className={`run-canvas${panning ? " is-panning" : ""}`}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -100,14 +89,18 @@ export function RunCanvas({ padding = 0.08, focus, minimap = false }: RunCanvasP
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         fitView
-        fitViewOptions={fit}
+        fitViewOptions={{ padding }}
         minZoom={0.3}
         maxZoom={1.75}
         nodesConnectable={false}
+        nodesDraggable={!panning}
+        elementsSelectable={!panning}
+        panOnDrag={panning ? true : PAN_WITH_MIDDLE_OR_RIGHT_BUTTON}
+        selectionOnDrag={!panning}
         zoomOnDoubleClick={false}
       >
-        <CanvasBackground variant={choice.background} />
-        {minimap ? <MiniMap className="run-minimap" position="bottom-right" pannable zoomable nodeStrokeWidth={2} /> : null}
+        <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
+        <MiniMap className="run-minimap" position="bottom-right" pannable zoomable nodeStrokeWidth={2} />
       </ReactFlow>
     </div>
   );
