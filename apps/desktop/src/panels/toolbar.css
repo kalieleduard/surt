@@ -1,0 +1,28 @@
+.canvas-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 46px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--surt-radius);
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
+}
+
+.canvas-toolbar__group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.canvas-toolbar__group + .canvas-toolbar__group {
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+}
+
+.canvas-toolbar .btn {
+  height: 28px;
+}

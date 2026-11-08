@@ -1,0 +1,170 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--surt-obsidiana);
+  color: var(--surt-mineral);
+  font-family: var(--surt-font);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 0;
+  background: none;
+  padding: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--surt-brasa);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--surt-lava);
+  color: var(--surt-obsidiana);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #80808033;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 10px;
+}
+
+.surface {
+  background: var(--bg);
+  color: var(--text);
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.caption {
+  font: 500 10.5px/1.5 var(--surt-mono);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.mono {
+  font-family: var(--surt-mono);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--surt-radius);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.btn-primary {
+  background: var(--surt-lava);
+  color: var(--surt-obsidiana);
+}
+
+.btn-primary:hover {
+  background: var(--surt-lava-hover);
+}
+
+.btn-ghost {
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+}
+
+.btn-ghost:hover {
+  background: var(--hover);
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--surt-radius);
+  color: var(--text-2);
+}
+
+.icon-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.icon-btn[aria-pressed="true"] {
+  background: var(--active);
+  color: var(--text);
+}
+
+.icon-btn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.icon-btn--small {
+  width: 20px;
+  height: 20px;
+}
+
+@keyframes surt-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes surt-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+@keyframes surt-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+.surt-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
