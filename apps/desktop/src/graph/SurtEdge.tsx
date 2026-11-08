@@ -1,9 +1,10 @@
-import { EdgeLabelRenderer, useStore, type EdgeProps } from "@xyflow/react";
+import { useStore, type EdgeProps } from "@xyflow/react";
 import type { GraphEdge } from "../data/types";
 import { loopLane, wrapLane } from "./lanes";
-import { route } from "./route";
+import { route, type Point } from "./route";
 
 const LOOP_STUB = 8;
+const CHIP = { char: 6.35, padding: 8, height: 18 };
 
 export type EdgeData = { state: GraphEdge["state"]; label?: string; frame?: string; related?: boolean };
 
@@ -25,13 +26,19 @@ export function SurtEdge(props: EdgeProps) {
       <path id={id} d={path} className="edge__line" fill="none" />
       {active ? <FlowOverlay path={path} /> : null}
       <path d={arrow} className="edge__arrow" />
-      {data.label ? (
-        <EdgeLabelRenderer>
-          <span className={`edge__label mono edge__label--${data.state}`} style={{ transform: `translate(-50%, -50%) translate(${label.x}px, ${label.y}px)` }}>
-            {data.label}
-          </span>
-        </EdgeLabelRenderer>
-      ) : null}
+      {data.label ? <EdgeChip at={label} text={data.label} state={data.state} /> : null}
+    </g>
+  );
+}
+
+function EdgeChip({ at, text, state }: { at: Point; text: string; state: EdgeData["state"] }) {
+  const width = Math.round(text.length * CHIP.char + CHIP.padding * 2);
+  return (
+    <g className={`edge__chip edge__chip--${state}`} transform={`translate(${Math.round(at.x - width / 2)} ${Math.round(at.y - CHIP.height / 2)})`}>
+      <rect width={width} height={CHIP.height} rx={CHIP.height / 2} />
+      <text x={width / 2} y={CHIP.height / 2} dominantBaseline="central" textAnchor="middle">
+        {text}
+      </text>
     </g>
   );
 }

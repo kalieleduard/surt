@@ -45,7 +45,7 @@
 
 .react-flow__handle-left.port__handle {
   opacity: 0;
-  transform: translate(0, -50%);
+  transform: translate(calc(-100% - 2px), -50%);
 }
 
 .react-flow__handle.port__handle--frame,
@@ -67,8 +67,8 @@
   transform: translate(50%, -50%);
 }
 
-.node.is-selected .react-flow__handle-right.port__handle {
-  border-color: var(--text);
+.react-flow__node.selected .react-flow__handle-right.port__handle:not(.port__handle--frame) {
+  opacity: 0;
 }
 
 .node {
@@ -86,7 +86,7 @@
   box-shadow: 0 8px 20px #0000002e;
   transition: box-shadow 0.15s, border-color 0.15s, outline-color 0.15s;
   outline: 2px solid transparent;
-  outline-offset: 3px;
+  outline-offset: 2px;
 }
 
 .node.is-selected,
@@ -553,31 +553,28 @@
   filter: drop-shadow(0 0 4px var(--surt-lava));
 }
 
-.run-canvas .react-flow__edgelabel-renderer {
-  z-index: 4;
+.edge__chip rect {
+  fill: var(--node);
+  stroke: var(--line-strong);
+  stroke-width: 1px;
 }
 
-.edge__label {
-  position: absolute;
-  padding: 0 7px;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  background: var(--node);
-  box-shadow: 0 1px 3px #00000014;
-  font-size: 10.5px;
-  line-height: 17px;
-  white-space: nowrap;
-  color: var(--text-2);
-  pointer-events: none;
+.edge__chip text {
+  font: 10.5px var(--surt-mono);
+  fill: var(--text-2);
 }
 
-.edge__label--back {
-  border-style: dashed;
+.edge__chip--back rect {
+  stroke-dasharray: 3 3;
 }
 
-.edge__label--active {
-  border-color: color-mix(in srgb, var(--surt-lava) 55%, transparent);
-  color: var(--text);
+.edge__chip--active rect {
+  stroke: color-mix(in srgb, var(--surt-lava) 55%, transparent);
+}
+
+.edge__chip--active text,
+.edge.is-related .edge__chip text {
+  fill: var(--text);
 }
 
 .react-flow__resize-control.resize-line {

@@ -74,7 +74,7 @@ describe("buildRunGraph", () => {
 
     expect(frame(graph, "spec-loop").inputs?.[0].y).toBe(spec.position.y + 24);
     expect(frame(graph, "spec-loop").outputs?.[0].y).toBe(spec.position.y + 24);
-    expect(node(graph, "spec-loop").height).toBe(48 + 44 + 16 + 30);
+    expect(node(graph, "spec-loop").height).toBe(48 + 44 + 28 + 30);
   });
 
   it("shows a reached gate as waiting with its summary and selects it", () => {
