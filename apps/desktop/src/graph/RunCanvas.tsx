@@ -23,6 +23,7 @@ import { FrameNode } from "./FrameNode";
 import { layoutKey, type Placements } from "./layoutStore";
 import { useRunView } from "./RunViewContext";
 import { CanvasNotice } from "./CanvasNotice";
+import { FrozenNotice } from "./FrozenNotice";
 import { SelectionBar } from "./SelectionBar";
 import { StepNode } from "./StepNode";
 import { SurtEdge } from "./SurtEdge";
@@ -147,6 +148,7 @@ export function RunCanvas({ padding }: { padding: FitViewOptions["padding"] }) {
   return (
     <div className={`run-canvas${panning ? " is-panning" : ""}`}>
       <CanvasNotice />
+      <FrozenNotice />
       <ReactFlow
         nodes={nodes}
         edges={edges}
