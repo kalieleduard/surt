@@ -1,5 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import type { CancelImpact, ProjectView, RunDetail, RunsView, WaitingInput, WorkflowView } from "./types";
+import type { CancelImpact, Catalog, Checkouts, ProjectView, RunDetail, RunsView, WaitingInput, WorkflowView } from "./types";
 
 export const ENGINE_AVAILABLE = isTauri();
 
@@ -19,4 +19,11 @@ export const engine = {
   cancel: (subject: string) => invoke<string>("cancel", { subject }),
   workflowDefinitions: () => invoke<WorkflowView[]>("workflow_definitions"),
   newRun: (workflow: string, inputs: [string, string][], name: string | null) => invoke<string>("new_run", { workflow, inputs, name }),
+  definitions: () => invoke<Catalog>("definitions"),
+  readDefinition: (path: string) => invoke<string>("read_definition", { path }),
+  saveDefinition: (path: string, content: string) => invoke<Catalog>("save_definition", { path, content }),
+  deleteDefinition: (path: string) => invoke<Catalog>("delete_definition", { path }),
+  checkouts: () => invoke<Checkouts>("checkouts"),
+  switchBranch: (worktree: string, branch: string, create: boolean) => invoke<Checkouts>("switch_branch", { worktree, branch, create }),
+  createWorktree: (branch: string, base: string | null) => invoke<Checkouts>("create_worktree", { branch, base }),
 };

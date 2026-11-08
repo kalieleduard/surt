@@ -100,6 +100,12 @@ button {
   background: var(--surt-lava-hover);
 }
 
+.btn-primary:disabled {
+  background: var(--active);
+  color: var(--text-2);
+  opacity: 1;
+}
+
 .btn-ghost {
   color: var(--text);
   border: 1px solid var(--line-strong);

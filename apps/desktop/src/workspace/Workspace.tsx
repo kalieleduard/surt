@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PanelLeft } from "lucide-react";
+import { DefinitionEditor } from "../editor/DefinitionEditor";
 import { useEngine } from "../engine/EngineContext";
 import { RunCanvas } from "../graph/RunCanvas";
 import { RunViewProvider, useRunView } from "../graph/RunViewContext";
@@ -9,7 +10,7 @@ import { Inspector } from "../panels/Inspector";
 import { RunTree } from "../panels/RunTree";
 import { SourceOverlay } from "../panels/SourceOverlay";
 
-const CANVAS_PADDING = { top: "80px", right: "330px", bottom: "96px", left: "280px" } as const;
+const CANVAS_PADDING = { top: "80px", right: "330px", bottom: "96px", left: "300px" } as const;
 
 export function Workspace() {
   return (
@@ -23,6 +24,7 @@ export function Workspace() {
           <CanvasToolbar />
         </div>
         <SourceOverlay />
+        <DefinitionEditor />
         <ClosingNotice />
       </div>
     </RunViewProvider>
@@ -49,16 +51,13 @@ function FloatingRuns() {
   if (!open) {
     return (
       <button className="floating-pill" onClick={() => setOpen(true)}>
-        <PanelLeft size={14} /> Subjects <span className="mono">{subjects.length}</span>
+        <PanelLeft size={14} /> Runs <span className="mono">{subjects.length}</span>
       </button>
     );
   }
   return (
     <div className="floating-panel floating-panel--left">
-      <button className="icon-btn floating-panel__collapse" onClick={() => setOpen(false)} aria-label="Collapse subjects">
-        <PanelLeft size={14} />
-      </button>
-      <RunTree />
+      <RunTree onCollapse={() => setOpen(false)} />
     </div>
   );
 }

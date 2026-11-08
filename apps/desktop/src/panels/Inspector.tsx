@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { ArrowUpRight, X } from "lucide-react";
+import { ArrowUpRight, Pencil, X } from "lucide-react";
 import type { Execution, StepData } from "../data/types";
+import { useDefinitions } from "../editor/DefinitionsContext";
 import { useEngine } from "../engine/EngineContext";
 import { useRunView } from "../graph/RunViewContext";
 import { AgentAvatar, STATE_LABEL, StateDot, kindIcon, kindLabel } from "../ui/status";
@@ -60,13 +61,23 @@ function Row({ label, value, mono = true }: { label: string; value?: ReactNode; 
 }
 
 function StepSection({ step }: { step: StepData }) {
+  const { edit } = useDefinitions();
+  const { available } = useEngine();
+  const agent = step.agent;
   return (
     <Section title="Step">
-      {step.agent ? (
+      {agent ? (
         <div className="insp-agent">
-          <AgentAvatar agent={step.agent} size={22} />
-          <span>{step.agent}</span>
-          <span className="mono insp-agent__path">.surt/agents/{step.agent}</span>
+          <AgentAvatar agent={agent} size={22} />
+          <span className="insp-agent__name">
+            {agent}
+            <span className="mono insp-agent__path">.surt/agents/{agent}</span>
+          </span>
+          {available ? (
+            <button className="btn btn-ghost insp-agent__edit" onClick={() => edit({ kind: "agent", id: agent })} title="Edit instructions, profile and references">
+              <Pencil size={12} /> Edit
+            </button>
+          ) : null}
         </div>
       ) : null}
       {step.operation ? <Row label="operation" value={step.operation} /> : null}

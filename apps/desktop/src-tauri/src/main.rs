@@ -1,9 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod checkouts;
 mod commands;
 mod control;
 mod definition;
 mod drivers;
+mod editing;
 mod gates;
 mod new_run;
 mod runtime;
@@ -43,6 +45,13 @@ fn main() {
             control::cancel,
             new_run::workflow_definitions,
             new_run::new_run,
+            editing::definitions,
+            editing::read_definition,
+            editing::save_definition,
+            editing::delete_definition,
+            checkouts::checkouts,
+            checkouts::switch_branch,
+            checkouts::create_worktree,
         ])
         .run(tauri::generate_context!())
         .expect("the Surt desktop window could not start");

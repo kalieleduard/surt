@@ -340,6 +340,10 @@
   background: color-mix(in srgb, var(--st-running) 40%, transparent);
 }
 
+.frame.is-selected .frame__shape {
+  border: 1.5px solid var(--text-2);
+}
+
 .frame__head {
   position: relative;
   display: flex;

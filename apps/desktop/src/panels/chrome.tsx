@@ -3,6 +3,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Copy, FolderOpen, Minus, Plus, X } from "lucide-react";
 import { SurtWordmark } from "../brand/SurtMark";
+import { CheckoutChips } from "../checkout/CheckoutChips";
 import { useEngine } from "../engine/EngineContext";
 import { useRunView } from "../graph/RunViewContext";
 import { ThemePicker } from "../theme/ThemePicker";
@@ -15,6 +16,7 @@ export function TitleBar() {
         <SurtWordmark size={15} />
       </span>
       <div className="titlebar__center" data-tauri-drag-region>
+        <CheckoutChips />
         <RunPath />
       </div>
       <div className="titlebar__actions">
@@ -28,24 +30,36 @@ export function TitleBar() {
   );
 }
 
+const DATED_SEGMENT = /^(\d{4})(\d{2})(\d{2})-(.+)$/;
+
 function RunPath() {
   const { graph, back } = useRunView();
   const { project } = useEngine();
   const path = graph?.path ?? (project ? [project.name] : []);
+  if (path.length < 2) return null;
   return (
-    <span className="run-path" title={project?.root}>
-      {path.map((segment, index) => (
-        <Fragment key={`${index}:${segment}`}>
-          {index > 0 ? <span className="run-path__sep">/</span> : null}
-          <button
-            className={`run-path__segment${index === path.length - 1 ? " is-current" : ""}`}
-            onClick={index === 1 && path.length > 2 ? back : undefined}
-          >
-            {segment}
-          </button>
-        </Fragment>
-      ))}
-    </span>
+    <nav className="run-path" title={path.join(" / ")} data-tauri-drag-region>
+      <span className="run-path__sep">/</span>
+      {path.map((segment, index) => {
+        if (index === 0) return null;
+        const current = index === path.length - 1;
+        const link = index === 1 && path.length > 2;
+        const dated = DATED_SEGMENT.exec(segment);
+        return (
+          <Fragment key={`${index}:${segment}`}>
+            {index > 1 ? <span className="run-path__sep">/</span> : null}
+            {dated ? <span className="run-path__date">{`${dated[1]}-${dated[2]}-${dated[3]}`}</span> : null}
+            <button
+              className={`run-path__segment${current ? " is-current" : ""}${link ? " is-link" : ""}`}
+              onClick={link ? back : undefined}
+              title={segment}
+            >
+              {dated ? dated[4] : segment}
+            </button>
+          </Fragment>
+        );
+      })}
+    </nav>
   );
 }
 
