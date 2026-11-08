@@ -30,7 +30,12 @@ fn every_agent_runs_on_the_shared_profile_without_turn_or_cost_limits() {
 #[test]
 fn each_role_gets_the_tools_and_approvals_of_its_row_in_the_agent_contract() {
     let reviewer_approvals = [&["Read", "Glob", "Grep"][..], &READ_ONLY_GIT[..]].concat();
-    let expected: [(&str, &[&str], &[&str]); 5] = [
+    let expected: [(&str, &[&str], &[&str]); 6] = [
+        (
+            "discovery",
+            &["Read", "Glob", "Grep", "Write", "WebSearch", "WebFetch"],
+            &["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
+        ),
         (
             "spec",
             &["Read", "Glob", "Grep", "Write"],
@@ -85,7 +90,7 @@ fn the_builders_commit_is_proven_by_git_and_the_reviewers_verdict_is_bound_to_it
             r#"checks = [{ kind = "reviewed_commit" }, { kind = "no_blocking_finding", outcome = "approved" }]"#
         )
     );
-    for id in ["spec", "tasks", "shipper"] {
+    for id in ["discovery", "spec", "tasks", "shipper"] {
         let agent = agent(id);
         let outputs = agent["outputs"].as_table().expect("outputs");
         assert!(

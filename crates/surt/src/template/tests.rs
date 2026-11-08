@@ -1,3 +1,4 @@
+mod discovery;
 mod roles;
 #[cfg(not(feature = "test-support"))]
 mod runtime;
@@ -110,14 +111,21 @@ fn the_feature_workflow_ends_with_the_fast_forward_into_the_base_after_the_shipp
 }
 
 #[test]
-fn the_template_holds_exactly_five_agents_each_with_its_instructions() {
+fn the_template_holds_exactly_six_agents_each_with_its_instructions() {
     let ids = agent_ids();
 
     assert_eq!(
         ids,
-        ["builder", "reviewer", "shipper", "spec", "tasks"]
-            .map(str::to_owned)
-            .into()
+        [
+            "builder",
+            "discovery",
+            "reviewer",
+            "shipper",
+            "spec",
+            "tasks"
+        ]
+        .map(str::to_owned)
+        .into()
     );
     for id in ids {
         assert!(
@@ -128,8 +136,12 @@ fn the_template_holds_exactly_five_agents_each_with_its_instructions() {
 }
 
 #[test]
-fn the_spec_and_tasks_agents_ship_the_document_templates_their_instructions_name() {
-    for (id, reference) in [("spec", "spec-template.md"), ("tasks", "task-template.md")] {
+fn the_discovery_spec_and_tasks_agents_ship_the_document_templates_their_instructions_name() {
+    for (id, reference) in [
+        ("discovery", "brief-template.md"),
+        ("spec", "spec-template.md"),
+        ("tasks", "task-template.md"),
+    ] {
         let instructions = file(&format!("agents/{id}/instructions.md")).expect("the instructions");
         let template = file(&format!("agents/{id}/references/{reference}")).expect("the reference");
 

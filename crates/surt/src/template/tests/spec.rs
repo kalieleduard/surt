@@ -1,9 +1,8 @@
-use surt_engine::project::MAX_QUESTIONS;
 use toml::Table;
 
 use super::{agent, file, strings};
 
-fn feature_steps() -> Table {
+pub(super) fn feature_steps() -> Table {
     let workflow: Table = file("workflows/feature.toml")
         .expect("the feature workflow")
         .parse()
@@ -12,69 +11,58 @@ fn feature_steps() -> Table {
 }
 
 #[test]
-fn the_spec_loop_asks_for_answers_when_the_spec_agent_has_questions_and_for_approval_when_it_is_done()
- {
+fn the_spec_loop_starts_after_discovery_and_only_asks_for_approval() {
     let steps = feature_steps();
-    let answer = &steps["answer-spec"];
     let approve = &steps["approve-spec"];
 
     assert_eq!(
         strings(&steps["spec-loop"]["body"]),
-        ["spec", "answer-spec", "approve-spec"]
+        ["spec", "approve-spec"]
     );
-    assert_eq!(answer["kind"].as_str(), Some("input"));
-    assert_eq!(answer["artifact"].as_str(), Some("spec-questions"));
-    assert_eq!(answer["answer_artifact"].as_str(), Some("spec-answers"));
-    assert_eq!(strings(&answer["needs"]), ["spec"]);
-    assert_eq!(answer["when"]["outcome"].as_str(), Some("questions"));
-    assert_eq!(strings(&approve["needs"]), ["answer-spec"]);
-    assert_eq!(approve["when"]["step"].as_str(), Some("spec"));
-    assert_eq!(approve["when"]["outcome"].as_str(), Some("done"));
+    assert_eq!(strings(&steps["spec-loop"]["needs"]), ["discovery-loop"]);
+    assert_eq!(approve["kind"].as_str(), Some("approval"));
+    assert_eq!(strings(&approve["needs"]), ["spec"]);
+    assert!(approve.get("when").is_none());
+    assert!(!steps.contains_key("answer-spec"));
 }
 
 #[test]
-fn the_spec_agent_delivers_the_spec_or_questions_and_continues_its_conversation() {
+fn the_spec_agent_writes_from_the_brief_without_asking_and_continues_its_conversation() {
     let spec = agent("spec");
-    let outputs = &spec["outputs"];
+    let inputs = &spec["inputs"];
 
-    assert_eq!(strings(&spec["outcomes"]), ["done", "questions"]);
-    assert_eq!(strings(&outputs["spec"]["outcomes"]), ["done"]);
+    assert!(spec.get("outcomes").is_none());
     assert_eq!(
-        outputs["spec-questions"]["format"].as_str(),
-        Some("questions")
+        spec["outputs"]
+            .as_table()
+            .expect("outputs")
+            .keys()
+            .collect::<Vec<_>>(),
+        ["spec"]
     );
+    assert_eq!(inputs["brief"]["format"].as_str(), Some("markdown"));
+    assert!(inputs["brief"].get("optional").is_none());
     assert_eq!(
-        strings(&outputs["spec-questions"]["outcomes"]),
-        ["questions"]
-    );
-    assert_eq!(
-        spec["inputs"]["spec-answers"]["format"].as_str(),
-        Some("json")
-    );
-    assert_eq!(
-        spec["inputs"]["spec-answers"]["optional"].as_bool(),
+        inputs["discovery-answers"]["optional"].as_bool(),
         Some(true)
     );
+    assert!(inputs.get("spec-answers").is_none());
     assert_eq!(spec["profile"]["conversation"].as_str(), Some("loop"));
 }
 
 #[test]
-fn the_spec_instructions_bound_each_round_and_record_decisions_instead_of_open_questions() {
+fn the_spec_instructions_record_decisions_instead_of_asking_questions() {
     let instructions = file("agents/spec/instructions.md").expect("the instructions");
 
     for named in [
-        "`spec-answers`",
-        "`questions.json`",
-        "`why`",
-        "`recommended`",
-        "`options`",
-        "`description`",
-        "outcome `questions`",
+        "`brief`",
+        "`discovery-answers`",
         "outcome `done`",
         "**Decisions**",
     ] {
         assert!(instructions.contains(named), "{named}");
     }
-    assert!(instructions.contains(&format!("at most {MAX_QUESTIONS} questions per round")));
-    assert!(!instructions.contains("Open questions"));
+    for absent in ["`questions.json`", "outcome `questions`", "Open questions"] {
+        assert!(!instructions.contains(absent), "{absent}");
+    }
 }

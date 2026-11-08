@@ -21,7 +21,7 @@ fn status_shows_the_run_awaiting_an_answer_with_the_questions_round_and_how_to_a
     );
     assert!(
         detail.contains(&format!(
-            "  spec-questions rev 1 (agent) ⏸ awaiting answers (round 1)\n  \
+            "  discovery-questions rev 1 (agent) ⏸ awaiting answers (round 1)\n  \
              answer: surt answer {name}\n"
         )),
         "{detail}"
@@ -29,7 +29,7 @@ fn status_shows_the_run_awaiting_an_answer_with_the_questions_round_and_how_to_a
 }
 
 #[test]
-fn status_json_lists_the_waiting_input_step_and_the_gate_it_skips_to_with_their_kinds() {
+fn status_json_lists_the_waiting_input_step_with_its_kind_and_round() {
     let document: Value =
         serde_json::from_str(&stdout(&["status", "--json"])).expect("status is JSON");
 
@@ -52,8 +52,7 @@ fn status_json_lists_the_waiting_input_step_and_the_gate_it_skips_to_with_their_
     assert_eq!(
         gates,
         [
-            json!({ "step": "answer-spec", "kind": "input", "artifact": "spec-questions", "status": "waiting", "round": 1 }),
-            json!({ "step": "approve-spec", "kind": "approval", "artifact": "spec", "status": "not_reached", "round": null }),
+            json!({ "step": "answer-discovery", "kind": "input", "artifact": "discovery-questions", "status": "waiting", "round": 1 }),
         ]
     );
 }

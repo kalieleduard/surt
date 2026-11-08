@@ -19,6 +19,23 @@ const DELIVERY_SCHEMA: (&str, &str) = (
     include_str!("../../assets/templates/feature/agents/shipper/schemas/delivery.schema.json"),
 );
 
+const DISCOVERY: AgentFiles = &[
+    (
+        "agent.toml",
+        include_str!("../../assets/templates/feature/agents/discovery/agent.toml"),
+    ),
+    (
+        "instructions.md",
+        include_str!("../../assets/templates/feature/agents/discovery/instructions.md"),
+    ),
+    (
+        "references/brief-template.md",
+        include_str!(
+            "../../assets/templates/feature/agents/discovery/references/brief-template.md"
+        ),
+    ),
+];
+
 const SPEC: AgentFiles = &[
     (
         "agent.toml",
@@ -107,6 +124,7 @@ pub(super) const TEMPLATE: Template = Template {
         ),
     ],
     agents: &[
+        ("discovery", DISCOVERY),
         ("spec", SPEC),
         ("tasks", TASKS),
         ("builder", BUILDER),

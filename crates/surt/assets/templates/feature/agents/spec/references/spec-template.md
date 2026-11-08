@@ -40,7 +40,7 @@ This is the standard shape of every `spec.md`. The Task Agent, the Builders and 
 
 ## Decisions
 
-- **D-1**: <The question asked.> → <The answer given.> (<round N | note | chosen by the Spec Agent because ...>)
+- **D-1**: <The question asked, or the choice made.> → <The answer or the choice.> (<discovery round N | discovery note | brief assumption | chosen by the Spec Agent because ...>)
 
 ## Glossary
 

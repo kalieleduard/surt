@@ -5,13 +5,16 @@ use crate::support::{REFUSED_EXIT_CODE, Sandbox};
 
 const BUILDER_TOML: &str = ".surt/agents/builder/agent.toml";
 
-const TEMPLATE_FILES: [&str; 27] = [
+const TEMPLATE_FILES: [&str; 30] = [
     ".surt/agents/builder/agent.toml",
     ".surt/agents/builder/instructions.md",
     ".surt/agents/builder/schemas/check-report.schema.json",
     ".surt/agents/builder/schemas/commit.schema.json",
     ".surt/agents/builder/schemas/conflict.schema.json",
     ".surt/agents/builder/schemas/feedback.schema.json",
+    ".surt/agents/discovery/agent.toml",
+    ".surt/agents/discovery/instructions.md",
+    ".surt/agents/discovery/references/brief-template.md",
     ".surt/agents/reviewer/agent.toml",
     ".surt/agents/reviewer/instructions.md",
     ".surt/agents/reviewer/schemas/check-report.schema.json",

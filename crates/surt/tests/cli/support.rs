@@ -6,6 +6,8 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{AssertSqlSafe, SqlitePool};
 use tempfile::TempDir;
 
+use crate::scripts;
+
 pub const REFUSED_EXIT_CODE: i32 = 3;
 pub const INTERNAL_ERROR_EXIT_CODE: i32 = 1;
 
@@ -97,7 +99,12 @@ impl Sandbox {
     }
 
     pub fn script(&self, entries: &[String]) {
-        fs::write(self.script_path(), entries.concat()).expect("the Fake Runtime script");
+        let script = entries.concat();
+        let discovery = match script.contains("step = \"discovery\"") {
+            true => String::new(),
+            false => scripts::brief(1),
+        };
+        fs::write(self.script_path(), discovery + &script).expect("the Fake Runtime script");
     }
 
     fn git_config(&self) -> PathBuf {

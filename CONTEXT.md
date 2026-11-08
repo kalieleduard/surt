@@ -204,8 +204,16 @@ _Avoid_: Ticket, issue, story
 The Workflow Definition `task-cycle` that builds and reviews one Task; each Task runs as its own Child Workflow Run of it.
 _Avoid_: Task loop, task pipeline
 
+**Discovery Agent**:
+The Agent that runs first in a Feature and asks the developer, in plain words, only what the code and the web cannot answer about the product's core. It keeps a Conversation across the discovery Loop, asks up to five questions per round through the Input Step `answer-discovery` for as many rounds as the Feature needs, and ends with the Brief.
+_Avoid_: Interviewer, grill
+
+**Brief**:
+The Discovery Agent's short summary of what the developer wants: the problem, who it is for, the main flow, what is out of scope, when it is done, the assumptions it made and the pages it read. It is not approved; the Spec Agent builds the spec from it.
+_Avoid_: Summary, requirements
+
 **Spec Agent**:
-The Agent that writes the spec from the user's request. It keeps a Conversation across the spec Loop: until no blocking decision is left open it asks the developer up to five questions per round through the Input Step `answer-spec`, and the spec it delivers records every question and answer under **Decisions**.
+The Agent that writes the spec from the user's request, the Brief and the developer's discovery answers. It asks no questions: what is still open it decides itself, and the spec it delivers records every discovery answer, Brief assumption and own choice under **Decisions**. It keeps a Conversation across the spec Loop to revise after a rejection.
 
 **Task Agent**:
 The Agent that breaks an approved spec into the Task manifest.
