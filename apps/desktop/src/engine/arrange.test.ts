@@ -41,15 +41,15 @@ describe("arrange", () => {
 
     expect(arranged.positions.get("a")).toEqual({ x: 0, y: 0 });
     expect(arranged.positions.get("b")).toEqual({ x: 0, y: 72 });
-    expect(arranged.positions.get("c")).toEqual({ x: 256, y: 36 });
-    expect(arranged.box).toEqual({ width: 440, height: 120 });
+    expect(arranged.positions.get("c")).toEqual({ x: 280, y: 36 });
+    expect(arranged.box).toEqual({ width: 464, height: 120 });
   });
 
   it("wraps columns that would pass the row width onto a new row", () => {
-    const arranged = arrange([["a"], ["b"], ["c"]], () => NODE_BOX, 460);
+    const arranged = arrange([["a"], ["b"], ["c"]], () => NODE_BOX, 480);
 
-    expect(arranged.positions.get("b")).toEqual({ x: 256, y: 0 });
+    expect(arranged.positions.get("b")).toEqual({ x: 280, y: 0 });
     expect(arranged.positions.get("c")).toEqual({ x: 0, y: 120 });
-    expect(arranged.box).toEqual({ width: 440, height: 168 });
+    expect(arranged.box).toEqual({ width: 464, height: 168 });
   });
 });

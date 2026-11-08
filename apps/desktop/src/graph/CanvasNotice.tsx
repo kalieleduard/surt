@@ -1,9 +1,15 @@
 import type { ReactNode } from "react";
 import { FolderOpen } from "lucide-react";
 import { useEngine } from "../engine/EngineContext";
+import { useRunView } from "./RunViewContext";
 
 export function CanvasNotice() {
   const { available, project, projectError, chooseProject, runs, subjects, runsError, graph, detailError } = useEngine();
+  const { previewing, previewError, graph: shown } = useRunView();
+  if (previewing) {
+    if (shown) return null;
+    return <Notice title={previewError ? `Surt could not read ${previewing}` : `Reading ${previewing}`} error={previewError} />;
+  }
   if (!available) {
     return (
       <Notice title="Surt reads runs in the desktop app">

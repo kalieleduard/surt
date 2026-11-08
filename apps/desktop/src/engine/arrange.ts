@@ -3,12 +3,12 @@ export type Point = { x: number; y: number };
 export type Arrangement = { positions: Map<string, Point>; box: Box };
 
 export const NODE_BOX: Box = { width: 184, height: 48 };
-export const FRAME_INSET = 16;
+export const FRAME_INSET = 28;
 export const FRAME_HEADER = 44;
 export const MIN_FRAME_CONTENT = 404;
 export const LOOP_LANE = 30;
 
-const COLUMN_GAP = 72;
+const COLUMN_GAP = 96;
 const STACK_GAP = 24;
 const ROW_GAP = 72;
 const MAX_STACK = 3;

@@ -36,6 +36,10 @@ pub enum Failure {
     DrivingInMain,
     #[error("{0}")]
     Git(String),
+    #[error("no script named {0} in .surt/config.toml")]
+    UnknownScript(String),
+    #[error("{0} is already running")]
+    ScriptRunning(String),
     #[cfg(feature = "test-support")]
     #[error("{0}")]
     Runtime(String),

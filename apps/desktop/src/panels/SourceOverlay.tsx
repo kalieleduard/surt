@@ -13,7 +13,7 @@ export function SourceOverlay() {
     <div className="source-overlay">
       <header className="source-overlay__head">
         <span className="caption">{graph.workflow}.toml</span>
-        <span className="source-overlay__frozen mono">frozen with run {graph.run}</span>
+        <span className="source-overlay__frozen mono">{graph.preview ? "current definition" : `frozen with run ${graph.run}`}</span>
         {available ? (
           <button className="source-overlay__edit" onClick={() => edit({ kind: "workflow", name: graph.workflow })} title="Edit the workflow definition new runs start from">
             <Pencil size={12} /> Edit

@@ -13,3 +13,8 @@ merge_into_base = "never"   # "never" | "ff-only" | "merge"
 
 # [cleanup]
 # on_success = "keep"       # optional: a succeeded run keeps its worktrees and branches until surt delete
+
+# [[scripts]]               # optional: commands the desktop app's Run button starts in the project root
+# name = "app"
+# run = ["npm", "run", "dev"]
+# description = "start the app in development mode"   # optional

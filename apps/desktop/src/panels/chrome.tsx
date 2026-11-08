@@ -6,6 +6,7 @@ import { SurtWordmark } from "../brand/SurtMark";
 import { CheckoutChips } from "../checkout/CheckoutChips";
 import { useEngine } from "../engine/EngineContext";
 import { useRunView } from "../graph/RunViewContext";
+import { RunScript } from "../scripts/RunScript";
 import { ThemePicker } from "../theme/ThemePicker";
 import { NewRunDialog } from "./NewRunDialog";
 
@@ -22,6 +23,7 @@ export function TitleBar() {
       <div className="titlebar__actions">
         <SlotMeter />
         <ThemePicker />
+        <RunScript />
         <OpenProject />
         <NewRun />
       </div>

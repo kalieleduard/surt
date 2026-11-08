@@ -41,7 +41,7 @@ export function StepDefinition({ stepKey }: { stepKey: string }) {
         </DefSection>
       ) : null}
       <Order raw={raw} />
-      <StepSource stepKey={stepKey} workflow={graph.workflow} file={workflow.file} live={workflow.live} frozen={graph.source} run={graph.run} />
+      <StepSource stepKey={stepKey} workflow={graph.workflow} file={workflow.file} live={workflow.live} frozen={graph.source} run={graph.preview ? null : graph.run} />
     </div>
   );
 }

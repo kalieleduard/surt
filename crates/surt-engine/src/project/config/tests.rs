@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use tempfile::TempDir;
 
-use super::{Check, Config, MergeIntoBase, TEMPLATE, load};
+use super::{Check, Config, MergeIntoBase, Script, TEMPLATE, load};
 use crate::project::{Error, Refusal};
 
 mod cleanup;
@@ -57,6 +57,7 @@ fn the_generated_template_holds_exactly_the_documented_defaults() {
     assert_eq!(config.max_iterations, nonzero(5));
     assert_eq!(config.git.merge_into_base, MergeIntoBase::Never);
     assert!(config.checks.is_empty());
+    assert!(config.scripts.is_empty());
     assert_eq!(config.cleanup.on_success, None);
     assert_eq!(config, Config::default());
 }
@@ -207,4 +208,47 @@ fn an_unknown_merge_mode_is_an_invalid_config() {
         file.refusal(),
         Refusal::InvalidConfig { line: Some(2), .. }
     ));
+}
+
+#[test]
+fn scripts_are_read_in_order_with_an_optional_description() {
+    let file = ConfigFile::with(
+        "[[scripts]]\nname = \"app\"\nrun = [\"npm\", \"run\", \"dev\"]\ndescription = \"dev server\"\n\n[[scripts]]\nname = \"test\"\nrun = [\"cargo\", \"test\"]\n",
+    );
+
+    let config = file.load().expect("the config loads");
+
+    assert_eq!(
+        config.scripts,
+        [
+            Script {
+                name: "app".to_owned(),
+                run: vec!["npm".to_owned(), "run".to_owned(), "dev".to_owned()],
+                description: Some("dev server".to_owned()),
+            },
+            Script {
+                name: "test".to_owned(),
+                run: vec!["cargo".to_owned(), "test".to_owned()],
+                description: None,
+            },
+        ]
+    );
+}
+
+#[test]
+fn a_script_without_a_program_or_with_a_bad_name_is_refused() {
+    let cases = [
+        ("[[scripts]]\nname = \"app\"\nrun = []\n", "script run"),
+        (
+            "[[scripts]]\nname = \"My App\"\nrun = [\"npm\"]\n",
+            "script name",
+        ),
+    ];
+    for (contents, needle) in cases {
+        let Refusal::InvalidConfig { reason, .. } = ConfigFile::with(contents).refusal() else {
+            panic!("expected an invalid config for {contents}");
+        };
+
+        assert!(reason.contains(needle), "{reason}");
+    }
 }

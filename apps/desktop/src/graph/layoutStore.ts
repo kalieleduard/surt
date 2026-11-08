@@ -1,6 +1,7 @@
 import type { Point } from "../engine/arrange";
 
-export type Placements = Record<string, Point>;
+export type Placement = Point & { width?: number; height?: number };
+export type Placements = Record<string, Placement>;
 
 const PREFIX = "surt-layout";
 
@@ -24,4 +25,10 @@ export function storePlacements(key: string, placements: Placements) {
   } catch {
     return;
   }
+}
+
+export function merged(current: Placements, moved: Placements): Placements {
+  const next = { ...current };
+  for (const [id, placement] of Object.entries(moved)) next[id] = { ...current[id], ...placement };
+  return next;
 }

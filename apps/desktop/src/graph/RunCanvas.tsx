@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -9,6 +9,7 @@ import {
   type Edge,
   type FitViewOptions,
   type Node,
+  type NodeChange,
   type NodeMouseHandler,
   type OnNodeDrag,
 } from "@xyflow/react";
@@ -19,12 +20,15 @@ import { useEngine } from "../engine/EngineContext";
 import { NODE_BOX } from "../engine/arrange";
 import { align, type Alignment, type Rect } from "./alignment";
 import { FrameNode } from "./FrameNode";
-import { layoutKey, loadPlacements, storePlacements, type Placements } from "./layoutStore";
+import { layoutKey, type Placements } from "./layoutStore";
 import { useRunView } from "./RunViewContext";
 import { CanvasNotice } from "./CanvasNotice";
+import { FrozenNotice } from "./FrozenNotice";
 import { SelectionBar } from "./SelectionBar";
 import { StepNode } from "./StepNode";
 import { SurtEdge } from "./SurtEdge";
+import { useDragAssist } from "./useDragAssist";
+import { usePlacements } from "./usePlacements";
 import "./graph.css";
 
 const NODE_TYPES = { step: StepNode, frame: FrameNode };
@@ -34,18 +38,24 @@ const SNAP_GRID: [number, number] = [18, 18];
 
 function toFlowNodes(graph: RunGraph | null, selectedId: string, placements: Placements): Node[] {
   if (!graph) return [];
-  return graph.nodes.map((node) => ({
-    id: node.id,
-    type: node.type,
-    position: placements[node.id] ?? node.position,
-    parentId: node.parentId,
-    data: node.data,
-    width: node.width,
-    height: node.height,
-    style: node.width ? { width: node.width, height: node.height } : undefined,
-    selected: node.id === selectedId,
-    zIndex: node.type === "frame" ? -1 : 1,
-  }));
+  return graph.nodes.map((node) => {
+    const placed = placements[node.id];
+    const fallback = node.type === "step" ? NODE_BOX : undefined;
+    const width = placed?.width ?? node.width ?? fallback?.width;
+    const height = placed?.height ?? node.height ?? fallback?.height;
+    return {
+      id: node.id,
+      type: node.type,
+      position: placed ? { x: placed.x, y: placed.y } : node.position,
+      parentId: node.parentId,
+      data: node.data,
+      width,
+      height,
+      style: width ? { width, height } : undefined,
+      selected: node.id === selectedId,
+      zIndex: node.type === "frame" ? -1 : 1,
+    };
+  });
 }
 
 function toFlowEdges(graph: RunGraph | null, selectedId: string): Edge[] {
@@ -62,33 +72,6 @@ function toFlowEdges(graph: RunGraph | null, selectedId: string): Edge[] {
   }));
 }
 
-function usePlacements(key: string | null, resetToken: number) {
-  const [state, setState] = useState<{ key: string | null; placements: Placements }>(() => ({
-    key,
-    placements: key ? loadPlacements(key) : {},
-  }));
-  const current = state.key === key ? state.placements : key ? loadPlacements(key) : {};
-
-  useEffect(() => {
-    if (state.key !== key) setState({ key, placements: key ? loadPlacements(key) : {} });
-  }, [key, state.key]);
-
-  useEffect(() => {
-    if (!resetToken || !key) return;
-    storePlacements(key, {});
-    setState({ key, placements: {} });
-  }, [resetToken]);
-
-  const place = (moved: Placements) => {
-    if (!key) return;
-    const next = { ...current, ...moved };
-    storePlacements(key, next);
-    setState({ key, placements: next });
-  };
-
-  return { placements: current, place };
-}
-
 export function RunCanvas({ padding }: { padding: FitViewOptions["padding"] }) {
   const { graph, selectedId, select, drill, tool, snap, resetToken } = useRunView();
   const { project } = useEngine();
@@ -99,6 +82,7 @@ export function RunCanvas({ padding }: { padding: FitViewOptions["padding"] }) {
   const edges = useMemo(() => toFlowEdges(graph, selectedId), [graph, selectedId]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const flow = useReactFlow();
+  const { onNodeDragStart, onNodeDragStop: endAssist, assist } = useDragAssist();
   const panning = tool === "pan";
   const selection = nodes.filter((node) => node.selected);
 
@@ -133,8 +117,16 @@ export function RunCanvas({ padding }: { padding: FitViewOptions["padding"] }) {
     else if (data.agent) edit({ kind: "agent", id: data.agent });
   };
 
+  const onChange = (changes: NodeChange[]) => {
+    onNodesChange(assist(changes));
+    const resized = changes.flatMap((change) => (change.type === "dimensions" && change.resizing === false ? [change.id] : []));
+    if (resized.length) requestAnimationFrame(() => place(placementsAfterResize(flow, resized)));
+  };
+
   const onNodeDragStop: OnNodeDrag = (_, __, dragged) => {
-    place(Object.fromEntries(dragged.map((node) => [node.id, node.position])));
+    endAssist();
+    const ids = new Set(dragged.map((node) => node.id));
+    requestAnimationFrame(() => place(Object.fromEntries(flow.getNodes().filter((node) => ids.has(node.id)).map((node) => [node.id, node.position]))));
   };
 
   const arrangeSelection = (alignment: Alignment) => {
@@ -156,12 +148,14 @@ export function RunCanvas({ padding }: { padding: FitViewOptions["padding"] }) {
   return (
     <div className={`run-canvas${panning ? " is-panning" : ""}`}>
       <CanvasNotice />
+      <FrozenNotice />
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
-        onNodesChange={onNodesChange}
+        onNodesChange={onChange}
+        onNodeDragStart={onNodeDragStart}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeDragStop={onNodeDragStop}
@@ -176,7 +170,7 @@ export function RunCanvas({ padding }: { padding: FitViewOptions["padding"] }) {
         selectionOnDrag={!panning}
         snapToGrid={snap}
         snapGrid={SNAP_GRID}
-        multiSelectionKeyCode={["Control", "Meta", "Shift"]}
+        multiSelectionKeyCode={["Control", "Meta"]}
         selectionKeyCode={null}
         zoomOnDoubleClick={false}
       >
@@ -189,6 +183,20 @@ export function RunCanvas({ padding }: { padding: FitViewOptions["padding"] }) {
 }
 
 type Flow = ReturnType<typeof useReactFlow>;
+
+function placementsAfterResize(flow: Flow, ids: string[]): Placements {
+  const placed: Placements = {};
+  for (const node of flow.getNodes()) {
+    if (ids.includes(node.id)) {
+      const width = node.width ?? node.measured?.width;
+      const height = node.height ?? node.measured?.height;
+      placed[node.id] = { ...node.position, ...(width && height ? { width: Math.round(width), height: Math.round(height) } : {}) };
+    } else if (node.parentId && ids.includes(node.parentId)) {
+      placed[node.id] = { ...node.position };
+    }
+  }
+  return placed;
+}
 
 function absolute(flow: Flow, id: string) {
   return flow.getInternalNode(id)?.internals.positionAbsolute ?? { x: 0, y: 0 };

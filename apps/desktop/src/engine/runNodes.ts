@@ -6,7 +6,7 @@ import type { DefinedStep, GateSummary, ItemView } from "./types";
 export const IN = "in";
 export const OUT = "out";
 export const ITEM_PREFIX = "item:";
-const MAX_ROW_WIDTH = 1200;
+const MAX_ROW_WIDTH = 1400;
 
 export type RunSource = {
   steps: Map<string, DefinedStep>;
@@ -89,6 +89,10 @@ class Layout {
     const frame = frameData(step, this.source);
     frame.inputs = frame.inputs?.map((port) => ({ ...port, y: this.portY(step, "in") }));
     frame.outputs = frame.outputs?.map((port) => ({ ...port, y: this.portY(step, "out") }));
+    if (step.kind === "loop") {
+      frame.entry = this.entryOf(step);
+      frame.exit = step.until.step;
+    }
     nodes.push({ id: step.key, type: "frame", position, parentId, width: box.width, height: box.height, data: frame });
     for (const [member, inner] of this.inner.get(step.key)?.positions ?? []) {
       const offset = { x: inner.x + FRAME_INSET, y: inner.y + FRAME_HEADER };

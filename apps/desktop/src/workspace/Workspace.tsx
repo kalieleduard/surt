@@ -9,6 +9,7 @@ import { TitleBar } from "../panels/chrome";
 import { Inspector } from "../panels/Inspector";
 import { RunTree } from "../panels/RunTree";
 import { SourceOverlay } from "../panels/SourceOverlay";
+import { ScriptConsole } from "../scripts/ScriptConsole";
 
 const CANVAS_PADDING = { top: "80px", right: "370px", bottom: "96px", left: "300px" } as const;
 
@@ -23,6 +24,7 @@ export function Workspace() {
         <div className="dock">
           <CanvasToolbar />
         </div>
+        <ScriptConsole />
         <SourceOverlay />
         <DefinitionEditor />
         <ClosingNotice />

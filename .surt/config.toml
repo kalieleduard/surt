@@ -13,3 +13,18 @@ merge_into_base = "merge"   # "never" | "ff-only" | "merge"
 
 # [cleanup]
 # on_success = "keep"       # optional: a succeeded run keeps its worktrees and branches until surt delete
+
+[[scripts]]
+name = "desktop"
+description = "Surt desktop app in dev mode, on port 1430 so it runs beside an open copy"
+run = ["npm", "--prefix", "apps/desktop", "run", "tauri", "--", "dev", "--config", "src-tauri/tauri.run.conf.json"]
+
+[[scripts]]
+name = "ui-tests"
+description = "Desktop UI unit tests"
+run = ["npm", "--prefix", "apps/desktop", "test"]
+
+[[scripts]]
+name = "engine-tests"
+description = "Engine and CLI test suite"
+run = ["cargo", "test", "--workspace"]

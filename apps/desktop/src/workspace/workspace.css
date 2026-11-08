@@ -12,10 +12,17 @@
 
 .dock {
   position: absolute;
+  right: 0;
   bottom: 16px;
-  left: 50%;
+  left: 0;
   z-index: 8;
-  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.dock > * {
+  pointer-events: auto;
 }
 
 .floating-panel {

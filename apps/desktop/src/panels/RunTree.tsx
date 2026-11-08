@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { AlertTriangle, ChevronRight, PanelLeftClose, RefreshCw, Search, Workflow } from "lucide-react";
+import { AlertTriangle, ChevronRight, PanelLeftClose, Pencil, RefreshCw, Search, Workflow } from "lucide-react";
 import type { StepState } from "../data/types";
 import { useDefinitions } from "../editor/DefinitionsContext";
 import { useEngine } from "../engine/EngineContext";
+import { useRunView } from "../graph/RunViewContext";
 import type { ItemView, RunStateName, SubjectView } from "../engine/types";
 import { AgentAvatar, StateDot } from "../ui/status";
 import { ago } from "../ui/time";
@@ -93,8 +94,13 @@ function Runs({ needle }: { needle: string }) {
 }
 
 function SubjectRow({ subject }: { subject: SubjectView }) {
-  const { selection, show } = useEngine();
-  const isActive = selection?.subject === subject.name;
+  const { selection, show: showRun } = useEngine();
+  const { previewing, preview } = useRunView();
+  const show = (name: string, item: string | null) => {
+    preview(null);
+    showRun(name, item);
+  };
+  const isActive = !previewing && selection?.subject === subject.name;
   const [open, setOpen] = useState(isActive);
   const hasItems = subject.items.length > 0;
   const expanded = hasItems && (open || (isActive && selection?.item !== null));
@@ -150,6 +156,7 @@ function SubjectRow({ subject }: { subject: SubjectView }) {
 
 function Library({ needle }: { needle: string }) {
   const { catalog, catalogError, edit, target } = useDefinitions();
+  const { previewing, preview } = useRunView();
   if (catalogError) return <p className="tree__empty">{catalogError}</p>;
   if (!catalog) return <p className="tree__empty">Loading…</p>;
   const workflows = catalog.workflows.filter((workflow) => workflow.name.toLowerCase().includes(needle));
@@ -159,15 +166,23 @@ function Library({ needle }: { needle: string }) {
       <span className="caption tree__section">Flows</span>
       <ul className="tree__group">
         {workflows.map((workflow) => (
-          <li key={workflow.name}>
+          <li key={workflow.name} className="tree__flow">
             <button
-              className={`tree__row tree__row--library${target?.kind === "workflow" && target.name === workflow.name ? " is-selected" : ""}`}
-              onClick={() => edit({ kind: "workflow", name: workflow.name })}
-              title={workflow.problem ?? workflow.file}
+              className={`tree__row tree__row--library${previewing === workflow.name ? " is-selected" : ""}`}
+              onClick={() => preview(workflow.name)}
+              title={workflow.problem ?? `Show ${workflow.file} on the canvas`}
             >
               <Workflow size={14} className="tree__icon" />
               <span className="tree__slug">{workflow.name}</span>
               {workflow.problem ? <AlertTriangle size={12} className="tree__warn" /> : null}
+            </button>
+            <button
+              className={`icon-btn icon-btn--small tree__flow-edit${target?.kind === "workflow" && target.name === workflow.name ? " is-active" : ""}`}
+              onClick={() => edit({ kind: "workflow", name: workflow.name })}
+              title={`Edit ${workflow.file}`}
+              aria-label={`Edit ${workflow.file}`}
+            >
+              <Pencil size={12} />
             </button>
           </li>
         ))}

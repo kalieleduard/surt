@@ -60,6 +60,8 @@ export type FrameData = {
   detail: string;
   inputs?: Port[];
   outputs?: Port[];
+  entry?: string;
+  exit?: string;
 };
 
 export type GraphNode = {
@@ -95,4 +97,5 @@ export type RunGraph = {
   edges: GraphEdge[];
   steps: DefinedStep[];
   defaultSelection: string;
+  preview?: boolean;
 };
