@@ -82,6 +82,7 @@ fn item(key: &str, state: ItemState) -> ItemStatus {
         attempt: Some(1),
         since: None,
         merged_as: None,
+        needs: Vec::new(),
         waits_for: Vec::new(),
         conflict: None,
     }

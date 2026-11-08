@@ -51,7 +51,8 @@ pub(super) async fn statuses(
     let needs = needs(store, run, frozen).await?;
     let mut statuses = Vec::new();
     for row in &rows {
-        let waits_for = unmet(&rows, needs.get(&row.key));
+        let declared = needs.get(&row.key).cloned().unwrap_or_default();
+        let waits_for = unmet(&rows, &declared);
         let (state, step) = standing(row, &waits_for, readiness);
         let conflict = match state {
             ItemState::Succeeded | ItemState::Cancelled => None,
@@ -65,6 +66,7 @@ pub(super) async fn statuses(
             attempt: row.attempt.and_then(|value| u32::try_from(value).ok()),
             since: row.started_at,
             merged_as: row.merged_as.clone(),
+            needs: declared,
             waits_for,
             conflict,
         });
@@ -101,10 +103,9 @@ async fn needs(
     Ok(needs)
 }
 
-fn unmet(rows: &[ItemRunRow], needs: Option<&Vec<String>>) -> Vec<String> {
+fn unmet(rows: &[ItemRunRow], needs: &[String]) -> Vec<String> {
     needs
-        .into_iter()
-        .flatten()
+        .iter()
         .filter(|need| {
             !rows
                 .iter()

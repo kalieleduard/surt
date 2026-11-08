@@ -10,7 +10,7 @@ use super::references::local_references;
 use super::steps::StepKind;
 use crate::artifacts::{identity, sha256_hex};
 
-const WORKFLOW_FILE: &str = "workflow.toml";
+pub(crate) const WORKFLOW_FILE: &str = "workflow.toml";
 const CONFIG_FILE: &str = "config.toml";
 const CONFIG_NAME: &str = "config";
 

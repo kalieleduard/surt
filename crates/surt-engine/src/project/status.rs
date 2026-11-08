@@ -106,6 +106,7 @@ pub struct ItemStatus {
     pub attempt: Option<u32>,
     pub since: Option<i64>,
     pub merged_as: Option<String>,
+    pub needs: Vec<String>,
     pub waits_for: Vec<String>,
     pub conflict: Option<Conflict>,
 }

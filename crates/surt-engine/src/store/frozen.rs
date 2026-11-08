@@ -24,4 +24,18 @@ impl Store {
         .fetch_all(&self.pool)
         .await?)
     }
+
+    pub(crate) async fn frozen_file(
+        &self,
+        snapshot: &str,
+        rel_path: &str,
+    ) -> Result<Option<FrozenFile>, StoreError> {
+        Ok(sqlx::query_as(
+            "SELECT s.sha256 AS snapshot, s.kind, s.name, f.rel_path, b.bytes FROM snapshot s              JOIN snapshot_file f ON f.snapshot_sha256 = s.sha256              JOIN blob b ON b.sha256 = f.blob_sha256              WHERE s.sha256 = ? AND f.rel_path = ?",
+        )
+        .bind(snapshot)
+        .bind(rel_path)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
 }

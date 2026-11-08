@@ -48,7 +48,7 @@ impl ProjectDefinitions {
         .into())
     }
 
-    fn workflow_names(&self) -> Result<Vec<String>, Error> {
+    pub(crate) fn workflow_names(&self) -> Result<Vec<String>, Error> {
         let entries = match fs::read_dir(&self.workflows) {
             Ok(entries) => entries,
             Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
