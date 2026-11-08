@@ -11,10 +11,9 @@ use crate::project::{Check, Error, GitConfig, MergeIntoBase, parse_timeout};
 use crate::runtime::AgentLaunch;
 use crate::store::FrozenFile;
 use crate::workflow::{
-    AgentContract, CleanupPolicy, Definition, OnSuccess, REFERENCES_DIR, StepSpec,
+    AgentContract, CleanupPolicy, Definition, OnSuccess, REFERENCES_DIR, StepSpec, WORKFLOW_FILE,
 };
 
-const WORKFLOW_FILE: &str = "workflow.toml";
 const AGENT_FILE: &str = "agent.toml";
 const CONFIG_FILE: &str = "config.toml";
 const INSTRUCTIONS_FILE: &str = "instructions.md";

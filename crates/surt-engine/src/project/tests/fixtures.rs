@@ -9,9 +9,10 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{FromRow, Sqlite, SqlitePool};
 use tempfile::TempDir;
 
+use crate::platform;
 use crate::project::layout::Layout;
 use crate::project::{Access, SurtHome, open_store};
-use crate::project::{Carry, Config, GlobalConfig, NewRun, Project};
+use crate::project::{Carry, Config, GlobalConfig, NewRun, Project, RunId};
 #[cfg(feature = "test-support")]
 use crate::store::Faults;
 pub(super) use catalog::{
@@ -135,6 +136,16 @@ impl ProjectDir {
             #[cfg(feature = "test-support")]
             faults: Faults::default(),
         }
+    }
+
+    pub(super) async fn record_this_process_as_driver(&self, run: &RunId) {
+        let pid = std::process::id();
+        let store = open_store(&self.layout()).await.expect("the store opens");
+        store
+            .record_driver(run, pid, platform::identify(pid).as_ref())
+            .await
+            .expect("the driver is recorded");
+        store.close().await;
     }
 
     pub(super) async fn execute(&self, sql: &str) {

@@ -7,6 +7,7 @@ use crate::drive::graph::RunId;
 use crate::platform::ProcessIdentity;
 
 const DRIVER_STARTED: &str = "driver.started";
+const DRIVER_STOPPED: &str = "driver.stopped";
 
 #[derive(Clone, Debug, PartialEq, Eq, FromRow)]
 pub(crate) struct DriverRecord {
@@ -64,6 +65,27 @@ impl Store {
             About::Run(root),
             DRIVER_STARTED,
             now,
+            &data,
+        )
+        .await?;
+        Ok(transaction.commit().await?)
+    }
+
+    pub(crate) async fn release_driver(&self, root: &str, pid: u32) -> Result<(), StoreError> {
+        let mut transaction = self.begin_write().await?;
+        sqlx::query(
+            "UPDATE workflow_run SET driver_pid = NULL, driver_since = NULL, driver_start_time = NULL,              driver_boot_id = NULL WHERE id = ? AND driver_pid = ?",
+        )
+        .bind(root)
+        .bind(i64::from(pid))
+        .execute(&mut *transaction)
+        .await?;
+        let data = serde_json::json!({ "pid": pid });
+        record_event_data(
+            &mut transaction,
+            About::Run(root),
+            DRIVER_STOPPED,
+            unix_now(),
             &data,
         )
         .await?;

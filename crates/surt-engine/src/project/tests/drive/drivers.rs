@@ -5,7 +5,10 @@ use tokio::sync::mpsc;
 use super::super::fixtures::Catalog;
 use super::super::fixtures::{SUBJECT, default_config};
 use super::fixtures::{ACTOR, Feature, PUBLISHER, WRITER, agent, draft, label, summary};
-use crate::project::{DriveOutcome, Error, Gate, GateKind, Project, Refusal, RunId};
+use crate::project::{
+    DriveOutcome, Error, Gate, GateKind, Project, Refusal, RunId, RunSelector, RunState,
+    StatusScope,
+};
 use crate::runtime::{
     AgentRuntime, FakeRuntime, RuntimeCompletion, RuntimeError, RuntimeEventSink, RuntimeRequest,
     Script, StopSignal,
@@ -204,6 +207,43 @@ async fn an_approval_recorded_elsewhere_while_driving_is_seen_on_the_next_tick()
             ("publish".to_owned(), "done".to_owned()),
             ("side".to_owned(), "done".to_owned()),
             ("write".to_owned(), "done".to_owned()),
+        ]
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_driver_that_returns_leaves_its_run_undriven_while_its_process_lives_on() {
+    let feature = Feature::review().await;
+    feature
+        .drive(Script::new().on(
+            "write",
+            1,
+            1,
+            draft(
+                "# Draft 1
+",
+            ),
+        ))
+        .await;
+
+    let status = feature
+        .project
+        .status(StatusScope::Subject(SUBJECT, RunSelector::Current))
+        .await
+        .expect("the status reads")
+        .remove(0);
+    let stopped: Vec<(String,)> = feature
+        .dir
+        .rows("SELECT kind FROM event WHERE kind LIKE 'driver.%' ORDER BY rowid")
+        .await;
+
+    assert_eq!(status.driver, None);
+    assert_eq!(status.states, [RunState::AwaitingApproval]);
+    assert_eq!(
+        stopped,
+        [
+            ("driver.started".to_owned(),),
+            ("driver.stopped".to_owned(),)
         ]
     );
 }

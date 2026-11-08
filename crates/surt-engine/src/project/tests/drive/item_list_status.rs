@@ -1,7 +1,7 @@
 use super::super::fixtures::SUBJECT;
 use super::fixtures::{Feature, draft};
-use super::planned::{TASK_WORKFLOW, plan, planned_catalog};
-use crate::project::{ItemListSummary, RunSelector, RunStatus, StatusScope};
+use super::planned::{TASK_WORKFLOW, approved, plan, planned_catalog, work};
+use crate::project::{DriveOutcome, ItemListSummary, RunSelector, RunStatus, StatusScope};
 use crate::runtime::Script;
 
 async fn status(feature: &Feature) -> RunStatus {
@@ -46,4 +46,35 @@ async fn a_gate_on_a_plain_artifact_has_no_item_list_and_a_run_without_per_item_
     assert_eq!(revision.files, ["draft.md"]);
     assert_eq!(revision.item_list, None);
     assert_eq!(status.item_step, None);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_task_keeps_its_declared_needs_after_the_tasks_it_waited_for_succeed() {
+    let feature = approved(TASK_WORKFLOW, &[("A", &[]), ("B", &["A"])]).await;
+    let driven = feature
+        .drive(
+            Script::new()
+                .on("A/build", 1, 1, work("a"))
+                .on("B/build", 1, 1, work("b")),
+        )
+        .await;
+    assert_eq!(
+        driven.outcome.expect("drive returns"),
+        DriveOutcome::Succeeded
+    );
+
+    let status = status(&feature).await;
+
+    let needs: Vec<(&str, &[String], &[String])> = status
+        .items
+        .iter()
+        .map(|item| (item.key.as_str(), &item.needs[..], &item.waits_for[..]))
+        .collect();
+    assert_eq!(
+        needs,
+        [
+            ("A", &[][..], &[][..]),
+            ("B", &["A".to_owned()][..], &[][..])
+        ]
+    );
 }

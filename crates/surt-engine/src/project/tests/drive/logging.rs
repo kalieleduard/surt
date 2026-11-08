@@ -234,6 +234,10 @@ async fn logs_say_whether_the_run_s_driver_is_live() {
         )
     };
 
+    feature
+        .dir
+        .record_this_process_as_driver(&feature.run)
+        .await;
     let driving = live().await;
     feature
         .dir

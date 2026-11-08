@@ -11,6 +11,7 @@ mod discovery;
 mod driving;
 mod error;
 mod execution_state;
+mod frozen_definition;
 mod gate_status;
 mod gates;
 mod init;
@@ -26,6 +27,7 @@ mod show;
 mod status;
 mod stopping;
 mod subjects;
+mod workflow_definitions;
 
 use std::path::Path;
 use std::time::Duration;
@@ -62,6 +64,7 @@ pub use error::{
     RunState,
 };
 pub use execution_state::ExecutionState;
+pub use frozen_definition::{DefinedStep, DefinedStepKind, FrozenDefinition, StepCondition};
 pub use gate_status::GateStatus;
 pub use gates::{Decided, RevisionOrigin};
 pub use init::{FileState, InitFile, Initialized};
@@ -82,6 +85,7 @@ pub use status::{
 };
 pub use stopping::StopRequest;
 pub use subjects::FreeName;
+pub use workflow_definitions::WorkflowDefinitionSummary;
 
 #[cfg(feature = "test-support")]
 pub use crate::store::Checkpoint;

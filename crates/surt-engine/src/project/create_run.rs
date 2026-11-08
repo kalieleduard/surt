@@ -1,6 +1,8 @@
 mod inputs;
 mod previous;
 
+pub(super) use inputs::declared_inputs;
+
 use std::num::NonZeroU32;
 
 use serde::Serialize;

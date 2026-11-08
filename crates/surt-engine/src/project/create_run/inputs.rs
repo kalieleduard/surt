@@ -58,19 +58,23 @@ pub(super) fn refused(workflow: &str, inputs: &RunInputs, problem: InputProblem)
     Refusal::InvalidInput {
         workflow: workflow.to_owned(),
         problem,
-        declared: inputs
-            .declared
-            .iter()
-            .map(|(name, spec)| DeclaredInput {
-                name: name.to_owned(),
-                format: spec.format,
-                optional: spec.optional || spec.default.is_some(),
-                default: spec.default.clone(),
-                description: spec.description.clone(),
-            })
-            .collect(),
+        declared: declared_inputs(inputs),
     }
     .into()
+}
+
+pub(in crate::project) fn declared_inputs(inputs: &RunInputs) -> Vec<DeclaredInput> {
+    inputs
+        .declared
+        .iter()
+        .map(|(name, spec)| DeclaredInput {
+            name: name.to_owned(),
+            format: spec.format,
+            optional: spec.optional || spec.default.is_some(),
+            default: spec.default.clone(),
+            description: spec.description.clone(),
+        })
+        .collect()
 }
 
 pub(super) fn check<'a>(
