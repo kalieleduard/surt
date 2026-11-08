@@ -68,8 +68,10 @@ fn a_request_creates_a_numbered_subject_and_drives_it_to_the_spec_gate() {
             "SELECT step_key || ' ' || state FROM step_run WHERE state <> 'pending' ORDER BY step_key"
         ),
         [
-            "answer-spec skipped",
+            "answer-discovery skipped",
             "approve-spec running",
+            "discovery done",
+            "discovery-loop done",
             "spec done",
             "spec-loop running"
         ]

@@ -9,11 +9,19 @@ pub fn spec(iteration: u32, text: &str) -> String {
     )
 }
 
+pub fn brief(iteration: u32) -> String {
+    let text = "# Brief\n";
+    format!(
+        "[[on]]\nstep = \"discovery\"\niteration = {iteration}\n\
+         deliver = {{ outcome = \"done\", outputs = {{ brief = \"brief.md\" }}, files = {{ \"brief.md\" = {text:?} }} }}\n\n"
+    )
+}
+
 pub fn questions(iteration: u32, asked: &[Value]) -> String {
     let document = json!({ "questions": asked }).to_string();
     format!(
-        "[[on]]\nstep = \"spec\"\niteration = {iteration}\n\
-         deliver = {{ outcome = \"questions\", outputs = {{ spec-questions = \"questions.json\" }}, files = {{ \"questions.json\" = {document:?} }} }}\n\n"
+        "[[on]]\nstep = \"discovery\"\niteration = {iteration}\n\
+         deliver = {{ outcome = \"questions\", outputs = {{ discovery-questions = \"questions.json\" }}, files = {{ \"questions.json\" = {document:?} }} }}\n\n"
     )
 }
 
@@ -26,10 +34,11 @@ pub fn question(id: &str, recommended: &str) -> Value {
     })
 }
 
-pub fn spec_restarted(iteration: u32, text: &str) -> String {
+pub fn brief_restarted(iteration: u32) -> String {
+    let text = "# Brief\n";
     format!(
-        "[[on]]\nstep = \"spec\"\niteration = {iteration}\n\
-         transcript_missing = {{ outcome = \"done\", outputs = {{ spec = \"spec.md\" }}, files = {{ \"spec.md\" = {text:?} }} }}\n\n"
+        "[[on]]\nstep = \"discovery\"\niteration = {iteration}\n\
+         transcript_missing = {{ outcome = \"done\", outputs = {{ brief = \"brief.md\" }}, files = {{ \"brief.md\" = {text:?} }} }}\n\n"
     )
 }
 

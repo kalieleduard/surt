@@ -3,7 +3,7 @@ use std::fs;
 use jiff::Zoned;
 use serde_json::Value;
 
-use crate::scripts::{question, questions, spec, spec_restarted};
+use crate::scripts::{brief, brief_restarted, question, questions, spec};
 use crate::support::{Run, Sandbox};
 
 const ACTOR: &str = "tester@example.com";
@@ -46,7 +46,7 @@ pub fn ok(run: Run) -> String {
 pub fn waiting_block(revision: u32, round: u32) -> String {
     let name = subject_name();
     format!(
-        "? spec-questions rev {revision} awaiting answers (round {round})\n  \
+        "? discovery-questions rev {revision} awaiting answers (round {round})\n  \
          1. Which login-id?\n     \
          why: login-id changes the acceptance criteria\n     \
          recommended: e-mail only\n  \
@@ -58,7 +58,7 @@ pub fn waiting_block(revision: u32, round: u32) -> String {
 }
 
 fn rounds(sandbox: &Sandbox) -> Value {
-    let shown = surt(sandbox, &["show", "spec-answers"]);
+    let shown = surt(sandbox, &["show", "discovery-answers"]);
     assert_eq!(shown.code, Some(0), "{}", shown.stderr);
     let document: Value = serde_json::from_str(&shown.stdout).expect("the answers are JSON");
     document["rounds"].clone()
@@ -77,7 +77,7 @@ fn pairs(expected: &[(&str, &str)]) -> Value {
 }
 
 #[test]
-fn a_run_whose_spec_agent_asks_stops_with_the_questions_and_exit_0() {
+fn a_run_whose_discovery_agent_asks_stops_with_the_questions_and_exit_0() {
     let sandbox = Sandbox::with_repository();
     sandbox.commit_something();
     sandbox.init();
@@ -86,14 +86,14 @@ fn a_run_whose_spec_agent_asks_stops_with_the_questions_and_exit_0() {
     let stderr = ok(sandbox.run_feature("add login", &[]));
 
     assert!(
-        stderr.ends_with(&format!("✔ spec questions\n{}", waiting_block(1, 1))),
+        stderr.ends_with(&format!("✔ discovery questions\n{}", waiting_block(1, 1))),
         "{stderr}"
     );
 }
 
 #[test]
-fn accepting_continues_the_spec_conversation_to_the_gate_and_the_spec_is_then_approved() {
-    let sandbox = asking(&[spec(2, "# Spec\n")]);
+fn accepting_continues_discovery_to_the_spec_gate_and_the_spec_is_then_approved() {
+    let sandbox = asking(&[brief(2), spec(1, "# Spec\n")]);
     let name = subject_name();
 
     let answered = ok(surt(&sandbox, &["answer", "--accept"]));
@@ -102,10 +102,13 @@ fn accepting_continues_the_spec_conversation_to_the_gate_and_the_spec_is_then_ap
     assert_eq!(
         answered,
         format!(
-            "✔ answered spec-questions rev 1 by {ACTOR}\n\
-             ● spec continued (iteration 2, same conversation)\n\
+            "✔ answered discovery-questions rev 1 by {ACTOR}\n\
+             ● discovery continued (iteration 2, same conversation)\n\
+             ✔ brief rev 1 published\n\
+             ✔ discovery iter 2 done\n\
+             ● spec started\n\
              ✔ spec rev 1 published\n\
-             ✔ spec iter 2 done\n\
+             ✔ spec done\n\
              ⏸ spec rev 1 awaiting approval in .surt/subjects/{name}\n  \
              approve: surt approve {name}\n  \
              reject: surt reject {name} -m \"<reason>\"\n"
@@ -126,7 +129,7 @@ fn accepting_continues_the_spec_conversation_to_the_gate_and_the_spec_is_then_ap
 
 #[test]
 fn an_answers_file_records_the_answer_it_gives_each_question() {
-    let sandbox = asking(&[spec(2, "# Spec\n")]);
+    let sandbox = asking(&[brief(2), spec(1, "# Spec\n")]);
     let file = sandbox.repo().join("answers.toml");
     fs::write(
         &file,
@@ -137,7 +140,9 @@ fn an_answers_file_records_the_answer_it_gives_each_question() {
     let answered = ok(surt(&sandbox, &["answer", "--file", "answers.toml"]));
 
     assert!(
-        answered.starts_with(&format!("✔ answered spec-questions rev 1 by {ACTOR}\n")),
+        answered.starts_with(&format!(
+            "✔ answered discovery-questions rev 1 by {ACTOR}\n"
+        )),
         "{answered}"
     );
     assert_eq!(
@@ -148,7 +153,7 @@ fn an_answers_file_records_the_answer_it_gives_each_question() {
 
 #[test]
 fn a_message_accepts_the_recommendations_and_adds_the_note_to_the_round() {
-    let sandbox = asking(&[spec(2, "# Spec\n")]);
+    let sandbox = asking(&[brief(2), spec(1, "# Spec\n")]);
 
     ok(surt(
         &sandbox,
@@ -165,32 +170,37 @@ fn a_message_accepts_the_recommendations_and_adds_the_note_to_the_round() {
 
 #[test]
 fn a_second_round_of_questions_waits_again_on_the_next_revision() {
-    let sandbox = asking(&[questions(2, &asked()), spec(3, "# Spec\n")]);
+    let sandbox = asking(&[questions(2, &asked()), brief(3), spec(1, "# Spec\n")]);
 
     let first = ok(surt(&sandbox, &["answer", "--accept"]));
     let second = ok(surt(&sandbox, &["answer", "--accept"]));
 
     assert!(
-        first.ends_with(&format!("✔ spec iter 2 questions\n{}", waiting_block(2, 2))),
+        first.ends_with(&format!(
+            "✔ discovery iter 2 questions\n{}",
+            waiting_block(2, 2)
+        )),
         "{first}"
     );
     assert!(
-        second.starts_with(&format!("✔ answered spec-questions rev 2 by {ACTOR}\n")),
+        second.starts_with(&format!(
+            "✔ answered discovery-questions rev 2 by {ACTOR}\n"
+        )),
         "{second}"
     );
     assert_eq!(rounds(&sandbox).as_array().map(Vec::len), Some(2));
 }
 
 #[test]
-fn a_conversation_that_cannot_be_continued_says_the_spec_restarted() {
-    let sandbox = asking(&[spec_restarted(2, "# Spec\n")]);
+fn a_conversation_that_cannot_be_continued_says_discovery_restarted() {
+    let sandbox = asking(&[brief_restarted(2), spec(1, "# Spec\n")]);
 
     let answered = ok(surt(&sandbox, &["answer", "--accept"]));
 
     assert!(
         answered.contains(
-            "● spec continued (iteration 2, same conversation)\n\
-             ↻ spec restarted (iteration 2): transcript_missing\n"
+            "● discovery continued (iteration 2, same conversation)\n\
+             ↻ discovery restarted (iteration 2): transcript_missing\n"
         ),
         "{answered}"
     );

@@ -111,7 +111,7 @@ fn spec_is_rejected_regenerated_approved_then_continued_up_to_the_manifest_gate(
             "✔ rejected spec rev 1 — spec will redo it reading your reason\n  regenerate: surt continue {name}\n"
         )
     );
-    assert_eq!(executions_after_reject, "1");
+    assert_eq!(executions_after_reject, "2");
     assert!(resumed.ends_with(&awaiting("spec", 2)), "{resumed}");
     assert_eq!(spec_two, "# Spec 2 with OAuth\n");
     let sha = identity(&sandbox, "spec", 2);
@@ -151,7 +151,7 @@ fn continue_while_a_gate_waits_ends_at_that_gate_again_without_running_anything(
     let waiting = ok(continued(&sandbox, &name));
 
     assert_eq!(waiting, awaiting("spec", 1));
-    assert_eq!(count(&sandbox, "execution"), "1");
+    assert_eq!(count(&sandbox, "execution"), "2");
 }
 
 #[test]

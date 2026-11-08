@@ -1,6 +1,6 @@
 schema = 1
 name = "feature"
-description = "Specify, plan, build and ship one Feature."
+description = "Discover, specify, plan, build and ship one Feature."
 
 [cleanup]
 on_success = "clean"
@@ -17,28 +17,37 @@ description = "branch, tag or commit to start from"
 [subject]
 from = "request"
 
+[steps.discovery]
+kind = "agent"
+agent = "discovery"
+
+[steps.answer-discovery]
+kind = "input"
+artifact = "discovery-questions"
+answer_artifact = "discovery-answers"
+needs = ["discovery"]
+when = { step = "discovery", outcome = "questions" }
+
+[steps.discovery-loop]
+kind = "loop"
+body = ["discovery", "answer-discovery"]
+until = { step = "discovery", outcome = "done" }
+
 [steps.spec]
 kind = "agent"
 agent = "spec"
-
-[steps.answer-spec]
-kind = "input"
-artifact = "spec-questions"
-answer_artifact = "spec-answers"
-needs = ["spec"]
-when = { step = "spec", outcome = "questions" }
 
 [steps.approve-spec]
 kind = "approval"
 artifact = "spec"
 rejection_artifact = "spec-rejection-reason"
-needs = ["answer-spec"]
-when = { step = "spec", outcome = "done" }
+needs = ["spec"]
 
 [steps.spec-loop]
 kind = "loop"
-body = ["spec", "answer-spec", "approve-spec"]
+body = ["spec", "approve-spec"]
 until = { step = "approve-spec", outcome = "approved" }
+needs = ["discovery-loop"]
 
 [steps.plan-tasks]
 kind = "agent"

@@ -1,0 +1,31 @@
+schema = 1
+id = "discovery"
+outcomes = ["done", "questions"]
+
+[inputs.request]
+format = "text"
+
+[inputs.discovery-answers]
+format = "json"
+optional = true
+
+[outputs.brief]
+format = "markdown"
+outcomes = ["done"]
+
+[outputs.discovery-questions]
+format = "questions"
+outcomes = ["questions"]
+
+[profile]
+runtime = "claude-code"
+model = "claude-opus-5-5"
+effort = "high"
+conversation = "loop"
+
+[profile.claude]
+auth = "subscription"
+permission_mode = "dontAsk"
+tools = ["Read", "Glob", "Grep", "Write", "WebSearch", "WebFetch"]
+allowed_tools = ["Read", "Glob", "Grep", "WebSearch", "WebFetch"]
+disallowed_tools = ["mcp__*"]

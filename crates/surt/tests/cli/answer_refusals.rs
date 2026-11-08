@@ -1,7 +1,7 @@
 use std::fs;
 
 use crate::answering::{asking, ok, subject_name, surt};
-use crate::scripts::spec;
+use crate::scripts::{brief, spec};
 use crate::support::{REFUSED_EXIT_CODE, Run, Sandbox};
 
 const USAGE_EXIT_CODE: i32 = 2;
@@ -76,10 +76,10 @@ fn an_answers_file_that_misses_or_invents_ids_is_refused_listing_them() {
     assert_eq!(
         stderr,
         format!(
-            "✖ the answers do not match the questions of spec-questions rev 1\n  \
+            "✖ the answers do not match the questions of discovery-questions rev 1\n  \
              unanswered: expiry\n  \
              unknown: typo\n  \
-             inspect: surt show {name} spec-questions --rev 1\n"
+             inspect: surt show {name} discovery-questions --rev 1\n"
         )
     );
     still_waiting(&sandbox);
@@ -106,7 +106,7 @@ fn an_answers_file_that_is_missing_or_not_toml_is_refused_naming_it() {
 
 #[test]
 fn answering_while_only_an_approval_waits_says_what_the_run_waits_for() {
-    let sandbox = asking(&[spec(2, "# Spec\n")]);
+    let sandbox = asking(&[brief(2), spec(1, "# Spec\n")]);
     let name = subject_name();
     ok(surt(&sandbox, &["answer", "--accept"]));
 
@@ -127,7 +127,7 @@ fn approving_or_rejecting_while_only_the_questions_wait_is_refused() {
     let name = subject_name();
     let expected = format!(
         "✖ {name} has no approval gate waiting\n  \
-         answer-spec is waiting for answers, not for approval\n  \
+         answer-discovery is waiting for answers, not for approval\n  \
          next: surt answer {name}\n"
     );
 

@@ -51,6 +51,7 @@ fn show_lists_the_artifacts_of_a_subject_with_their_latest_revision() {
         "ARTIFACT               REVS  LATEST\n\
          request                1     rev 1 (human)\n\
          base                   1     rev 1 (human)\n\
+         brief                  1     rev 1 (agent)\n\
          spec                   2     rev 2 (agent) ✔ approved\n\
          spec-rejection-reason  1     rev 1 (human)\n\
          manifest               1     rev 1 (agent) · 3 files\n"
@@ -136,7 +137,7 @@ fn show_refuses_an_unknown_artifact_listing_the_existing_ones() {
         unknown,
         format!(
             "✖ {name} has no artifact \"specs\"\n  \
-             artifacts: request, base, spec, spec-rejection-reason, manifest\n  \
+             artifacts: request, base, brief, spec, spec-rejection-reason, manifest\n  \
              inspect: surt show {name}\n"
         )
     );

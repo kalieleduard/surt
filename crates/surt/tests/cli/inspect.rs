@@ -75,7 +75,7 @@ fn inspect_explains_a_rejected_spec_and_a_new_builder_iteration_after_cleanup_wi
         "approve-spec iter 1 · spec rev 1 rejected — \"needs OAuth\" · by tester@example.com"
     );
     assert_eq!(
-        details(&run, "iteration.started")[1],
+        details(&run, "iteration.started")[2],
         "spec-loop · iter 2 until approve-spec not met: rejected"
     );
     assert_eq!(details(&run, "cleanup.finished"), [""]);

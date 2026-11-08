@@ -1,9 +1,15 @@
 schema = 1
 id = "spec"
-outcomes = ["done", "questions"]
 
 [inputs.request]
 format = "text"
+
+[inputs.brief]
+format = "markdown"
+
+[inputs.discovery-answers]
+format = "json"
+optional = true
 
 [inputs.spec]
 format = "markdown"
@@ -13,17 +19,8 @@ optional = true
 format = "text"
 optional = true
 
-[inputs.spec-answers]
-format = "json"
-optional = true
-
 [outputs.spec]
 format = "markdown"
-outcomes = ["done"]
-
-[outputs.spec-questions]
-format = "questions"
-outcomes = ["questions"]
 
 [profile]
 runtime = "claude-code"
