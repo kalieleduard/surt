@@ -4,6 +4,8 @@ import type { GraphNode, RunGraph } from "../data/types";
 import { CheckoutProvider } from "../checkout/CheckoutContext";
 import { DefinitionsProvider } from "../editor/DefinitionsContext";
 import { EngineProvider, useEngine } from "../engine/EngineContext";
+import { ScriptsProvider } from "../scripts/ScriptsContext";
+import { useWorkflowPreview } from "./useWorkflowPreview";
 
 export type CanvasTool = "select" | "pan";
 
@@ -23,6 +25,9 @@ type RunView = {
   toggleSnap: () => void;
   resetToken: number;
   resetLayout: () => void;
+  previewing: string | null;
+  previewError: string | null;
+  preview: (workflow: string | null) => void;
 };
 
 const RunViewContext = createContext<RunView | null>(null);
@@ -37,18 +42,23 @@ export function RunViewProvider({ children }: { children: ReactNode }) {
   return (
     <EngineProvider>
       <DefinitionsProvider>
-        <CheckoutProvider>
-          <ReactFlowProvider>
-            <RunViewState>{children}</RunViewState>
-          </ReactFlowProvider>
-        </CheckoutProvider>
+        <ScriptsProvider>
+          <CheckoutProvider>
+            <ReactFlowProvider>
+              <RunViewState>{children}</RunViewState>
+            </ReactFlowProvider>
+          </CheckoutProvider>
+        </ScriptsProvider>
       </DefinitionsProvider>
     </EngineProvider>
   );
 }
 
 function RunViewState({ children }: { children: ReactNode }) {
-  const { graph, drill, back } = useEngine();
+  const engineView = useEngine();
+  const workflowPreview = useWorkflowPreview();
+  const graph = workflowPreview.name ? workflowPreview.graph : engineView.graph;
+  const { drill, back } = engineView;
   const [chosen, setChosen] = useState<{ graph: string; node: string } | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [tool, setTool] = useState<CanvasTool>("select");
@@ -83,8 +93,11 @@ function RunViewState({ children }: { children: ReactNode }) {
       toggleSnap: () => setSnap((on) => !on),
       resetToken,
       resetLayout: () => setResetToken((token) => token + 1),
+      previewing: workflowPreview.name,
+      previewError: workflowPreview.error,
+      preview: workflowPreview.open,
     }),
-    [graph, selectedId, selections, sourceOpen, tool, drill, back, snap, resetToken],
+    [graph, selectedId, selections, sourceOpen, tool, drill, back, snap, resetToken, workflowPreview.name, workflowPreview.error, workflowPreview.open],
   );
 
   return <RunViewContext.Provider value={view}>{children}</RunViewContext.Provider>;

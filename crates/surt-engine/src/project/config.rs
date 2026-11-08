@@ -10,11 +10,13 @@ use super::error::{Error, Refusal};
 mod check;
 mod cleanup;
 pub(crate) mod global;
+mod script;
 
 pub use check::Check;
 pub(crate) use check::parse_timeout;
 pub use cleanup::CleanupConfig;
 pub use global::GlobalConfig;
+pub use script::Script;
 
 pub(crate) const TEMPLATE: &str = include_str!("../../assets/config.toml");
 
@@ -31,6 +33,7 @@ pub struct Config {
     pub git: GitConfig,
     pub checks: Vec<Check>,
     pub cleanup: CleanupConfig,
+    pub scripts: Vec<Script>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
@@ -57,6 +60,7 @@ impl Default for Config {
             git: GitConfig::default(),
             checks: Vec::new(),
             cleanup: CleanupConfig::default(),
+            scripts: Vec::new(),
         }
     }
 }

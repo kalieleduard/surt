@@ -9,6 +9,7 @@ mod editing;
 mod gates;
 mod new_run;
 mod runtime;
+mod scripts;
 mod status;
 mod workspace;
 
@@ -23,6 +24,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .manage(workspace::Workspace::from_env())
         .manage(Drivers::default())
+        .manage(scripts::Scripts::default())
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event
                 && stops_drivers_first(window)
@@ -52,6 +54,9 @@ fn main() {
             checkouts::checkouts,
             checkouts::switch_branch,
             checkouts::create_worktree,
+            scripts::project_scripts,
+            scripts::start_script,
+            scripts::stop_script,
         ])
         .run(tauri::generate_context!())
         .expect("the Surt desktop window could not start");

@@ -97,4 +97,5 @@ export type RunGraph = {
   edges: GraphEdge[];
   steps: DefinedStep[];
   defaultSelection: string;
+  preview?: boolean;
 };

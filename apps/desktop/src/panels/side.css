@@ -410,3 +410,25 @@
 .inspector :focus-visible {
   outline-offset: -2px;
 }
+
+.tree__flow {
+  position: relative;
+}
+
+.tree__flow .tree__row {
+  padding-right: 34px;
+}
+
+.tree__flow-edit {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  opacity: 0;
+}
+
+.tree__flow:hover .tree__flow-edit,
+.tree__flow-edit:focus-visible,
+.tree__flow-edit.is-active {
+  opacity: 1;
+}

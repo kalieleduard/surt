@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 const TIMEOUT_UNITS: [(&str, u64); 4] = [("ms", 1), ("s", 1_000), ("m", 60_000), ("h", 3_600_000)];
@@ -44,26 +43,32 @@ pub(super) fn duration_setting<E: serde::de::Error>(
 }
 
 fn identifier<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
-    let name = String::deserialize(deserializer)?;
+    named("check", String::deserialize(deserializer)?)
+}
+
+pub(super) fn named<E: serde::de::Error>(what: &str, name: String) -> Result<String, E> {
     let mut characters = name.chars();
     let valid = characters
         .next()
         .is_some_and(|first| first.is_ascii_lowercase())
         && characters.all(|rest| rest.is_ascii_lowercase() || rest.is_ascii_digit() || rest == '-');
     if !valid {
-        return Err(D::Error::custom(format!(
-            "check name {name:?} must be lowercase letters, digits and hyphens, starting with a letter"
+        return Err(E::custom(format!(
+            "{what} name {name:?} must be lowercase letters, digits and hyphens, starting with a letter"
         )));
     }
     Ok(name)
 }
 
 fn argv<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<String>, D::Error> {
-    let run = Vec::<String>::deserialize(deserializer)?;
+    command("check", Vec::<String>::deserialize(deserializer)?)
+}
+
+pub(super) fn command<E: serde::de::Error>(what: &str, run: Vec<String>) -> Result<Vec<String>, E> {
     if run.first().is_none_or(String::is_empty) {
-        return Err(D::Error::custom(
-            "check run must name a program followed by its arguments",
-        ));
+        return Err(E::custom(format!(
+            "{what} run must name a program followed by its arguments"
+        )));
     }
     Ok(run)
 }

@@ -1,14 +1,15 @@
 .titlebar {
   position: absolute;
   top: 10px;
-  left: 50%;
+  right: 0;
+  left: 0;
   z-index: 10;
   display: flex;
   align-items: center;
   width: min(1040px, calc(100% - 24px));
   height: 44px;
+  margin: 0 auto;
   padding-left: 14px;
-  transform: translateX(-50%);
   border: 1px solid var(--line-strong);
   border-radius: var(--surt-radius);
   background: color-mix(in srgb, var(--panel) 90%, transparent);

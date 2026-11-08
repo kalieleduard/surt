@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FrameData, GraphNode, RunGraph, StepData } from "../data/types";
 import { PROJECT, agent, approval, detail, event, gate, input, item, loop, operation, perItem, subject } from "./fixtures";
-import { buildRunGraph, graphId } from "./runGraph";
+import { buildRunGraph, graphId, previewGraph } from "./runGraph";
 
 const FEATURE = [
   agent("spec"),
@@ -128,5 +128,39 @@ describe("buildRunGraph", () => {
     expect(graph.path).toEqual(["shop", "20261107-login", "B"]);
     expect(graph.nodes.map((entry) => entry.id)).toEqual(["setup", "build"]);
     expect(graph.defaultSelection).toBe("setup");
+  });
+});
+
+describe("previewGraph", () => {
+  it("draws a workflow file's steps, loops and frames with nothing run yet", () => {
+    const source = `name = "feature"
+[steps.discovery]
+kind = "agent"
+agent = "discovery"
+[steps.answer-discovery]
+kind = "input"
+artifact = "discovery-questions"
+needs = ["discovery"]
+when = { step = "discovery", outcome = "questions" }
+[steps.discovery-loop]
+kind = "loop"
+body = ["discovery", "answer-discovery"]
+until = { step = "discovery", outcome = "done" }
+[steps.ship]
+kind = "operation"
+run = "git.merge_into_base"
+needs = ["discovery-loop"]
+`;
+    const graph = previewGraph(PROJECT, "feature", source);
+
+    expect(graph).toMatchObject({ preview: true, workflow: "feature", path: ["shop", "feature.toml"] });
+    expect(graph.nodes.map((entry) => [entry.id, entry.type, entry.parentId])).toEqual([
+      ["discovery-loop", "frame", undefined],
+      ["discovery", "step", "discovery-loop"],
+      ["answer-discovery", "step", "discovery-loop"],
+      ["ship", "step", undefined],
+    ]);
+    expect(step(graph, "ship")).toMatchObject({ state: "pending", operation: "git.merge_into_base" });
+    expect(edge(graph, "discovery->answer-discovery")).toMatchObject({ label: "questions", state: "idle" });
   });
 });

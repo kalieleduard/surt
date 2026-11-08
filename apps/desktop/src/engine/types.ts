@@ -121,3 +121,9 @@ export type WorktreeView = { path: string; name: string; branch: string | null; 
 export type BranchView = { name: string; worktree: string | null };
 
 export type Checkouts = { worktrees: WorktreeView[]; branches: BranchView[] };
+
+export type ScriptView = { name: string; description: string | null; command: string; running: boolean };
+
+export type ScriptOutput = { script: string; stream: "stdout" | "stderr"; line: string };
+
+export type ScriptEnded = { script: string; code: number | null; stopped: boolean; error: string | null };

@@ -1,5 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import type { CancelImpact, Catalog, Checkouts, ProjectView, RunDetail, RunsView, WaitingInput, WorkflowView } from "./types";
+import type { CancelImpact, Catalog, Checkouts, ProjectView, RunDetail, RunsView, ScriptView, WaitingInput, WorkflowView } from "./types";
 
 export const ENGINE_AVAILABLE = isTauri();
 
@@ -26,4 +26,7 @@ export const engine = {
   checkouts: () => invoke<Checkouts>("checkouts"),
   switchBranch: (worktree: string, branch: string, create: boolean) => invoke<Checkouts>("switch_branch", { worktree, branch, create }),
   createWorktree: (branch: string, base: string | null) => invoke<Checkouts>("create_worktree", { branch, base }),
+  projectScripts: () => invoke<ScriptView[]>("project_scripts"),
+  startScript: (name: string) => invoke<void>("start_script", { name }),
+  stopScript: (name: string) => invoke<void>("stop_script", { name }),
 };

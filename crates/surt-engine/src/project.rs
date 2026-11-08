@@ -23,6 +23,7 @@ mod naming;
 mod repository;
 mod resolving;
 mod restoring;
+mod scripts;
 mod show;
 mod status;
 mod stopping;
@@ -53,7 +54,7 @@ pub use answers::{Answered, WaitingInput};
 pub use base_merge::BaseMergeReport;
 pub use blocked::{BlockedStep, LastFailure};
 pub use cancelling::CancelImpact;
-pub use config::{Check, CleanupConfig, Config, GitConfig, GlobalConfig, MergeIntoBase};
+pub use config::{Check, CleanupConfig, Config, GitConfig, GlobalConfig, MergeIntoBase, Script};
 pub(crate) use config::{live_max_concurrent_agents, parse_timeout};
 pub use create_run::{Carry, CreatedRun, DeclaredInput, InputProblem, NewRun, RunId};
 pub use definitions::check_workflow;
@@ -78,6 +79,7 @@ pub use naming::Slug;
 pub use repository::Commit;
 pub use resolving::{Reference, RunSelector, Subject};
 pub use restoring::RestoreImpact;
+pub use scripts::ScriptProcess;
 pub use show::{ArtifactSummary, RevisionApproval, ShowRequest, Shown, ShownFile};
 pub use status::{
     AgentSlots, CleanupState, Conflict, Driver, GateView, ItemListSummary, ItemState, ItemStatus,

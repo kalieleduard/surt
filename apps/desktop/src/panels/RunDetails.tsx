@@ -97,7 +97,7 @@ function GateSection({ step }: { step: StepData }) {
       <Row label="revision" value={gate.revision ? `${gate.artifact} r${gate.revision}` : undefined} />
       <Row label="decided by" value={gate.decidedBy} mono={false} />
       <Row label="decided at" value={gate.decidedAt ? moment(gate.decidedAt) : undefined} />
-      {graph && !graph.item ? <GateActions subject={graph.subject} gate={gate} /> : null}
+      {graph && !graph.item && !graph.preview ? <GateActions subject={graph.subject} gate={gate} /> : null}
     </Section>
   );
 }

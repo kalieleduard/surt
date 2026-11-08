@@ -8,7 +8,7 @@ import { parseToml } from "../engine/toml";
 import { useDefinitions } from "../editor/DefinitionsContext";
 import { DefSection } from "./DefSection";
 
-type Props = { stepKey: string; workflow: string; file: string; live: string | null; frozen: string; run: number };
+type Props = { stepKey: string; workflow: string; file: string; live: string | null; frozen: string; run: number | null };
 
 export function StepSource({ stepKey, workflow, file, live, frozen, run }: Props) {
   const { available } = useEngine();
@@ -19,7 +19,7 @@ export function StepSource({ stepKey, workflow, file, live, frozen, run }: Props
   const [draft, setDraft] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const changed = liveBlock !== null && frozenBlock !== null && liveBlock !== frozenBlock;
+  const changed = run !== null && liveBlock !== null && frozenBlock !== null && liveBlock !== frozenBlock;
 
   useEffect(() => {
     setDraft(null);
@@ -74,7 +74,7 @@ export function StepSource({ stepKey, workflow, file, live, frozen, run }: Props
       ) : (
         <div className="def-source__edit">
           <CodeEditor value={draft} language="toml" onChange={setDraft} onSave={save} gutter={false} autoFocus className="def-source__editor" />
-          <p className="def-source__hint">Edits change what new runs start from. Run {run} stays frozen.</p>
+          <p className="def-source__hint">Edits change what new runs start from.{run !== null ? ` Run ${run} stays frozen.` : ""}</p>
           {error ? (
             <p className="def-source__error">
               <AlertTriangle size={12} /> {error}

@@ -132,6 +132,10 @@ _Avoid_: Garbage collection, purge, archive
 Deleting a Subject for good: its runs' history, logs, worktrees and refs, except the Integration Branch of a run that succeeded. It is the only way history leaves Surt.
 _Avoid_: Cleanup, soft delete, archive
 
+**Project Script**:
+A command a project declares under `[[scripts]]` in `.surt/config.toml`, such as its dev server or test suite, that the desktop app's Run button starts in the project root and streams to its output console. It belongs to no Workflow Run: Surt records nothing about it, and stopping it ends its whole process tree.
+_Avoid_: Check (which runs inside a Workflow Run), task, job
+
 ### Agents
 
 **Agent**:
