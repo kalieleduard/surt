@@ -3,7 +3,7 @@ import { useEngine } from "../engine/EngineContext";
 import { engine } from "../engine/client";
 import type { Catalog } from "../engine/types";
 
-export type EditTarget = { kind: "agent"; id: string } | { kind: "workflow"; name: string };
+export type EditTarget = { kind: "agent"; id: string; file?: string } | { kind: "workflow"; name: string };
 
 type Definitions = {
   catalog: Catalog | null;

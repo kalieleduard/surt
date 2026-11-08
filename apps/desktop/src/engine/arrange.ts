@@ -6,8 +6,9 @@ export const NODE_BOX: Box = { width: 184, height: 48 };
 export const FRAME_INSET = 16;
 export const FRAME_HEADER = 44;
 export const MIN_FRAME_CONTENT = 404;
+export const LOOP_LANE = 30;
 
-const COLUMN_GAP = 36;
+const COLUMN_GAP = 72;
 const STACK_GAP = 24;
 const ROW_GAP = 72;
 const MAX_STACK = 3;
@@ -44,8 +45,8 @@ export function stacked(groups: string[][]): string[][] {
   });
 }
 
-export function framed(box: Box): Box {
-  return { width: Math.max(box.width, MIN_FRAME_CONTENT) + 2 * FRAME_INSET, height: box.height + FRAME_HEADER + FRAME_INSET };
+export function framed(box: Box, lane = 0): Box {
+  return { width: Math.max(box.width, MIN_FRAME_CONTENT) + 2 * FRAME_INSET, height: box.height + FRAME_HEADER + FRAME_INSET + lane };
 }
 
 export function arrange(groups: string[][], sizeOf: (key: string) => Box, maxWidth = Infinity): Arrangement {

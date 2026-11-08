@@ -1,23 +1,25 @@
-import type { ReactNode } from "react";
-import { ArrowUpRight, Pencil, X } from "lucide-react";
-import type { Execution, StepData } from "../data/types";
-import { useDefinitions } from "../editor/DefinitionsContext";
-import { useEngine } from "../engine/EngineContext";
+import { useState } from "react";
+import { X } from "lucide-react";
+import type { FrameData, GraphNode, StepData, StepState } from "../data/types";
 import { useRunView } from "../graph/RunViewContext";
-import { AgentAvatar, STATE_LABEL, StateDot, kindIcon, kindLabel } from "../ui/status";
-import { duration, moment } from "../ui/time";
-import { GateActions } from "./GateActions";
+import { STATE_LABEL, StateDot, kindIcon, kindLabel } from "../ui/status";
+import { Row, Section, StepRunDetails } from "./RunDetails";
+import { StepDefinition } from "./StepDefinition";
+
+type Tab = "definition" | "run";
 
 export function Inspector({ onClose }: { onClose?: () => void }) {
   const { selected } = useRunView();
-  if (!selected || selected.type !== "step") return <aside className="inspector inspector--empty caption">Select a step</aside>;
-  const step = selected.data as StepData;
-  const Icon = kindIcon(step);
+  const [chosen, setChosen] = useState<Tab | null>(null);
+  if (!selected) return <aside className="inspector inspector--empty caption">Select a step</aside>;
+  const view = describe(selected);
+  const tab = chosen ?? view.defaultTab;
+  const Icon = view.icon;
   return (
     <aside className="inspector">
       <header className="inspector__head">
         <Icon size={14} />
-        <span className="inspector__title">{step.itemKey ? `Task ${step.itemKey}` : step.name}</span>
+        <span className="inspector__title">{view.title}</span>
         {onClose ? (
           <button className="icon-btn" onClick={onClose} aria-label="Close inspector">
             <X size={14} />
@@ -25,151 +27,57 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
         ) : null}
       </header>
       <div className="inspector__state">
-        <StateDot state={step.state} />
-        <span>{STATE_LABEL[step.state]}</span>
-        <span className="inspector__kind mono">{kindLabel(step)}</span>
+        <StateDot state={view.state} />
+        <span>{STATE_LABEL[view.state]}</span>
+        <span className="inspector__kind mono">{view.kind}</span>
+      </div>
+      <div className="inspector__tabs" role="tablist">
+        <TabButton tab="definition" current={tab} onSelect={setChosen} label="Definition" />
+        <TabButton tab="run" current={tab} onSelect={setChosen} label={view.waiting ? "Run · action needed" : "Run"} attention={view.waiting} />
       </div>
       <div className="inspector__body">
-        {step.kind === "item" ? <ChildRunSection step={step} /> : <StepSection step={step} />}
-        {step.gate ? <GateSection step={step} /> : null}
-        {step.kind !== "item" ? <LimitsSection step={step} /> : null}
-        {step.published.length ? <PublishedSection step={step} /> : null}
-        {step.executions.length ? <ExecutionSection executions={step.executions} /> : null}
+        {tab === "definition" ? <StepDefinition stepKey={view.stepKey} /> : <RunTab node={selected} />}
       </div>
     </aside>
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function TabButton({ tab, current, onSelect, label, attention }: { tab: Tab; current: Tab; onSelect: (tab: Tab) => void; label: string; attention?: boolean }) {
   return (
-    <section className="insp-section">
-      <header className="insp-section__head">
-        <span>{title}</span>
-      </header>
-      {children}
-    </section>
+    <button role="tab" aria-selected={tab === current} className={attention ? "is-attention" : undefined} onClick={() => onSelect(tab)}>
+      {label}
+    </button>
   );
 }
 
-function Row({ label, value, mono = true }: { label: string; value?: ReactNode; mono?: boolean }) {
+function RunTab({ node }: { node: GraphNode }) {
+  if (node.type === "step") return <StepRunDetails step={node.data as StepData} />;
+  const frame = node.data as FrameData;
   return (
-    <div className="insp-row">
-      <span className="insp-row__label">{label}</span>
-      <span className={`insp-row__value${mono ? " mono" : ""}`}>{value ?? "—"}</span>
-    </div>
-  );
-}
-
-function StepSection({ step }: { step: StepData }) {
-  const { edit } = useDefinitions();
-  const { available } = useEngine();
-  const agent = step.agent;
-  return (
-    <Section title="Step">
-      {agent ? (
-        <div className="insp-agent">
-          <AgentAvatar agent={agent} size={22} />
-          <span className="insp-agent__name">
-            {agent}
-            <span className="mono insp-agent__path">.surt/agents/{agent}</span>
-          </span>
-          {available ? (
-            <button className="btn btn-ghost insp-agent__edit" onClick={() => edit({ kind: "agent", id: agent })} title="Edit instructions, profile and references">
-              <Pencil size={12} /> Edit
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-      {step.operation ? <Row label="operation" value={step.operation} /> : null}
-      {step.artifact ? <Row label="artifact" value={step.artifact} /> : null}
-      <Row label="outcome" value={step.outcome} />
-      {step.condition ? <Row label="runs when" value={step.condition} /> : null}
-      {step.executions.at(-1)?.runtime ? <Row label="runtime" value={step.executions.at(-1)?.runtime} /> : null}
+    <Section title={frame.kind === "loop" ? "Loop" : "Per item"}>
+      <Row label="state" value={STATE_LABEL[frame.state]} mono={false} />
+      <Row label="progress" value={frame.detail} />
     </Section>
   );
 }
 
-function ChildRunSection({ step }: { step: StepData }) {
-  const { drill } = useRunView();
-  return (
-    <Section title="Child run">
-      <Row label="workflow" value={step.workflow} />
-      <Row label="current step" value={step.currentStep} />
-      <Row label="iteration" value={step.iteration} />
-      <Row label="attempt" value={step.attempts || undefined} />
-      <Row label="merged as" value={step.mergedAs?.slice(0, 7)} />
-      <Row label="needs" value={step.needs?.length ? step.needs.join(", ") : undefined} />
-      <Row label="waits for" value={step.waitsFor?.length ? step.waitsFor.join(", ") : undefined} />
-      <button className="btn btn-ghost insp-open" onClick={() => step.itemKey && drill(step.itemKey)}>
-        Open {step.workflow ?? "child run"} <ArrowUpRight size={13} />
-      </button>
-    </Section>
-  );
-}
+type View = { title: string; icon: ReturnType<typeof kindIcon>; state: StepState; kind: string; stepKey: string; defaultTab: Tab; waiting: boolean };
 
-function GateSection({ step }: { step: StepData }) {
-  const { graph } = useRunView();
-  const gate = step.gate;
-  if (!gate) return null;
-  return (
-    <Section title={gate.kind === "approval" ? "Approval gate" : "Input step"}>
-      <Row label="status" value={gate.status.replace("_", " ")} />
-      <Row label="revision" value={gate.revision ? `${gate.artifact} r${gate.revision}` : undefined} />
-      <Row label="decided by" value={gate.decidedBy} mono={false} />
-      <Row label="decided at" value={gate.decidedAt ? moment(gate.decidedAt) : undefined} />
-      {graph && !graph.item ? <GateActions subject={graph.subject} gate={gate} /> : null}
-    </Section>
-  );
-}
-
-function LimitsSection({ step }: { step: StepData }) {
-  const { project } = useEngine();
-  if (!project || (!step.attempts && !step.iteration)) return null;
-  return (
-    <Section title="Limits">
-      {step.attempts ? <Meter label="attempts" used={step.attempts} total={project.maxAttempts} /> : null}
-      {step.iteration ? <Meter label="iterations" used={step.iteration} total={project.maxIterations} /> : null}
-    </Section>
-  );
-}
-
-function Meter({ label, used, total }: { label: string; used: number; total: number }) {
-  return (
-    <div className="insp-meter">
-      <span className="insp-row__label">{label}</span>
-      <span className="insp-meter__bar">
-        {Array.from({ length: Math.max(total, used) }, (_, index) => (
-          <i key={index} className={index < used ? "is-used" : undefined} />
-        ))}
-      </span>
-      <span className="mono">
-        {used}/{total}
-      </span>
-    </div>
-  );
-}
-
-function PublishedSection({ step }: { step: StepData }) {
-  return (
-    <Section title="Published">
-      {step.published.map((entry) => (
-        <Row key={entry.artifact} label={entry.artifact} value={`r${entry.revision}`} />
-      ))}
-    </Section>
-  );
-}
-
-function ExecutionSection({ executions }: { executions: Execution[] }) {
-  return (
-    <Section title="Executions">
-      {[...executions].reverse().map((execution) => (
-        <div key={execution.id} className="insp-exec" title={execution.id}>
-          <StateDot state={execution.state} />
-          <span className="insp-exec__label">{execution.label}</span>
-          <span className="mono insp-exec__time">{duration(execution.startedAt, execution.endedAt)}</span>
-          {execution.note ? <span className="insp-exec__note">{execution.note}</span> : null}
-        </div>
-      ))}
-    </Section>
-  );
+function describe(node: GraphNode): View {
+  if (node.type === "frame") {
+    const frame = node.data as FrameData;
+    return { title: frame.name, icon: kindIcon({ kind: frame.kind }), state: frame.state, kind: frame.caption, stepKey: node.id, defaultTab: "definition", waiting: false };
+  }
+  const step = node.data as StepData;
+  const waiting = step.gate?.status === "waiting";
+  const item = step.kind === "item";
+  return {
+    title: item ? `Task ${step.itemKey}` : step.name,
+    icon: kindIcon(step),
+    state: step.state,
+    kind: kindLabel(step),
+    stepKey: item ? (node.parentId ?? step.key) : step.key,
+    defaultTab: waiting || item ? "run" : "definition",
+    waiting,
+  };
 }

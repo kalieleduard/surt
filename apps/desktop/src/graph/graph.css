@@ -34,13 +34,41 @@
 }
 
 .react-flow__handle.port__handle {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   min-width: 0;
   min-height: 0;
   border-radius: 50%;
   background: var(--node);
   border: 1.5px solid var(--text-3);
+}
+
+.react-flow__handle-left.port__handle {
+  opacity: 0;
+  transform: translate(0, -50%);
+}
+
+.react-flow__handle.port__handle--frame,
+.react-flow__handle.port__handle--inner {
+  opacity: 0;
+}
+
+.frame__port--in .react-flow__handle.port__handle--frame,
+.frame__port--in .react-flow__handle.port__handle--inner {
+  left: 0;
+  right: auto;
+  transform: translate(-50%, -50%);
+}
+
+.frame__port--out .react-flow__handle.port__handle--frame,
+.frame__port--out .react-flow__handle.port__handle--inner {
+  left: auto;
+  right: 0;
+  transform: translate(50%, -50%);
+}
+
+.node.is-selected .react-flow__handle-right.port__handle {
+  border-color: var(--text);
 }
 
 .node {
@@ -377,48 +405,121 @@
 
 .frame__port {
   position: absolute;
-  display: flex;
-  align-items: center;
-  height: 16px;
+  width: 0;
+  height: 0;
 }
 
 .frame__port--in {
   left: 0;
-  padding-left: 10px;
 }
 
 .frame__port--out {
   right: 0;
-  padding-right: 10px;
+}
+
+.frame__port::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  width: 4px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--text-3);
+}
+
+.frame__port--in::before {
+  left: -2px;
+}
+
+.frame__port--out::before {
+  right: -2px;
+}
+
+.frame.state-succeeded .frame__port::before {
+  background: var(--text-2);
 }
 
 .frame__port-label {
-  font: 10px var(--surt-mono);
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  white-space: nowrap;
+  font-size: 10px;
   color: var(--text-3);
 }
 
-.react-flow__edge-path.edge {
+.react-flow__edge .edge__hit {
+  stroke: transparent;
+  stroke-width: 14px;
+}
+
+.edge__line {
   stroke-width: 1.5px;
-  fill: none;
+  stroke-linejoin: round;
+  transition: stroke 0.15s, stroke-width 0.15s;
 }
 
-.edge--done {
-  stroke: color-mix(in srgb, var(--text) 38%, transparent);
+.edge__arrow {
+  stroke: none;
+  transition: fill 0.15s;
 }
 
-.edge--idle {
-  stroke: var(--line-strong);
-  stroke-dasharray: 4 5;
+.edge--done .edge__line {
+  stroke: color-mix(in srgb, var(--text) 55%, transparent);
 }
 
-.edge--back {
-  stroke: color-mix(in srgb, var(--text) 30%, transparent);
-  stroke-dasharray: 2 4;
+.edge--done .edge__arrow {
+  fill: color-mix(in srgb, var(--text) 55%, transparent);
 }
 
-.react-flow__edge-path.edge--active {
+.edge--idle .edge__line {
+  stroke: color-mix(in srgb, var(--text) 26%, transparent);
+}
+
+.edge--idle .edge__arrow {
+  fill: color-mix(in srgb, var(--text) 26%, transparent);
+}
+
+.edge--back .edge__line {
+  stroke: color-mix(in srgb, var(--text) 32%, transparent);
+  stroke-dasharray: 5 4;
+}
+
+.edge--back .edge__arrow {
+  fill: color-mix(in srgb, var(--text) 32%, transparent);
+}
+
+.edge--active .edge__line {
+  stroke: var(--surt-lava);
   stroke-width: 2px;
-  opacity: 0.45;
+  opacity: 0.4;
+}
+
+.edge--active .edge__arrow {
+  fill: var(--surt-brasa);
+}
+
+.edge.is-related .edge__line {
+  stroke: var(--text);
+  stroke-width: 2px;
+  opacity: 1;
+}
+
+.edge.is-related .edge__arrow {
+  fill: var(--text);
+}
+
+.edge.is-related.edge--active .edge__line {
+  stroke: var(--surt-lava);
+}
+
+.react-flow__edge:hover .edge__line {
+  stroke: var(--text-2);
+  stroke-width: 2px;
+}
+
+.react-flow__edge:hover .edge__arrow {
+  fill: var(--text-2);
 }
 
 .edge__flow {
@@ -435,13 +536,28 @@
 
 .edge__label {
   position: absolute;
-  padding: 2px 6px;
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  background: var(--panel);
-  font-size: 10px;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--canvas);
+  font-size: 9.5px;
+  line-height: 14px;
+  white-space: nowrap;
   color: var(--text-2);
   pointer-events: none;
+}
+
+.edge__label--back {
+  border-style: dashed;
+  color: var(--text-3);
+}
+
+.edge__label--active {
+  border-color: color-mix(in srgb, var(--surt-lava) 50%, transparent);
+  color: var(--text);
 }
 
 .run-minimap.react-flow__minimap {

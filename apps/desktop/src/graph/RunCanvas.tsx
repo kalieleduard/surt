@@ -48,7 +48,7 @@ function toFlowNodes(graph: RunGraph | null, selectedId: string, placements: Pla
   }));
 }
 
-function toFlowEdges(graph: RunGraph | null): Edge[] {
+function toFlowEdges(graph: RunGraph | null, selectedId: string): Edge[] {
   if (!graph) return [];
   return graph.edges.map((edge) => ({
     id: edge.id,
@@ -58,7 +58,7 @@ function toFlowEdges(graph: RunGraph | null): Edge[] {
     targetHandle: edge.targetHandle,
     type: "surt",
     zIndex: 0,
-    data: { state: edge.state, label: edge.label },
+    data: { state: edge.state, label: edge.label, frame: edge.frame, related: edge.source === selectedId || edge.target === selectedId },
   }));
 }
 
@@ -96,7 +96,7 @@ export function RunCanvas({ padding }: { padding: FitViewOptions["padding"] }) {
   const key = graph && project ? layoutKey(project.root, graph.item ? `${graph.workflow}#item` : graph.workflow) : null;
   const { placements, place } = usePlacements(key, resetToken);
   const initialNodes = useMemo(() => toFlowNodes(graph, selectedId, placements), [graph, placements]);
-  const edges = useMemo(() => toFlowEdges(graph), [graph]);
+  const edges = useMemo(() => toFlowEdges(graph, selectedId), [graph, selectedId]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const flow = useReactFlow();
   const panning = tool === "pan";
@@ -124,7 +124,7 @@ export function RunCanvas({ padding }: { padding: FitViewOptions["padding"] }) {
 
   const onNodeClick: NodeMouseHandler = (event, node) => {
     if (event.ctrlKey || event.metaKey || event.shiftKey) return;
-    if (node.type === "step") select(node.id);
+    select(node.id);
   };
 
   const onNodeDoubleClick: NodeMouseHandler = (_, node) => {

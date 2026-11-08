@@ -31,6 +31,7 @@ export function buildRunGraph(project: ProjectView, subject: SubjectView, item: 
     path: [project.name, subject.name, ...(item ? [item] : [])],
     nodes,
     edges: runEdges(source, nodes),
+    steps: detail.definition.steps,
     defaultSelection: defaultSelection(nodes),
   };
 }

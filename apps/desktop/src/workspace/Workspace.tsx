@@ -10,7 +10,7 @@ import { Inspector } from "../panels/Inspector";
 import { RunTree } from "../panels/RunTree";
 import { SourceOverlay } from "../panels/SourceOverlay";
 
-const CANVAS_PADDING = { top: "80px", right: "330px", bottom: "96px", left: "300px" } as const;
+const CANVAS_PADDING = { top: "80px", right: "370px", bottom: "96px", left: "300px" } as const;
 
 export function Workspace() {
   return (
@@ -63,12 +63,12 @@ function FloatingRuns() {
 }
 
 function FloatingInspector() {
-  const { graph, selectedId } = useRunView();
-  const [dismissed, setDismissed] = useState<string | null>(null);
-  if (!graph || dismissed === selectedId) return null;
+  const { graph, selectedId, selections } = useRunView();
+  const [dismissed, setDismissed] = useState<number | null>(null);
+  if (!graph || dismissed === selections) return null;
   return (
     <div className="floating-panel floating-panel--right">
-      <Inspector onClose={() => setDismissed(selectedId)} />
+      <Inspector key={`${graph.id}/${selectedId}`} onClose={() => setDismissed(selections)} />
     </div>
   );
 }

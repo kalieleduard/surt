@@ -1,12 +1,12 @@
 import type { FrameData, GraphNode, StepData, StepState } from "../data/types";
-import { FRAME_HEADER, FRAME_INSET, NODE_BOX, arrange, framed, layers, stacked, type Arrangement, type Box, type Point } from "./arrange";
+import { FRAME_HEADER, FRAME_INSET, LOOP_LANE, NODE_BOX, arrange, framed, layers, stacked, type Arrangement, type Box, type Point } from "./arrange";
 import { emptyStepRun, type StepRun } from "./stepRuns";
 import type { DefinedStep, GateSummary, ItemView } from "./types";
 
 export const IN = "in";
 export const OUT = "out";
 export const ITEM_PREFIX = "item:";
-const MAX_ROW_WIDTH = 1000;
+const MAX_ROW_WIDTH = 1200;
 
 export type RunSource = {
   steps: Map<string, DefinedStep>;
@@ -64,7 +64,7 @@ class Layout {
 
   private measure(key: string): Box {
     const step = this.source.steps.get(key);
-    if (step?.kind === "loop") return framed(this.arrangement(key, step.body, this.size).box);
+    if (step?.kind === "loop") return framed(this.arrangement(key, step.body, this.size).box, LOOP_LANE);
     if (step?.kind === "per_item") return framed(this.itemArrangement(step).box);
     return NODE_BOX;
   }
@@ -87,6 +87,8 @@ class Layout {
     const box = this.size(step.key);
     const at = nodes.length;
     const frame = frameData(step, this.source);
+    frame.inputs = frame.inputs?.map((port) => ({ ...port, y: this.portY(step, "in") }));
+    frame.outputs = frame.outputs?.map((port) => ({ ...port, y: this.portY(step, "out") }));
     nodes.push({ id: step.key, type: "frame", position, parentId, width: box.width, height: box.height, data: frame });
     for (const [member, inner] of this.inner.get(step.key)?.positions ?? []) {
       const offset = { x: inner.x + FRAME_INSET, y: inner.y + FRAME_HEADER };
@@ -94,6 +96,22 @@ class Layout {
       else nodes.push(itemNode(member, offset, step, this.source));
     }
     frame.state = frameState(runOf(this.source, step.key), nodes.slice(at + 1), this.source.driven);
+  }
+
+  private portY(step: DefinedStep, side: "in" | "out"): number {
+    const positions = this.inner.get(step.key)?.positions;
+    const member = side === "in" ? this.entryOf(step) : step.kind === "loop" ? step.until.step : undefined;
+    const at = member ? positions?.get(member) : undefined;
+    const tops = [...(positions?.values() ?? [])].map((point) => point.y);
+    if (!member || !at) return FRAME_HEADER + (tops.length ? Math.min(...tops) : 0) + NODE_BOX.height / 2;
+    const inner = this.source.steps.get(member);
+    const offset = inner?.kind === "loop" || inner?.kind === "per_item" ? this.portY(inner, side) : NODE_BOX.height / 2;
+    return FRAME_HEADER + at.y + offset;
+  }
+
+  private entryOf(step: DefinedStep): string | undefined {
+    if (step.kind === "loop") return layers(step.body, needsOf(this.source))[0]?.[0];
+    return this.inner.get(step.key)?.positions.keys().next().value;
   }
 }
 
@@ -146,7 +164,8 @@ function frameData(step: DefinedStep, source: RunSource): FrameData {
   const run = runOf(source, step.key);
   if (step.kind === "loop") {
     const until = `until ${step.until.step} ${step.until.outcome}`;
-    return { name: step.key, kind: "loop", state: run.state, caption: "loop", detail: run.iterations ? `iter ${run.iterations} · ${until}` : until };
+    const detail = run.iterations ? `iter ${run.iterations} · ${until}` : until;
+    return { name: step.key, kind: "loop", state: run.state, caption: "loop", detail, ...ports() };
   }
   const items = step.key === source.itemStep ? source.items : [];
   const done = items.filter((item) => item.state === "succeeded").length;

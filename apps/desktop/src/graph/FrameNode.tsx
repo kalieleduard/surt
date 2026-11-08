@@ -1,9 +1,9 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { FrameData, Port } from "../data/types";
+import { ENTER, LEAVE } from "../engine/runEdges";
 import { StateMark, kindIcon } from "../ui/status";
 
-const SIDE_PORT_TOP = 72;
-const SIDE_PORT_GAP = 34;
+const DEFAULT_PORT_Y = 68;
 
 export function FrameNode({ data, selected }: NodeProps) {
   const frame = data as FrameData;
@@ -24,31 +24,23 @@ export function FrameNode({ data, selected }: NodeProps) {
   );
 }
 
-function placement(side: "in" | "out", index: number) {
-  return {
-    position: side === "in" ? Position.Left : Position.Right,
-    style: { top: SIDE_PORT_TOP + index * SIDE_PORT_GAP },
-  };
-}
-
 function FramePorts({ ports, side }: { ports?: Port[]; side: "in" | "out" }) {
   if (!ports) return null;
+  const outer = side === "in" ? Position.Left : Position.Right;
   return (
     <>
-      {ports.map((port, index) => {
-        const place = placement(side, index);
-        return (
-          <div key={port.id} className={`frame__port frame__port--${side}`} style={place.style}>
-            <Handle
-              type={side === "in" ? "target" : "source"}
-              position={place.position}
-              id={`${side}:${port.id}`}
-              className="port__handle"
-            />
-            {port.label ? <span className="frame__port-label">{port.label}</span> : null}
-          </div>
-        );
-      })}
+      {ports.map((port) => (
+        <div key={port.id} className={`frame__port frame__port--${side}`} style={{ top: port.y ?? DEFAULT_PORT_Y }}>
+          <Handle type={side === "in" ? "target" : "source"} position={outer} id={`${side}:${port.id}`} className="port__handle port__handle--frame" />
+          <Handle
+            type={side === "in" ? "source" : "target"}
+            position={side === "in" ? Position.Right : Position.Left}
+            id={`${side === "in" ? ENTER : LEAVE}:${port.id}`}
+            className="port__handle port__handle--inner"
+          />
+          {port.label ? <span className="frame__port-label mono">{port.label}</span> : null}
+        </div>
+      ))}
     </>
   );
 }

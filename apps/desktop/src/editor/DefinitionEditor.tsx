@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Bot, FilePlus2, FileText, RotateCcw, Save, Trash2, Workflow, X } from "lucide-react";
+import { CodeEditor } from "../code/Code";
+import { languageOf } from "../code/languages";
 import { engine } from "../engine/client";
 import type { Catalog } from "../engine/types";
 import { AgentAvatar } from "../ui/status";
@@ -10,7 +12,6 @@ import "./editor.css";
 type Draft = { saved: string | null; text: string };
 type FileEntry = { path: string; label: string; group: string; removable: boolean };
 
-const INDENT = "  ";
 const NEW_FILE_NAME = /^[\w.-]+(\/[\w.-]+)*$/;
 const NOTICE_MS = 2400;
 
@@ -24,7 +25,7 @@ function EditorPanel({ target }: { target: EditTarget }) {
   const { catalog, setCatalog, close, edit } = useDefinitions();
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const files = useMemo(() => filesOf(target, catalog, drafts), [target, catalog, drafts]);
-  const [active, setActive] = useState<string | null>(null);
+  const [active, setActive] = useState<string | null>(target.kind === "agent" && target.file ? `agents/${target.id}/${target.file}` : null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -139,7 +140,7 @@ function EditorPanel({ target }: { target: EditTarget }) {
               </div>
             ) : null}
             {draft ? (
-              <CodeArea key={current} value={draft.text} onChange={update} onSave={save} wrap={current?.endsWith(".md") ?? false} />
+              <CodeEditor key={current} value={draft.text} language={languageOf(current ?? "")} onChange={update} onSave={save} wrap={current?.endsWith(".md") ?? false} />
             ) : (
               <div className="editor__loading caption">{current ? "Loading…" : "No files"}</div>
             )}
@@ -273,46 +274,6 @@ function Problems({ problems }: { problems: Catalog["workflows"] }) {
           </span>
         </div>
       ))}
-    </div>
-  );
-}
-
-function CodeArea({ value, onChange, onSave, wrap }: { value: string; onChange: (text: string) => void; onSave: () => void; wrap: boolean }) {
-  const gutter = useRef<HTMLDivElement>(null);
-  const lines = value.split("\n").length;
-  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
-      event.preventDefault();
-      onSave();
-      return;
-    }
-    if (event.key !== "Tab" || event.shiftKey) return;
-    event.preventDefault();
-    const area = event.currentTarget;
-    const { selectionStart, selectionEnd } = area;
-    onChange(value.slice(0, selectionStart) + INDENT + value.slice(selectionEnd));
-    requestAnimationFrame(() => area.setSelectionRange(selectionStart + INDENT.length, selectionStart + INDENT.length));
-  };
-  return (
-    <div className={`code-area${wrap ? " is-wrapped" : ""}`}>
-      {wrap ? null : (
-        <div className="code-area__gutter mono" ref={gutter} aria-hidden>
-          {Array.from({ length: lines }, (_, index) => (
-            <span key={index}>{index + 1}</span>
-          ))}
-        </div>
-      )}
-      <textarea
-        className="code-area__text mono"
-        value={value}
-        spellCheck={false}
-        wrap={wrap ? "soft" : "off"}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={onKeyDown}
-        onScroll={(event) => {
-          if (gutter.current) gutter.current.scrollTop = event.currentTarget.scrollTop;
-        }}
-      />
     </div>
   );
 }

@@ -12,6 +12,7 @@ type RunView = {
   selectedId: string;
   selected: GraphNode | undefined;
   select: (id: string) => void;
+  selections: number;
   drill: (itemKey: string) => void;
   back: () => void;
   sourceOpen: boolean;
@@ -53,6 +54,7 @@ function RunViewState({ children }: { children: ReactNode }) {
   const [tool, setTool] = useState<CanvasTool>("select");
   const [snap, setSnap] = useState(true);
   const [resetToken, setResetToken] = useState(0);
+  const [selections, setSelections] = useState(0);
 
   const selectedId = useMemo(() => {
     if (!graph) return "";
@@ -65,7 +67,12 @@ function RunViewState({ children }: { children: ReactNode }) {
       graph,
       selectedId,
       selected: graph?.nodes.find((node) => node.id === selectedId),
-      select: (node) => graph && setChosen({ graph: graph.id, node }),
+      select: (node) => {
+        if (!graph) return;
+        setChosen({ graph: graph.id, node });
+        setSelections((count) => count + 1);
+      },
+      selections,
       drill,
       back,
       sourceOpen,
@@ -77,7 +84,7 @@ function RunViewState({ children }: { children: ReactNode }) {
       resetToken,
       resetLayout: () => setResetToken((token) => token + 1),
     }),
-    [graph, selectedId, sourceOpen, tool, drill, back, snap, resetToken],
+    [graph, selectedId, selections, sourceOpen, tool, drill, back, snap, resetToken],
   );
 
   return <RunViewContext.Provider value={view}>{children}</RunViewContext.Provider>;
