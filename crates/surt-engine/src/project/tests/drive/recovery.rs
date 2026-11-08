@@ -205,6 +205,7 @@ impl Feature {
             killed.expect("the forced driver returns"),
             DriveOutcome::Interrupted
         );
+        self.dir.record_this_process_as_driver(&self.run).await;
         orphan
     }
 }
@@ -324,11 +325,40 @@ async fn status_warns_about_an_agent_still_running_with_no_driver_and_leaves_it_
     assert!(exited(&mut orphan));
 }
 
+type DriverRow = (Option<i64>, Option<i64>, Option<String>);
+
+const DRIVER_ROW: &str = "SELECT driver_pid, driver_start_time, driver_boot_id FROM workflow_run \
+                          WHERE parent_step_run_id IS NULL";
+
+struct Peeking<'a> {
+    fake: FakeRuntime,
+    feature: &'a Feature,
+    seen: tokio::sync::Mutex<Vec<DriverRow>>,
+}
+
+impl AgentRuntime for Peeking<'_> {
+    async fn execute(
+        &self,
+        request: RuntimeRequest,
+        events: RuntimeEventSink,
+        stop: StopSignal,
+    ) -> Result<RuntimeCompletion, RuntimeError> {
+        let rows: Vec<DriverRow> = self.feature.dir.rows(DRIVER_ROW).await;
+        self.seen.lock().await.extend(rows);
+        self.fake.execute(request, events, stop).await
+    }
+}
+
 #[tokio::test(flavor = "multi_thread")]
-async fn a_driver_records_its_own_identity_and_a_clean_resume_reports_no_recovery() {
+async fn a_driver_records_its_own_identity_while_driving_and_a_clean_resume_reports_no_recovery() {
     let feature = Feature::review().await;
+    let peeking = Peeking {
+        fake: FakeRuntime::new(Script::new().on("write", 1, 1, draft("# Draft 1\n"))),
+        feature: &feature,
+        seen: tokio::sync::Mutex::new(Vec::new()),
+    };
     feature
-        .drive(Script::new().on("write", 1, 1, draft("# Draft 1\n")))
+        .drive_with(&peeking)
         .await
         .outcome
         .expect("the draft reaches the gate");
@@ -337,15 +367,11 @@ async fn a_driver_records_its_own_identity_and_a_clean_resume_reports_no_recover
 
     assert!(again.progress.is_empty(), "{:?}", again.progress);
     assert!(feature.dir.event_data("driver.recovered").await.is_empty());
-    let drivers: Vec<(Option<i64>, Option<i64>, Option<String>)> = feature
-        .dir
-        .rows(
-            "SELECT driver_pid, driver_start_time, driver_boot_id FROM workflow_run \
-             WHERE parent_step_run_id IS NULL",
-        )
-        .await;
-    let (pid, start_time, boot_id) = &drivers[0];
+    let seen = peeking.seen.into_inner();
+    let (pid, start_time, boot_id) = &seen[0];
     assert_eq!(*pid, Some(i64::from(std::process::id())));
     assert!(start_time.is_some());
     assert!(boot_id.as_deref().is_some_and(|id| !id.is_empty()));
+    let released: Vec<DriverRow> = feature.dir.rows(DRIVER_ROW).await;
+    assert_eq!(released, [(None, None, None)]);
 }

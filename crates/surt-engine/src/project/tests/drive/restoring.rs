@@ -220,6 +220,10 @@ async fn restore_refuses_while_a_driver_holds_the_run_naming_its_pid() {
     let _held = platform::try_lock_exclusive(&lock)
         .expect("the lock opens")
         .expect("the lock is free");
+    feature
+        .dir
+        .record_this_process_as_driver(&feature.run)
+        .await;
 
     let restored = feature.project.restore(SUBJECT, "draft").await;
 

@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use serde_json::json;
 use tokio::sync::Mutex;
 
 use super::activity::SlotUsage;
@@ -29,7 +28,6 @@ use crate::workflow::Definition;
 
 const TICK: Duration = Duration::from_secs(1);
 const DONE: &str = "done";
-const DRIVER_STOPPED: &str = "driver.stopped";
 
 pub(crate) struct Driving<'a> {
     pub(crate) store: &'a Store,
@@ -87,9 +85,8 @@ pub(crate) async fn drive<R: AgentRuntime>(
     };
     recover(&driving, &reconcile, &progress).await?;
     let outcome = drive_recovered(driving, &reconcile, runtime, progress, stop).await?;
-    let stopped = json!({ "pid": std::process::id() });
     store
-        .record_run_event(root.as_str(), DRIVER_STOPPED, &stopped)
+        .release_driver(root.as_str(), std::process::id())
         .await?;
     Ok(outcome)
 }
