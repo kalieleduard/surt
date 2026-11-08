@@ -27,6 +27,7 @@ const ITEM_STATE: Record<ItemView["state"], StepState> = {
 };
 
 const DATED_NAME = /^(\d{8})-(.+)$/;
+const ENDED_ITEM: ItemView["state"][] = ["succeeded", "cancelled"];
 
 export function RunTree() {
   const { subjects, refresh, project } = useEngine();
@@ -98,7 +99,7 @@ function SubjectRow({ subject }: { subject: SubjectView }) {
                 <span className="tree__label">
                   <span className="mono">{item.key}</span>
                 </span>
-                <span className="tree__meta">{item.step ?? item.state}</span>
+                <span className="tree__meta">{ENDED_ITEM.includes(item.state) ? item.state : (item.step ?? item.state)}</span>
               </button>
             </li>
           ))}

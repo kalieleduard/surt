@@ -3711,6 +3711,7 @@ dependencies = [
 name = "surt-desktop"
 version = "0.1.0"
 dependencies = [
+ "jiff",
  "serde",
  "serde_json",
  "surt-engine",

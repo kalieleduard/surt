@@ -16,6 +16,15 @@ pub enum Failure {
     NoProject,
     #[error("{} is not a Surt project: run surt init there first", .0.display())]
     NotAProject(PathBuf),
+    #[error("{0} has no active run")]
+    NoActiveRun(String),
+    #[error("{0} is already being driven from this window")]
+    AlreadyDriving(String),
+    #[error("cannot derive a subject name from {0:?}")]
+    NoSlug(String),
+    #[cfg(feature = "test-support")]
+    #[error("{0}")]
+    Runtime(String),
     #[error("{0}")]
     Engine(Error),
 }
@@ -55,6 +64,11 @@ impl Workspace {
     pub async fn project(&self) -> Result<Project, Failure> {
         let root = self.root().ok_or(Failure::NoProject)?;
         Ok(Project::open_read_only(&root).await?)
+    }
+
+    pub async fn writable(&self) -> Result<Project, Failure> {
+        let root = self.root().ok_or(Failure::NoProject)?;
+        Ok(Project::open(&root).await?)
     }
 
     fn root(&self) -> Option<PathBuf> {

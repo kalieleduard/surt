@@ -1,13 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { RunGraph } from "../data/types";
 import { ENGINE_AVAILABLE, engine } from "./client";
 import { buildRunGraph, graphId } from "./runGraph";
-import type { ProjectView, RunsView, SubjectView } from "./types";
+import type { DriverView, ProjectView, RunsView, SubjectView } from "./types";
 import { usePolled } from "./usePolled";
 
 const PROJECT_KEY = "surt-project";
 const TERMINAL = ["succeeded", "cancelled"];
+const CLOSING_EVENT = "surt://closing";
 
 type Selection = { subject: string; item: string | null };
 
@@ -18,6 +20,8 @@ type Engine = {
   chooseProject: () => void;
   runs: RunsView | null;
   subjects: SubjectView[];
+  drivers: DriverView[];
+  closing: boolean;
   runsError: string | null;
   refresh: () => void;
   selection: Selection | null;
@@ -42,6 +46,7 @@ export function EngineProvider({ children }: { children: ReactNode }) {
   const runs = usePolled(loadRuns, project?.root ?? "");
   const subjects = useMemo(() => [...(runs.data?.subjects ?? [])].reverse(), [runs.data]);
   const [chosen, setChosen] = useState<Selection | null>(null);
+  const closing = useClosing();
   const selection = useMemo(() => resolveSelection(chosen, subjects), [chosen, subjects]);
   const loadDetail = useMemo(
     () => (selection ? () => engine.runDetail(selection.subject, selection.item) : null),
@@ -64,6 +69,8 @@ export function EngineProvider({ children }: { children: ReactNode }) {
     },
     runs: runs.data,
     subjects,
+    drivers: runs.data?.drivers ?? [],
+    closing,
     runsError: runs.error,
     refresh: () => {
       runs.refresh();
@@ -84,6 +91,18 @@ function resolveSelection(chosen: Selection | null, subjects: SubjectView[]): Se
   const active = subjects.find((subject) => !subject.states.some((state) => TERMINAL.includes(state)));
   const first = active ?? subjects[0];
   return first ? { subject: first.name, item: null } : null;
+}
+
+function useClosing() {
+  const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    if (!ENGINE_AVAILABLE) return;
+    const unlisten = listen(CLOSING_EVENT, () => setClosing(true));
+    return () => {
+      unlisten.then((stop) => stop());
+    };
+  }, []);
+  return closing;
 }
 
 function useProject() {

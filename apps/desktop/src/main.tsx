@@ -7,6 +7,7 @@ import "./panels/chrome.css";
 import "./panels/side.css";
 import "./panels/floating.css";
 import "./panels/toolbar.css";
+import "./panels/actions.css";
 import "./theme/theme.css";
 import "./workspace/workspace.css";
 import { App } from "./App";

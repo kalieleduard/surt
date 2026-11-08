@@ -1,0 +1,259 @@
+.btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.gate-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 14px 4px;
+}
+
+.gate-actions__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gate-actions__pending {
+  padding: 8px 14px 4px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field input,
+.field textarea,
+.field select,
+.question textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--surt-radius);
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.field input,
+.field select {
+  height: 30px;
+}
+
+.field input:focus-visible,
+.field textarea:focus-visible,
+.field select:focus-visible,
+.question textarea:focus-visible {
+  outline: 1px solid var(--surt-brasa);
+  outline-offset: 1px;
+}
+
+.field .mono {
+  font-family: var(--surt-mono);
+}
+
+.field__hint {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.form-error {
+  padding: 6px 8px;
+  border-left: 2px solid var(--surt-lava);
+  border-radius: 0 var(--surt-radius) var(--surt-radius) 0;
+  background: color-mix(in srgb, var(--surt-lava) 10%, transparent);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.question {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.question__text {
+  padding: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.question__why {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.question__options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.choice {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  column-gap: 8px;
+  row-gap: 2px;
+  align-items: center;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--surt-radius);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.choice:hover {
+  background: var(--hover);
+}
+
+.choice.is-chosen {
+  background: var(--active);
+  border-color: var(--line-strong);
+  box-shadow: inset 2px 0 0 var(--surt-lava);
+}
+
+.choice input {
+  margin: 0;
+  accent-color: var(--surt-lava);
+}
+
+.choice__value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.choice__tag {
+  font-size: 9.5px;
+}
+
+.choice__description {
+  grid-column: 2;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-2);
+}
+
+.run-controls__driving {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+}
+
+.run-controls__notice,
+.run-controls__confirm {
+  position: absolute;
+  bottom: calc(100% + 18px);
+  left: 0;
+  width: 340px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--surt-radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.run-controls__notice {
+  border-left: 2px solid var(--surt-lava);
+  overflow-wrap: anywhere;
+}
+
+.run-controls__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.run-controls__confirm-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.run-controls__confirm-text {
+  color: var(--text-2);
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--surt-obsidiana) 60%, transparent);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100vh - 96px);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--surt-radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.dialog--notice {
+  gap: 8px;
+  padding: 20px 22px;
+}
+
+.dialog__head,
+.dialog__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.dialog__head {
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+}
+
+.dialog__foot {
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+}
+
+.dialog__title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  overflow: auto;
+}
+
+.dialog__hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-2);
+}

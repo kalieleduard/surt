@@ -14,8 +14,10 @@ surt-engine = { path = "../../../crates/surt-engine" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
+tokio = { version = "1", features = ["sync", "rt", "macros"] }
+jiff = "0.2"
 
-[dev-dependencies]
-tokio = { version = "1", features = ["macros", "rt"] }
+[features]
+test-support = ["surt-engine/test-support"]
 
 [workspace]

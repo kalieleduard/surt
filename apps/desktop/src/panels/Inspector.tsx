@@ -5,6 +5,7 @@ import { useEngine } from "../engine/EngineContext";
 import { useRunView } from "../graph/RunViewContext";
 import { AgentAvatar, STATE_LABEL, StateDot, kindIcon, kindLabel } from "../ui/status";
 import { duration, moment } from "../ui/time";
+import { GateActions } from "./GateActions";
 
 export function Inspector({ onClose }: { onClose?: () => void }) {
   const { selected } = useRunView();
@@ -96,6 +97,7 @@ function ChildRunSection({ step }: { step: StepData }) {
 }
 
 function GateSection({ step }: { step: StepData }) {
+  const { graph } = useRunView();
   const gate = step.gate;
   if (!gate) return null;
   return (
@@ -104,6 +106,7 @@ function GateSection({ step }: { step: StepData }) {
       <Row label="revision" value={gate.revision ? `${gate.artifact} r${gate.revision}` : undefined} />
       <Row label="decided by" value={gate.decidedBy} mono={false} />
       <Row label="decided at" value={gate.decidedAt ? moment(gate.decidedAt) : undefined} />
+      {graph && !graph.item ? <GateActions subject={graph.subject} gate={gate} /> : null}
     </Section>
   );
 }

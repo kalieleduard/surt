@@ -1,6 +1,7 @@
 import { useReactFlow } from "@xyflow/react";
 import { ArrowLeft, CodeXml, Hand, MousePointer2, Scan, ZoomIn, ZoomOut } from "lucide-react";
 import { useRunView } from "../graph/RunViewContext";
+import { RunControls } from "./RunControls";
 
 const FIT_PADDING = 0.08;
 const ZOOM_DURATION_MS = 150;
@@ -19,6 +20,7 @@ export function CanvasToolbar() {
           </button>
         </div>
       ) : null}
+      <RunControls />
       <div className="canvas-toolbar__group">
         <button className="icon-btn" aria-pressed={tool === "select"} onClick={() => setTool("select")} title="Select (drag to box-select)">
           <MousePointer2 size={15} />
