@@ -1,24 +1,40 @@
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { Handle, NodeResizer, Position, type NodeProps } from "@xyflow/react";
 import type { StepData } from "../data/types";
 import { AgentAvatar, StateMark, kindIcon, kindLabel } from "../ui/status";
 import { Presence } from "./Presence";
+import { useShiftKey } from "./useShiftKey";
+
+export const STEP_MIN = { width: 132, height: 40 };
 
 export function StepNode({ data, selected }: NodeProps) {
   const step = data as StepData;
+  const shift = useShiftKey();
   const className = `node state-${step.state} kind-${step.kind}${selected ? " is-selected" : ""}`;
   return (
-    <div className={className}>
-      <span className="node__ring">
-        <NodeBadge step={step} />
-      </span>
-      <span className="node__text">
-        <span className="node__name">{step.name}</span>
-        <span className="node__meta">{step.outcome ?? kindLabel(step)}</span>
-      </span>
-      <StateMark state={step.state} />
-      <NodeHandles step={step} />
-      {step.agent && step.state === "running" ? <Presence agent={step.agent} /> : null}
-    </div>
+    <>
+      <NodeResizer
+        isVisible={selected}
+        minWidth={STEP_MIN.width}
+        minHeight={STEP_MIN.height}
+        keepAspectRatio={shift}
+        lineClassName="resize-line"
+        handleClassName="resize-handle"
+      />
+      <div className={className}>
+        <span className="node__ring">
+          <NodeBadge step={step} />
+        </span>
+        <span className="node__text">
+          <span className="node__name" title={step.name}>
+            {step.name}
+          </span>
+          <span className="node__meta">{step.outcome ?? kindLabel(step)}</span>
+        </span>
+        <StateMark state={step.state} />
+        <NodeHandles step={step} />
+        {step.agent && step.state === "running" ? <Presence agent={step.agent} /> : null}
+      </div>
+    </>
   );
 }
 

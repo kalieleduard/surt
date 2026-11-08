@@ -8,7 +8,7 @@ export const FRAME_HEADER = 44;
 export const MIN_FRAME_CONTENT = 404;
 export const LOOP_LANE = 30;
 
-const COLUMN_GAP = 72;
+const COLUMN_GAP = 96;
 const STACK_GAP = 24;
 const ROW_GAP = 72;
 const MAX_STACK = 3;

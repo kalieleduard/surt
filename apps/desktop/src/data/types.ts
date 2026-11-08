@@ -60,6 +60,8 @@ export type FrameData = {
   detail: string;
   inputs?: Port[];
   outputs?: Port[];
+  entry?: string;
+  exit?: string;
 };
 
 export type GraphNode = {
