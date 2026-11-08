@@ -1,6 +1,4 @@
-import type { AgentId } from "../data/types";
-
-export function Presence({ agent }: { agent: AgentId }) {
+export function Presence({ agent }: { agent: string }) {
   return (
     <span className={`presence presence--${agent}`}>
       <svg width="14" height="16" viewBox="0 0 14 16" aria-hidden="true">

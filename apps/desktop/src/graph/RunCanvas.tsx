@@ -15,6 +15,7 @@ import "@xyflow/react/dist/base.css";
 import type { RunGraph, StepData } from "../data/types";
 import { FrameNode } from "./FrameNode";
 import { useRunView } from "./RunViewContext";
+import { CanvasNotice } from "./CanvasNotice";
 import { StepNode } from "./StepNode";
 import { SurtEdge } from "./SurtEdge";
 import "./graph.css";
@@ -23,7 +24,8 @@ const NODE_TYPES = { step: StepNode, frame: FrameNode };
 const EDGE_TYPES = { surt: SurtEdge };
 const PAN_WITH_MIDDLE_OR_RIGHT_BUTTON = [1, 2];
 
-function toFlowNodes(graph: RunGraph, selectedId: string): Node[] {
+function toFlowNodes(graph: RunGraph | null, selectedId: string): Node[] {
+  if (!graph) return [];
   return graph.nodes.map((node) => ({
     id: node.id,
     type: node.type,
@@ -39,7 +41,8 @@ function toFlowNodes(graph: RunGraph, selectedId: string): Node[] {
   }));
 }
 
-function toFlowEdges(graph: RunGraph): Edge[] {
+function toFlowEdges(graph: RunGraph | null): Edge[] {
+  if (!graph) return [];
   return graph.edges.map((edge) => ({
     id: edge.id,
     source: edge.source,
@@ -62,8 +65,11 @@ export function RunCanvas({ padding }: { padding: FitViewOptions["padding"] }) {
 
   useEffect(() => {
     setNodes(initialNodes);
-    requestAnimationFrame(() => flow.fitView({ padding, duration: 250 }));
   }, [initialNodes]);
+
+  useEffect(() => {
+    if (graph) requestAnimationFrame(() => flow.fitView({ padding, duration: 250 }));
+  }, [graph?.id]);
 
   useEffect(() => {
     setNodes((current) => current.map((node) => ({ ...node, selected: node.id === selectedId })));
@@ -80,6 +86,7 @@ export function RunCanvas({ padding }: { padding: FitViewOptions["padding"] }) {
 
   return (
     <div className={`run-canvas${panning ? " is-panning" : ""}`}>
+      <CanvasNotice />
       <ReactFlow
         nodes={nodes}
         edges={edges}

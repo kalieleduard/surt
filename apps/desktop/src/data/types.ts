@@ -1,37 +1,54 @@
-export type StepKind = "agent" | "approval" | "input" | "operation" | "loop" | "per_item" | "item";
-export type StepState = "pending" | "running" | "waiting" | "succeeded" | "blocked" | "cancelled" | "skipped";
-export type AgentId = "spec" | "tasks" | "builder" | "reviewer" | "shipper";
+import type { GateSummary } from "../engine/types";
 
-export type Port = { id: string; label: string; revision?: string; edge?: "top" | "bottom" };
+export type StepKind = "agent" | "approval" | "input" | "operation" | "loop" | "per_item" | "item";
+export type StepState =
+  | "pending"
+  | "running"
+  | "waiting"
+  | "succeeded"
+  | "blocked"
+  | "cancelled"
+  | "skipped"
+  | "interrupted"
+  | "failed";
+
+export type Port = { id: string; label: string };
 
 export type Execution = {
   id: string;
   label: string;
   state: StepState;
-  duration: string;
-  note?: string;
+  startedAt: number;
+  endedAt: number | null;
+  note: string | null;
+  runtime: string | null;
 };
 
+export type Publication = { artifact: string; revision: number };
+
 export type StepData = {
+  key: string;
   name: string;
   kind: StepKind;
   state: StepState;
-  agent?: AgentId;
+  agent?: string;
   operation?: string;
+  artifact?: string;
   outcome?: string;
-  outcomes?: string[];
-  attempt?: [number, number];
-  iteration?: [number, number];
-  duration?: string;
+  condition?: string;
+  iteration?: number;
+  attempts: number;
   inputs: Port[];
   outputs: Port[];
-  executions?: Execution[];
-  presence?: AgentId;
+  executions: Execution[];
+  published: Publication[];
+  gate?: GateSummary;
   itemKey?: string;
-  title?: string;
+  workflow?: string;
   currentStep?: string;
-  dependsOn?: string[];
-  branch?: string;
+  needs?: string[];
+  waitsFor?: string[];
+  mergedAs?: string;
   summary?: string;
 };
 
@@ -67,34 +84,13 @@ export type GraphEdge = {
 
 export type RunGraph = {
   id: string;
+  subject: string;
+  item: string | null;
+  run: number;
   workflow: string;
+  source: string;
   path: string[];
   nodes: GraphNode[];
   edges: GraphEdge[];
   defaultSelection: string;
-};
-
-export type Subject = {
-  id: string;
-  slug: string;
-  workflow: string;
-  state: StepState;
-  status: string;
-  children?: { key: string; title: string; state: StepState; status: string }[];
-};
-
-export const AGENT_LABEL: Record<AgentId, string> = {
-  spec: "Spec Agent",
-  tasks: "Task Agent",
-  builder: "Builder",
-  reviewer: "Reviewer",
-  shipper: "Shipper",
-};
-
-export const AGENT_PROFILE: Record<AgentId, { runtime: string; model: string; effort: string; conversation: string }> = {
-  spec: { runtime: "claude-code", model: "opus", effort: "high", conversation: "loop" },
-  tasks: { runtime: "claude-code", model: "opus", effort: "high", conversation: "none" },
-  builder: { runtime: "claude-code", model: "sonnet", effort: "medium", conversation: "loop" },
-  reviewer: { runtime: "claude-code", model: "opus", effort: "high", conversation: "none" },
-  shipper: { runtime: "claude-code", model: "sonnet", effort: "low", conversation: "none" },
 };

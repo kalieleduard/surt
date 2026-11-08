@@ -10,16 +10,18 @@ import {
   SquareDot,
   type LucideIcon,
 } from "lucide-react";
-import type { AgentId, StepData, StepKind, StepState } from "../data/types";
+import type { StepData, StepKind, StepState } from "../data/types";
 
 export const STATE_SYMBOL: Record<StepState, string> = {
   running: "●",
-  waiting: "⏸",
+  waiting: "⏳",
   succeeded: "✔",
   blocked: "⛔",
   pending: "○",
   cancelled: "⏹",
   skipped: "−",
+  interrupted: "⏸",
+  failed: "✖",
 };
 
 export const STATE_LABEL: Record<StepState, string> = {
@@ -30,6 +32,8 @@ export const STATE_LABEL: Record<StepState, string> = {
   pending: "pending",
   cancelled: "cancelled",
   skipped: "skipped",
+  interrupted: "interrupted",
+  failed: "failed",
 };
 
 const KIND_ICON: Record<StepKind, LucideIcon> = {
@@ -53,16 +57,8 @@ export function kindLabel(data: StepData) {
   if (data.kind === "approval") return "approval gate";
   if (data.kind === "input") return "input step";
   if (data.kind === "item") return data.summary ?? "child run";
-  return data.agent ? AGENT_SHORT[data.agent] : data.kind;
+  return data.agent ?? data.kind;
 }
-
-const AGENT_SHORT: Record<AgentId, string> = {
-  spec: "spec agent",
-  tasks: "task agent",
-  builder: "builder",
-  reviewer: "reviewer",
-  shipper: "shipper",
-};
 
 export function StateMark({ state }: { state: StepState }) {
   return (
@@ -73,10 +69,10 @@ export function StateMark({ state }: { state: StepState }) {
 }
 
 export function StateDot({ state }: { state: StepState }) {
-  return <span className={`state-dot state-${state}`} />;
+  return <span className={`state-dot state-${state}`} title={STATE_LABEL[state]} />;
 }
 
-export function AgentAvatar({ agent, size = 20 }: { agent: AgentId; size?: number }) {
+export function AgentAvatar({ agent, size = 20 }: { agent: string; size?: number }) {
   return (
     <span className={`agent-avatar agent-${agent}`} style={{ width: size, height: size, fontSize: size * 0.5 }}>
       {agent.slice(0, 1).toUpperCase()}

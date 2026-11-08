@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PanelLeft } from "lucide-react";
-import { SUBJECTS } from "../data/subjects";
+import { useEngine } from "../engine/EngineContext";
 import { RunCanvas } from "../graph/RunCanvas";
 import { RunViewProvider, useRunView } from "../graph/RunViewContext";
 import { CanvasToolbar } from "../panels/CanvasToolbar";
@@ -29,11 +29,13 @@ export function Workspace() {
 }
 
 function FloatingRuns() {
+  const { subjects, project } = useEngine();
   const [open, setOpen] = useState(true);
+  if (!project) return null;
   if (!open) {
     return (
       <button className="floating-pill" onClick={() => setOpen(true)}>
-        <PanelLeft size={14} /> Subjects <span className="mono">{SUBJECTS.length}</span>
+        <PanelLeft size={14} /> Subjects <span className="mono">{subjects.length}</span>
       </button>
     );
   }
@@ -48,9 +50,9 @@ function FloatingRuns() {
 }
 
 function FloatingInspector() {
-  const { selectedId } = useRunView();
+  const { graph, selectedId } = useRunView();
   const [dismissed, setDismissed] = useState<string | null>(null);
-  if (dismissed === selectedId) return null;
+  if (!graph || dismissed === selectedId) return null;
   return (
     <div className="floating-panel floating-panel--right">
       <Inspector onClose={() => setDismissed(selectedId)} />

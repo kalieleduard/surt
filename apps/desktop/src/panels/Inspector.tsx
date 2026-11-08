@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
-import { ArrowUpRight, Plus, X } from "lucide-react";
-import { AGENT_LABEL, AGENT_PROFILE, type StepData } from "../data/types";
+import { ArrowUpRight, X } from "lucide-react";
+import type { Execution, StepData } from "../data/types";
+import { useEngine } from "../engine/EngineContext";
 import { useRunView } from "../graph/RunViewContext";
 import { AgentAvatar, STATE_LABEL, StateDot, kindIcon, kindLabel } from "../ui/status";
+import { duration, moment } from "../ui/time";
 
 export function Inspector({ onClose }: { onClose?: () => void }) {
   const { selected } = useRunView();
@@ -13,7 +15,7 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
     <aside className="inspector">
       <header className="inspector__head">
         <Icon size={14} />
-        <span className="inspector__title">{step.itemKey ? `${step.itemKey} · ${step.title}` : step.name}</span>
+        <span className="inspector__title">{step.itemKey ? `Task ${step.itemKey}` : step.name}</span>
         {onClose ? (
           <button className="icon-btn" onClick={onClose} aria-label="Close inspector">
             <X size={14} />
@@ -26,123 +28,131 @@ export function Inspector({ onClose }: { onClose?: () => void }) {
         <span className="inspector__kind mono">{kindLabel(step)}</span>
       </div>
       <div className="inspector__body">
-        {step.kind === "item" ? <ChildRunSection step={step} /> : null}
-        {step.agent && step.kind !== "item" ? <AgentSection step={step} /> : null}
-        {step.outcomes ? <OutcomeSection step={step} /> : null}
-        {step.attempt || step.iteration ? <LimitsSection step={step} /> : null}
-        <PortSection title="Inputs" ports={step.inputs} />
-        <PortSection title="Outputs" ports={step.outputs} />
-        {step.executions ? <ExecutionSection step={step} /> : null}
+        {step.kind === "item" ? <ChildRunSection step={step} /> : <StepSection step={step} />}
+        {step.gate ? <GateSection step={step} /> : null}
+        {step.kind !== "item" ? <LimitsSection step={step} /> : null}
+        {step.published.length ? <PublishedSection step={step} /> : null}
+        {step.executions.length ? <ExecutionSection executions={step.executions} /> : null}
       </div>
     </aside>
   );
 }
 
-function Section({ title, children, action = true }: { title: string; children: ReactNode; action?: boolean }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="insp-section">
       <header className="insp-section__head">
         <span>{title}</span>
-        {action ? <Plus size={13} /> : null}
       </header>
       {children}
     </section>
   );
 }
 
-function Row({ label, value, mono = true, active = false }: { label: string; value?: ReactNode; mono?: boolean; active?: boolean }) {
+function Row({ label, value, mono = true }: { label: string; value?: ReactNode; mono?: boolean }) {
   return (
-    <div className={`insp-row${active ? " is-active" : ""}`}>
+    <div className="insp-row">
       <span className="insp-row__label">{label}</span>
-      <span className={`insp-row__value${mono ? " mono" : ""}`}>{value}</span>
+      <span className={`insp-row__value${mono ? " mono" : ""}`}>{value ?? "—"}</span>
     </div>
+  );
+}
+
+function StepSection({ step }: { step: StepData }) {
+  return (
+    <Section title="Step">
+      {step.agent ? (
+        <div className="insp-agent">
+          <AgentAvatar agent={step.agent} size={22} />
+          <span>{step.agent}</span>
+          <span className="mono insp-agent__path">.surt/agents/{step.agent}</span>
+        </div>
+      ) : null}
+      {step.operation ? <Row label="operation" value={step.operation} /> : null}
+      {step.artifact ? <Row label="artifact" value={step.artifact} /> : null}
+      <Row label="outcome" value={step.outcome} />
+      {step.condition ? <Row label="runs when" value={step.condition} /> : null}
+      {step.executions.at(-1)?.runtime ? <Row label="runtime" value={step.executions.at(-1)?.runtime} /> : null}
+    </Section>
   );
 }
 
 function ChildRunSection({ step }: { step: StepData }) {
   const { drill } = useRunView();
   return (
-    <Section title="Child run" action={false}>
-      <Row label="workflow" value="task-cycle" />
+    <Section title="Child run">
+      <Row label="workflow" value={step.workflow} />
       <Row label="current step" value={step.currentStep} />
-      <Row label="branch" value={step.branch} />
-      <Row label="depends on" value={step.dependsOn?.length ? step.dependsOn.join(", ") : "—"} />
+      <Row label="iteration" value={step.iteration} />
+      <Row label="attempt" value={step.attempts || undefined} />
+      <Row label="merged as" value={step.mergedAs?.slice(0, 7)} />
+      <Row label="needs" value={step.needs?.length ? step.needs.join(", ") : undefined} />
+      <Row label="waits for" value={step.waitsFor?.length ? step.waitsFor.join(", ") : undefined} />
       <button className="btn btn-ghost insp-open" onClick={() => step.itemKey && drill(step.itemKey)}>
-        Open task-cycle <ArrowUpRight size={13} />
+        Open {step.workflow ?? "child run"} <ArrowUpRight size={13} />
       </button>
     </Section>
   );
 }
 
-function AgentSection({ step }: { step: StepData }) {
-  if (!step.agent) return null;
-  const profile = AGENT_PROFILE[step.agent];
+function GateSection({ step }: { step: StepData }) {
+  const gate = step.gate;
+  if (!gate) return null;
   return (
-    <Section title="Agent profile" action={false}>
-      <div className="insp-agent">
-        <AgentAvatar agent={step.agent} size={22} />
-        <span>{AGENT_LABEL[step.agent]}</span>
-        <span className="mono insp-agent__path">.surt/agents/{step.agent}</span>
-      </div>
-      <Row label="runtime" value={profile.runtime} />
-      <Row label="model" value={profile.model} />
-      <Row label="effort" value={profile.effort} />
-      <Row label="conversation" value={profile.conversation} />
-    </Section>
-  );
-}
-
-function OutcomeSection({ step }: { step: StepData }) {
-  return (
-    <Section title="Outcome" action={false}>
-      {step.outcomes?.map((outcome) => (
-        <Row key={outcome} label={outcome} active={outcome === step.outcome} value={outcome === step.outcome ? "✔" : ""} mono={false} />
-      ))}
+    <Section title={gate.kind === "approval" ? "Approval gate" : "Input step"}>
+      <Row label="status" value={gate.status.replace("_", " ")} />
+      <Row label="revision" value={gate.revision ? `${gate.artifact} r${gate.revision}` : undefined} />
+      <Row label="decided by" value={gate.decidedBy} mono={false} />
+      <Row label="decided at" value={gate.decidedAt ? moment(gate.decidedAt) : undefined} />
     </Section>
   );
 }
 
 function LimitsSection({ step }: { step: StepData }) {
+  const { project } = useEngine();
+  if (!project || (!step.attempts && !step.iteration)) return null;
   return (
-    <Section title="Limits" action={false}>
-      {step.attempt ? <Meter label="attempts" value={step.attempt} /> : null}
-      {step.iteration ? <Meter label="iterations" value={step.iteration} /> : null}
+    <Section title="Limits">
+      {step.attempts ? <Meter label="attempts" used={step.attempts} total={project.maxAttempts} /> : null}
+      {step.iteration ? <Meter label="iterations" used={step.iteration} total={project.maxIterations} /> : null}
     </Section>
   );
 }
 
-function Meter({ label, value }: { label: string; value: [number, number] }) {
+function Meter({ label, used, total }: { label: string; used: number; total: number }) {
   return (
     <div className="insp-meter">
       <span className="insp-row__label">{label}</span>
       <span className="insp-meter__bar">
-        {Array.from({ length: value[1] }, (_, index) => (
-          <i key={index} className={index < value[0] ? "is-used" : undefined} />
+        {Array.from({ length: Math.max(total, used) }, (_, index) => (
+          <i key={index} className={index < used ? "is-used" : undefined} />
         ))}
       </span>
-      <span className="mono">{value[0]}/{value[1]}</span>
+      <span className="mono">
+        {used}/{total}
+      </span>
     </div>
   );
 }
 
-function PortSection({ title, ports }: { title: string; ports: StepData["inputs"] }) {
+function PublishedSection({ step }: { step: StepData }) {
   return (
-    <Section title={title}>
-      {ports.map((port) => (
-        <Row key={port.id + port.label} label={port.label} value={port.revision ?? "—"} />
+    <Section title="Published">
+      {step.published.map((entry) => (
+        <Row key={entry.artifact} label={entry.artifact} value={`r${entry.revision}`} />
       ))}
     </Section>
   );
 }
 
-function ExecutionSection({ step }: { step: StepData }) {
+function ExecutionSection({ executions }: { executions: Execution[] }) {
   return (
-    <Section title="Executions" action={false}>
-      {step.executions?.map((execution) => (
-        <div key={execution.id} className="insp-exec">
+    <Section title="Executions">
+      {[...executions].reverse().map((execution) => (
+        <div key={execution.id} className="insp-exec" title={execution.id}>
           <StateDot state={execution.state} />
           <span className="insp-exec__label">{execution.label}</span>
-          <span className="mono insp-exec__time">{execution.duration}</span>
+          <span className="mono insp-exec__time">{duration(execution.startedAt, execution.endedAt)}</span>
           {execution.note ? <span className="insp-exec__note">{execution.note}</span> : null}
         </div>
       ))}

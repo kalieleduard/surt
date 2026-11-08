@@ -1,13 +1,12 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
-import { FEATURE_GRAPH } from "../data/featureGraph";
-import { taskCycleGraph } from "../data/taskCycleGraph";
 import type { GraphNode, RunGraph } from "../data/types";
+import { EngineProvider, useEngine } from "../engine/EngineContext";
 
 export type CanvasTool = "select" | "pan";
 
 type RunView = {
-  graph: RunGraph;
+  graph: RunGraph | null;
   selectedId: string;
   selected: GraphNode | undefined;
   select: (id: string) => void;
@@ -28,35 +27,42 @@ export function useRunView() {
 }
 
 export function RunViewProvider({ children }: { children: ReactNode }) {
-  const [graph, setGraph] = useState<RunGraph>(FEATURE_GRAPH);
-  const [selectedId, setSelectedId] = useState(FEATURE_GRAPH.defaultSelection);
+  return (
+    <EngineProvider>
+      <ReactFlowProvider>
+        <RunViewState>{children}</RunViewState>
+      </ReactFlowProvider>
+    </EngineProvider>
+  );
+}
+
+function RunViewState({ children }: { children: ReactNode }) {
+  const { graph, drill, back } = useEngine();
+  const [chosen, setChosen] = useState<{ graph: string; node: string } | null>(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [tool, setTool] = useState<CanvasTool>("select");
 
-  const show = useCallback((next: RunGraph) => {
-    setGraph(next);
-    setSelectedId(next.defaultSelection);
-  }, []);
+  const selectedId = useMemo(() => {
+    if (!graph) return "";
+    const kept = chosen?.graph === graph.id && graph.nodes.some((node) => node.id === chosen.node);
+    return kept && chosen ? chosen.node : graph.defaultSelection;
+  }, [graph, chosen]);
 
   const view = useMemo<RunView>(
     () => ({
       graph,
       selectedId,
-      selected: graph.nodes.find((node) => node.id === selectedId),
-      select: setSelectedId,
-      drill: (itemKey) => show(taskCycleGraph(itemKey)),
-      back: () => show(FEATURE_GRAPH),
+      selected: graph?.nodes.find((node) => node.id === selectedId),
+      select: (node) => graph && setChosen({ graph: graph.id, node }),
+      drill,
+      back,
       sourceOpen,
       toggleSource: () => setSourceOpen((open) => !open),
       tool,
       setTool,
     }),
-    [graph, selectedId, sourceOpen, tool, show],
+    [graph, selectedId, sourceOpen, tool, drill, back],
   );
 
-  return (
-    <ReactFlowProvider>
-      <RunViewContext.Provider value={view}>{children}</RunViewContext.Provider>
-    </ReactFlowProvider>
-  );
+  return <RunViewContext.Provider value={view}>{children}</RunViewContext.Provider>;
 }

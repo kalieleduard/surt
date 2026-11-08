@@ -18,11 +18,6 @@
   transform: translateX(-50%);
 }
 
-.dock .palette {
-  top: auto;
-  bottom: 44px;
-}
-
 .floating-panel {
   position: absolute;
   z-index: 7;

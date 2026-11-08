@@ -1,76 +1,104 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, GitBranch, Plus, RefreshCw, Search } from "lucide-react";
-import { ACTIVE_SUBJECT, SUBJECTS } from "../data/subjects";
-import type { Subject } from "../data/types";
-import { useRunView } from "../graph/RunViewContext";
+import { ChevronDown, ChevronRight, RefreshCw, Search } from "lucide-react";
+import type { StepState } from "../data/types";
+import { useEngine } from "../engine/EngineContext";
+import type { ItemView, RunStateName, SubjectView } from "../engine/types";
 import { StateDot } from "../ui/status";
+import { ago } from "../ui/time";
+
+const RUN_STATE: Record<RunStateName, StepState> = {
+  running: "running",
+  awaiting_approval: "waiting",
+  awaiting_answer: "waiting",
+  blocked: "blocked",
+  interrupted: "interrupted",
+  succeeded: "succeeded",
+  cancelled: "cancelled",
+};
+
+const ITEM_STATE: Record<ItemView["state"], StepState> = {
+  pending: "pending",
+  queued: "pending",
+  running: "running",
+  interrupted: "interrupted",
+  blocked: "blocked",
+  succeeded: "succeeded",
+  cancelled: "cancelled",
+};
+
+const DATED_NAME = /^(\d{8})-(.+)$/;
 
 export function RunTree() {
-  const [tab, setTab] = useState<"runs" | "definitions">("runs");
+  const { subjects, refresh, project } = useEngine();
+  const [query, setQuery] = useState("");
+  const shown = subjects.filter((subject) => subject.name.includes(query.trim()));
   return (
     <aside className="tree">
-      <div className="tabs">
-        <button className={tab === "runs" ? "is-active" : undefined} onClick={() => setTab("runs")}>Runs</button>
-        <button className={tab === "definitions" ? "is-active" : undefined} onClick={() => setTab("definitions")}>Definitions</button>
-      </div>
       <label className="search">
         <Search size={13} />
-        <input placeholder="Search subjects" />
+        <input placeholder="Search subjects" value={query} onChange={(event) => setQuery(event.target.value)} />
       </label>
       <div className="tree__header">
-        <span className="caption">{tab === "runs" ? "Subjects" : ".surt/"}</span>
+        <span className="caption">{project ? `Subjects · ${subjects.length}` : "Subjects"}</span>
         <span className="tree__header-actions">
-          <RefreshCw size={12} />
-          <Plus size={13} />
+          <button className="icon-btn icon-btn--small" onClick={refresh} aria-label="Refresh runs" title="Refresh">
+            <RefreshCw size={12} />
+          </button>
         </span>
       </div>
-      {tab === "runs" ? <SubjectList /> : <DefinitionList />}
+      <ul className="tree__list">
+        {shown.map((subject) => (
+          <SubjectRow key={subject.name} subject={subject} />
+        ))}
+      </ul>
     </aside>
   );
 }
 
-function SubjectList() {
-  return (
-    <ul className="tree__list">
-      {SUBJECTS.map((subject) => (
-        <SubjectRow key={subject.id} subject={subject} />
-      ))}
-    </ul>
-  );
-}
-
-function SubjectRow({ subject }: { subject: Subject }) {
-  const { graph, drill, back } = useRunView();
-  const [open, setOpen] = useState(subject.id === ACTIVE_SUBJECT);
-  const isActive = subject.id === ACTIVE_SUBJECT;
-  const drilledKey = graph.workflow === "task-cycle" ? graph.path[graph.path.length - 1] : null;
-  const Chevron = open ? ChevronDown : ChevronRight;
+function SubjectRow({ subject }: { subject: SubjectView }) {
+  const { selection, show } = useEngine();
+  const isActive = selection?.subject === subject.name;
+  const [open, setOpen] = useState(isActive);
+  const expanded = open || (isActive && selection?.item !== null);
+  const Chevron = expanded ? ChevronDown : ChevronRight;
+  const [date, slug] = splitName(subject.name);
   return (
     <li>
-      <button className={`tree__row${isActive && !drilledKey ? " is-selected" : ""}`} onClick={() => (isActive ? back() : setOpen(!open))}>
-        <Chevron size={12} className="tree__chevron" onClick={(event) => { event.stopPropagation(); setOpen(!open); }} />
-        <StateDot state={subject.state} />
+      <button
+        className={`tree__row${isActive && selection?.item === null ? " is-selected" : ""}`}
+        onClick={() => {
+          show(subject.name, null);
+          setOpen(true);
+        }}
+      >
+        <Chevron
+          size={12}
+          className="tree__chevron"
+          onClick={(event) => {
+            event.stopPropagation();
+            setOpen(!expanded);
+          }}
+        />
+        <StateDot state={RUN_STATE[subject.states[0]] ?? "pending"} />
         <span className="tree__label">
-          <span className="tree__id mono">{subject.id}</span>
-          <span className="tree__slug">{subject.slug}</span>
+          <span className="tree__id mono">{date}</span>
+          <span className="tree__slug">{slug}</span>
         </span>
       </button>
-      {open ? <div className="tree__status">{subject.status}</div> : null}
-      {open && subject.children ? (
+      {expanded ? <div className="tree__status">{statusLine(subject)}</div> : null}
+      {expanded && subject.items.length ? (
         <ul className="tree__children">
-          <li className="tree__row tree__row--static">
-            <GitBranch size={12} />
-            <span className="tree__label">feature</span>
-            <span className="tree__meta mono">run 1</span>
-          </li>
-          {subject.children.map((child) => (
-            <li key={child.key}>
-              <button className={`tree__row tree__row--child${drilledKey === child.key ? " is-selected" : ""}`} onClick={() => drill(child.key)}>
-                <StateDot state={child.state} />
+          {subject.items.map((item) => (
+            <li key={item.key}>
+              <button
+                className={`tree__row tree__row--child${isActive && selection?.item === item.key ? " is-selected" : ""}`}
+                onClick={() => show(subject.name, item.key)}
+              >
+                <StateDot state={ITEM_STATE[item.state]} />
                 <span className="tree__label">
-                  <span className="mono">{child.key}</span> {child.title}
+                  <span className="mono">{item.key}</span>
                 </span>
-                <span className="tree__meta">{child.status}</span>
+                <span className="tree__meta">{item.step ?? item.state}</span>
               </button>
             </li>
           ))}
@@ -80,26 +108,14 @@ function SubjectRow({ subject }: { subject: Subject }) {
   );
 }
 
-const DEFINITIONS = [
-  { name: "workflows/feature.toml", detail: "12 steps" },
-  { name: "workflows/task-cycle.toml", detail: "6 steps" },
-  { name: "agents/spec", detail: "opus · loop" },
-  { name: "agents/tasks", detail: "opus" },
-  { name: "agents/builder", detail: "sonnet · loop" },
-  { name: "agents/reviewer", detail: "opus" },
-  { name: "agents/shipper", detail: "sonnet" },
-  { name: "config.toml", detail: "3 slots" },
-];
+function splitName(name: string): [string, string] {
+  const match = DATED_NAME.exec(name);
+  return match ? [match[1], match[2]] : [name, ""];
+}
 
-function DefinitionList() {
-  return (
-    <ul className="tree__list">
-      {DEFINITIONS.map((definition) => (
-        <li key={definition.name} className="tree__row tree__row--static">
-          <span className="tree__label mono">{definition.name}</span>
-          <span className="tree__meta">{definition.detail}</span>
-        </li>
-      ))}
-    </ul>
-  );
+function statusLine(subject: SubjectView) {
+  const states = subject.states.map((state) => state.replace("_", " ")).join(" · ");
+  const run = subject.runs > 1 ? ` · run ${subject.run}/${subject.runs}` : "";
+  const ended = subject.endedAt ? ` · ${ago(subject.endedAt)}` : "";
+  return `${states}${run}${ended}`;
 }

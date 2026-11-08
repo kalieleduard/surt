@@ -1,9 +1,9 @@
 import { Fragment } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Copy, Minus, Play, X } from "lucide-react";
+import { Copy, FolderOpen, Minus, X } from "lucide-react";
 import { SurtWordmark } from "../brand/SurtMark";
-import { AGENT_SLOTS } from "../data/subjects";
+import { useEngine } from "../engine/EngineContext";
 import { useRunView } from "../graph/RunViewContext";
 import { ThemePicker } from "../theme/ThemePicker";
 
@@ -19,9 +19,7 @@ export function TitleBar() {
       <div className="titlebar__actions">
         <SlotMeter />
         <ThemePicker />
-        <button className="btn btn-primary">
-          <Play size={13} fill="currentColor" /> New run
-        </button>
+        <OpenProject />
       </div>
       <WindowControls />
     </div>
@@ -30,14 +28,16 @@ export function TitleBar() {
 
 function RunPath() {
   const { graph, back } = useRunView();
+  const { project } = useEngine();
+  const path = graph?.path ?? (project ? [project.name] : []);
   return (
-    <span className="run-path">
-      {graph.path.map((segment, index) => (
-        <Fragment key={segment}>
+    <span className="run-path" title={project?.root}>
+      {path.map((segment, index) => (
+        <Fragment key={`${index}:${segment}`}>
           {index > 0 ? <span className="run-path__sep">/</span> : null}
           <button
-            className={`run-path__segment${index === graph.path.length - 1 ? " is-current" : ""}`}
-            onClick={index > 0 && index < graph.path.length - 1 ? back : undefined}
+            className={`run-path__segment${index === path.length - 1 ? " is-current" : ""}`}
+            onClick={index === 1 && path.length > 2 ? back : undefined}
           >
             {segment}
           </button>
@@ -47,8 +47,20 @@ function RunPath() {
   );
 }
 
+function OpenProject() {
+  const { available, project, chooseProject } = useEngine();
+  if (!available) return null;
+  return (
+    <button className={`btn ${project ? "btn-ghost" : "btn-primary"}`} onClick={chooseProject} title="Open a Surt project">
+      <FolderOpen size={13} /> {project ? "Project" : "Open project"}
+    </button>
+  );
+}
+
 function SlotMeter() {
-  const { used, total } = AGENT_SLOTS;
+  const { runs } = useEngine();
+  if (!runs) return null;
+  const { inUse: used, total } = runs.slots;
   return (
     <span className="slot-meter" title="Agent Slots in use">
       <span className="caption">slots</span>

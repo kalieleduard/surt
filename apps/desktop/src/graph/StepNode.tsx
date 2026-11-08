@@ -12,12 +12,12 @@ export function StepNode({ data, selected }: NodeProps) {
         <NodeBadge step={step} />
       </span>
       <span className="node__text">
-        <span className="node__name">{step.itemKey ? step.title : step.name}</span>
+        <span className="node__name">{step.name}</span>
         <span className="node__meta">{step.outcome ?? kindLabel(step)}</span>
       </span>
       <StateMark state={step.state} />
       <NodeHandles step={step} />
-      {step.presence && step.state === "running" ? <Presence agent={step.presence} /> : null}
+      {step.agent && step.state === "running" ? <Presence agent={step.agent} /> : null}
     </div>
   );
 }

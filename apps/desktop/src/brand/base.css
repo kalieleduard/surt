@@ -128,6 +128,16 @@ button {
   color: var(--text);
 }
 
+.icon-btn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.icon-btn--small {
+  width: 20px;
+  height: 20px;
+}
+
 @keyframes surt-pulse {
   0%,
   100% {

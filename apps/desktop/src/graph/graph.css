@@ -90,6 +90,16 @@
   color: var(--text-2);
 }
 
+.node.state-interrupted {
+  border-color: var(--text-3);
+  border-style: dashed;
+}
+
+.node.state-skipped {
+  opacity: 0.6;
+  box-shadow: none;
+}
+
 .node__ring {
   display: grid;
   place-items: center;
@@ -193,6 +203,14 @@
   color: var(--st-blocked);
 }
 
+.state-mark.state-failed {
+  color: var(--st-blocked);
+}
+
+.state-mark.state-interrupted {
+  color: var(--text-2);
+}
+
 .state-mark.state-pending,
 .state-mark.state-cancelled,
 .state-mark.state-skipped {
@@ -232,6 +250,15 @@
   border: 1.5px solid var(--st-cancelled);
 }
 
+.state-dot.state-failed {
+  background: var(--st-blocked);
+}
+
+.state-dot.state-interrupted {
+  background: transparent;
+  border: 1.5px dashed var(--text-2);
+}
+
 .agent-avatar {
   display: inline-grid;
   place-items: center;
@@ -243,6 +270,7 @@
 }
 
 .presence {
+  --presence: var(--surt-mineral);
   position: absolute;
   right: -8px;
   bottom: -26px;
@@ -274,12 +302,6 @@
 
 .presence--reviewer {
   --presence: var(--surt-brasa);
-}
-
-.presence--spec,
-.presence--tasks,
-.presence--shipper {
-  --presence: var(--surt-mineral);
 }
 
 .frame {
@@ -366,26 +388,6 @@
   padding-right: 10px;
 }
 
-.frame__port--top,
-.frame__port--bottom {
-  width: 0;
-  height: 0;
-}
-
-.frame__port--top .frame__port-label {
-  position: absolute;
-  bottom: 7px;
-  left: 8px;
-  white-space: nowrap;
-}
-
-.frame__port--bottom .frame__port-label {
-  position: absolute;
-  top: 7px;
-  left: 8px;
-  white-space: nowrap;
-}
-
 .frame__port-label {
   font: 10px var(--surt-mono);
   color: var(--text-3);
@@ -451,4 +453,50 @@
 .run-minimap .react-flow__minimap-node {
   fill: var(--raised);
   stroke: var(--line-strong);
+}
+
+.canvas-notice {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.canvas-notice__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 420px;
+  padding: 28px 32px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--surt-radius);
+  box-shadow: var(--shadow);
+  text-align: center;
+  pointer-events: auto;
+}
+
+.canvas-notice__title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.canvas-notice__card code {
+  padding: 6px 10px;
+  border-radius: var(--surt-radius);
+  background: var(--panel-2);
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.canvas-notice__error {
+  max-width: 100%;
+  font-size: 11px;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
 }
