@@ -23,8 +23,22 @@ export function Workspace() {
           <CanvasToolbar />
         </div>
         <SourceOverlay />
+        <ClosingNotice />
       </div>
     </RunViewProvider>
+  );
+}
+
+function ClosingNotice() {
+  const { closing } = useEngine();
+  if (!closing) return null;
+  return (
+    <div className="dialog-backdrop">
+      <div className="dialog dialog--notice">
+        <span className="dialog__title">Stopping runs</span>
+        <p className="dialog__hint">Each run this window drives is interrupted cleanly and stays resumable. The window closes when they stop.</p>
+      </div>
+    </div>
   );
 }
 

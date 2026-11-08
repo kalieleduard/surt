@@ -15,7 +15,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/engine/*.ts", "src/ui/time.ts"],
-      exclude: ["src/**/*.test.ts", "src/engine/fixtures.ts", "src/engine/types.ts", "src/engine/client.ts", "src/engine/usePolled.ts"],
+      exclude: ["src/**/*.test.ts", "src/engine/fixtures.ts", "src/engine/types.ts", "src/engine/client.ts", "src/engine/usePolled.ts", "src/engine/useAction.ts"],
       thresholds: { lines: 90 },
     },
   },

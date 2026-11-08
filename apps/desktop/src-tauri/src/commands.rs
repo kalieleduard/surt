@@ -4,6 +4,7 @@ use surt_engine::project::{InspectRequest, Project, RunSelector, StatusScope};
 use tauri::State;
 
 use crate::definition::RunDetail;
+use crate::drivers::Drivers;
 use crate::status::{ProjectView, RunsView};
 use crate::workspace::{Failure, Workspace};
 
@@ -29,10 +30,13 @@ pub async fn open_project(
 }
 
 #[tauri::command]
-pub async fn runs(workspace: State<'_, Workspace>) -> Result<RunsView, Failure> {
+pub async fn runs(
+    workspace: State<'_, Workspace>,
+    drivers: State<'_, Drivers>,
+) -> Result<RunsView, Failure> {
     let project = workspace.project().await?;
     let statuses = project.status(StatusScope::All).await?;
-    Ok(RunsView::of(&project, statuses))
+    Ok(RunsView::of(&project, statuses, drivers.views()))
 }
 
 #[tauri::command]

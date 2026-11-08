@@ -1,4 +1,6 @@
 use serde::Serialize;
+
+use crate::drivers::DriverView;
 use surt_engine::project::{
     BlockReason, BlockedStep, GateKind, GateStatus, GateView, ItemState, ItemStatus, Project,
     RunState, RunStatus,
@@ -18,6 +20,7 @@ pub struct ProjectView {
 pub struct RunsView {
     slots: SlotsView,
     subjects: Vec<SubjectView>,
+    drivers: Vec<DriverView>,
 }
 
 #[derive(Serialize)]
@@ -94,7 +97,7 @@ impl ProjectView {
 }
 
 impl RunsView {
-    pub fn of(project: &Project, statuses: Vec<RunStatus>) -> RunsView {
+    pub fn of(project: &Project, statuses: Vec<RunStatus>, drivers: Vec<DriverView>) -> RunsView {
         let slots = statuses.first().map_or(
             SlotsView {
                 in_use: 0,
@@ -108,6 +111,7 @@ impl RunsView {
         RunsView {
             slots,
             subjects: statuses.into_iter().map(SubjectView::from).collect(),
+            drivers,
         }
     }
 }

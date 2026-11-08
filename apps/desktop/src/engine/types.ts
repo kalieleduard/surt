@@ -55,7 +55,32 @@ export type SubjectView = {
   blocked: BlockedView[];
 };
 
-export type RunsView = { slots: { inUse: number; total: number }; subjects: SubjectView[] };
+export type DriverEnding = {
+  outcome: "at_gate" | "succeeded" | "blocked" | "cancelled" | "interrupted" | "refused" | "failed";
+  message: string | null;
+};
+
+export type DriverView = { subject: string; driving: boolean; ending: DriverEnding | null };
+
+export type RunsView = { slots: { inUse: number; total: number }; subjects: SubjectView[]; drivers: DriverView[] };
+
+export type Choice = { value: string; description: string | null };
+
+export type QuestionView = { id: string; question: string; why: string; recommended: string; options: Choice[] | null };
+
+export type WaitingInput = { step: string; artifact: string; revision: number; round: number; questions: QuestionView[] };
+
+export type CancelImpact = { executions: number; items: number; merged: number; integrationBranch: string | null };
+
+export type RunInput = {
+  name: string;
+  format: "text" | "markdown" | "json" | "git_ref";
+  optional: boolean;
+  default: string | null;
+  description: string | null;
+};
+
+export type WorkflowView = { name: string; runInputs: RunInput[] | null; problem: string | null };
 
 export type Condition = { step: string; outcome: string };
 

@@ -1,11 +1,12 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Copy, FolderOpen, Minus, X } from "lucide-react";
+import { Copy, FolderOpen, Minus, Plus, X } from "lucide-react";
 import { SurtWordmark } from "../brand/SurtMark";
 import { useEngine } from "../engine/EngineContext";
 import { useRunView } from "../graph/RunViewContext";
 import { ThemePicker } from "../theme/ThemePicker";
+import { NewRunDialog } from "./NewRunDialog";
 
 export function TitleBar() {
   return (
@@ -20,6 +21,7 @@ export function TitleBar() {
         <SlotMeter />
         <ThemePicker />
         <OpenProject />
+        <NewRun />
       </div>
       <WindowControls />
     </div>
@@ -54,6 +56,20 @@ function OpenProject() {
     <button className={`btn ${project ? "btn-ghost" : "btn-primary"}`} onClick={chooseProject} title="Open a Surt project">
       <FolderOpen size={13} /> {project ? "Project" : "Open project"}
     </button>
+  );
+}
+
+function NewRun() {
+  const { project } = useEngine();
+  const [open, setOpen] = useState(false);
+  if (!project) return null;
+  return (
+    <>
+      <button className="btn btn-primary" onClick={() => setOpen(true)} title="Start a new Workflow Run">
+        <Plus size={13} /> New run
+      </button>
+      {open ? <NewRunDialog onClose={() => setOpen(false)} /> : null}
+    </>
   );
 }
 
