@@ -5,11 +5,11 @@ import { StateMark, kindIcon } from "../ui/status";
 const SIDE_PORT_TOP = 72;
 const SIDE_PORT_GAP = 34;
 
-export function FrameNode({ data }: NodeProps) {
+export function FrameNode({ data, selected }: NodeProps) {
   const frame = data as FrameData;
   const Icon = kindIcon({ kind: frame.kind });
   return (
-    <div className={`frame frame--${frame.kind} state-${frame.state}`}>
+    <div className={`frame frame--${frame.kind} state-${frame.state}${selected ? " is-selected" : ""}`}>
       <span className="frame__shape" />
       <header className="frame__head">
         <Icon size={13} className="frame__icon" />

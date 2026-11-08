@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { engine } from "../engine/client";
+import { useCheckout } from "../checkout/CheckoutContext";
 import { useEngine } from "../engine/EngineContext";
 import { missingInputs, runInputValues } from "../engine/forms";
 import type { RunInput, WorkflowView } from "../engine/types";
@@ -26,8 +27,16 @@ export function NewRunDialog({ onClose }: { onClose: () => void }) {
       .catch((failure) => setReadError(String(failure)));
   }, []);
 
+  const { baseRef, selected } = useCheckout();
   const workflow = workflows?.find((candidate) => candidate.name === chosen);
   const inputs = workflow?.runInputs ?? [];
+
+  useEffect(() => {
+    if (!baseRef) return;
+    const refs = inputs.filter((input) => input.format === "git_ref");
+    if (refs.length) setValues((current) => ({ ...Object.fromEntries(refs.map((input) => [input.name, baseRef])), ...current }));
+  }, [workflow?.name, baseRef]);
+
   const missing = missingInputs(inputs, values);
   const start = async () => {
     if (!workflow) return;
@@ -67,6 +76,7 @@ export function NewRunDialog({ onClose }: { onClose: () => void }) {
             <InputField
               key={`${workflow?.name}:${input.name}`}
               input={input}
+              origin={input.format === "git_ref" && selected && values[input.name] === baseRef ? `from ${selected.main ? "the main worktree" : selected.name}` : null}
               value={values[input.name] ?? ""}
               onChange={(value) => setValues((current) => ({ ...current, [input.name]: value }))}
             />
@@ -93,7 +103,7 @@ export function NewRunDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-function InputField({ input, value, onChange }: { input: RunInput; value: string; onChange: (value: string) => void }) {
+function InputField({ input, origin, value, onChange }: { input: RunInput; origin: string | null; value: string; onChange: (value: string) => void }) {
   const label = `${input.name}${input.optional ? " · optional" : ""}`;
   const placeholder = input.default ? `default ${input.default}` : undefined;
   return (
@@ -110,7 +120,7 @@ function InputField({ input, value, onChange }: { input: RunInput; value: string
           onChange={(event) => onChange(event.target.value)}
         />
       )}
-      {input.description ? <span className="field__hint">{input.description}</span> : null}
+      {input.description || origin ? <span className="field__hint">{[input.description, origin].filter(Boolean).join(" · ")}</span> : null}
     </label>
   );
 }

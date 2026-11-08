@@ -109,3 +109,15 @@ export type RunDetail = {
   definition: { name: string; source: string; steps: DefinedStep[] };
   events: TimelineEvent[];
 };
+
+export type AgentEntry = { id: string; files: string[] };
+
+export type WorkflowEntry = { name: string; file: string; problem: string | null };
+
+export type Catalog = { agents: AgentEntry[]; workflows: WorkflowEntry[] };
+
+export type WorktreeView = { path: string; name: string; branch: string | null; head: string; main: boolean };
+
+export type BranchView = { name: string; worktree: string | null };
+
+export type Checkouts = { worktrees: WorktreeView[]; branches: BranchView[] };

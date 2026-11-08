@@ -1,5 +1,5 @@
 import { useReactFlow } from "@xyflow/react";
-import { ArrowLeft, CodeXml, Hand, MousePointer2, Scan, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, CodeXml, Hand, LayoutDashboard, Magnet, MousePointer2, Scan, ZoomIn, ZoomOut } from "lucide-react";
 import { useRunView } from "../graph/RunViewContext";
 import { RunControls } from "./RunControls";
 
@@ -8,7 +8,7 @@ const ZOOM_DURATION_MS = 150;
 const FIT_DURATION_MS = 300;
 
 export function CanvasToolbar() {
-  const { graph, back, sourceOpen, toggleSource, tool, setTool } = useRunView();
+  const { graph, back, sourceOpen, toggleSource, tool, setTool, snap, toggleSnap, resetLayout } = useRunView();
   const flow = useReactFlow();
   const drilled = Boolean(graph?.item);
   return (
@@ -22,11 +22,17 @@ export function CanvasToolbar() {
       ) : null}
       <RunControls />
       <div className="canvas-toolbar__group">
-        <button className="icon-btn" aria-pressed={tool === "select"} onClick={() => setTool("select")} title="Select (drag to box-select)">
+        <button className="icon-btn" aria-pressed={tool === "select"} onClick={() => setTool("select")} title="Select (drag to box-select, Ctrl/Shift+click to add)">
           <MousePointer2 size={15} />
         </button>
         <button className="icon-btn" aria-pressed={tool === "pan"} onClick={() => setTool("pan")} title="Pan">
           <Hand size={15} />
+        </button>
+        <button className="icon-btn" aria-pressed={snap} onClick={toggleSnap} title="Snap to grid">
+          <Magnet size={15} />
+        </button>
+        <button className="icon-btn" onClick={resetLayout} title="Reset layout to the automatic arrangement" disabled={!graph}>
+          <LayoutDashboard size={15} />
         </button>
       </div>
       <div className="canvas-toolbar__group">

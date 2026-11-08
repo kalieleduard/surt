@@ -26,3 +26,34 @@
 .canvas-toolbar .btn {
   height: 28px;
 }
+
+.selection-bar {
+  position: absolute;
+  bottom: 74px;
+  left: 50%;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 6px 0 12px;
+  transform: translateX(-50%);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--surt-radius);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
+}
+
+.selection-bar__count {
+  font-size: 11px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.selection-bar__group {
+  display: flex;
+  gap: 2px;
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
+}

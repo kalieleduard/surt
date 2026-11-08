@@ -22,6 +22,20 @@ pub enum Failure {
     AlreadyDriving(String),
     #[error("cannot derive a subject name from {0:?}")]
     NoSlug(String),
+    #[error("{0} is not an agent or workflow file")]
+    OutsideDefinitions(String),
+    #[error("{0} cannot be deleted: only references and schemas can")]
+    NotRemovable(String),
+    #[error("cannot access {0}: {1}")]
+    Io(String, String),
+    #[error("{0} is not a worktree of this repository")]
+    UnknownWorktree(String),
+    #[error(
+        "runs are being driven from this window: stop them before switching the main checkout's branch"
+    )]
+    DrivingInMain,
+    #[error("{0}")]
+    Git(String),
     #[cfg(feature = "test-support")]
     #[error("{0}")]
     Runtime(String),
