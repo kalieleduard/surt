@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FRAME_HEADER, FRAME_INSET, MIN_FRAME_CONTENT, NODE_BOX, arrange, framed, layers, stacked } from "./arrange";
+import { FRAME_HEADER, FRAME_INSET, LOOP_LANE, MIN_FRAME_CONTENT, NODE_BOX, arrange, framed, layers, stacked } from "./arrange";
 
 const needs: Record<string, string[]> = { plan: ["spec"], build: ["plan"], docs: ["spec"], ship: ["build", "docs"] };
 const needsOf = (key: string) => needs[key] ?? [];
@@ -22,6 +22,10 @@ describe("stacked", () => {
 });
 
 describe("framed", () => {
+  it("adds a return lane below a loop body", () => {
+    expect(framed(NODE_BOX, LOOP_LANE).height).toBe(NODE_BOX.height + FRAME_HEADER + FRAME_INSET + LOOP_LANE);
+  });
+
   it("adds the frame inset and header and never narrows below the header width", () => {
     expect(framed(NODE_BOX)).toEqual({
       width: MIN_FRAME_CONTENT + 2 * FRAME_INSET,
@@ -37,15 +41,15 @@ describe("arrange", () => {
 
     expect(arranged.positions.get("a")).toEqual({ x: 0, y: 0 });
     expect(arranged.positions.get("b")).toEqual({ x: 0, y: 72 });
-    expect(arranged.positions.get("c")).toEqual({ x: 220, y: 36 });
-    expect(arranged.box).toEqual({ width: 404, height: 120 });
+    expect(arranged.positions.get("c")).toEqual({ x: 256, y: 36 });
+    expect(arranged.box).toEqual({ width: 440, height: 120 });
   });
 
   it("wraps columns that would pass the row width onto a new row", () => {
-    const arranged = arrange([["a"], ["b"], ["c"]], () => NODE_BOX, 420);
+    const arranged = arrange([["a"], ["b"], ["c"]], () => NODE_BOX, 460);
 
-    expect(arranged.positions.get("b")).toEqual({ x: 220, y: 0 });
+    expect(arranged.positions.get("b")).toEqual({ x: 256, y: 0 });
     expect(arranged.positions.get("c")).toEqual({ x: 0, y: 120 });
-    expect(arranged.box).toEqual({ width: 404, height: 168 });
+    expect(arranged.box).toEqual({ width: 440, height: 168 });
   });
 });

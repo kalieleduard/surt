@@ -1,4 +1,5 @@
 import { Pencil, X } from "lucide-react";
+import { Highlighted } from "../code/Code";
 import { useDefinitions } from "../editor/DefinitionsContext";
 import { useEngine } from "../engine/EngineContext";
 import { useRunView } from "../graph/RunViewContext";
@@ -22,7 +23,9 @@ export function SourceOverlay() {
           <X size={14} />
         </button>
       </header>
-      <pre className="source-overlay__code mono">{graph.source}</pre>
+      <pre className="source-overlay__code mono" data-surface="obsidiana">
+        <Highlighted text={graph.source} language="toml" />
+      </pre>
     </div>
   );
 }

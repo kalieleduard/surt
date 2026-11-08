@@ -1,4 +1,4 @@
-import type { GateSummary } from "../engine/types";
+import type { DefinedStep, GateSummary } from "../engine/types";
 
 export type StepKind = "agent" | "approval" | "input" | "operation" | "loop" | "per_item" | "item";
 export type StepState =
@@ -12,7 +12,7 @@ export type StepState =
   | "interrupted"
   | "failed";
 
-export type Port = { id: string; label: string };
+export type Port = { id: string; label: string; y?: number };
 
 export type Execution = {
   id: string;
@@ -79,6 +79,7 @@ export type GraphEdge = {
   sourceHandle: string;
   targetHandle: string;
   label?: string;
+  frame?: string;
   state: "done" | "active" | "idle" | "back";
 };
 
@@ -92,5 +93,6 @@ export type RunGraph = {
   path: string[];
   nodes: GraphNode[];
   edges: GraphEdge[];
+  steps: DefinedStep[];
   defaultSelection: string;
 };

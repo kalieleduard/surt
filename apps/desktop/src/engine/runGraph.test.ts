@@ -57,13 +57,24 @@ describe("buildRunGraph", () => {
     expect(step(graph, "answer-spec")).toMatchObject({ state: "skipped", condition: "spec = questions" });
   });
 
-  it("enters a loop at its first body step, leaves it from its until step and loops back", () => {
+  it("enters and leaves a loop through its frame and loops back under its body", () => {
     const graph = buildRunGraph(PROJECT, subject(), null, detail(FEATURE, SPEC_TWICE));
 
-    expect(edge(graph, "spec->answer-spec")).toMatchObject({ state: "idle" });
-    expect(edge(graph, "spec->approve-spec")).toMatchObject({ sourceHandle: "out:out", targetHandle: "in:in" });
-    expect(edge(graph, "spec-loop:back")).toMatchObject({ source: "spec", target: "spec", state: "back", label: "iter 2" });
+    expect(edge(graph, "spec->answer-spec")).toMatchObject({ state: "idle", label: "questions" });
+    expect(edge(graph, "spec-loop->spec")).toMatchObject({ sourceHandle: "enter:in", targetHandle: "in:in", state: "done" });
+    expect(edge(graph, "spec->spec-loop")).toMatchObject({ sourceHandle: "out:out", targetHandle: "leave:out", state: "done" });
+    expect(edge(graph, "spec-loop->approve-spec")).toMatchObject({ sourceHandle: "out:out", targetHandle: "in:in" });
+    expect(edge(graph, "spec-loop:back")).toMatchObject({ source: "answer-spec", target: "spec", state: "back", label: "↺ iter 2", frame: "spec-loop" });
     expect(edge(graph, "implement->merge")).toMatchObject({ state: "idle" });
+  });
+
+  it("aligns a loop's ports with the steps it enters and leaves from", () => {
+    const graph = buildRunGraph(PROJECT, subject(), null, detail(FEATURE));
+    const spec = node(graph, "spec");
+
+    expect(frame(graph, "spec-loop").inputs?.[0].y).toBe(spec.position.y + 24);
+    expect(frame(graph, "spec-loop").outputs?.[0].y).toBe(spec.position.y + 24);
+    expect(node(graph, "spec-loop").height).toBe(48 + 44 + 16 + 30);
   });
 
   it("shows a reached gate as waiting with its summary and selects it", () => {
@@ -75,7 +86,7 @@ describe("buildRunGraph", () => {
     );
 
     expect(step(graph, "approve-spec")).toMatchObject({ state: "waiting", artifact: "spec", gate: { revision: 2 } });
-    expect(edge(graph, "spec->approve-spec")?.state).toBe("active");
+    expect(edge(graph, "spec-loop->approve-spec")?.state).toBe("active");
     expect(graph.defaultSelection).toBe("approve-spec");
   });
 
