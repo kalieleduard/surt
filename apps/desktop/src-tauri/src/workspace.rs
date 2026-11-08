@@ -61,3 +61,6 @@ impl Workspace {
         self.root.lock().ok()?.clone()
     }
 }
+
+#[cfg(test)]
+mod tests;

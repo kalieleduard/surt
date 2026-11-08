@@ -213,3 +213,6 @@ fn gate_status(status: GateStatus) -> (&'static str, Option<u32>) {
         GateStatus::Answered { revision } => ("answered", Some(revision)),
     }
 }
+
+#[cfg(test)]
+mod tests;

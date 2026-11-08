@@ -132,3 +132,6 @@ impl From<TimelineEvent> for EventView {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
